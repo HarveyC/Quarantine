@@ -69,3 +69,25 @@ func test_soak_ready_only() -> void:
 		for p in s.players:
 			Rules.set_ready(s, p, true)
 	assert_true(s.turn > 1, "turns advanced")
+
+
+func test_state_snapshot_round_trip_keeps_playing_identically() -> void:
+	var a := make_state(["runner", "spitter", "runner"], 99)
+	Rules.start_mission(a)
+	var u := a.controllable_units(0)[0]
+	Rules.apply(a, {"type": Types.MOVE, "unit": u.id, "to": u.pos + Vector2i(0, -2)})
+	var b := GameState.from_dict(a.to_dict())
+	assert_eq(b.checksum(), a.checksum(), "same checksum after round trip")
+	for s in [a, b]:
+		for i in 6:
+			for p in s.players:
+				Rules.set_ready(s, p, true)
+	assert_eq(b.checksum(), a.checksum(), "identical after several turns, including rng use")
+	assert_true(a.turn > 2 or a.phase == Types.Phase.ENDED, "turns advanced")
+
+
+func test_checksum_changes_with_state() -> void:
+	var s := make_state()
+	var before := s.checksum()
+	s.units[0].hp -= 1
+	assert_true(s.checksum() != before, "checksum reacts to hp")

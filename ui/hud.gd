@@ -127,6 +127,7 @@ func _build_overlays() -> void:
 	end_overlay = EndOverlay.new()
 	end_overlay.build()
 	end_overlay.restart_pressed.connect(func() -> void: view.restart())
+	end_overlay.leave_pressed.connect(func() -> void: view.leave())
 	add_child(end_overlay)
 
 
@@ -151,6 +152,7 @@ func refresh() -> void:
 			waiting.append("P%d %s" % [p + 1, "ready" if s.ready.get(p, false) else "acting"])
 	elif phase == "ENEMY PHASE":
 		waiting.append("Hostiles moving...")
+	waiting.append("·  " + view.session.status_text())
 	_ready_label.text = "   ".join(waiting)
 	var sel := view.input.selected_id if view.input != null else -1
 	for p in panels:
@@ -200,7 +202,7 @@ func hide_tooltip() -> void:
 
 
 func show_end(result: int) -> void:
-	end_overlay.show_result(result, view.state.turn)
+	end_overlay.show_result(result, view.state.turn, view.session.can_restart())
 
 
 func toast_text() -> String:
@@ -221,6 +223,6 @@ func _on_unit_clicked(id: int) -> void:
 
 func _on_ready_toggled(player: int, on: bool) -> void:
 	if view.input.can_act():
-		Rules.set_ready(view.state, player, on)
+		view.session.set_ready(player, on)
 	else:
 		refresh()

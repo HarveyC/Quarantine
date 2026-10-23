@@ -69,3 +69,35 @@ func controllable_units(player: int) -> Array[Unit]:
 func emit(ev: Dictionary) -> void:
 	log.append(ev)
 	event.emit(ev)
+
+
+## Full snapshot for network resync and save games. The event log is not included.
+func to_dict() -> Dictionary:
+	return {
+		"grid": grid.to_dict(), "units": units.map(func(u: Unit) -> Dictionary: return u.to_dict()),
+		"phase": phase, "turn": turn, "result": result, "rng_seed": rng.seed, "rng_state": rng.state,
+		"players": players.duplicate(), "ready": ready.duplicate(), "next_id": _next_id,
+	}
+
+
+static func from_dict(d: Dictionary) -> GameState:
+	var s := GameState.new()
+	s.grid = Grid.from_dict(d.grid)
+	for ud in d.units:
+		s.units.append(Unit.from_dict(ud))
+	s.phase = d.phase
+	s.turn = d.turn
+	s.result = d.result
+	s.rng.seed = d.rng_seed
+	s.rng.state = d.rng_state
+	s.players.assign(d.players)
+	s.ready = d.ready.duplicate()
+	s._next_id = d.next_id
+	return s
+
+
+## Order-independent fingerprint of the game state, used to detect peers drifting apart.
+func checksum() -> int:
+	var d := to_dict()
+	d.erase("grid")
+	return JSON.stringify(d, "", true).hash()

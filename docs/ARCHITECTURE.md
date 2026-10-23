@@ -111,3 +111,34 @@ New event types are fine; add them to this table.
 - **Hit chance extras**: `hit_chance` also returns `los`, and takes an optional 5th arg `reaction` (overwatch −15).
   `graze` is the width of the graze band above `hit`; `crit` is the crit chance given a hit.
   `Combat.melee_chance` gives claw odds.
+
+## Networking (online co-op)
+
+Host-authoritative, action-replicated, over Godot's built-in ENet. This builds on the rule that
+every state change goes through `Rules`: peers never diverge as long as they apply the same actions
+in the same order on the same seed.
+
+- **`core/match_config.gd` (`MatchConfig`)**: a serializable description of a mission (map, squad
+  split across N players, enemy list, seed). Every peer builds an identical `GameState` from it.
+- **`net/local_session.gd` (`LocalSession`)** and **`net/net_session.gd` (`NetSession`)** implement the
+  same small interface the view talks to: `local_players()`, `is_local(player)`, `submit(action)`,
+  `set_ready(player, on)`, `restart()`, `can_restart()`, `status_text()`, `player_names`. The view and
+  HUD never call `Rules` directly any more — they call the session, so hot-seat and online share one path.
+- **`view/app.gd` (`App`)** is the game root (scene `scenes/app.tscn`): it owns the main menu/lobby,
+  the session, and the mission view, and swaps between them.
+
+Online flow:
+1. Host opens a port; clients connect by address. The lobby syncs `{peer: {name, player}}` to everyone.
+2. On start, the host assigns player numbers 0..n-1 and broadcasts the `MatchConfig`; each peer builds
+   the same `GameState` and runs `Rules.start_mission`.
+3. A client's `submit`/`set_ready` sends a request to the host. The host validates it (including that the
+   sender owns the soldier), applies it, and broadcasts the accepted action with a sequence number and a
+   `GameState.checksum()`. Clients apply it and compare checksums; a gap or mismatch triggers a full
+   snapshot resync (`GameState.to_dict()` / `from_dict`).
+4. A disconnected player's soldiers auto-hunker and their READY is pressed for them, so the match
+   continues; if they reconnect they reclaim their slot and get a snapshot.
+
+`GameState.to_dict()/from_dict()` and `Grid.to_dict()/from_dict()` also serve save/resume later.
+The determinism this relies on: all randomness is `state.rng`, and the enemy/infection/AI code only
+ever reads `state`. The two-process check in `tests/net_playtest.sh` asserts a host and client play a
+whole match and end on the same checksum.

@@ -44,6 +44,21 @@ static func load_file(path: String) -> Grid:
 	return from_rows(rows)
 
 
+func to_dict() -> Dictionary:
+	return {"width": width, "height": height, "tiles": tiles,
+		"player_spawns": player_spawns.duplicate(), "enemy_spawns": enemy_spawns.duplicate()}
+
+
+static func from_dict(d: Dictionary) -> Grid:
+	var g := Grid.new()
+	g.width = d.width
+	g.height = d.height
+	g.tiles = d.tiles
+	g.player_spawns.assign(d.player_spawns)
+	g.enemy_spawns.assign(d.enemy_spawns)
+	return g
+
+
 func in_bounds(c: Vector2i) -> bool:
 	return c.x >= 0 and c.y >= 0 and c.x < width and c.y < height
 
