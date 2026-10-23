@@ -65,6 +65,7 @@ Rules for parallel work:
 | `infection` | `unit`, `value`, `tier` |
 | `mutation` | `unit`, `mutation`, plus target fields |
 | `lapse` / `recover` / `turned` | `unit` |
+| `alerted` | `unit` (an Infected wakes up; emitted once per unit, see Enemy AI) |
 | `mission_end` | `result` (`Types.Result`) |
 
 New event types are fine; add them to this table.
@@ -76,6 +77,12 @@ New event types are fine; add them to this table.
   lapsed soldiers at the start of the team phase).
 - **Turned soldier**: Infection sets `unit.team = Types.Team.ENEMY`, `ai_controlled = true`. It then acts in the enemy phase.
 - **Infection from damage**: `Rules.deal_damage` calls `Infection.on_damaged(s, target, source, amount)`.
+- **Enemy activation** (owned by `EnemyAI`): Infected start dormant. `unit.status["alerted"] = true` once a
+  hostile is in sight (`Combat.can_see`) at the start of its turn, it has taken damage (`hp < max_hp`), or an
+  alerted ally is within 6 tiles; alerting chains to dormant allies within 6 tiles. Dormant enemies only shuffle.
+  Other modules may call `EnemyAI.alert(s, u)` to wake one immediately. Turned and Lapsed soldiers are always active.
+- **AI and abilities**: the AI only uses `claw` (`"target"`, adjacent hostile) and `spit` (`"cell"`) when
+  `Rules.validate` accepts them, otherwise it falls back to SHOOT / MOVE.
 - **Hit chance**: `Combat.hit_chance(s, attacker, target, from)` returns
   `{hit, graze, crit, cover, flanked, breakdown}`; the HUD and AI both use it, `from` lets them preview other cells.
 - **Abilities / mutations for the HUD**: `Combat.available_abilities` and `Infection.available_mutations`
