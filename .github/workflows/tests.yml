@@ -1,0 +1,17 @@
+name: tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          echo "GODOT=$PWD/Godot_v4.4.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Run tests
+        run: ./tests/run.sh

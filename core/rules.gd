@@ -1,0 +1,170 @@
+class_name Rules
+extends RefCounted
+## Turn flow and action dispatch. The single entry point for changing GameState.
+## Module-specific behaviour is delegated to Combat, Infection and EnemyAI.
+
+
+## Builds a mission from a map file. `squad` is an Array of {"kind": String, "player": int}.
+static func new_mission(map_path: String, squad: Array, enemies: Array[String], seed: int = 0) -> GameState:
+	var s := GameState.new()
+	s.rng.seed = seed if seed != 0 else randi()
+	s.grid = Grid.load_file(map_path)
+	var players := {}
+	for i in squad.size():
+		var u := UnitData.make(squad[i].kind, Types.Team.PLAYER)
+		u.owner_player = squad[i].player
+		players[u.owner_player] = true
+		s.add_unit(u, s.grid.player_spawns[i])
+	s.players.assign(players.keys())
+	for i in enemies.size():
+		s.add_unit(UnitData.make(enemies[i], Types.Team.ENEMY), s.grid.enemy_spawns[i % s.grid.enemy_spawns.size()])
+	return s
+
+
+static func start_mission(s: GameState) -> void:
+	s.turn = 0
+	start_team_phase(s)
+
+
+static func start_team_phase(s: GameState) -> void:
+	s.turn += 1
+	s.phase = Types.Phase.TEAM
+	s.ready.clear()
+	for p in s.players:
+		s.ready[p] = false
+	for u in s.living(Types.Team.PLAYER):
+		u.actions_left = Types.ACTIONS_PER_TURN
+		u.overwatch = false
+		u.hunkered = false
+		for k in u.cooldowns.keys():
+			u.cooldowns[k] = max(0, u.cooldowns[k] - 1)
+	s.emit({"type": "team_phase", "turn": s.turn})
+	Infection.on_team_phase_start(s)
+	# Soldiers that have Lapsed act on their own before the squad gets to move.
+	for u in s.living(Types.Team.PLAYER):
+		if u.ai_controlled:
+			u.actions_left = Types.ACTIONS_PER_TURN
+			EnemyAI.take_turn(s, u)
+			u.actions_left = 0
+	check_end(s)
+
+
+## Returns "" if the action is legal, otherwise a human-readable reason.
+static func validate(s: GameState, action: Dictionary) -> String:
+	if s.phase == Types.Phase.ENDED:
+		return "Mission is over"
+	var u := s.get_unit(action.get("unit", -1))
+	if u == null or not u.is_alive():
+		return "No such unit"
+	if u.actions_left <= 0:
+		return "No actions left"
+	match action.get("type"):
+		Types.MOVE: return _validate_move(s, u, action.get("to", u.pos))
+		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: return Combat.validate(s, u, action)
+		Types.MUTATION: return Infection.validate_mutation(s, u, action)
+	return "Unknown action"
+
+
+## Validates and applies an action. Returns false (and changes nothing) if illegal.
+static func apply(s: GameState, action: Dictionary) -> bool:
+	var err := validate(s, action)
+	if err != "":
+		s.emit({"type": "rejected", "action": action, "reason": err})
+		return false
+	var u := s.get_unit(action.unit)
+	match action.type:
+		Types.MOVE: _do_move(s, u, action.to)
+		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: Combat.apply(s, u, action)
+		Types.MUTATION: Infection.apply_mutation(s, u, action)
+	check_end(s)
+	return true
+
+
+## Player readiness for the simultaneous team phase. When everyone is ready the enemy phase runs.
+static func set_ready(s: GameState, player: int, is_ready: bool) -> void:
+	if s.phase != Types.Phase.TEAM:
+		return
+	s.ready[player] = is_ready
+	s.emit({"type": "ready", "player": player, "ready": is_ready})
+	if s.ready.values().all(func(r): return r):
+		run_enemy_phase(s)
+
+
+static func run_enemy_phase(s: GameState) -> void:
+	s.phase = Types.Phase.ENEMY
+	s.emit({"type": "enemy_phase", "turn": s.turn})
+	for u in s.living(Types.Team.ENEMY):
+		if s.phase == Types.Phase.ENDED:
+			return
+		if not u.is_alive():
+			continue
+		u.actions_left = Types.ACTIONS_PER_TURN
+		for k in u.cooldowns.keys():
+			u.cooldowns[k] = max(0, u.cooldowns[k] - 1)
+		EnemyAI.take_turn(s, u)
+		u.actions_left = 0
+	if s.phase != Types.Phase.ENDED:
+		start_team_phase(s)
+
+
+## Cells `u` can move to with one move action.
+static func move_range(s: GameState, u: Unit) -> Dictionary:
+	return s.grid.reachable(u.pos, u.mobility, s.occupied(u.id))
+
+
+static func _validate_move(s: GameState, u: Unit, to: Vector2i) -> String:
+	if to == u.pos:
+		return "Already there"
+	if not move_range(s, u).has(to):
+		return "Out of range"
+	return ""
+
+
+## Moves step by step so overwatch can interrupt. Emits one "move" event per uninterrupted segment.
+static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
+	var path := s.grid.find_path(u.pos, to, s.occupied(u.id))
+	u.actions_left -= 1
+	u.hunkered = false
+	var segment: Array[Vector2i] = []
+	var from := u.pos
+	for c in path:
+		u.pos = c
+		segment.append(c)
+		var reactors := Combat.reactions_to_move(s, u, c)
+		if not reactors.is_empty():
+			# Flush the movement so far, then let overwatch fire.
+			s.emit({"type": "move", "unit": u.id, "from": from, "path": segment.duplicate()})
+			from = c
+			segment.clear()
+			Combat.resolve_reactions(s, u, reactors)
+		if not u.is_alive():
+			return
+	if not segment.is_empty():
+		s.emit({"type": "move", "unit": u.id, "from": from, "path": segment})
+
+
+## Central damage entry point: every module deals damage through here.
+static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = null) -> void:
+	if not target.is_alive():
+		return
+	target.hp = max(0, target.hp - amount)
+	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1})
+	if source:
+		Infection.on_damaged(s, target, source, amount)
+	if not target.is_alive():
+		target.overwatch = false
+		s.emit({"type": "died", "unit": target.id})
+
+
+static func check_end(s: GameState) -> void:
+	if s.phase == Types.Phase.ENDED:
+		return
+	var r := Types.Result.NONE
+	if s.living(Types.Team.ENEMY).is_empty():
+		r = Types.Result.VICTORY
+	elif s.living(Types.Team.PLAYER).all(func(u): return u.ai_controlled):
+		r = Types.Result.DEFEAT
+	if r != Types.Result.NONE:
+		s.result = r
+		s.phase = Types.Phase.ENDED
+		s.emit({"type": "mission_end", "result": r})
