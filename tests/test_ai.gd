@@ -190,7 +190,9 @@ func test_lapsed_soldier_in_team_phase() -> void:
 	for p in s.players:
 		Rules.set_ready(s, p, true)
 	assert_true(s.turn >= 2 or s.phase == Types.Phase.ENDED, "turn advanced with a lapsed soldier")
-	assert_eq(u.actions_left, 0, "lapsed soldier's actions are spent or abandoned")
+	# Lapsed during the previous team phase, so it recovers at the start of this one.
+	assert_true(s.phase == Types.Phase.ENDED or not u.ai_controlled, "lapsed soldier recovered")
+	assert_eq(_events(s, "rejected").size(), 0, "no rejected actions")
 
 
 func test_turned_soldier_uses_generic_ai() -> void:

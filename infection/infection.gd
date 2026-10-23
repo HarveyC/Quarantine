@@ -128,8 +128,7 @@ static func _turn(s: GameState, u: Unit) -> void:
 	u.status.erase("lapsed")
 	u.status.erase("lapsed_turn")
 	u.status["turned"] = true
-	if s.phase == Types.Phase.TEAM:
-		u.actions_left = 0
+	u.actions_left = 0
 	s.emit({"type": "turned", "unit": u.id})
 
 

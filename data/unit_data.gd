@@ -10,9 +10,13 @@ const SOLDIERS := {
 }
 
 const ENEMIES := {
-	"runner": {"name": "Runner", "max_hp": 4, "aim": 70, "mobility": 7, "damage": [2, 4], "abilities": ["claw"]},
+	"runner": {"name": "Runner", "max_hp": 4, "aim": 70, "mobility": 7, "damage": [2, 4], "abilities": ["claw"], "melee_only": true},
 	"spitter": {"name": "Spitter", "max_hp": 5, "aim": 60, "mobility": 4, "damage": [2, 3], "abilities": ["spit"]},
 }
+
+
+static func is_melee_only(kind: String) -> bool:
+	return ENEMIES.get(kind, {}).get("melee_only", false)
 
 
 static func make(kind: String, team: int) -> Unit:

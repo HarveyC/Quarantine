@@ -190,7 +190,9 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 	var cover := cover_against(s.grid, target.pos, from)
 	var flanked := cover == Types.Cover.NONE
 	var breakdown: Array = [["Aim", attacker.aim]]
-	if cover != Types.Cover.NONE:
+	if cover != Types.Cover.NONE and Infection.has_hive_sense(s, attacker):
+		breakdown.append(["Hive Sense (ignores cover)", 0])
+	elif cover != Types.Cover.NONE:
 		var cv := COVER_FULL if cover == Types.Cover.FULL else COVER_HALF
 		breakdown.append(["Full cover" if cover == Types.Cover.FULL else "Half cover", -cv])
 		if is_hunkered(s, target):
@@ -404,6 +406,8 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	match action.type:
 		Types.SHOOT:
+			if UnitData.is_melee_only(u.kind):
+				return "Melee only"
 			var t := s.get_unit(action.get("target", -1))
 			if t == null or not visible_targets(s, u).has(t):
 				return "No line of sight"

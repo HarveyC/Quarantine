@@ -17,8 +17,21 @@ static func new_mission(map_path: String, squad: Array, enemies: Array[String], 
 		s.add_unit(u, s.grid.player_spawns[i])
 	s.players.assign(players.keys())
 	for i in enemies.size():
-		s.add_unit(UnitData.make(enemies[i], Types.Team.ENEMY), s.grid.enemy_spawns[i % s.grid.enemy_spawns.size()])
+		var spawn := s.grid.enemy_spawns[i % s.grid.enemy_spawns.size()]
+		if s.unit_at(spawn) != null:
+			spawn = _nearest_free(s, spawn)
+		s.add_unit(UnitData.make(enemies[i], Types.Team.ENEMY), spawn)
 	return s
+
+
+## Closest walkable unoccupied cell to `c` (for spawns beyond the map's spawn points).
+static func _nearest_free(s: GameState, c: Vector2i) -> Vector2i:
+	var dist := s.grid.reachable(c, 32, s.occupied())
+	var best := c
+	for cell in dist:
+		if cell != c and (best == c or dist[cell] < dist[best]):
+			best = cell
+	return best
 
 
 static func start_mission(s: GameState) -> void:
