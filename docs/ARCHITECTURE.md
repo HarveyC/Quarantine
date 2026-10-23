@@ -37,7 +37,7 @@ Rules for parallel work:
    (`GameState.controllable_units(player)`). Each player calls `Rules.set_ready`.
 3. When all players are ready, `Rules.run_enemy_phase` runs each enemy through `EnemyAI.take_turn`
    sequentially, then the next team phase starts.
-4. `Rules.check_end` after every action: no enemies = VICTORY; no player-controlled soldiers = DEFEAT.
+4. `Rules.check_end` after every action: no enemies = VICTORY; no living player-team soldiers (Turned ones count as enemies) = DEFEAT.
 
 ## Actions
 

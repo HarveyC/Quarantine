@@ -162,7 +162,8 @@ static func check_end(s: GameState) -> void:
 	var r := Types.Result.NONE
 	if s.living(Types.Team.ENEMY).is_empty():
 		r = Types.Result.VICTORY
-	elif s.living(Types.Team.PLAYER).all(func(u): return u.ai_controlled):
+	elif s.living(Types.Team.PLAYER).is_empty():
+		# Turned soldiers have switched teams; Lapsed ones are still ours and will recover.
 		r = Types.Result.DEFEAT
 	if r != Types.Result.NONE:
 		s.result = r
