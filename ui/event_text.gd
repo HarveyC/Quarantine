@@ -44,6 +44,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return _c("%s has LAPSED and acts on their own!" % who.call("unit"), Palette.DANGER)
 		"recover":
 			return "%s regains control" % who.call("unit")
+		"alerted":
+			return _c("%s has spotted the squad" % who.call("unit"), Palette.DANGER)
 		"turned":
 			return _c("%s has TURNED" % who.call("unit"), Palette.TEAL)
 		"mission_end":

@@ -307,6 +307,14 @@ func _beat_turned(ev: Dictionary) -> Dictionary:
 	return {"dur": 1.2}
 
 
+func _beat_alerted(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	view.fx.floating_text(_head(uv), "!", Palette.DANGER, 60)
+	return {"dur": 0.3}
+
+
 func _beat_mission_end(ev: Dictionary) -> Dictionary:
 	ended = true
 	enemy_phase = false
