@@ -56,12 +56,12 @@ Rules for parallel work:
 | `ready` | `player`, `ready` |
 | `rejected` | `action`, `reason` |
 | `move` | `unit`, `from`, `path: Array[Vector2i]` (one event per segment between interrupts) |
-| `shot` | `unit`, `target`, `hit`, `graze`, `crit`, `damage`, `chance`, `reaction` |
+| `shot` | `unit`, `target`, `hit`, `graze`, `crit`, `damage`, `chance`, `reaction` (a graze has `hit` and `graze` both true and reduced damage; emitted before its `damage` event) |
 | `damage` | `unit`, `amount`, `hp`, `source` |
 | `died` | `unit` |
 | `overwatch` | `unit` |
 | `hunker` | `unit` |
-| `ability` | `unit`, `ability`, plus `target`/`cell` and ability-specific fields |
+| `ability` | `unit`, `ability`, plus `target`/`cell` and ability-specific fields: `stim` → `heal`, `hp`; `breach` → `hit`, `damage`; `claw` → `hit`, `graze`, `damage`, `chance`; `spit` → `cell`, `units` (affected ids), `damage`. Emitted before the resulting `damage` events |
 | `infection` | `unit`, `value`, `tier` |
 | `mutation` | `unit`, `mutation`, plus target fields |
 | `lapse` / `recover` / `turned` | `unit` |
@@ -78,5 +78,14 @@ New event types are fine; add them to this table.
 - **Infection from damage**: `Rules.deal_damage` calls `Infection.on_damaged(s, target, source, amount)`.
 - **Hit chance**: `Combat.hit_chance(s, attacker, target, from)` returns
   `{hit, graze, crit, cover, flanked, breakdown}`; the HUD and AI both use it, `from` lets them preview other cells.
+- **Combat statuses** (in `unit.status`, owned by combat): `"suppressed"` and `"tagged"` hold the
+  `Combat.phase_index` they expire at (team phase of turn T = 2T, enemy phase = 2T+1); read them with
+  `Combat.has_status(s, u, key)`. `"ow_until"` / `"hunker_until"` time-limit the overwatch / hunker flags so
+  enemy overwatch lasts until that enemy's next phase; use `Combat.is_overwatching` / `Combat.is_hunkered`.
+  Expired entries are swept at the start of every `Combat.apply`.
 - **Abilities / mutations for the HUD**: `Combat.available_abilities` and `Infection.available_mutations`
-  return `{id, name, targeting: "none"|"unit"|"cell", ready, ...}`.
+  return `{id, name, targeting: "none"|"unit"|"cell", ready, ...}`. Combat adds `cooldown`, `cost`
+  (actions, -1 = ends turn), `desc` and `targets` (legal unit ids for unit-targeted abilities).
+- **Hit chance extras**: `hit_chance` also returns `los`, and takes an optional 5th arg `reaction` (overwatch −15).
+  `graze` is the width of the graze band above `hit`; `crit` is the crit chance given a hit.
+  `Combat.melee_chance` gives claw odds.
