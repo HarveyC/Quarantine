@@ -1,0 +1,59 @@
+name: release
+# Builds Windows, macOS and Linux zips and attaches them to a GitHub release.
+# Push a tag like v0.1.0 to publish, or run it by hand from the Actions tab to get the zips as artifacts.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.4.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot and export templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}
+
+      - name: Install Godot and export templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          cd ~/godot
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip && rm godot.zip
+          curl -sSL -o templates.tpz https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q templates.tpz && mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/ && rm -rf templates templates.tpz
+
+      - name: Run tests
+        run: GODOT=~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ./tests/run.sh
+
+      - name: Export and zip
+        run: ./release/build.sh ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 "${GITHUB_REF_NAME}"
+
+      - name: Upload zips to the workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: quarantine-builds
+          path: build/dist/*.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" build/dist/*.zip \
+            --title "Quarantine $GITHUB_REF_NAME" \
+            --notes "Download the zip for your computer, unzip, and run. Mac and Windows will warn that the game is unsigned; see HOW-TO-PLAY.txt inside the zip."
