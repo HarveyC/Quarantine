@@ -63,7 +63,7 @@ Rules for parallel work:
 | `hunker` | `unit` |
 | `ability` | `unit`, `ability`, plus `target`/`cell` and ability-specific fields |
 | `infection` | `unit`, `value`, `tier` |
-| `mutation` | `unit`, `mutation`, plus target fields |
+| `mutation` | `unit`, `mutation`, plus target fields (`regenerate` adds `healed`, `hp`) |
 | `lapse` / `recover` / `turned` | `unit` |
 | `mission_end` | `result` (`Types.Result`) |
 
@@ -74,9 +74,24 @@ New event types are fine; add them to this table.
 - **Lapsed soldier**: `unit.status["lapsed"] = true` and `unit.ai_controlled = true`. `Unit.is_enemy_of`
   treats a lapsed unit as hostile to everyone. `EnemyAI.take_turn` must handle it (it is called for
   lapsed soldiers at the start of the team phase).
-- **Turned soldier**: Infection sets `unit.team = Types.Team.ENEMY`, `ai_controlled = true`. It then acts in the enemy phase.
+- **Turned soldier**: Infection sets `unit.team = Types.Team.ENEMY`, `ai_controlled = true`, `owner_player = -1`,
+  `status["turned"] = true` and clears `lapsed`. It then acts in the enemy phase. Turning is permanent (`Infection.add` ignores turned units).
+  The `turned` event follows the `infection` event that reached 100.
+- **Infection tiers**: `Infection.tier(value)` -> `Infection.Tier` (CLEAN 0-24, EXPOSED 25-49, MUTATING 50-74, CRITICAL 75-99,
+  TURNED 100; thresholds in `Infection.THRESHOLDS`). `tier_name(t)` and `tier_color(t)` are for the HUD.
+  Tier passives (MUTATING +1 mobility; CRITICAL/TURNED +1 mobility, +10 aim) are applied directly to `unit.mobility`/`unit.aim`
+  by `Infection.add`; the applied amounts are in `status["tier_mobility"]`/`status["tier_aim"]`, so a stat panel can show them.
+- **Cure**: lowering infection is `Infection.add(s, u, -amount)` (Medic stim: -15). Passives revert automatically.
+- **Hive Sense** (mutation): `unit.status["hive_sense"] = <turn>`; active while it equals `s.turn`.
+  Query with `Infection.has_hive_sense(s, u)`. **Combat must treat the target's cover as NONE** for shots by a unit
+  with Hive Sense active (hit chance and the HUD preview).
+- **Adrenal Surge** (mutation): costs 0 actions but, like every action, needs `actions_left >= 1`; gives +1 action.
+  Once per turn via `status["surge_turn"]`. Regenerate uses `unit.cooldowns["regenerate"]` (ticked by Rules).
+- **Lapse**: rolled in `Infection.on_team_phase_start` (MUTATING 10%, CRITICAL 30%, `Infection.lapse_chance(value)`).
+  A soldier lapsed at the previous phase start recovers (`recover` event) and does not roll again that phase.
 - **Infection from damage**: `Rules.deal_damage` calls `Infection.on_damaged(s, target, source, amount)`.
 - **Hit chance**: `Combat.hit_chance(s, attacker, target, from)` returns
   `{hit, graze, crit, cover, flanked, breakdown}`; the HUD and AI both use it, `from` lets them preview other cells.
 - **Abilities / mutations for the HUD**: `Combat.available_abilities` and `Infection.available_mutations`
-  return `{id, name, targeting: "none"|"unit"|"cell", ready, ...}`.
+  return `{id, name, targeting: "none"|"unit"|"cell", ready, ...}`. Mutations also carry `desc`, `cost` (infection added),
+  `actions` (action cost), `cooldown` (turns left) and `reason` (why not ready, "" if ready). The list is empty below EXPOSED.
