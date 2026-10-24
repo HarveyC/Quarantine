@@ -1,7 +1,7 @@
 extends SceneTree
 ## Renders one UI screen to a PNG at 1920x1080 (dev check for the UI polish pass):
 ##   godot -s tools/shot_ui.gd -- <screen> out.png [players=2]
-## Screens: title, lobby, sound, map, event, depot, hospital, survivors, reward, loadout, doctrine,
+## Screens: title, lobby, solo-lobby, hotseat-lobby, sound, map, event, depot, hospital, survivors, reward, loadout, doctrine,
 ## kit, rankup, hud, aim, debrief, lost, runend, pause.
 ## Run under xvfb-run with --rendering-driver opengl3 (software GL renders the 3D board dark).
 ## Hover cards: add `tip=<term key>` to hover the first control tagged with that term (or
@@ -51,8 +51,19 @@ func _init() -> void:
 			await process_frame
 			net.host(24690, "Harvey")
 			if players > 1:
-				net.lobby[7] = {"player": 1, "name": "Kestrel"}
+				net.lobby[7] = {"player": 1, "name": "Kestrel", "squad": ["marksman"]}
+				net.lobby[1]["squad"] = ["trooper", "medic", "breacher"]
 			m.show_lobby(net)
+		"solo-lobby", "hotseat-lobby":
+			var m := MainMenu.new()
+			root.add_child(m)
+			await process_frame
+			m.show_local_lobby(1 if screen == "solo-lobby" else players)
+			if screen == "hotseat-lobby":
+				m._local_picks = {0: ["trooper", "medic"], 1: ["breacher", "marksman"]}
+				m._edit_player = 1
+				m._sel = 1
+				m._refresh_lobby()
 		"sound":
 			var m := MainMenu.new()
 			root.add_child(m)

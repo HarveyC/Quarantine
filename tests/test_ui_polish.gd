@@ -107,3 +107,36 @@ func test_run_end_board_builds() -> void:
 	board.free()
 	view.free()
 	s.free()
+
+
+## Solo and hot-seat open the local lobby: squad size buttons grow and shrink the squad, class
+## tiles set the selected soldier, and Start run hands App the picks.
+func test_local_lobby_picks_squad_size() -> void:
+	var tree: SceneTree = Engine.get_meta("test_tree")
+	var m: Control = MainMenu.new()
+	tree.root.add_child(m)
+	m._ready()
+	m.show_local_lobby(1)
+	m._resize_squad(1)
+	assert_eq(m._local_picks[0].size(), 1, "solo down to one soldier")
+	m._resize_squad(3)
+	assert_eq(m._local_picks[0].size(), 3, "and back up to three")
+	assert_eq(m._sel, 2, "the newest soldier is selected")
+	assert_eq(m._soldier_row.get_child_count(), 3, "a tile per soldier")
+	m._sel = 0
+	m._set_squad(["medic", "marksman", "breacher"])
+	assert_eq(m._local_plan()[0], ["medic", "marksman", "breacher"], "classes set per soldier")
+	var got := []
+	m.local_run_requested.connect(func(players: int, picks: Dictionary) -> void: got.append([players, picks]))
+	m._start_run_btn.pressed.emit()
+	assert_eq(got.size(), 1, "start run asked for")
+	assert_eq(got[0][1][0].size(), 3, "with the picked squad")
+	assert_eq(Profile.last_squad("solo").get(0, []).size(), 3, "remembered for next time")
+	m.show_local_lobby(2)
+	m._edit_player = 0
+	m._resize_squad(4)
+	var plan: Dictionary = m._local_plan()
+	assert_eq(plan[0].size() + plan[1].size(), 4, "hot-seat shares 4 soldiers")
+	assert_eq(plan[1].size(), 1, "player 2 keeps one")
+	assert_eq(m._squad_meter.cols.size(), 4, "the squad meter shows all 4")
+	m.free()

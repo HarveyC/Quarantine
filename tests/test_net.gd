@@ -54,3 +54,26 @@ func test_reconnect_mid_match_reclaims_absent_slot() -> void:
 	assert_eq(n.handle_hello(9, "Ana", "a"), 1, "rejoin gets the same slot")
 	assert_true(not n.absent.has(1), "no longer absent")
 	n.free()
+
+
+func test_lobby_squad_picks_share_four_soldiers() -> void:
+	var n := _host()
+	n.handle_hello(2, "Ana", "a")
+	n.handle_pick(1, ["trooper", "medic", "breacher"])
+	assert_eq(n.planned_squads()[0], ["trooper", "medic", "breacher"], "host commands three")
+	assert_eq(n.room_for(1), 1, "one slot left for Ana")
+	n.handle_pick(2, ["marksman", "medic"])
+	assert_eq(n.lobby[2].squad, ["marksman"], "cut to the room left")
+	n.handle_pick(2, ["nonsense"])
+	assert_eq(n.lobby[2].squad, ["marksman"], "unknown classes are ignored")
+	n.handle_hello(3, "Ben", "b")
+	var plan := n.planned_squads()
+	assert_eq(plan[0].size() + plan[1].size() + plan[2].size(), 4, "a third player still fits in 4")
+	assert_eq(plan[2].size(), 1, "and gets a soldier")
+	n.lobby.erase(3)
+	n.handle_hello(4, "Ana", "a")   # same install back before the dead connection timed out
+	assert_eq(n.lobby[4].get("squad", []), ["marksman"], "a reconnect keeps its squad")
+	var run := RunRules.new_run(2, 3, {}, n.squad_picks())
+	assert_eq(run.soldiers_of(0).size(), 3, "the run follows the lobby")
+	assert_eq(run.soldiers_of(1).size(), 1, "for every player")
+	n.free()

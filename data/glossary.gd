@@ -386,8 +386,8 @@ static func _build() -> Dictionary:
 	t["reserve"] = {"name": "Reserve", "kind": "squad", "icon": "recruit", "tone": "hp",
 		"line": "Recruits waiting to replace a soldier who falls.",
 		"art": "",
-		"stats": [["%d" % RunRules.START_RESERVE, "to start"]],
-		"more": ["Survivor nodes add more.", "Dead soldiers sit out and come back as recruits."],
+		"stats": [["%d" % RunRules.reserve_for(1), "to start"], ["%d" % RunRules.reserve_for(4), "with 3-4 soldiers"]],
+		"more": ["Each player has their own reserve. Commanding 3 or 4 soldiers starts you with an extra recruit.", "Survivor nodes add more.", "Dead soldiers sit out and come back as recruits."],
 		"aliases": ["Recruit", "Recruits", "Reserves"]}
 	# --- The run ---------------------------------------------------------------------------
 	t["outbreak"] = {"name": "Outbreak", "kind": "run meter", "icon": "outbreak", "tone": "teal",

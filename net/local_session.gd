@@ -14,6 +14,7 @@ var run: RunState
 var player_names := {}
 ## Tests turn saving off so they don't touch the player's save slot.
 var save_enabled := true
+var _picks := {}
 
 
 func local_players() -> Array[int]:
@@ -30,9 +31,11 @@ func can_restart() -> bool:
 	return run == null
 
 
-func start_new(num_players: int = 2, seed: int = 0) -> void:
+## A single fight. `picks` maps player -> Array of classes (see MatchConfig.squad_plan).
+func start_new(num_players: int = 2, seed: int = 0, picks: Dictionary = {}) -> void:
 	run = null
-	state = MatchConfig.build(MatchConfig.make(num_players, seed))
+	_picks = picks.duplicate(true)
+	state = MatchConfig.build(MatchConfig.make(num_players, seed, picks))
 	match_started.emit(state)
 
 
@@ -50,7 +53,7 @@ func set_ready(player: int, on: bool) -> void:
 
 func restart() -> void:
 	if run == null:
-		start_new(state.players.size())
+		start_new(state.players.size(), 0, _picks)
 
 
 func status_text() -> String:
@@ -61,9 +64,10 @@ func status_text() -> String:
 
 # --- runs ------------------------------------------------------------------------
 
-## A new run for 1 (solo) to 4 local players.
-func start_run(num_players: int = 1, seed: int = 0) -> void:
-	run = RunRules.new_run(num_players, seed, Profile.meta())
+## A new run for 1 (solo) to 4 local players, each with the squad in `picks` (player -> Array
+## of classes; left out, solo gets 4 soldiers and hot-seat players 1 each).
+func start_run(num_players: int = 1, seed: int = 0, picks: Dictionary = {}) -> void:
+	run = RunRules.new_run(num_players, seed, Profile.meta(), picks)
 	state = null
 	RunRules.start_run(run)
 	_after_run()

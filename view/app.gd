@@ -79,7 +79,11 @@ func _ready() -> void:
 	menu.continue_requested.connect(_continue_run)
 	menu.start_run_requested.connect(_start_net_run)
 	menu.leave_requested.connect(_leave)
-	menu.class_picked.connect(net.pick_class)
+	menu.squad_picked.connect(net.pick_squad)
+	menu.local_run_requested.connect(func(players: int, picks: Dictionary) -> void: _local_run(players, 0, picks))
+	menu.local_quick_requested.connect(func(players: int, picks: Dictionary) -> void:
+		var local := _make_local()
+		local.start_new(players, 0, picks))
 	menu.steam_host_requested.connect(_host_steam)
 	menu.steam_invite_requested.connect(func() -> void:
 		if not net.invite_friends():
@@ -227,12 +231,13 @@ func _make_local() -> LocalSession:
 	return local
 
 
-## Run button on the title screen: a new player is offered the training mission first.
+## Run button on the title screen: a new player is offered the training mission first, then
+## picks their squad in the local lobby.
 func _on_run_requested(players: int) -> void:
 	if Onboarding.should_offer_training() and not coach.disabled:
-		coach.offer_training(_start_training, func() -> void: _local_run(players))
+		coach.offer_training(_start_training, func() -> void: menu.show_local_lobby(players))
 		return
-	_local_run(players)
+	menu.show_local_lobby(players)
 
 
 ## The training mission (tutorial/): a solo fight with a coach overlay on the HUD.
@@ -258,12 +263,12 @@ func _attach_training(t: TutorialSession) -> void:
 	o.finished.connect(func(start_run: bool) -> void:
 		_leave()
 		if start_run:
-			_local_run(1))
+			menu.show_local_lobby(1))
 
 
-## Solo (1) or hot-seat run on this machine: no lobby, no network.
-func _local_run(players: int, seed: int = 0) -> void:
-	_make_local().start_run(players, seed)
+## Solo (1) or hot-seat run on this machine, no network. `picks`: player -> Array of classes.
+func _local_run(players: int, seed: int = 0, picks: Dictionary = {}) -> void:
+	_make_local().start_run(players, seed, picks)
 
 
 func _continue_run() -> void:

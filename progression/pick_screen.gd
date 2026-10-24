@@ -174,17 +174,16 @@ class GearUiTag extends PanelContainer:
 		add_child(Styles.caps(tag if tag != "" else "No tag", 12, c))
 
 
-## Bonded mutations pick a partner soldier of another player.
+## Bonded mutations pick a partner: another player's soldier in co-op, any other soldier solo.
 func _partner_picker(r: Dictionary) -> Control:
 	var opt := OptionButton.new()
 	opt.mouse_filter = Control.MOUSE_FILTER_STOP
 	var sids: Array = []
-	for o in run.squad():
-		if o.get("owner", -1) != r.get("owner", -1):
-			sids.append(o.id)
-			opt.add_item("Bond with %s" % o.get("name", "?"))
+	for o in Progression.bond_partners(run, r):
+		sids.append(o.id)
+		opt.add_item("Bond with %s" % o.get("name", "?"))
 	if sids.is_empty():
-		opt.add_item("Needs another player's soldier")
+		opt.add_item("Needs another player's soldier" if run.players.size() > 1 else "Needs a second soldier")
 		opt.disabled = true
 	else:
 		_partner[r.id] = sids[0]

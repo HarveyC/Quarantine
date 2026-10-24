@@ -2,19 +2,27 @@ extends Control
 ## Title screen and lobby. The title is a wordmark over a slow spore backdrop with one column of
 ## icon buttons (Continue, Solo, Host, Join, Hot-seat, Quick mission, Settings, Quit); Join opens
 ## a small address panel beside the column. The lobby shows four player slots with each player's
-## colour, name and soldier, the class tiles, and the host's address as a copyable chip.
+## colour, name and squad, the shared squad meter (4 soldiers in all, coloured by who commands
+## them), the squad builder (how many soldiers, then a class for each) and the host's address as
+## a copyable chip. Solo and hot-seat runs open the same lobby in local mode, where every player
+## is edited on this machine and hot-seat players can be added or removed.
 ## Emits requests; App owns the sessions and the mission view.
 
 signal host_requested(name: String, port: int)
 signal join_requested(name: String, address: String, port: int)
 signal local_requested(players: int)
+## Title "Solo run" / "Hot-seat run": App offers training first, then opens the local lobby.
 signal run_requested(players: int)
+## Local lobby: start a run or a single fight with `picks` (player -> Array of classes).
+signal local_run_requested(players: int, picks: Dictionary)
+signal local_quick_requested(players: int, picks: Dictionary)
 signal training_requested
 signal continue_requested
 signal start_requested
 signal start_run_requested
 signal leave_requested
-signal class_picked(kind: String)
+## Online lobby: this player's squad changed (one class per soldier).
+signal squad_picked(kinds: Array)
 ## Host a friends-only Steam lobby (only offered when Steam is running).
 signal steam_host_requested(name: String)
 ## Open the Steam overlay to invite friends to our lobby.
@@ -39,7 +47,13 @@ var _join_panel: Control
 var _lobby_count: Label
 var _lobby_pips: W.Pips
 var _slots: HBoxContainer
-var _class_title: Label
+var _lobby_title: Label
+var _squad_meter: SquadMeter
+var _squad_count: Label
+var _squad_title: Label
+var _size_row: HBoxContainer
+var _room_label: Label
+var _soldier_row: HBoxContainer
 var _class_row: HBoxContainer
 var _address_row: HBoxContainer
 var _lobby_hint: Label
@@ -51,6 +65,15 @@ var _continue_sub: Label
 var _lobby_continue: CheckBox
 var _steam_host_btn: Button
 var _invite_btn: Button
+var _leave_btn: Button
+## The lobby on show: an online NetSession, or null for the local (solo / hot-seat) lobby.
+var _net: NetSession
+var _local_players := 1
+## Local lobby squads: player -> Array of classes.
+var _local_picks := {}
+## Whose squad the builder edits (local lobby) and which of their soldiers takes a class pick.
+var _edit_player := 0
+var _sel := 0
 
 
 func _ready() -> void:
@@ -124,7 +147,7 @@ func _build_menu(body: Control) -> void:
 	_continue_sub = Styles.mono("", 11, Color(Styles.AMBER, 0.7))
 	col.add_child(_continue_sub)
 	_solo_btn = _menu_button(col, "Solo run", "solo", func() -> void: run_requested.emit(1))
-	_solo_btn.tooltip_text = "One soldier, one player. A full three-act run."
+	_solo_btn.tooltip_text = "One player commanding 1 to 4 soldiers. A full three-act run."
 	var training := _menu_button(col, "Training", "flag", func() -> void: training_requested.emit())
 	training.tooltip_text = "A short guided mission that teaches the rules."
 	_steam_host_btn = _menu_button(col, "Host on Steam", "coop", func() -> void: steam_host_requested.emit(_name.text))
@@ -135,7 +158,7 @@ func _build_menu(body: Control) -> void:
 	var join := _menu_button(col, "Join game", "join", _toggle_join)
 	join.tooltip_text = "Connect to a friend's lobby by address."
 	var hot := _menu_button(col, "Hot-seat run", "hotseat", func() -> void: run_requested.emit(2))
-	hot.tooltip_text = "Two players, one screen, one soldier each."
+	hot.tooltip_text = "Two to four players on one screen, sharing up to 4 soldiers."
 	var quick := _menu_button(col, "Quick mission", "quick", func() -> void: local_requested.emit(2))
 	quick.tooltip_text = "A single hot-seat fight, no run."
 	col.add_child(_gap(4))
@@ -255,22 +278,29 @@ func _build_lobby(body: Control) -> void:
 	_lobby_box = v
 	body.add_child(v)
 	var head := Styles.hbox(16)
-	head.add_child(Styles.caps("Lobby", 34))
+	_lobby_title = Styles.caps("Lobby", 34)
+	head.add_child(_lobby_title)
 	_lobby_pips = W.Pips.new(Vector2(18, 6))
 	_lobby_pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(_lobby_pips)
 	_lobby_count = Styles.mono("", 15, Styles.DIM)
 	head.add_child(_lobby_count)
+	head.add_child(_gap_x(18))
+	var sq := Styles.caps("Squad", 15, Styles.DIM)
+	sq.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(sq)
+	_squad_meter = SquadMeter.new()
+	_squad_meter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_squad_meter)
+	_squad_count = Styles.mono("", 15, Styles.DIM)
+	head.add_child(_squad_count)
 	head.add_child(Styles.spacer())
 	_address_row = Styles.hbox(10)
 	head.add_child(_address_row)
 	v.add_child(head)
 	_slots = Styles.hbox(14)
 	v.add_child(_slots)
-	_class_title = Styles.caps("Your soldier", 14, Styles.DIM)
-	v.add_child(_class_title)
-	_class_row = Styles.hbox(10)
-	v.add_child(_class_row)
+	v.add_child(_build_squad_builder())
 	_lobby_hint = Styles.label("", 14, Styles.MUTED)
 	v.add_child(_lobby_hint)
 	var grow := Control.new()
@@ -286,16 +316,30 @@ func _build_lobby(body: Control) -> void:
 	_invite_btn = Styles.icon_button("Invite Steam friends", "coop", "secondary", 17, 54)
 	_invite_btn.pressed.connect(func() -> void: steam_invite_requested.emit())
 	bar.add_child(_invite_btn)
-	var leave := Styles.icon_button("Leave", "leave", "ghost", 17, 50)
-	leave.pressed.connect(func() -> void: leave_requested.emit())
-	bar.add_child(leave)
+	_leave_btn = Styles.icon_button("Leave", "leave", "ghost", 17, 50)
+	_leave_btn.pressed.connect(func() -> void:
+		if _net == null:
+			show_menu()
+		else:
+			leave_requested.emit())
+	bar.add_child(_leave_btn)
 	_start_btn = Styles.icon_button("Quick mission", "quick", "secondary", 18, 54)
 	_start_btn.tooltip_text = "A single fight, no run."
-	_start_btn.pressed.connect(func() -> void: start_requested.emit())
+	_start_btn.pressed.connect(func() -> void:
+		if _net == null:
+			_save_local()
+			local_quick_requested.emit(_local_players, _local_picks.duplicate(true))
+		else:
+			start_requested.emit())
 	bar.add_child(_start_btn)
 	_start_run_btn = Styles.icon_button("Start run", "play", "primary", 20, 54)
 	_start_run_btn.custom_minimum_size.x = 260
-	_start_run_btn.pressed.connect(func() -> void: start_run_requested.emit())
+	_start_run_btn.pressed.connect(func() -> void:
+		if _net == null:
+			_save_local()
+			local_run_requested.emit(_local_players, _local_picks.duplicate(true))
+		else:
+			start_run_requested.emit())
 	bar.add_child(_start_run_btn)
 	v.add_child(bar)
 
@@ -341,34 +385,17 @@ func show_status(message: String) -> void:
 
 ## Shows the lobby for `net`. Called again whenever the lobby changes.
 func show_lobby(net: NetSession) -> void:
-	var first := not _lobby_box.visible
-	_menu_box.visible = false
-	_lobby_box.visible = true
-	_status.visible = false
+	var first := not _lobby_box.visible or _net != net
+	_net = net
+	if _edit_player != net.my_player:
+		_sel = 0
+	_edit_player = net.my_player
 	var entries := net.lobby.values()
 	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.player < b.player)
-	var plan := MatchConfig.squad_plan(net.lobby.size(), net.class_picks())
-	var mine := ""
-	for sq in plan:
-		if sq.player == net.my_player:
-			mine = sq.kind
-	_lobby_pips.set_values(NetSession.MAX_PLAYERS, net.lobby.size(), 0, Styles.AMBER)
-	_lobby_count.text = "%d / %d" % [net.lobby.size(), NetSession.MAX_PLAYERS]
-	NodeUi.clear(_slots)
-	for i in NetSession.MAX_PLAYERS:
-		var e: Dictionary = entries[i] if i < entries.size() else {}
-		var kinds: Array = []
-		if not e.is_empty():
-			for sq in plan:
-				if sq.player == e.player:
-					kinds.append(sq.kind)
-		_slots.add_child(_slot(e, kinds, net))
-	NodeUi.clear(_class_row)
-	var pick := net.lobby.size() > 1
-	_class_row.visible = pick
-	_class_title.visible = pick
-	for k in Progression.unlocked_classes(Profile.meta()):
-		_class_row.add_child(_class_tile(k, k == mine))
+	if first:
+		_restore_online_squad(net)
+	_lobby_title.text = "LOBBY"
+	_render_lobby(entries, net.planned_squads(), net.room_for(net.my_player), first)
 	NodeUi.clear(_address_row)
 	if net.is_host:
 		var addrs := NetSession.local_addresses()
@@ -385,9 +412,9 @@ func show_lobby(net: NetSession) -> void:
 			DisplayServer.clipboard_set("%s:%d" % [addr, port])
 			copy.text = "Copied")
 		_address_row.add_child(copy)
-		_lobby_hint.text = "Each player brings one soldier."
+		_lobby_hint.text = "Everyone picks how many soldiers they command. The whole squad is %d at most, and fights scale to its size." % MatchConfig.MAX_SQUAD
 	else:
-		_lobby_hint.text = "Waiting for the host to start."
+		_lobby_hint.text = "Pick your squad. The host starts the run."
 	_invite_btn.visible = net.via_steam()
 	_invite_btn.disabled = net.steam_lobby() == 0
 	if net.via_steam():
@@ -400,15 +427,296 @@ func show_lobby(net: NetSession) -> void:
 	_start_run_btn.visible = net.is_host
 	_start_run_btn.text = "Start run" + _severity_tag()
 	_lobby_continue.visible = net.is_host and RunSave.exists()
+
+
+## The local lobby for a solo (1 player) or hot-seat run: every squad is set up on this machine.
+## Opens on the squads last picked for that mode.
+func show_local_lobby(players: int) -> void:
+	_net = null
+	var mode := "solo" if players <= 1 else "hotseat"
+	var saved := Profile.last_squad(mode)
+	if players > 1 and saved.size() > 1:
+		players = saved.size()
+	_local_players = clampi(players, 1, MatchConfig.MAX_SQUAD)
+	_local_picks = {}
+	var ok := Progression.unlocked_classes(Profile.meta())
+	for p in _local_players:
+		var kinds: Array = (saved.get(p, []) as Array).filter(func(k) -> bool: return ok.has(k)) if saved.get(p) is Array else []
+		if not kinds.is_empty():
+			_local_picks[p] = kinds
+	_edit_player = 0
+	_sel = 0
+	_show_local(true)
+
+
+func _show_local(first := false) -> void:
+	_menu_box.visible = false
+	_join_panel.visible = false
+	_status.visible = false
+	var plan := _local_plan()
+	_local_picks = plan.duplicate(true)   # concrete classes, so edits start from what's shown
+	var entries: Array = []
+	for p in _local_players:
+		entries.append({"player": p, "name": _local_name(p)})
+	_lobby_title.text = "SOLO" if _local_players == 1 else "HOT-SEAT"
+	_render_lobby(entries, plan, MatchConfig.room_for(_local_players, _local_picks, _edit_player), first)
+	NodeUi.clear(_address_row)
+	_address_row.add_child(W.Icon.new("solo" if _local_players == 1 else "hotseat", Styles.DIM, 18, 1.8))
+	_address_row.add_child(Styles.caps("This machine", 15, Styles.TEXT))
+	if _local_players == 1:
+		_lobby_hint.text = "Command 1 to %d soldiers. Fights scale to the size of your squad." % MatchConfig.MAX_SQUAD
+	else:
+		_lobby_hint.text = "Click a player to set up their squad. You share %d soldiers at most." % MatchConfig.MAX_SQUAD
+	_invite_btn.visible = false
+	_start_btn.visible = true
+	_start_run_btn.visible = true
+	_start_run_btn.text = "Start run" + _severity_tag()
+	_lobby_continue.visible = false
+
+
+func _local_plan() -> Dictionary:
+	var plan := {}
+	for p in _local_players:
+		plan[p] = []
+	for e in MatchConfig.squad_plan(_local_players, _local_picks):
+		plan[e.player].append(e.kind)
+	return plan
+
+
+func _local_name(p: int) -> String:
+	if p == 0:
+		var n := _name.text.strip_edges()
+		return n if n != "" else "Player 1"
+	return "Player %d" % (p + 1)
+
+
+func _save_local() -> void:
+	Profile.set_last_squad("solo" if _local_players == 1 else "hotseat", _local_picks.duplicate(true))
+
+
+## Online: send the squad this player picked last time, once, when they arrive in a lobby.
+func _restore_online_squad(net: NetSession) -> void:
+	for v in net.lobby.values():
+		if v.player == net.my_player and not v.get("squad", []).is_empty():
+			return
+	var saved: Array = Profile.last_squad("online").get(0, [])
+	var ok := Progression.unlocked_classes(Profile.meta())
+	saved = saved.filter(func(k) -> bool: return ok.has(k))
+	if not saved.is_empty():
+		squad_picked.emit(saved)
+
+
+func _refresh_lobby() -> void:
+	if _net != null:
+		show_lobby(_net)
+	else:
+		_show_local()
+
+
+## The parts the online and local lobbies share: player slots, the squad meter and the builder.
+## `plan` is player -> Array of classes; `room` is how many soldiers the edited player can field.
+func _render_lobby(entries: Array, plan: Dictionary, room: int, first: bool) -> void:
+	_menu_box.visible = false
+	_lobby_box.visible = true
+	_status.visible = false
+	var local := _net == null
+	_lobby_pips.set_values(NetSession.MAX_PLAYERS, entries.size(), 0, Styles.AMBER)
+	_lobby_count.text = "%d / %d" % [entries.size(), NetSession.MAX_PLAYERS]
+	var cols: Array = []
+	var names: Array = []
+	for e in entries:
+		for k in plan.get(e.player, []):
+			cols.append(Styles.player_color(e.player))
+			names.append("%s: %s" % [e.name, UnitData.SOLDIERS[k].name])
+	_squad_meter.set_colors(cols)
+	_squad_meter.tooltip_text = "\n".join(names)
+	_squad_count.text = "%d / %d" % [cols.size(), MatchConfig.MAX_SQUAD]
+	NodeUi.clear(_slots)
+	for i in NetSession.MAX_PLAYERS:
+		if i < entries.size():
+			_slots.add_child(_slot(entries[i], plan.get(entries[i].player, []), local and entries.size() > 1, local and i > 0 and i == entries.size() - 1))
+		elif local and i == entries.size():
+			_slots.add_child(_add_player_slot(entries.size() < MatchConfig.MAX_SQUAD))
+		elif not local:
+			_slots.add_child(_slot({}, [], false, false))
+	var kinds: Array = plan.get(_edit_player, []).duplicate()
+	_sel = clampi(_sel, 0, maxi(0, kinds.size() - 1))
+	var col := Styles.player_color(_edit_player)
+	if local and _local_players > 1:
+		_squad_title.text = "P%d SQUAD" % (_edit_player + 1)
+	else:
+		_squad_title.text = "YOUR SQUAD"
+	_squad_title.add_theme_color_override("font_color", col if local and _local_players > 1 else Styles.DIM)
+	NodeUi.clear(_size_row)
+	for n in range(1, MatchConfig.MAX_SQUAD + 1):
+		_size_row.add_child(_size_tile(n, kinds.size(), n <= room, col))
+	var others := MatchConfig.MAX_SQUAD - room
+	_room_label.text = "%d of %d taken by the others" % [others, MatchConfig.MAX_SQUAD] if others > 0 else ""
+	NodeUi.clear(_soldier_row)
+	for i in kinds.size():
+		_soldier_row.add_child(_soldier_tile(i, kinds[i], col, i == _sel))
+	NodeUi.clear(_class_row)
+	var picked: String = kinds[_sel] if _sel < kinds.size() else ""
+	for k in Progression.unlocked_classes(Profile.meta()):
+		_class_row.add_child(_class_tile(k, k == picked))
 	if first and is_inside_tree():
 		Feel.deal(_slots.get_children(), 0.06)
 		Feel.sound("open")
 
 
-## One of the four lobby slots: the player's colour along the top, name, tags and soldier.
-func _slot(e: Dictionary, kinds: Array, net: NetSession) -> Control:
+## How many soldiers, how they're split and which of them gets the next class pick.
+func _build_squad_builder() -> Control:
+	var v := Styles.vbox(12)
+	var head := Styles.hbox(14)
+	_squad_title = Styles.caps("Your squad", 14, Styles.DIM)
+	_squad_title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_squad_title)
+	_size_row = Styles.hbox(6)
+	head.add_child(_size_row)
+	_room_label = Styles.mono("", 13, Styles.MUTED)
+	_room_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_room_label)
+	v.add_child(head)
+	var row := Styles.hbox(14)
+	_soldier_row = Styles.hbox(10)
+	row.add_child(_soldier_row)
+	var arrow := W.Icon.new("arrow_left", Styles.MUTED, 22, 1.8)
+	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(arrow)
+	_class_row = Styles.hbox(10)
+	row.add_child(_class_row)
+	v.add_child(row)
+	return v
+
+
+## Sets the edited player's squad: online it goes to the host, locally it applies here.
+func _set_squad(kinds: Array) -> void:
+	if _net != null:
+		Profile.set_last_squad("online", {0: kinds.duplicate()})
+		squad_picked.emit(kinds)
+		if not _net.is_host:
+			_refresh_lobby()
+	else:
+		_local_picks[_edit_player] = kinds
+		_refresh_lobby()
+
+
+func _current_squad() -> Array:
+	if _net != null:
+		return _net.planned_squads().get(_edit_player, []).duplicate()
+	return _local_plan().get(_edit_player, []).duplicate()
+
+
+## Classes already in the lobby's squads.
+func _used_classes() -> Dictionary:
+	var used := {}
+	var plan := _net.planned_squads() if _net != null else _local_plan()
+	for p in plan:
+		for k in plan[p]:
+			used[k] = true
+	return used
+
+
+## A class not in `used` (the first unlocked one if every class is taken).
+func _free_class(used: Dictionary) -> String:
+	var ok := Progression.unlocked_classes(Profile.meta())
+	for k in ok:
+		if not used.has(k):
+			return k
+	return ok[0] if not ok.is_empty() else MatchConfig.CLASSES[0]
+
+
+## Grows or shrinks the edited squad to `n`; new soldiers take classes nobody has yet and the
+## newest one is selected for a class pick.
+func _resize_squad(n: int) -> void:
+	var kinds := _current_squad()
+	var old := kinds.size()
+	if n == old:
+		return
+	var used := _used_classes()
+	while kinds.size() > n:
+		kinds.pop_back()
+	while kinds.size() < n:
+		var k := _free_class(used)
+		kinds.append(k)
+		used[k] = true
+	_sel = n - 1 if n > old else mini(_sel, n - 1)
+	Feel.sound("pick")
+	_set_squad(kinds)
+
+
+## A squad size button: the number over a row of soldier pips; dim when there's no room.
+func _size_tile(n: int, current: int, open: bool, col: Color) -> Button:
+	var b := Button.new()
+	b.toggle_mode = true
+	b.button_pressed = n == current
+	b.disabled = not open
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(62, 52)
+	b.tooltip_text = ("%d soldier" % n + ("s" if n > 1 else "")) if open else "The others have the rest of the %d squad slots" % MatchConfig.MAX_SQUAD
+	Styles.style_button(b, "secondary", 0)
+	Styles.round_button(b, 14)
+	var on := n == current
+	if on:
+		b.add_theme_stylebox_override("pressed", Styles.glow_box(Color(Styles.AMBER, 0.14), Styles.AMBER, Color(Styles.AMBER, 0.35), 12, 14))
+	var v := Styles.vbox(4)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := Styles.caps(str(n), 18, Styles.AMBER if on else (Styles.TEXT if open else Styles.MUTED))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
+	var pips := W.Pips.new(Vector2(7, 4))
+	pips.gap = 2.0
+	pips.set_values(n, n, 0, Styles.AMBER if on else (col if open else Styles.BORDER_STRONG))
+	pips.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(pips)
+	b.add_child(v)
+	b.pressed.connect(func() -> void: _resize_squad(n))
+	return b
+
+
+## One soldier of the edited squad: portrait in the owner's colour, class and slot number.
+## The selected one (amber) takes the next class pick.
+func _soldier_tile(i: int, kind: String, col: Color, on: bool) -> Button:
+	var b := Button.new()
+	b.toggle_mode = true
+	b.button_pressed = on
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(132, 112)
+	b.tooltip_text = "Soldier %d: pick a class on the right" % (i + 1)
+	Styles.style_button(b, "secondary", 0)
+	Styles.round_button(b, 24)
+	if on:
+		b.add_theme_stylebox_override("pressed", Styles.glow_box(Color(Styles.AMBER, 0.12), Styles.AMBER, Color(Styles.AMBER, 0.35), 16, 24))
+	var v := Styles.vbox(6)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pt := W.Portrait.new(50.0)
+	pt.setup(kind, col, 0, on)
+	pt.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(pt)
+	var l := Styles.caps(UnitData.SOLDIERS[kind].name, 14, Styles.AMBER if on else Styles.TEXT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
+	b.add_child(v)
+	var idx := Styles.mono("%d" % (i + 1), 11, Styles.AMBER if on else Styles.MUTED)
+	idx.position = Vector2(12, 8)
+	b.add_child(idx)
+	b.pressed.connect(func() -> void:
+		Feel.sound("pick")
+		_sel = i
+		_refresh_lobby())
+	return b
+
+
+## One of the four lobby slots: the player's colour along the top, name, tags and squad.
+## `pickable`: a local lobby click edits this player's squad; `removable`: the last hot-seat
+## player can be dropped.
+func _slot(e: Dictionary, kinds: Array, pickable: bool, removable: bool) -> Control:
 	var f := W.Frame.new(Vector4(18, 16, 18, 16))
-	f.custom_minimum_size = Vector2(250, 190)
+	f.custom_minimum_size = Vector2(250, 176)
 	if e.is_empty():
 		f.set_look(Color(0.04, 0.055, 0.09, 0.45), Styles.BORDER_SOFT, Styles.AMBER, false)
 		var v := Styles.vbox(10)
@@ -423,43 +731,111 @@ func _slot(e: Dictionary, kinds: Array, net: NetSession) -> Control:
 		f.add_child(v)
 		return f
 	var col := Styles.player_color(e.player)
-	var you: bool = e.player == net.my_player
-	f.set_look(Color(0.05, 0.07, 0.11, 0.9), Color(col, 0.55) if you else Styles.BORDER, Styles.AMBER, you)
+	var you: bool = (_net != null and e.player == _net.my_player) or (_net == null and e.player == 0)
+	var editing: bool = pickable and e.player == _edit_player
+	var lit := editing or (you and not pickable)
+	f.set_look(Color(0.05, 0.07, 0.11, 0.9), Color(col, 0.55) if lit else Styles.BORDER, Styles.AMBER, lit)
 	f.draw.connect(func() -> void:
 		var w := f.size.x * 0.36
 		W.Draw.capsule(f, Rect2((f.size.x - w) * 0.5, -2, w, 4), col))
+	if pickable:
+		f.mouse_filter = Control.MOUSE_FILTER_STOP
+		f.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		f.tooltip_text = "Set up %s's squad" % e.name
+		f.gui_input.connect(func(ev: InputEvent) -> void:
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT and _edit_player != e.player:
+				Feel.sound("pick")
+				_edit_player = e.player
+				_sel = 0
+				_refresh_lobby())
 	var v := Styles.vbox(10)
 	f.add_child(v)
 	var top := Styles.hbox(8)
 	top.add_child(Styles.caps("P%d" % (e.player + 1), 14, col))
 	top.add_child(Styles.spacer())
-	if e.player == 0:
+	if _net != null and e.player == 0:
 		top.add_child(W.chip("Host", Styles.DIM, false, 11))
-	if you:
+	if editing:
+		top.add_child(W.chip("Editing", col, true, 11))
+	elif you and not pickable:
 		top.add_child(W.chip("You", col, true, 11))
+	if removable:
+		var rm := Styles.icon_button("Remove", "minus", "ghost", 12, 26)
+		rm.tooltip_text = "Remove this player"
+		rm.pressed.connect(func() -> void:
+			Feel.sound("close")
+			_local_picks.erase(e.player)
+			_local_players -= 1
+			if _edit_player >= _local_players:
+				_edit_player = 0
+				_sel = 0
+			_refresh_lobby())
+		top.add_child(rm)
 	v.add_child(top)
 	v.add_child(Styles.caps(str(e.name), 26))
 	var grow := Control.new()
 	grow.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	grow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(grow)
-	for k in kinds:
+	if kinds.size() == 1:
 		var r := Styles.hbox(10)
 		var pt := W.Portrait.new(48.0)
-		pt.setup(k, col, 0)
+		pt.setup(kinds[0], col, 0)
 		r.add_child(pt)
-		r.add_child(Styles.caps(UnitData.SOLDIERS[k].name, 17, Styles.TEXT))
+		r.add_child(Styles.caps(UnitData.SOLDIERS[kinds[0]].name, 17, Styles.TEXT))
+		v.add_child(r)
+	elif kinds.size() > 1:
+		var r := Styles.hbox(6)
+		for k in kinds:
+			var pt := W.Portrait.new(42.0)
+			pt.setup(k, col, 0)
+			pt.tooltip_text = UnitData.SOLDIERS[k].name
+			pt.mouse_filter = Control.MOUSE_FILTER_PASS
+			r.add_child(pt)
+		r.add_child(Styles.spacer())
+		var n := Styles.mono("x%d" % kinds.size(), 15, col)
+		n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		r.add_child(n)
 		v.add_child(r)
 	return f
 
 
-## A class tile in "Your soldier": the class icon over its name; amber when picked.
+## Local lobby: a slot that adds another hot-seat player.
+func _add_player_slot(open: bool) -> Control:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(250, 176)
+	b.disabled = not open
+	b.tooltip_text = "Add a hot-seat player" if open else "The squad is full: drop a soldier first"
+	Styles.style_button(b, "secondary", 0)
+	Styles.round_button(b, Styles.RADIUS)
+	var v := Styles.vbox(10)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := W.Icon.new("plus", Styles.DIM if open else Styles.BORDER_STRONG, 30, 1.8)
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ic)
+	var l := Styles.caps("Add player", 14, Styles.DIM if open else Styles.MUTED)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
+	b.add_child(v)
+	b.pressed.connect(func() -> void:
+		Feel.sound("open")
+		_local_players += 1
+		_edit_player = _local_players - 1
+		_sel = 0
+		_refresh_lobby())
+	return b
+
+
+## A class tile: the class icon over its name; amber when it's the selected soldier's class.
 func _class_tile(k: String, on: bool) -> Button:
 	var b := Button.new()
 	b.toggle_mode = true
 	b.button_pressed = on
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(118, 112)
+	b.custom_minimum_size = Vector2(112, 112)
 	b.tooltip_text = str(UnitData.SOLDIERS[k].get("blurb", UnitData.SOLDIERS[k].name))
 	Styles.style_button(b, "secondary")
 	Styles.round_button(b, 24)
@@ -468,6 +844,7 @@ func _class_tile(k: String, on: bool) -> Button:
 	var v := Styles.vbox(8)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ic := W.Icon.new(Icons.for_class(k), Styles.AMBER if on else Styles.DIM, 34, 1.9)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
@@ -477,8 +854,20 @@ func _class_tile(k: String, on: bool) -> Button:
 	b.add_child(v)
 	b.pressed.connect(func() -> void:
 		Feel.sound("pick")
-		class_picked.emit(k))
+		var kinds := _current_squad()
+		if _sel < kinds.size():
+			kinds[_sel] = k
+			_set_squad(kinds)
+		else:
+			_refresh_lobby())
 	return b
+
+
+func _gap_x(px: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size.x = px
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
 
 
 ## Host: whether to continue the saved run instead of starting a new one.
@@ -496,6 +885,28 @@ func _emit_join() -> void:
 
 func _port_value() -> int:
 	return int(_port.text) if _port.text.is_valid_int() else NetSession.DEFAULT_PORT
+
+
+## The shared squad: one capsule per soldier slot (4 in all), in the colour of the player who
+## commands it; empty slots stay dark.
+class SquadMeter extends Control:
+	const SEG := Vector2(26, 8)
+	const GAP := 4.0
+	var cols: Array = []
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(MatchConfig.MAX_SQUAD * SEG.x + (MatchConfig.MAX_SQUAD - 1) * GAP, SEG.y + 6)
+		mouse_filter = Control.MOUSE_FILTER_PASS
+
+	func set_colors(c: Array) -> void:
+		cols = c
+		queue_redraw()
+
+	func _draw() -> void:
+		var y := (size.y - SEG.y) * 0.5
+		for i in MatchConfig.MAX_SQUAD:
+			var r := Rect2(i * (SEG.x + GAP), y, SEG.x, SEG.y)
+			W.Draw.capsule(self, r, cols[i] if i < cols.size() else Styles.HP_OFF)
 
 
 ## Title backdrop: night blue deepening to the Bloom's teal on the right, where the Bloom's heart
