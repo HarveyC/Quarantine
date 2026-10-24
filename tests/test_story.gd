@@ -222,3 +222,45 @@ func test_lore_runs_out_cleanly() -> void:
 	var run := RunRules.new_run(1, 61, _meta([], all))
 	assert_eq(Story.recover_lore(run), "", "nothing left to find")
 	assert_true(Story.knows(run, StoryData.CARRY_LORE), "carry log known")
+
+
+## Fight chatter waits for what's on screen: Rules resolves the enemy turn at once, but the
+## "down" call only comes once the death beat has played, and run events that land mid-fight
+## (an Echo laid to rest) wait for the queue to drain.
+func test_fight_chatter_waits_for_the_beats() -> void:
+	var v: MissionView = preload("res://scenes/main.tscn").instantiate()
+	v.start(MissionView.default_mission(1234), true)
+	v.player.flush()
+	var d := Director.new()
+	(Engine.get_meta("test_tree") as SceneTree).root.add_child(d)
+	d._run = RunRules.new_run(1, 61)
+	var u: Unit = v.state.controllable_units(0)[0]
+	u.status["sid"] = d._run.squad()[0].id
+	var foe: Unit = v.state.living(Types.Team.ENEMY)[0]
+	d._bind_player(v.player, v.state)
+	var radio := func() -> int: return d._radio_box.get_child_count()
+	v.player.enqueue({"type": "enemy_phase", "turn": 1})
+	v.player.enqueue({"type": "shot", "unit": foe.id, "target": u.id, "hit": true, "chance": 70})
+	v.player.enqueue({"type": "damage", "unit": u.id, "amount": 9, "hp": 0, "source": foe.id})
+	v.player.enqueue({"type": "died", "unit": u.id})
+	d._on_run_event({"type": "echo_laid", "key": "e1", "name": "Vasquez"})
+	assert_eq(radio.call(), 0, "nothing said while the attack is still queued")
+	var died_started := [false]
+	v.player.beat_started.connect(func(ev: Dictionary) -> void:
+		if ev.type == "died":
+			died_started[0] = true)
+	var steps := 0
+	while not died_started[0] and steps < 3000:
+		v.player.advance(1.0 / 30.0)
+		steps += 1
+	assert_true(died_started[0], "death beat reached")
+	assert_eq(radio.call(), 0, "not called down while the body is still falling")
+	d._release_held()
+	assert_eq(radio.call(), 0, "the Echo line waits for the fight's beats")
+	v.player.flush()
+	assert_eq(radio.call(), 1, "called down once the death has played")
+	d._release_held()
+	assert_eq(radio.call(), 2, "then the held Echo line")
+	d._bind_player(null, null)
+	d.free()
+	v.free()
