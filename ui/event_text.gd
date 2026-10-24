@@ -34,7 +34,7 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"hunker":
 			return "%s hunkers down" % who.call("unit")
 		"ability":
-			return "%s uses %s%s" % [who.call("unit"), str(ev.get("ability", "?")).capitalize(), _target_text(ev, who)]
+			return "%s uses %s%s" % [who.call("unit"), str(ev.get("name", str(ev.get("ability", "?")).capitalize())), _target_text(ev, who)]
 		"mutation":
 			return _c("%s mutates: %s%s" % [who.call("unit"), str(ev.get("mutation", "?")).capitalize(), _target_text(ev, who)], Palette.TEAL)
 		"infection":
