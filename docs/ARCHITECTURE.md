@@ -23,6 +23,8 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `elevation/` | `Elevation` | **maps** | High ground: aim and cover from height, in-fight level changes |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
+| `net/` | `NetSession`, `LocalSession`, `NetTransport` (`EnetTransport`, `SteamTransport`) | net | Sessions the view talks to; online replication over ENet or Steam (see docs/STEAM.md) |
+| `platform/` | `Platform` autoload, `CloudSync`, `CrashReporter` | net | Steam (optional), cloud saves, achievements bridge, rich presence, crash reports |
 | `tests/` | `TestCase` | everyone | `tests/test_<module>.gd` per workstream |
 
 Rules for parallel work:
@@ -225,15 +227,22 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   included, 1 charge of their class consumable, `GearData.STARTER_CONSUMABLES`), `on_recruit(run, record)`
   (called by `RunRules.add_recruit`, same starter), `starting_kit_offers` (1 of 3
   Commons per soldier), `on_fight_won(run, "skirmish"|"nest"|"boss")` (one 1-of-3 offer per squad soldier:
-  gear 45%, perk 15%, mutation 15% (Progression cards), consumable 15%, cache 10%; from the second fight
-  an on-build card and a pivot card; nest card 1 Rare in the lead tag; boss all Rare plus the Doctrine
-  vote; Hazard pay), `has_pending`, `apply_to_unit(unit, entry)` (flat stats, Bio-mesh, stamps
+  gear 37%, gun 8%, perk 15%, mutation 15% (Progression cards), consumable 15%, cache 10%; from the
+  second fight an on-build card and a pivot card; nest card 1 Rare in the lead tag; boss all Rare, its
+  last card an alternate gun for the soldier's class, plus the Doctrine vote; Hazard pay), `has_pending`, `apply_to_unit(unit, entry)` (flat stats, Bio-mesh, stamps
   `status["gear"]`, `["gear_tags"]`, `["pockets"]`, `["armor"]`, `["doctrines"]`), `absorb(record, unit)`
   (spent pocket charges), `squad_counts(run)`. Doctrines live in `run.modifiers.doctrines`; Field rations
   sets `run.modifiers.heal_after_fight`.
 - **Run actions** (`gear_*`, routed by RunRules): `gear_pick {soldier, card (-1 = skip, +10 Supplies),
   to_stash?}` and `gear_doctrine {doctrine}` in REWARD; `gear_stash_take {soldier, index}` and
-  `gear_unequip {soldier, slot}` in MAP or REWARD. The soldier's controller (`run.controller_of`) acts.
+  `gear_unequip {soldier, slot}` and `gear_gun {soldier, gun ("" = signature)}` in MAP or REWARD. The
+  soldier's controller (`run.controller_of`) acts.
+- **Guns** (`combat/weapons.gd`): every class has a signature gun (`BY_KIND`) and alternate guns
+  (`classes`, `rarity`, `tag`, flat `aim`/`dmg`/`mobility`, `look`). A soldier's owned alternates are
+  `record.gear.guns`, the one carried `record.gear.gun` (`Loadout.gun`, `add_gun`, `set_gun`,
+  `gun_pool`); its tag counts toward set bonuses like gear. `apply_to_unit` stamps
+  `status["weapon"]` (`Weapons.equip_unit`), which `Weapons.of(unit)` and the view (feel in
+  `view/gun_feel.gd` VARIANTS, model in `view/gun_models.gd` by look) read.
 - **In a mission** (`GearFx`): one-line hooks in `Combat.hit_chance` (`odds_terms`), `Combat.fire`
   (`shot_damage`, `after_shot`), Combat's Suppress (`on_suppress`), `Rules.deal_damage` (`damage_taken`:
   armor), `Rules.start_team_phase` (`on_team_phase_start`: Burning ticks, Close set mobility), `Rules._do_move`
@@ -292,8 +301,8 @@ rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind i
   (Air support 2), `force_nest_next` (Air support), `ambush`, `boss_health_mult` (Signal 0.8),
   `first_turn_action_loss` (Whispers), `remove_column` (The bridge), and `pending_fight`
   (`{"kind": "skirmish"|"ambush", "objective"}`: Checkpoint "force the gate", Field chapel ambush).
-- **Depot**: 7 slots (gear 1 Common/Uncommon weighted to the squad's tags, gear 2 Uncommon or
-  Rare from act 2, 3 different consumables, 1 Serum dose for 50 once per depot, 1 service rolled from
+- **Depot**: 8 slots (gear 1 Common/Uncommon weighted to the squad's tags, gear 2 Uncommon or
+  Rare from act 2, 1 alternate gun for a squad soldier's class (55 Uncommon / 90 Rare), 3 different consumables, 1 Serum dose for 50 once per depot, 1 service rolled from
   Armorer / Recruit 45 / Scar removal 40), reroll 20 then 35 (keeps Serum and the service), sell
   back at 40%, Quartermaster Doctrine −15%. Buyers pick one of their own soldiers.
 - **Hospital**: one treatment per soldier by its owner; Patch up (full HP, −1 injury), Purge (−30
@@ -304,7 +313,7 @@ rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind i
 
 Node events (`run.event`): `event_start` (`event`, `subject`), `event_step` (`event`, `step`, `kind`),
 `event_choice` (`player`, `step`, `option`: empty for secret picks), `event_vote` (`option`, `votes`),
-`event_reveal` (`picks`), `event_end` (`event`, `results`, `fight`), `item_gained` (`sid`, `item`),
+`event_reveal` (`picks`), `event_end` (`event`, `results`, `fight`), `item_gained` (`sid`, `item`), `gun_gained` (`sid`, `gun`),
 `soldier_hp` / `soldier_infection` / `soldier_mutation` / `perk_pick` / `full_cure` / `sit_out`
 (`sid`, ...), `modifier` (`key`, `value`), `depot_open`, `depot_bought`, `depot_sold`,
 `depot_reroll`, `hospital_open`, `hospital_treat` (`soldier`, `treatment`), `survivors_found`,
@@ -513,6 +522,22 @@ in an online match plays the same thing.
   screen) saves per-bus volume to `user://audio.cfg`.
 - **Look**: environment and lights in `MissionView._build_environment`, set dressing in `Board`,
   vignette and grain in `view/post_fx.gd`.
+- **Settings** (`view/game_settings.gd`, static class `GameSettings`; autoload `SettingsHost` in
+  `view/settings_host.gd`): graphics (window, v-sync, FPS cap, quality preset, 3D render scale),
+  gameplay (game speed, shot cams, edge scroll, camera speed), accessibility (colour vision filter,
+  UI scale, text size, screen shake) and key bindings, saved to `user://settings.cfg`. View-only,
+  never sent over the network. Read values with `GameSettings.get_value(section, key)` or the
+  helpers (`game_speed()`, `screen_shake()`, `puddle_lights()`...). A scene that builds an
+  `Environment` calls `GameSettings.apply_environment(env)` so the quality preset can drop SSAO,
+  SSIL and volumetric fog. Text built with `Styles.label/caps/mono/bold` follows the text size.
+  The screen is `ui/settings_menu.gd` (F10, gamepad Back, `GameSettings.open_menu(tab)`).
+- **Input actions**: fight and camera controls are InputMap actions built by
+  `GameSettings.apply_input_map()` (`GameSettings.ACTIONS` for keys, `GameSettings.PAD` for the
+  fixed gamepad layout); use `event.is_action_pressed("ready")`, never raw keycodes, so rebinding
+  works. `GameSettings.action_label("ready")` gives the current key for help text. The gamepad
+  pointer in `SettingsHost` turns the left stick into mouse movement and A/B into click/Escape, so
+  plain mouse UIs work on a pad; a screen that wants focus navigation instead joins the group
+  `pad_focus` (the pointer then stands down and Godot's `ui_*` actions drive it).
 
 ## Networking (online co-op)
 
@@ -564,6 +589,7 @@ ready automatically (`Rules._auto_ready`) and watches until a recruit deploys af
 |---|---|---|
 | `run/` `RunState`, `RunRules`, `RunMap`, `RunSoldier`, `RunHooks` | **run framework** | Run state, map generation, route vote, node flow, fight setup and results, income, save/resume |
 | `core/match_config.gd` `MatchConfig.for_fight` / `build` | run framework | Turns a fight node into a mission config, builds the GameState |
+| `story/` `Story`, `StoryProfile`, `StoryData` (+ `ui/story/`) | **story** | Wave count, Echoes, intel logs, the ending vote; scenes and radio |
 | `gear/` `GearRun` (+ `ui/gear/` screens) | **gear, rewards and loadout** | Gear, stash, post-fight 1-of-3 rewards, Doctrines, loadout |
 | `progression/` `Progression` | **ranks, perks and mutations** | Soldier rank/perk/mutation record, rank-up picks, grafts |
 | `nodes/` `NodeRules` | **events, shop and hospital** | Event, Supply depot, Field hospital and Survivors nodes |
@@ -672,7 +698,7 @@ path, a nest and a depot every act); links never cross, 1-2 out per node.
 
 Prefixed types are routed to the owning module's `validate(run, action) -> String` and
 `apply(run, action)`: **`gear_*` -> `GearRun`**, **`prog_*` -> `Progression`**, **`node_*` ->
-`NodeRules`**. A module checks its own phase rules (e.g. `gear_equip` in MAP and REWARD, depot
+`NodeRules`**, **`story_*` -> `Story`**. A module checks its own phase rules (e.g. `gear_equip` in MAP and REWARD, depot
 buys only in NODE). Modules change shared values with the helpers `RunRules.add_supplies(run, n,
 reason)`, `add_intel`, `add_serum(run, player, samples, reason)`, `add_outbreak`, and
 `add_recruit(run, player, kind, infection)`, which emit the matching events. All randomness is
@@ -768,7 +794,9 @@ identical GameState, and a player who skips it only moves themselves on.
 `step` (`step`), `map`, `fight_start` (`kind`, `objective`), `fight_end` (`result`, `kind`),
 `soldier_lost` (`sid`, `how`), `recruit` / `recruit_deployed`, `supplies` / `intel` / `outbreak`
 (`amount`, `total`, `reason`), `serum` (+ `player`), `bench` (`player`, `on`), `rejected`, `run_end`
-(`result`). Modules may add their own; list them here.
+(`result`). Story adds `echo_met` (`key`, `name`), `echo_laid` (`key`, `name`), `lore` (`id`),
+`ending_vote`, `ending_voted` (`player`, `ending`) and `ending` (`ending`, `carrier`). Modules may
+add their own; list them here.
 
 ### Save / resume
 
@@ -851,3 +879,36 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
   weights its `EnemyRoster.SIGNATURE` enemies double.
 - **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
 - Dev aid: `-- --fight=<node>,<act>,<outbreak>` plays one built fight on the test map.
+
+## Story (story/, ui/story/)
+
+World, Echoes and endings from the design doc's "World and story". Rules live in `story/`, presentation in
+`ui/story/`; all text is data in `StoryData`.
+
+- **`run.story`** (owned by `Story`, saved and synced as-is): `wave`, `runs`, `last_result`, `last_ending`,
+  `last_wave`, `source_reached`, `known` (intel ids the host's profile had), `lore` (found this run),
+  `echoes` (`[{key, kind, name, wave, met, laid}]`), `open`/`votes`/`ending`/`carrier` (the ending vote).
+- **Profile.** `StoryProfile` keeps sections `story` and `echoes` in the profile file (`Profile.path`).
+  `Profile.meta()["story"]` is its `snapshot()`, so `Story.init_run` (called by `RunRules.new_run`, host side)
+  reads only run data. `Profile.record_run` calls `StoryProfile.record_run(run)`: idempotent, safe on every peer.
+  When a run ends, its Turned soldiers (`run.echoes`) join the Echo pool (max 12, oldest drop off).
+- **Echoes.** Up to 2 per run, oldest first. `MatchConfig.for_fight` asks `Story.fight_echo(run, st)`: the
+  first non-boss fight after 1 win (then after 4) gets one, replacing the last enemy. `MatchConfig.build`
+  calls `Story.setup_echo(state, echo)`: a soldier unit of the old class on the enemy team with
+  `status.turned`, `status.echo` (key), double health, named "Echo <surname>". `RunRules.fight_outcome`
+  lists dead ones in `echoes_down`; `Story.on_fight_end` pays 15 Supplies ("dog tags") and recovers intel,
+  and the profile drops a laid Echo from the pool. `UnitView.soldier_body` builds it from the soldier model.
+- **Intel logs.** `StoryData.LORE`, recovered in order (deterministic, no rng): one per boss win, one per
+  Echo laid to rest. The last (`contact`) unlocks Carry it. Main menu "Archive" reads them.
+- **Ending vote.** The act 3 boss win calls `Story.begin_ending`; the run waits in REWARD
+  (`Story.has_pending`) and RunView shows `Story.screen()`. Action `story_ending` (`ending`: `burn` /
+  `sample` / `carry`), majority with the host breaking ties. Burn is always open; Sample needs a Halden-Voss
+  event this run (`StoryData.HV_EVENTS`); Carry needs the `contact` log and a living Critical soldier, who
+  becomes `run.story.carrier`. Then the `victory` step ends the run.
+- **Presentation** (`ui/story/story_director.gd`, a CanvasLayer in `App`, local only): the briefing at run
+  start, act 2 and 3 transitions, boss intros at `fight_start`, the ending scene, radio barks on run and fight
+  events (act 2 garbled, act 3 a soldier speaks) and Source whispers when a local player's soldier reaches
+  Mutating or Critical. Scenes are `story_scene.gd` (letterbox, title card, captions; Space next, Esc skip)
+  over `story_stage.gd` (a 3D set from primitives plus the game's models, own SubViewport world).
+- Dev aid: `godot -s tools/shot_story.gd -- out.png <intro|act2|act3|brood_mother|colonel_hale|the_source|burn|sample|carry|ending_vote> [secs]`
+  (under xvfb, `--rendering-driver opengl3`) and `tools/shot_story_fight.gd` (an Echo, radio and a whisper in a fight).

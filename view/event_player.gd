@@ -256,7 +256,7 @@ func _blood(uv: UnitView) -> Color:
 
 
 func _feel(uv: UnitView) -> Dictionary:
-	return GunFeel.for_kind(uv.kind)
+	return GunFeel.for_weapon(uv.weapon) if uv.weapon != "" else GunFeel.for_kind(uv.kind)
 
 
 # --- beats -------------------------------------------------------------------

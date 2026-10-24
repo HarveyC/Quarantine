@@ -3,7 +3,9 @@ extends RefCounted
 ## A soldier's equipment, kept on their run record as `record.gear` (plain data, so it
 ## serializes for saves and network sync):
 ##   {"slots": {"weapon": {"id", "mk"} | null, "ammo": .., "armor": .., "gadget": ..},
-##    "pockets": [{"id", "charges"} | null, ...]}
+##    "pockets": [{"id", "charges"} | null, ...],
+##    "gun": weapon id carried ("" = the class's signature gun), "guns": [alternate gun ids owned]}
+## Guns live in combat/weapons.gd; an alternate gun's tag counts like a gear item's.
 ## The squad stash lives in `run.gear.stash` as an Array of {"id", "mk"} (GearRun owns it).
 ## Every rule about duplicates, Mk II and the stash is here, so other modules call these
 ## functions instead of writing the dictionaries.
@@ -17,7 +19,7 @@ static func make() -> Dictionary:
 		slots[slot] = null
 	var pockets := []
 	pockets.resize(GearData.POCKETS)
-	return {"slots": slots, "pockets": pockets}
+	return {"slots": slots, "pockets": pockets, "gun": "", "guns": []}
 
 
 ## The record's loadout, created on first use.
@@ -53,13 +55,69 @@ static func mk_of(record, id: String) -> int:
 	return 0
 
 
-## Tag counts from gear alone ({"Mark": 2, ...}). Prototypes count for both tags.
+## Tag counts from gear alone ({"Mark": 2, ...}). Prototypes count for both tags, the gun
+## being carried counts for its tag.
 static func gear_tags(record) -> Dictionary:
 	var out := {}
 	for e in equipped(record):
 		for t in GearData.tags_of(e.id):
 			out[t] = out.get(t, 0) + 1
+	var gt := Weapons.tag_of(gun(record))
+	if gt != "":
+		out[gt] = out.get(gt, 0) + 1
 	return out
+
+
+# --- Guns ------------------------------------------------------------------------------
+
+## The alternate gun the soldier carries, or "" for their class's signature gun.
+static func gun(record) -> String:
+	return str(of(record).get("gun", ""))
+
+
+## The weapon id the soldier fires: their alternate gun or the class signature.
+static func gun_id(record) -> String:
+	var g := gun(record)
+	return g if g != "" else Weapons.id_for(str(record.get("kind", "")))
+
+
+## Alternate guns the soldier owns (the signature gun is always theirs too).
+static func guns(record) -> Array:
+	var g := of(record)
+	if not g.get("guns") is Array:
+		g["guns"] = []
+	return g.guns
+
+
+static func owns_gun(record, id: String) -> bool:
+	return id == "" or id == Weapons.id_for(str(record.get("kind", ""))) or guns(record).has(id)
+
+
+## Adds an alternate gun to the soldier's kit and carries it. False if they can't use it.
+static func add_gun(record, id: String, carry: bool = true) -> bool:
+	if not Weapons.is_alternate(id) or not Weapons.can_carry(str(record.get("kind", "")), id):
+		return false
+	if not guns(record).has(id):
+		guns(record).append(id)
+	if carry:
+		set_gun(record, id)
+	return true
+
+
+## Carries `id` (an owned alternate, or "" / the signature id for the signature gun).
+static func set_gun(record, id: String) -> bool:
+	if id == Weapons.id_for(str(record.get("kind", ""))):
+		id = ""
+	if not owns_gun(record, id):
+		return false
+	of(record)["gun"] = id
+	return true
+
+
+## Alternate guns this soldier could still be offered (their class's, not yet owned).
+static func gun_pool(record, rarity: String = "") -> Array[String]:
+	var have := guns(record)
+	return Weapons.alternates_for(str(record.get("kind", "")), rarity).filter(func(id): return not have.has(id))
 
 
 ## How picking `id` would land: "upgrade" (duplicate -> Mk II), "equip" (empty slot),

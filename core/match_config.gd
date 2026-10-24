@@ -67,7 +67,11 @@ static func for_fight(run: RunState, st: Dictionary) -> Dictionary:
 	Severity.adjust_fight_spec(run, spec)
 	var built: Dictionary = RunHooks.call_static("FightBuilder", "build", [spec], {})
 	var enemies: Array = built.get("enemies", default_enemies(spec))
+	var echo: Dictionary = RunHooks.call_static("Story", "fight_echo", [run, st], {})
+	if not echo.is_empty() and enemies.size() > 1:
+		enemies = enemies.slice(0, enemies.size() - 1)   # the Echo takes the last enemy's place
 	return {
+		"echo": echo,
 		"map": MAP, "map_spec": {"biome": RunMap.biome(run.act), "objective": st.objective, "seed": seed,
 			"act": run.act, "row": run.row, "outbreak": run.outbreak},
 		"squad": squad, "enemies": enemies, "encounter": built.get("encounter", {}), "seed": seed, "fight": spec,
@@ -94,4 +98,6 @@ static func build(config: Dictionary) -> GameState:
 	var s := Rules.new_mission_on_grid(grid, config.squad, enemies, config.seed)
 	if config.has("encounter"):
 		RunHooks.call_static("Encounter", "setup", [s, config.encounter])
+	if not config.get("echo", {}).is_empty():
+		RunHooks.call_static("Story", "setup_echo", [s, config.echo])
 	return s
