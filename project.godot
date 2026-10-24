@@ -11,6 +11,7 @@ config/features=PackedStringArray("4.4", "Forward Plus")
 [autoload]
 
 Soundscape="*res://view/soundscape.gd"
+UiFeel="*res://ui/ui_feel.gd"
 
 [display]
 

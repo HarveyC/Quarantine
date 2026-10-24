@@ -6,6 +6,8 @@ extends Control
 
 const UI := preload("res://ui/gear/gear_ui.gd")
 const GearCard := preload("res://ui/gear/gear_card.gd")
+const W := preload("res://ui/widgets.gd")
+const Feel := preload("res://ui/ui_feel.gd")
 
 var run: RunState
 var session
@@ -49,6 +51,7 @@ func _queue_refresh() -> void:
 func _build() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	theme = preload("res://ui/styles.gd").make_theme()
 	var bg := ColorRect.new()
 	bg.color = Color(UI.BG, 0.93)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -279,29 +282,42 @@ func _show_doctrines(vote: Dictionary) -> void:
 	for i in vote.options.size():
 		var id: String = vote.options[i]
 		var d: Dictionary = GearData.DOCTRINES.get(id, {})
-		var p := PanelContainer.new()
-		p.custom_minimum_size = Vector2(300, 300)
+		var p := W.Frame.new(Vector4(24, 22, 24, 22))
+		p.custom_minimum_size = Vector2(330, 360)
 		p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		p.add_theme_stylebox_override("panel", UI.box(UI.PANEL, UI.BORDER_HI, 1, 0, 20))
 		var v := VBoxContainer.new()
-		v.add_theme_constant_override("separation", 10)
-		v.add_child(UI.label("DOCTRINE", 12, UI.FAINT, "mono"))
-		v.add_child(UI.caps(d.get("name", id), 32))
-		v.add_child(UI.wrap(UI.label(d.get("desc", ""), 16, Color("#cfccbd")), 260))
-		var votes: Array = []
-		for pl in vote.votes:
-			if vote.votes[pl] == id:
-				votes.append(_player_name(pl))
+		v.add_theme_constant_override("separation", 12)
+		var art := W.Icon.new("doctrine", UI.AMBER, 56, 2.0)
+		art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		v.add_child(art)
+		var nm := UI.caps(d.get("name", id), 32)
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(nm)
+		v.add_child(NodeUi.effect_row(d.get("desc", ""), 16))
 		var sp := Control.new()
 		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		v.add_child(sp)
-		v.add_child(UI.label(("Votes: " + ", ".join(votes)) if not votes.is_empty() else "No votes yet", 13, UI.DIM))
+		# One pip per player: lit in their colour once they back this doctrine.
+		var pips := HBoxContainer.new()
+		pips.add_theme_constant_override("separation", 6)
+		pips.alignment = BoxContainer.ALIGNMENT_CENTER
+		for pl in run.players:
+			var on: bool = vote.votes.get(pl, "") == id
+			var pip := ColorRect.new()
+			pip.custom_minimum_size = Vector2(26, 6)
+			pip.color = UI.player_color(pl) if on else Color("#262e27")
+			pip.tooltip_text = _player_name(pl)
+			pips.add_child(pip)
+		v.add_child(pips)
 		for pl in mine:
 			var b := UI.button("Vote" if mine.size() == 1 else "Vote · %s" % _player_name(pl), vote.votes.get(pl) != id)
 			b.disabled = vote.votes.get(pl) == id
+			if b.disabled:
+				b.text = "VOTED"
 			var player: int = pl
 			b.pressed.connect(func() -> void:
 				UI.play(self, "ui_confirm")
+				Feel.sound("vote")
 				session.submit_run({"type": "gear_doctrine", "player": player, "doctrine": id}))
 			v.add_child(b)
 		p.add_child(v)
@@ -314,6 +330,7 @@ func _progression_pending() -> bool:
 
 func _show_progression() -> void:
 	_title.text = "RANK UP"
+	_sub.text = "PERKS AND MUTATIONS"
 	_hint.text = ""
 	var script = RunHooks.call_static("Progression", "pick_screen")
 	if script == null:
@@ -330,8 +347,14 @@ func _show_progression() -> void:
 
 func _show_waiting() -> void:
 	_hint.text = ""
-	var l := UI.caps("Waiting for teammates to pick…", 26, UI.DIM)
-	_center.add_child(l)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 12)
+	var ic := W.Icon.new("waiting", UI.DIM, 40, 2.0)
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(ic)
+	box.add_child(UI.caps("Waiting for teammates", 26, UI.DIM))
+	_center.add_child(box)
 
 
 func _player_name(p: int) -> String:

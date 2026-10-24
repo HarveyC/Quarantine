@@ -192,6 +192,24 @@ func leave() -> void:
 	left_match.emit()
 
 
+var _pause_layer: CanvasLayer
+
+
+## Opens or closes the in-game menu (Esc with nothing selected).
+func toggle_pause() -> void:
+	if _pause_layer != null and is_instance_valid(_pause_layer):
+		_pause_layer.queue_free()
+		_pause_layer = null
+		return
+	_pause_layer = CanvasLayer.new()
+	_pause_layer.layer = 40
+	add_child(_pause_layer)
+	var m: Control = preload("res://ui/pause_menu.gd").new()
+	m.closed.connect(toggle_pause)
+	m.leave_requested.connect(leave)
+	_pause_layer.add_child(m)
+
+
 func _teardown() -> void:
 	if state != null and state.event.is_connected(_on_state_event):
 		state.event.disconnect(_on_state_event)

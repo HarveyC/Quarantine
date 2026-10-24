@@ -66,6 +66,7 @@ func _queue_refresh() -> void:
 func _build() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	theme = preload("res://ui/styles.gd").make_theme()
 	var bg := ColorRect.new()
 	bg.color = Color(UI.BG, 0.96)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

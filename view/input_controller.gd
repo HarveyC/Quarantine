@@ -348,7 +348,11 @@ func _key(k: InputEventKey) -> void:
 				cycle_target(-1 if k.shift_pressed else 1)
 			elif can_act():
 				cycle(-1 if k.shift_pressed else 1)
-		KEY_ESCAPE: cancel()
+		KEY_ESCAPE:
+			if mode == Mode.MOVE and selected_id < 0:
+				view.toggle_pause()
+			else:
+				cancel()
 		KEY_ENTER, KEY_KP_ENTER:
 			if mode == Mode.SHOOT:
 				confirm_shot()

@@ -16,7 +16,7 @@ const AMBER := Color("#f2c14e")
 const TEAL := Color("#3fe0c5")
 const DANGER := Color("#ff8a6e")
 const GOOD := Color("#a9c46c")
-const PLAYER_COLORS: Array[Color] = [Color("#79b0ff"), Color("#ff9a6b"), Color("#a9c46c"), Color("#c08cff")]
+const PLAYER_COLORS: Array[Color] = preload("res://ui/styles.gd").PLAYERS
 const PROTO_COLORS: Array[Color] = [Color("#f2c14e"), Color("#3fe0c5"), Color("#ff5c86"), Color("#6fc3ff")]
 
 const FONT_FILES := {
