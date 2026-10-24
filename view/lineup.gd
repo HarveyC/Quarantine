@@ -5,6 +5,7 @@ extends Node3D
 ##   classes:   the four classes (P1, P1, P2, P2) plus every enemy model
 ##   infection: one soldier per infection tier, Clean to Turned
 ##   action:    the classes and enemies aiming / lunging mid-animation
+##   hit:       everyone flinching from a non-lethal hit
 ## `--lineup-kinds=runner,spitter` shows just those models, closer up.
 
 const UnitView := preload("res://view/unit_view.gd")
@@ -140,10 +141,20 @@ func _process(delta: float) -> void:
 				uv.aim_now(1.0)
 			else:
 				uv.set_lunge(0.6)
+		if mode == "hit" and _frames == 5:
+			uv.hit_react(uv.position + Vector3(0, 0, 3), 1.0)
 		uv.tick(delta)
 		if shot_path == "":
 			uv.rotate_y(delta * 0.4)
-	if shot_path != "" and _frames == 40:
+	if shot_path != "" and _frames == (5 + _hit_frames() if mode == "hit" else 40):
 		get_viewport().get_texture().get_image().save_png(shot_path)
 		print("[lineup] saved ", shot_path)
 		get_tree().quit(0)
+
+
+## `--lineup-hit-frame=N`: how many frames after the hit to capture (default 20).
+func _hit_frames() -> int:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--lineup-hit-frame="):
+			return int(a.trim_prefix("--lineup-hit-frame="))
+	return 20

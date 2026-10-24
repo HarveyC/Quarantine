@@ -21,7 +21,7 @@ const SOLDIER := {
 }
 const FERAL := {
 	"idle": "Zombie_Idle", "walk": "Zombie_Walk_Fwd", "aim": "Zombie_Idle", "crouch": "Crouch_Idle",
-	"shoot": "Spell_Simple_Shoot", "hit": "Hit_Knockback", "death": "Death01",
+	"shoot": "Spell_Simple_Shoot", "hit": "Hit_Chest", "death": "Death01",
 	"melee": "Zombie_Scratch", "throw": "OverhandThrow", "call": "Consume",
 }
 const FADE := 0.18
