@@ -125,8 +125,10 @@ static func _eye(s: GameState, c: Vector2i) -> int:
 
 
 ## Supercover line between cell centers; true if no WALL lies strictly between `a` and `b`
-## (nor a raised cell higher than `over`; `over` < 0 ignores height, `true` means 0 for old callers).
-## When the line passes exactly through a corner it is blocked only if both side cells block.
+## (nor a raised cell higher than `over`; `over` < 0 ignores height, `true` means 0 for old callers),
+## and no edge wall stands on a border it crosses (edge walls are one storey tall: units higher
+## than that see over them, unless `over` < 0).
+## When the line passes exactly through a corner it is blocked only if both ways around it are.
 static func line_clear(g: Grid, a: Vector2i, b: Vector2i, over: Variant = -1) -> bool:
 	var top: int = (0 if over else -1) if over is bool else int(over)
 	var nx := absi(b.x - a.x)
@@ -140,15 +142,23 @@ static func line_clear(g: Grid, a: Vector2i, b: Vector2i, over: Variant = -1) ->
 		var lhs := (1 + 2 * ix) * ny
 		var rhs := (1 + 2 * iy) * nx
 		if lhs == rhs:
-			if _blocks(g, Vector2i(c.x + sx, c.y), top) and _blocks(g, Vector2i(c.x, c.y + sy), top):
+			var x := Vector2i(sx, 0)
+			var y := Vector2i(0, sy)
+			var via_x := _blocks(g, c + x, top) or _edge_blocks(g, c, x, top) or _edge_blocks(g, c + x, y, top)
+			var via_y := _blocks(g, c + y, top) or _edge_blocks(g, c, y, top) or _edge_blocks(g, c + y, x, top)
+			if via_x and via_y:
 				return false
 			c += Vector2i(sx, sy)
 			ix += 1
 			iy += 1
 		elif lhs < rhs:
+			if _edge_blocks(g, c, Vector2i(sx, 0), top):
+				return false
 			c.x += sx
 			ix += 1
 		else:
+			if _edge_blocks(g, c, Vector2i(0, sy), top):
+				return false
 			c.y += sy
 			iy += 1
 		if c != b and _blocks(g, c, top):
@@ -160,16 +170,20 @@ static func _blocks(g: Grid, c: Vector2i, top: int) -> bool:
 	return g.blocks_los(c) or (top >= 0 and g.level(c) > top)
 
 
-## Open cells a unit at `c` can lean out to: beside each orthogonally adjacent wall.
+static func _edge_blocks(g: Grid, c: Vector2i, d: Vector2i, top: int) -> bool:
+	return g.edge_blocks_los(c, d) and (top < 0 or g.edge_top(c, d) > top)
+
+
+## Open cells a unit at `c` can lean out to: beside each orthogonally adjacent wall or edge wall.
 static func peek_cells(g: Grid, c: Vector2i) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for d in Grid.DIRS4:
 		var w := c + d
-		if not g.in_bounds(w) or not g.blocks_los(w):
+		if not g.in_bounds(w) or not (g.blocks_los(w) or g.edge_blocks_los(c, d)):
 			continue
 		for p in [Vector2i(d.y, d.x), Vector2i(-d.y, -d.x)]:
 			var q: Vector2i = c + p
-			if g.in_bounds(q) and not g.blocks_los(q) and not out.has(q):
+			if g.in_bounds(q) and not g.blocks_los(q) and not g.edge_blocks_los(c, p) and not out.has(q):
 				out.append(q)
 	return out
 
@@ -212,7 +226,7 @@ static func cover_against(g: Grid, target: Vector2i, from: Vector2i) -> int:
 		if side == Vector2i.ZERO:
 			continue
 		var n: Vector2i = target + side
-		best = maxi(best, g.cover_value(n))
+		best = maxi(best, g.cover_toward(target, side))
 		if g.level(n) > g.level(target) and g.level(from) < g.level(n):
 			best = Types.Cover.FULL
 	return best
@@ -355,7 +369,7 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 		"claw":
 			if not u.is_enemy_of(t):
 				return "Not an enemy"
-			if _cheb(u.pos, t.pos) != 1:
+			if not s.grid.touching(u.pos, t.pos):
 				return "Not adjacent"
 	return ""
 

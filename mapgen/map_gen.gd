@@ -31,7 +31,7 @@ const HALF_COVER := Vector2(0.05, 0.22)
 const DEAD_GROUND := 3                    # every floor tile within this many tiles of cover
 const MAX_SIGHTLINE := 12                 # longest straight open run in a row or column
 const REINFORCE_MIN_STEPS := 6
-const LANE_COVER_CHANCE := 0.08
+const LANE_COVER_CHANCE := 0.05
 const RAISED := Vector2(0.06, 0.35)       # share of all tiles on a roof (level 1 or 2)
 const MIN_WAYS_UP := 2                    # stairs or ladders on the map
 
@@ -95,8 +95,9 @@ static func parse(text: String) -> Dictionary:
 	var plots: Array = []
 	var current: Dictionary = {}
 	for raw in text.split("\n"):
-		var line := raw.strip_edges()
-		if line.is_empty() or line.begins_with(";"):
+		# Only the right side is trimmed: a double-resolution row can start with an open border (a space).
+		var line := raw.strip_edges(false, true)
+		if line.strip_edges().is_empty() or line.begins_with(";"):
 			continue
 		if line.begins_with("@"):
 			var parts := line.substr(1).split(" ", false)
@@ -114,7 +115,32 @@ static func parse(text: String) -> Dictionary:
 				parcels[parts[0]].append(current)
 			continue
 		current.rows.append(line)
+	for role in parcels:
+		for parcel in parcels[role]:
+			parcel.rows = _double(parcel.rows)
 	return {"parcels": parcels, "plots": plots}
+
+
+## A parcel's rows at double resolution (cells at odd positions, borders between; see
+## Grid.from_edge_rows). Plain parcels (4 or 8 rows of cells) get open borders; parcels drawn with
+## edge walls (9 or 17 rows) are padded back to full width.
+static func _double(rows: PackedStringArray) -> PackedStringArray:
+	var out := PackedStringArray()
+	if rows.size() % 2 == 1:
+		var w := rows.size()
+		for r in rows:
+			out.append(r.rpad(w))
+		return out
+	var n := rows.size()
+	var rim := "+ ".repeat(n) + "+"
+	out.append(rim)
+	for r in rows:
+		var row := " "
+		for x in n:
+			row += r[x] + " "
+		out.append(row)
+		out.append(rim)
+	return out
 
 
 static func _transform(rows: PackedStringArray, t: int) -> PackedStringArray:
@@ -204,11 +230,13 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 				pools[role] = _Pool.new(data.parcels.get(role, data.parcels.filler), rng)
 			var parcel: Dictionary = pools[role].draw()
 			var options: Array[int] = UPRIGHT_TRANSFORMS if role in ["breach", "deploy"] else ALL_TRANSFORMS
-			var rows := _transform(parcel.rows, options[rng.randi() % options.size()])
+			var split := Grid.split_edge_rows(_transform(parcel.rows, options[rng.randi() % options.size()]))
+			var rows: PackedStringArray = split.cells
+			var origin := Vector2i(px * step, py * step)
 			var pod: Array[Vector2i] = []
 			for y in size:
 				for x in size:
-					var c := Vector2i(px * step + x, py * step + y)
+					var c := origin + Vector2i(x, y)
 					var ch := rows[y][x]
 					var t := g.read_glyph(c, ch)
 					match ch:
@@ -227,6 +255,8 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 							markers[ROLE_MARKER.get(role, "hive")].append(c)
 							reserved[c] = true
 					g.tiles[c.y * g.width + c.x] = t
+			for e in split.edges:
+				g.set_edge(origin + e[0], e[1], e[2])
 			if not pod.is_empty():
 				pods.append(pod)
 
@@ -251,6 +281,8 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 					g.ladders.erase(Vector2i(x, y))
 					g.stairs.erase(Vector2i(x, y))
 					g.fragile.erase(Vector2i(x, y))
+					for d in Grid.DIRS4:
+						g.set_edge(Vector2i(x, y), d, Grid.EDGE_NONE)
 					reserved[Vector2i(x, y)] = true
 		markers.boss.append(centre)
 
@@ -262,12 +294,17 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 		for x in g.width:
 			if g.level(Vector2i(x, y)) > 0:
 				reserved[Vector2i(x, y)] = true
+	# The fix-ups also leave every cell beside an edge wall alone (doorways, rooms, railings).
+	var fixed := reserved.duplicate()
+	for k in g.edges:
+		for c in Grid.edge_cells(k):
+			fixed[c] = true
 	deploy.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
 	if deploy.size() < 4 or pods.is_empty():
 		last_reject = "plot has no deploy or pods"
 		return null
-	_fix_dead_ground(g, reserved, rng)
-	_fix_sightlines(g, reserved, rng)
+	_fix_dead_ground(g, fixed, rng)
+	_fix_sightlines(g, fixed, rng)
 
 	# Connectivity: everything that matters must be reachable from the drop zone and able to walk
 	# back to it (drop-downs are one way); seal the rest. `back` keeps only round-trip cells.
@@ -373,7 +410,14 @@ static func _can_return(g: Grid, targets: Array[Vector2i]) -> Dictionary:
 
 
 static func _is_cover(g: Grid, c: Vector2i) -> bool:
-	return g.in_bounds(c) and (g.tile(c) != Types.Tile.FLOOR or g.level(c) > 0)
+	if not g.in_bounds(c):
+		return false
+	if g.tile(c) != Types.Tile.FLOOR or g.level(c) > 0:
+		return true
+	for d in Grid.DIRS4:
+		if g.edge_cover(c, d) != Types.Cover.NONE:
+			return true
+	return false
 
 
 ## Adds half cover near any floor tile that has none within DEAD_GROUND tiles.
@@ -394,11 +438,15 @@ static func _fix_dead_ground(g: Grid, reserved: Dictionary, rng: RandomNumberGen
 				g.tiles[s.y * g.width + s.x] = Types.Tile.LOW
 
 
-## True when no tile around `c` blocks movement, so a block placed there can never seal a path.
+## True when no tile around `c` blocks movement and no edge wall is near, so a block placed there
+## can never seal a path.
 static func _isolated(g: Grid, c: Vector2i) -> bool:
 	for d in Grid.DIRS8:
 		if g.in_bounds(c + d) and not g.is_walkable(c + d):
 			return false
+		for e in Grid.DIRS4:
+			if g.edge(c + d, e) != Grid.EDGE_NONE:
+				return false
 	return true
 
 
@@ -410,38 +458,60 @@ static func _has_cover_near(g: Grid, c: Vector2i, r: int) -> bool:
 	return false
 
 
-## Breaks straight open runs longer than MAX_SIGHTLINE with a block of full cover.
+## Breaks straight open runs longer than MAX_SIGHTLINE (an edge wall across the line ends a run too).
 static func _fix_sightlines(g: Grid, reserved: Dictionary, rng: RandomNumberGenerator) -> void:
 	for horizontal in [true, false]:
 		var lines: int = g.height if horizontal else g.width
 		var length: int = g.width if horizontal else g.height
+		var along: Vector2i = Vector2i(1, 0) if horizontal else Vector2i(0, 1)
 		for i in lines:
 			var run: Array[Vector2i] = []
 			for j in length + 1:
 				var c: Vector2i = Vector2i(j, i) if horizontal else Vector2i(i, j)
-				if j < length and not g.blocks_los(c):
+				var cut := not run.is_empty() and g.edge_blocks_los(run[-1], along)
+				if j < length and not g.blocks_los(c) and not cut:
 					run.append(c)
 					continue
 				if run.size() > MAX_SIGHTLINE:
 					_block_sightline(g, run, horizontal, reserved, rng)
 				run.clear()
+				if j < length and not g.blocks_los(c):
+					run.append(c)
 
 
-## Turns one tile in the middle third of `run` into full cover. Raising half cover to full
-## costs no walking room, so that is tried first; a floor tile is used only if it does not
-## touch another wall across the run, so repeated fixes never stack into a sealed line.
+## Breaks `run` in its middle third with a two-cell blast wall (T-wall) across it on a cell border,
+## only where the ground all around is open so it never seals a path. (No more lone wall blocks:
+## a run with no room for a T-wall is left alone.)
 static func _block_sightline(g: Grid, run: Array[Vector2i], horizontal: bool, reserved: Dictionary, rng: RandomNumberGenerator) -> void:
 	var middle := run.slice(run.size() / 3, run.size() * 2 / 3 + 1)
+	var along: Vector2i = Vector2i(1, 0) if horizontal else Vector2i(0, 1)
 	var across: Vector2i = Vector2i(0, 1) if horizontal else Vector2i(1, 0)
-	var lows := middle.filter(func(c: Vector2i) -> bool: return g.tile(c) == Types.Tile.LOW and not reserved.has(c))
-	var floors := middle.filter(func(c: Vector2i) -> bool:
-		return g.tile(c) == Types.Tile.FLOOR and not reserved.has(c) \
-			and g.tile(c + across) != Types.Tile.WALL and g.tile(c - across) != Types.Tile.WALL)
-	var pick: Array = lows if not lows.is_empty() else floors
-	if pick.is_empty():
-		return
-	var s: Vector2i = pick[rng.randi() % pick.size()]
-	g.tiles[s.y * g.width + s.x] = Types.Tile.WALL
+	var spots: Array = []
+	for c in middle:
+		for side in [across, -across]:
+			if _slab_room(g, c, along, side, reserved):
+				spots.append([c, side])
+	if not spots.is_empty():
+		var pick: Array = spots[rng.randi() % spots.size()]
+		g.set_edge(pick[0], along, Grid.EDGE_WALL)
+		g.set_edge(pick[0] + pick[1], along, Grid.EDGE_WALL)
+
+
+## Room for a T-wall on the border after `c` (direction `along`) and the same border one cell to
+## `side`: the four cells beside it are open ground floor with nothing on that border, and the
+## cells just past both ends are open too, so there is always a way around it.
+static func _slab_room(g: Grid, c: Vector2i, along: Vector2i, side: Vector2i, reserved: Dictionary) -> bool:
+	for b in [-1, 0, 1, 2]:
+		var n: Vector2i = c + side * b
+		for a in [0, 1]:
+			var m: Vector2i = n + along * a
+			if not g.in_bounds(m) or not g.is_walkable(m) or g.level(m) != 0:
+				return false
+			if (b == 0 or b == 1) and reserved.has(m):
+				return false
+		if g.edge(n, along) != Grid.EDGE_NONE:
+			return false
+	return true
 
 
 static func _validate(g: Grid, objective: String, dist: Dictionary, deploy: Array[Vector2i], pods: Array,
@@ -488,7 +558,15 @@ static func _validate(g: Grid, objective: String, dist: Dictionary, deploy: Arra
 			full += 1
 		elif t == Types.Tile.LOW:
 			half += 1
+	var edge_full := 0
+	var edge_half := 0
+	for k in g.edges:
+		match g.edges[k]:
+			Grid.EDGE_WALL: edge_full += 1
+			Grid.EDGE_WINDOW, Grid.EDGE_LOW: edge_half += 1
 	var total := float(g.tiles.size())
+	full += int(edge_full / 2.0)
+	half += int(edge_half / 2.0)
 	var raised := g.levels.size() - g.levels.count(0) if not g.levels.is_empty() else 0
 	if raised / total < RAISED.x or raised / total > RAISED.y:
 		last_reject = "raised %.2f" % (raised / total)

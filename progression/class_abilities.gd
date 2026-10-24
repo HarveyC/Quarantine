@@ -173,7 +173,7 @@ static func incinerate_cells(s: GameState, u: Unit, cell: Vector2i) -> Array[Vec
 	if Kit.has_perk(u, "firewall"):
 		for i in range(1, 5):
 			var c := u.pos + Vector2i(roundi(aim.x * i), roundi(aim.y * i))
-			if not s.grid.in_bounds(c) or s.grid.blocks_los(c):
+			if not s.grid.in_bounds(c) or s.grid.blocks_los(c) or not Combat.line_clear(s.grid, u.pos, c):
 				break
 			if not out.has(c):
 				out.append(c)
@@ -281,7 +281,7 @@ static func _strike_target_error(s: GameState, u: Unit, id: String, t: Unit) -> 
 	if not u.is_enemy_of(t):
 		return "Not an enemy"
 	if id == "bash":
-		return "" if Kit.cheb(u.pos, t.pos) == 1 else "Not adjacent"
+		return "" if s.grid.touching(u.pos, t.pos) else "Not adjacent"
 	if not Combat.visible_targets(s, u).has(t):
 		return "No line of sight"
 	if lunge_landing(s, u, t, strike_reach(u, id)) == NO_CELL:
@@ -300,14 +300,14 @@ static func strike_reach(u: Unit, id: String) -> int:
 ## adjacent, else the closest free cell next to `t` (ties: the one where `t` has no cover).
 ## NO_CELL if there is none. Pure (the view previews it).
 static func lunge_landing(s: GameState, u: Unit, t: Unit, reach: int) -> Vector2i:
-	if Kit.cheb(u.pos, t.pos) == 1:
+	if s.grid.touching(u.pos, t.pos):
 		return u.pos
 	var dist := s.grid.reachable(u.pos, reach, s.occupied(u.id))
 	var best := NO_CELL
 	var best_score := INF
 	for d in Grid.DIRS8:
 		var c: Vector2i = t.pos + d
-		if c == u.pos or not dist.has(c) or s.unit_at(c) != null:
+		if c == u.pos or not dist.has(c) or s.unit_at(c) != null or not s.grid.touching(c, t.pos):
 			continue
 		var score := float(dist[c])
 		if Combat.cover_against(s.grid, t.pos, c) != Types.Cover.NONE:

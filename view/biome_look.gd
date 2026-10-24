@@ -13,7 +13,7 @@ const LOOKS := {
 	"wall": {
 		"floor": [Color("3b3d39"), Color("363834"), Color("41423d"), Color("33352f")],
 		"wall": Color("24272a"), "trim": Color("3a3f44"), "crate": Color("4d4a35"), "ground": Color("1d1f1c"),
-		"deck": Color("8a8f86"),
+		"deck": Color("8a8f86"), "indoor": Color("4d4535"), "partition": Color("5a5a52"),
 		"background": Color("07090a"), "ambient": Color("2c3a40"), "ambient_energy": 0.42,
 		"fog": Color("131c1d"), "fog_density": 0.018, "volumetric": Color("8a9a90"),
 		"moon": Color("8fa3b0"), "moon_energy": 0.35, "rim": Color("2f6f6a"),
@@ -25,7 +25,7 @@ const LOOKS := {
 	"port": {
 		"floor": [Color("34383b"), Color("2f3336"), Color("3a3e40"), Color("2c3032")],
 		"wall": Color("2b2f35"), "trim": Color("4a525c"), "crate": Color("3f4a52"), "ground": Color("17191c"),
-		"deck": Color("7d8790"),
+		"deck": Color("7d8790"), "indoor": Color("565c60"), "partition": Color("6a7178"),
 		"background": Color("080a0e"), "ambient": Color("2a3446"), "ambient_energy": 0.46,
 		"fog": Color("141a24"), "fog_density": 0.022, "volumetric": Color("8a96a8"),
 		"moon": Color("9fb2c8"), "moon_energy": 0.3, "rim": Color("3a4f78"),
@@ -37,7 +37,7 @@ const LOOKS := {
 	"bore": {
 		"floor": [Color("2e2a26"), Color("292522"), Color("332e29"), Color("26221f")],
 		"wall": Color("2a2420"), "trim": Color("4a3f35"), "crate": Color("4a3a2a"), "ground": Color("120f0d"),
-		"deck": Color("6f665a"),
+		"deck": Color("6f665a"), "indoor": Color("40362b"), "partition": Color("5c4f42"),
 		"background": Color("040505"), "ambient": Color("1c3633"), "ambient_energy": 0.4,
 		"fog": Color("0c1716"), "fog_density": 0.03, "volumetric": Color("5aa894"),
 		"moon": Color("6d8a86"), "moon_energy": 0.18, "rim": Color("2ef2c8"),

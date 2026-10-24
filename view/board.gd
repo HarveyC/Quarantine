@@ -181,12 +181,16 @@ func _build_tiles() -> void:
 	var pole_mat := Palette.mat(Color("8c8a80"), 0.5, 0.7)
 	var tarp_mat := grimy(Color("4f5a44"), 1.0, 0.4)
 	var stair_mat := grimy(Color("77786f"), 0.85, 0.4, 0.2)
+	var indoor := _indoor_cells()
+	var indoor_mats: Array[StandardMaterial3D] = [grimy(look.indoor, 0.8, 0.5), grimy(look.indoor.darkened(0.12), 0.8, 0.5)]
 	for y in grid.height:
 		for x in grid.width:
 			var c := Vector2i(x, y)
 			var h := _hash(c)
 			var shade := (h % 3) + (1 if (x + y) % 2 == 0 else 0)
 			var top_mat: Material = floor_mats[shade % floor_mats.size()]
+			if indoor.has(c) and grid.level(c) == 0:
+				top_mat = indoor_mats[(x + y) % 2]
 			if grid.is_fragile(c):
 				top_mat = plank_mat
 			elif grid.level(c) > 1:
@@ -234,6 +238,7 @@ func _build_tiles() -> void:
 						goo_lights += 1
 					elif h % 5 == 0:
 						_add_rubble(c, h, rubble)
+	_build_edges(look, trim_mat, hazard, crack_mat)
 	# Painted road markings across the deployment zone.
 	var paint := Palette.mat(Color(Palette.AMBER, 1.0).darkened(0.35), 0.9)
 	for x in grid.width:
@@ -241,6 +246,103 @@ func _build_tiles() -> void:
 			var dash := Palette.box(Vector3(0.55, 0.005, 0.08), paint)
 			dash.position = Vector3(x, 0.003, grid.height - 3.5)
 			_tiles.add_child(dash)
+
+
+## Ground cells inside a building: shut off from the map's rim by edge walls, windows, doorways and
+## wall tiles. They get an indoor floor so rooms read from the camera.
+func _indoor_cells() -> Dictionary:
+	var out := {}
+	if grid.edges.is_empty():
+		return out
+	var outside := {}
+	var frontier: Array[Vector2i] = []
+	for y in grid.height:
+		for x in grid.width:
+			var c := Vector2i(x, y)
+			if (x == 0 or y == 0 or x == grid.width - 1 or y == grid.height - 1) and grid.tile(c) != Types.Tile.WALL:
+				outside[c] = true
+				frontier.append(c)
+	while not frontier.is_empty():
+		var c: Vector2i = frontier.pop_back()
+		for d in Grid.DIRS4:
+			var n := c + d
+			if grid.in_bounds(n) and not outside.has(n) and grid.tile(n) != Types.Tile.WALL and grid.edge(c, d) == Grid.EDGE_NONE:
+				outside[n] = true
+				frontier.append(n)
+	for y in grid.height:
+		for x in grid.width:
+			var c := Vector2i(x, y)
+			if not outside.has(c) and grid.tile(c) != Types.Tile.WALL:
+				out[c] = true
+	return out
+
+
+## Edge walls: thin walls, windows, low walls and door frames on the borders between cells, with
+## a post wherever walls meet so corners read solid.
+const EDGE_HEIGHT := 1.9
+const EDGE_THICK := 0.16
+
+
+func _build_edges(look: Dictionary, trim: Material, hazard: Material, crack_mat: Material) -> void:
+	if grid.edges.is_empty():
+		return
+	var wall := grimy(look.partition, 0.9, 0.35)
+	var dark := grimy(look.partition.darkened(0.35), 0.9, 0.35)
+	var frame := Palette.mat(look.trim.lightened(0.1), 0.5, 0.5)
+	var glass := Palette.mat(Color(0.35, 0.5, 0.55, 1.0), 0.15, 0.6)
+	var low := grimy(Color("6a6862"), 0.95, 0.4)
+	var posts := {}
+	var keys: Array = grid.edges.keys()
+	keys.sort()
+	for k in keys:
+		var kind: int = grid.edges[k]
+		var cells := Grid.edge_cells(k)
+		var base := RAISE * mini(grid.level(cells[0]), grid.level(cells[1]))
+		var top := RAISE * maxi(grid.level(cells[0]), grid.level(cells[1]))
+		var mid := Vector3(cells[0].x, 0, cells[0].y) + (Vector3(0.5, 0, 0) if k.z == 0 else Vector3(0, 0, 0.5))
+		var size := func(along: float, tall: float, thick: float) -> Vector3:
+			return Vector3(thick, tall, along) if k.z == 0 else Vector3(along, tall, thick)
+		var put := func(m: Material, along: float, y0: float, y1: float, thick := EDGE_THICK, shift := 0.0) -> MeshInstance3D:
+			var b := Palette.box(size.call(along, y1 - y0, thick), m)
+			b.position = mid + Vector3(0, (y0 + y1) * 0.5, 0) + (Vector3(0, 0, shift) if k.z == 0 else Vector3(shift, 0, 0))
+			_tiles.add_child(b)
+			return b
+		var h := top - base + EDGE_HEIGHT
+		match kind:
+			Grid.EDGE_WALL:
+				put.call(wall, 1.0, base, base + h)
+				put.call(dark, 1.0, base, base + 0.25, EDGE_THICK + 0.04)
+				put.call(trim, 1.04, base + h, base + h + 0.06, EDGE_THICK + 0.06)
+				if grid.edge_wear.has(k):
+					put.call(crack_mat, 0.5, base + 0.4, base + 1.3, EDGE_THICK + 0.02, 0.1)
+			Grid.EDGE_WINDOW:
+				put.call(wall, 1.0, base, base + 0.85)
+				put.call(trim, 1.04, base + 0.85, base + 0.91, EDGE_THICK + 0.08)
+				put.call(wall, 1.0, base + h - 0.4, base + h)
+				put.call(trim, 1.04, base + h, base + h + 0.06, EDGE_THICK + 0.06)
+				for side in [-0.44, 0.44]:
+					put.call(frame, 0.12, base + 0.85, base + h - 0.4, EDGE_THICK + 0.02, side)
+				put.call(frame, 0.06, base + 0.91, base + h - 0.4, 0.05)   # mullion
+				put.call(glass, 0.8, base + 1.3, base + h - 0.4, 0.02).transparency = 0.6
+				if grid.edge_wear.has(k):
+					put.call(crack_mat, 0.4, base + 0.2, base + 0.7, EDGE_THICK + 0.02, -0.15)
+			Grid.EDGE_LOW:
+				put.call(low, 0.98, base, base + 0.8, 0.26)
+				put.call(hazard if (k.x + k.y) % 3 == 0 else trim, 1.0, base + 0.8, base + 0.86, 0.3)
+			Grid.EDGE_DOOR:
+				for side in [-0.42, 0.42]:
+					put.call(wall, 0.16, base, base + h, EDGE_THICK + 0.02, side)
+				put.call(wall, 1.0, base + h - 0.3, base + h)
+				put.call(Palette.emissive(Palette.AMBER, 0.8), 0.6, base + h - 0.36, base + h - 0.3, EDGE_THICK + 0.04)
+		if kind != Grid.EDGE_LOW:
+			for end in [-0.5, 0.5]:
+				var p := mid + (Vector3(0, 0, end) if k.z == 0 else Vector3(end, 0, 0))
+				var pk := Vector2i(roundi(p.x * 2.0), roundi(p.z * 2.0))
+				posts[pk] = maxf(float(posts.get(pk, 0.0)), base + h)
+	for pk in posts:
+		var post := Palette.box(Vector3(EDGE_THICK + 0.06, posts[pk] + 0.06, EDGE_THICK + 0.06), dark)
+		post.position = Vector3(pk.x * 0.5, (posts[pk] + 0.06) * 0.5, pk.y * 0.5)
+		_tiles.add_child(post)
 
 
 const HAZARD_COLORS := {"fire": Color("ff7a2a"), "spore": Color("2ef2c8"), "acid": Color("b8e03a")}

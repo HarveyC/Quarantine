@@ -9,6 +9,8 @@ const Board := preload("res://view/board.gd")
 const WALL_TOP := 2.35   # wall box + cap above the floor
 const LOW_TOP := 1.15    # tallest low cover (crate + lid)
 const OUTSIDE_TOP := 2.8 # fence and containers beyond the map edge
+const EDGE_TOP := 2.0    # edge wall + cap above its floor
+const EDGE_HALF := 0.14  # half an edge wall's thickness, plus a little
 const LENS := 0.35       # room the camera needs around it so the near plane doesn't cut in
 const STEP := 0.12       # sample spacing along a line of sight
 
@@ -21,6 +23,13 @@ static func solid_top(grid: Grid, p: Vector3) -> float:
 	if not grid.in_bounds(c):
 		return 0.0
 	var floor_y := Board.RAISE * grid.level(c)
+	# Edge walls stand on cell borders: a point close to one is inside it.
+	var fx := p.x - c.x
+	var fz := p.z - c.y
+	for d in Grid.DIRS4:
+		var near := (fx * d.x + fz * d.y) > 0.5 - EDGE_HALF
+		if near and grid.edge(c, d) in [Grid.EDGE_WALL, Grid.EDGE_WINDOW, Grid.EDGE_DOOR]:
+			return Board.RAISE * grid.edge_top(c, d) - Board.RAISE + EDGE_TOP
 	match grid.tile(c):
 		Types.Tile.WALL: return floor_y + WALL_TOP
 		Types.Tile.LOW: return floor_y + LOW_TOP

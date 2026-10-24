@@ -11,7 +11,9 @@ extends RefCounted
 ##   fuel barrel    1 hit -> explodes (BARREL_*), then floor
 ##   roof cell      ROOF_HITS per level -> drops one level and becomes a rubble ramp (stairs)
 ##   scaffold       1 hit -> drops to the ground (Elevation's old blast rule)
-##   hard / edge    never
+##   hard / edge    never (the map's own rim)
+##   edge wall      WALL_HITS hits -> gone (a breach; windows the same), low wall 1 hit, doorways never.
+##                  A border takes the larger of the hits on the two cells beside it.
 ## Hits beyond what breaks a layer carry into the next one (a demo charge goes straight through a
 ## wall). Units on a cell that drops fall: Elevation.FALL_DAMAGE_PER_LEVEL a level.
 ##
@@ -140,6 +142,10 @@ static func hit(s: GameState, hits: Dictionary, by: Unit = null) -> Array[Vector
 			cells.append(c)
 		if r.dropped > 0:
 			drops.append([c, was_level, r.dropped])
+	for ch in _hit_edges(g, hits):
+		changes.append(ch)
+		if not cells.has(ch.cell):
+			cells.append(ch.cell)
 	if not changes.is_empty():
 		s.emit({"type": "cover_destroyed", "cells": cells, "changes": changes, "unit": by.id if by != null else -1})
 	for d in drops:
@@ -149,6 +155,45 @@ static func hit(s: GameState, hits: Dictionary, by: Unit = null) -> Array[Vector
 			break
 		detonate(s, b, by)
 	return cells
+
+
+## Edge walls on the borders of the hit cells take the larger of the two cells' hits. Returns
+## "cover_destroyed" change entries ({cell, kind, tile, edge}; `cell` is the edge's west/north cell).
+static func _hit_edges(g: Grid, hits: Dictionary) -> Array:
+	var out: Array = []
+	if g.edges.is_empty():
+		return out
+	var on := {}
+	for c in hits:
+		for d in Grid.DIRS4:
+			var k := Grid.edge_key(c, d)
+			if g.edges.has(k):
+				on[k] = maxi(int(on.get(k, 0)), maxi(int(hits.get(c, 0)), int(hits.get(c + d, 0))))
+	var keys: Array = on.keys()
+	keys.sort()
+	for k in keys:
+		var n: int = on[k]
+		if n <= 0:
+			continue
+		var kind: int = g.edges[k]
+		var cell: Vector2i = Grid.edge_cells(k)[0]
+		var change := ""
+		match kind:
+			Grid.EDGE_WALL, Grid.EDGE_WINDOW:
+				var worn := int(g.edge_wear.get(k, 0)) + n
+				if worn < WALL_HITS:
+					g.edge_wear[k] = worn
+					change = "crack"
+				else:
+					g.edges.erase(k)
+					g.edge_wear.erase(k)
+					change = "break"
+			Grid.EDGE_LOW:
+				g.edges.erase(k)
+				change = "clear"
+		if change != "":
+			out.append({"cell": cell, "kind": change, "tile": g.tile(cell), "edge": k})
+	return out
 
 
 ## A fuel barrel at `c` goes off (its tile is already floor when called from `hit`).
@@ -195,7 +240,7 @@ static func on_fire(s: GameState, cells: Array, source_id: int) -> void:
 static func cover_cells(g: Grid, target: Vector2i, from: Vector2i) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for side in [Vector2i(signi(from.x - target.x), 0), Vector2i(0, signi(from.y - target.y))]:
-		if side != Vector2i.ZERO and g.cover_value(target + side) != Types.Cover.NONE:
+		if side != Vector2i.ZERO and g.cover_toward(target, side) != Types.Cover.NONE:
 			out.append(target + side)
 	return out
 

@@ -121,7 +121,7 @@ static func can_charge(u: Unit) -> bool:
 static func rush(s: GameState, u: Unit, hostiles: Array[Unit], ability: String) -> Dictionary:
 	var adjacent: Array[Unit] = []
 	for h in hostiles:
-		if EnemyAI._cheb(u.pos, h.pos) == 1:
+		if s.grid.touching(u.pos, h.pos):
 			adjacent.append(h)
 	adjacent.sort_custom(func(a: Unit, b: Unit) -> bool:
 		return EnemyAI._target_score(s, u, a, u.pos) > EnemyAI._target_score(s, u, b, u.pos))
@@ -330,7 +330,7 @@ static func _best_landing(s: GameState, u: Unit, hostiles: Array[Unit]) -> Vecto
 	for c in EnemyAbilities.landing_cells(s, u):
 		var score := 0.0
 		for h in hostiles:
-			if EnemyAI._cheb(c, h.pos) <= 1:
+			if s.grid.touching(c, h.pos):
 				score += 3.0 + EnemyTerrain.level(s, h.pos) * 2.0   # knock them off their perch
 		score -= EnemyAI._dist(u.pos, c) * 0.1
 		if score > best_score:
