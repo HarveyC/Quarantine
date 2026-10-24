@@ -51,6 +51,11 @@ const VARIANTS := {
 	"auto_shotgun": {"rounds": 3, "gap": 0.16, "pellets": 6, "mech": null, "recoil": 1.4, "shake": 0.7},
 	"pump_shotgun": {"pellets": 8},
 	"heavy_mg": {"rounds": 7, "gap": 0.1, "flash": 1.6, "recoil": 1.1, "shake": 0.6, "kick": 0.9, "bullet": 1.3},
+	"machine_pistol": {"rounds": 4, "gap": 0.045, "recoil": 0.4},
+	"bloom_pistol": {"flash": 0.8, "bullet": 1.1, "color": Palette.TEAL},
+	"hand_cannon": {"flash": 1.5, "recoil": 1.5, "shake": 0.7, "kick": 1.2, "bullet": 1.4},
+	"stun_pistol": {"rounds": 2, "gap": 0.12, "bullet": 0.9, "color": Color(0.7, 0.8, 1.0)},
+	"longslide": {"flash": 0.75, "recoil": 0.6, "bullet": 0.9},
 	"spore_rifle": {"rounds": 1, "flash": 1.1, "recoil": 1.0, "kick": 0.8, "bullet": 1.5, "color": Palette.TEAL},
 }
 

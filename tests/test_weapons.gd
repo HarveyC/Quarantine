@@ -111,10 +111,13 @@ func test_alternate_guns_are_well_formed() -> void:
 		assert_true(g.rarity in ["uncommon", "rare"], "%s rarity" % id)
 		assert_true(GearData.TAGS.has(g.tag), "%s tag" % id)
 		assert_true(Weapons.TABLE.has(g.look) and not Weapons.is_alternate(g.look), "%s look is a signature gun" % id)
-		assert_true(GunModels.GUNS.has(g.look), "%s look has a model" % id)
+		# Melee classes hold one-handed alternates in the sidearm's hand (view/melee_kit.gd).
+		assert_true(GunModels.GUNS.has(g.look) or g.look in ["sidearm", "revolver"], "%s look has a model" % id)
+		if g.look in ["sidearm", "revolver"]:
+			assert_true(g.classes.all(func(k): return k in ["reaper", "warden"]), "%s pistol is melee-only" % id)
 		for k in g.classes:
 			assert_true(UnitData.SOLDIERS.has(k) or k in ["reaper", "warden"], "%s class %s" % [id, k])
-	for kind in ["trooper", "marksman", "medic", "breacher", "hazmat", "vector"]:
+	for kind in ["trooper", "marksman", "medic", "breacher", "hazmat", "vector", "reaper", "warden"]:
 		assert_true(Weapons.alternates_for(kind).size() >= 2, "%s has at least 2 alternate guns" % kind)
 
 
