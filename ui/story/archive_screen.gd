@@ -18,7 +18,7 @@ func _init() -> void:
 	theme = Styles.make_theme()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var bg := ColorRect.new()
-	bg.color = Color(0.02, 0.025, 0.025, 0.96)
+	bg.color = Color(0.017, 0.025, 0.043, 0.96)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	_build()
@@ -82,7 +82,7 @@ func _build() -> void:
 			first_found = e.id
 
 	var reader := W.Frame.new(Vector4(28, 24, 28, 24))
-	reader.set_look(Color(0.043, 0.055, 0.047, 0.9), Styles.BORDER)
+	reader.set_look(Color(0.037, 0.055, 0.088, 0.9), Styles.BORDER)
 	reader.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	reader.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cols.add_child(reader)

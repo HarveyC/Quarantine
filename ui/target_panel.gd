@@ -1,11 +1,13 @@
 extends "res://ui/frame.gd"
-## Shot preview while aiming: big hit chance, crit and graze, a hit/graze/miss strip,
+## Shot preview while aiming: the hit chance as a big lantern ring gauge (graze after it),
+## crit and graze, a hit/graze/miss strip,
 ## every modifier as a signed row, and the damage range shown on the target's HP pips.
 
 const W := preload("res://ui/widgets.gd")
 
 var _target: Label
 var _hit: Label
+var _ring: W.Ring
 var _crit: Label
 var _graze: Label
 var _strip: HBoxContainer
@@ -33,11 +35,19 @@ func build() -> void:
 	head.add_child(Styles.caps("next", 11, Styles.MUTED, false))
 	box.add_child(head)
 	var big := Styles.hbox(18)
-	var hitcol := Styles.vbox(0)
-	hitcol.add_child(Styles.caps("Hit", 11, Styles.MUTED))
-	_hit = Styles.mono("", 54, Styles.AMBER)
-	hitcol.add_child(_hit)
-	big.add_child(hitcol)
+	_ring = W.Ring.new(118.0, 9.0, Styles.AMBER)
+	_ring.extra_color = Styles.GRAZE
+	var inner := Styles.vbox(-4)
+	inner.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_hit = Styles.display("", 34, Styles.TEXT)
+	_hit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(_hit)
+	var th := Styles.label("to hit", 13, Styles.DIM)
+	th.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(th)
+	_ring.add_child(inner)
+	big.add_child(_ring)
 	var side := Styles.vbox(6)
 	side.alignment = BoxContainer.ALIGNMENT_END
 	var cr := Styles.hbox(8)
@@ -56,7 +66,7 @@ func build() -> void:
 	side.add_child(gr)
 	big.add_child(side)
 	box.add_child(big)
-	_strip = Styles.hbox(2)
+	_strip = Styles.hbox(3)
 	_strip.custom_minimum_size = Vector2(0, 7)
 	box.add_child(_strip)
 	_rows = GridContainer.new()
@@ -96,16 +106,18 @@ func show_shot(s: GameState, u: Unit, t: Unit) -> Dictionary:
 	var graze := int(odds.get("graze", 0))
 	_target.text = "TARGET · %s" % t.display_name.to_upper()
 	_hit.text = "%d%%" % hit
+	_ring.set_value(hit / 100.0, Styles.AMBER, graze / 100.0)
 	_crit.text = "%d%%" % int(odds.get("crit", 0))
 	_graze.text = "%d%%" % graze
 	for c in _strip.get_children():
 		_strip.remove_child(c)
 		c.queue_free()
-	for part in [[hit, Styles.AMBER], [graze, Color("8a7440")], [100 - hit - graze, Color("2e352e")]]:
+	for part in [[hit, Styles.AMBER], [graze, Styles.GRAZE.darkened(0.3)], [100 - hit - graze, Styles.HP_OFF]]:
 		if int(part[0]) <= 0:
 			continue
-		var r := ColorRect.new()
-		r.color = part[1]
+		var r := Panel.new()
+		r.add_theme_stylebox_override("panel", Styles.panel_box(part[1], Color(0, 0, 0, 0), Styles.PILL))
+		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		r.custom_minimum_size = Vector2(0, 7)
 		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		r.size_flags_stretch_ratio = float(part[0])

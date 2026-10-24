@@ -29,7 +29,7 @@ func _ready() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 	var panel := W.Frame.new(Vector4(26, 22, 26, 24))
-	panel.set_look(Color(0.04, 0.05, 0.045, 0.96), Styles.BORDER)
+	panel.set_look(Color(0.034, 0.05, 0.08, 0.96), Styles.BORDER)
 	panel.custom_minimum_size = Vector2(500, 0)
 	center.add_child(panel)
 	var box := VBoxContainer.new()

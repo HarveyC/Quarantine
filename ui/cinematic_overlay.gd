@@ -29,7 +29,7 @@ func build() -> void:
 	_caption.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_caption.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(_caption)
-	_sub = Styles.label("", 16, Color("e8b04a"))
+	_sub = Styles.label("", 16, Styles.AMBER)
 	_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_sub.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
 	_sub.grow_horizontal = Control.GROW_DIRECTION_BOTH

@@ -163,7 +163,7 @@ func _build(session) -> void:
 	NodeUi.clear(self)
 	var win: bool = summary.result == Types.Result.VICTORY
 	_dim = ColorRect.new()
-	_dim.color = Color(0.02, 0.025, 0.022, 0.0)
+	_dim.color = Color(0.017, 0.025, 0.043, 0.0)
 	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_dim)

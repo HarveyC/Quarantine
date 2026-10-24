@@ -103,8 +103,7 @@ func _wordmark() -> Control:
 	kicker.add_child(company)
 	box.add_child(kicker)
 	var title := Styles.display("Carriers", 122, Styles.TEXT)
-	(title.get_theme_font("font") as FontVariation).base_font = Styles.FONT_DISPLAY_BLACK
-	(title.get_theme_font("font") as FontVariation).spacing_glyph = -2
+	title.add_theme_font_override("font", Styles.font_copy(Styles.FONT_DISPLAY_BLACK, -2))
 	box.add_child(title)
 	box.add_child(Styles.label("Something down the shaft is calling your name.", 20, Styles.DIM))
 	return box

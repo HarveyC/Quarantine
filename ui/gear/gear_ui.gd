@@ -1,49 +1,44 @@
 extends RefCounted
-## Shared look for the gear screens (loadout, rewards), after the approved UI mockups:
-## near-black see-through panels with #2c342d borders, amber only for actionable things,
-## teal only for Infection, tag colours from GearData.TAG_INFO, Barlow / JetBrains Mono.
-## Fonts are picked up from res://ui/fonts/ when the UI module ships them.
+## Shared look for the gear screens (loadout, rewards) in the Bloom style: rounded glass
+## panels, pill chips and buttons, amber only for actionable things, teal only for Infection,
+## tag colours from GearData.TAG_INFO. Colours and fonts come from ui/styles.gd.
 
-const PANEL := Color("#111511")
-const PANEL_SOFT := Color("#121613")
-const BORDER := Color("#2c342d")
-const BORDER_HI := Color("#4d574b")
-const BG := Color("#0b0d0c")
-const TEXT := Color("#e9e4d4")
-const DIM := Color("#a8aa98")
-const FAINT := Color("#8c8e7e")
-const AMBER := Color("#f2c14e")
-const TEAL := Color("#3fe0c5")
-const DANGER := Color("#ff8a6e")
-const GOOD := Color("#a9c46c")
-const PLAYER_COLORS: Array[Color] = preload("res://ui/styles.gd").PLAYERS
-const PROTO_COLORS: Array[Color] = [Color("#f2c14e"), Color("#3fe0c5"), Color("#ff5c86"), Color("#6fc3ff")]
+const Styles := preload("res://ui/styles.gd")
 
-const FONT_FILES := {
-	"cond": ["res://ui/fonts/BarlowCondensed-Bold.ttf", "res://ui/fonts/BarlowCondensed-SemiBold.ttf"],
-	"body": ["res://ui/fonts/Barlow-Regular.ttf"],
-	"bold": ["res://ui/fonts/Barlow-SemiBold.ttf"],
-	"mono": ["res://ui/fonts/JetBrainsMono-Bold.ttf"],
-}
-static var _fonts := {}
+const PANEL := Color(0.05, 0.07, 0.11, 0.92)
+const PANEL_SOFT := Color(0.06, 0.082, 0.125, 0.94)
+const BORDER := Styles.BORDER
+const BORDER_HI := Styles.BORDER_STRONG
+const BG := Styles.GROUND
+const TEXT := Styles.TEXT
+const DIM := Styles.DIM
+const FAINT := Styles.MUTED
+const AMBER := Styles.AMBER
+const TEAL := Styles.TEAL
+const DANGER := Styles.DANGER_TEXT
+const GOOD := Styles.HP
+const PLAYER_COLORS: Array[Color] = Styles.PLAYERS
+const PROTO_COLORS: Array[Color] = [Color("#ffb347"), Color("#3fe0c5"), Color("#ff5fa2"), Color("#6fc3ff")]
+## Body copy on cards, a touch dimmer than TEXT.
+const COPY := Color("c9d8d8")
+## Fill of a held / selected tile.
+const HELD := Color(1.0, 0.7, 0.28, 0.1)
+## Corner radius used when a caller asks for radius 0 (the old square look).
+const RADIUS := 14
 
 
+## kind: "cond" (headings), "body", "bold", "mono".
 static func font(kind: String) -> Font:
-	if not _fonts.has(kind):
-		var f: Font = null
-		for path in FONT_FILES.get(kind, []):
-			if ResourceLoader.exists(path):
-				f = load(path)
-				break
-		if f == null:
-			var sf := SystemFont.new()
-			sf.font_names = PackedStringArray(["Barlow Condensed", "Roboto Condensed", "Arial Narrow", "sans-serif"]) \
-				if kind == "cond" else PackedStringArray(["JetBrains Mono", "monospace"]) if kind == "mono" \
-				else PackedStringArray(["Barlow", "Roboto", "Arial", "sans-serif"])
-			sf.font_weight = 700 if kind in ["cond", "bold", "mono"] else 400
-			f = sf
-		_fonts[kind] = f
-	return _fonts[kind]
+	match kind:
+		"cond":
+			return Styles.FONT_COND_BOLD
+		"bold":
+			return Styles.FONT_BODY_BOLD
+		"mono":
+			return Styles.FONT_MONO
+		"display":
+			return Styles.FONT_DISPLAY
+	return Styles.FONT_BODY
 
 
 static func player_color(p: int) -> Color:
@@ -55,11 +50,11 @@ static func rarity_color(r: String) -> Color:
 
 
 static func box(bg := PANEL, border := BORDER, width := 1, radius := 0, pad := 12) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = bg
-	sb.border_color = border
+	var sb := Styles.panel_box(bg, border, radius if radius > 0 else RADIUS)
 	sb.set_border_width_all(width)
-	sb.set_corner_radius_all(radius)
+	if width >= 2 and border == AMBER:
+		sb.shadow_color = Color(AMBER, 0.25)
+		sb.shadow_size = 10
 	sb.content_margin_left = pad
 	sb.content_margin_right = pad
 	sb.content_margin_top = pad
@@ -76,10 +71,9 @@ static func label(text: String, size := 15, color := TEXT, kind := "body") -> La
 	return l
 
 
-## Condensed uppercase heading.
+## Uppercase heading (Unbounded from 22 px up, spaced Outfit below).
 static func caps(text: String, size := 15, color := TEXT) -> Label:
-	var l := label(text.to_upper(), size, color, "cond")
-	return l
+	return Styles.caps(text, size, color)
 
 
 static func mono(text: String, size := 14, color := TEXT) -> Label:
@@ -99,18 +93,19 @@ static func tag_chip(tag: String, text := "", dim := false) -> PanelContainer:
 	if dim:
 		c = c.darkened(0.45)
 	var p := PanelContainer.new()
-	var sb := box(Color(0, 0, 0, 0.35), c, 1, 0, 0)
-	sb.content_margin_left = 7
-	sb.content_margin_right = 7
+	var sb := box(Color(c, 0.08), Color(c, 0.6), 1, Styles.PILL, 0)
+	sb.content_margin_left = 9
+	sb.content_margin_right = 10
 	sb.content_margin_top = 2
 	sb.content_margin_bottom = 2
 	p.add_theme_stylebox_override("panel", sb)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 5)
-	var dot := ColorRect.new()
-	dot.color = c
+	var dot := Panel.new()
+	dot.add_theme_stylebox_override("panel", box(c, c, 0, Styles.PILL, 0))
 	dot.custom_minimum_size = Vector2(7, 7)
 	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(dot)
 	row.add_child(caps(text if text != "" else tag, 13, c))
 	p.add_child(row)
@@ -124,7 +119,7 @@ static func pips(tag: String, count: int, preview_to := -1) -> HBoxContainer:
 	row.add_theme_constant_override("separation", 4)
 	var c := GearData.tag_color(tag)
 	if count == 0 and preview_to <= 0:
-		c = Color("#3a403a")
+		c = Color(Styles.DIM, 0.3)
 	for i in GearData.SET_THRESHOLD:
 		var pip := Panel.new()
 		pip.custom_minimum_size = Vector2(22, 10)
@@ -132,7 +127,7 @@ static func pips(tag: String, count: int, preview_to := -1) -> HBoxContainer:
 		var gold := preview_to > count and i >= count and i < preview_to
 		var lost := preview_to >= 0 and preview_to < count and i >= preview_to and i < count
 		var col := AMBER if gold else (DANGER if lost else c)
-		var sb := box(col if (on or gold) and not lost else Color(0, 0, 0, 0), col, 1, 0, 0)
+		var sb := box(col if (on or gold) and not lost else Color(0, 0, 0, 0), col, 1, Styles.PILL, 0)
 		if lost:
 			sb.bg_color = Color(col, 0.25)
 		if gold:
@@ -146,30 +141,15 @@ static func pips(tag: String, count: int, preview_to := -1) -> HBoxContainer:
 	return row
 
 
-## Amber action button (the one thing to press), or a quiet outlined one.
+## The glowing amber pill (the one thing to press), or a quiet glass one.
 static func button(text: String, primary := false, key := "") -> Button:
 	var b := Button.new()
-	b.text = text.to_upper() + ("   [%s]" % key if key != "" else "")
-	b.add_theme_font_override("font", font("cond"))
-	b.add_theme_font_size_override("font_size", 18 if primary else 16)
+	b.text = text + ("   [%s]" % key if key != "" else "")
+	b.add_theme_font_override("font", Styles.FONT_DISPLAY if primary else Styles.FONT_DISPLAY_MEDIUM)
+	b.add_theme_font_size_override("font_size", 15 if primary else 13)
 	b.custom_minimum_size = Vector2(0, 46)
 	b.focus_mode = Control.FOCUS_NONE
-	if primary:
-		b.add_theme_stylebox_override("normal", box(AMBER, AMBER, 0, 0, 14))
-		b.add_theme_stylebox_override("hover", box(AMBER.lightened(0.15), AMBER, 0, 0, 14))
-		b.add_theme_stylebox_override("pressed", box(AMBER.darkened(0.15), AMBER, 0, 0, 14))
-		b.add_theme_stylebox_override("disabled", box(Color("#3a3524"), Color("#3a3524"), 0, 0, 14))
-		for k in ["font_color", "font_hover_color", "font_pressed_color"]:
-			b.add_theme_color_override(k, Color("#15130b"))
-		b.add_theme_color_override("font_disabled_color", Color("#7d7660"))
-	else:
-		b.add_theme_stylebox_override("normal", box(Color(0, 0, 0, 0.3), BORDER_HI, 1, 0, 14))
-		b.add_theme_stylebox_override("hover", box(Color(1, 1, 1, 0.05), DIM, 1, 0, 14))
-		b.add_theme_stylebox_override("pressed", box(Color(1, 1, 1, 0.08), TEXT, 1, 0, 14))
-		b.add_theme_stylebox_override("disabled", box(Color(0, 0, 0, 0.2), BORDER, 1, 0, 14))
-		b.add_theme_color_override("font_color", Color("#c9c6b6"))
-		b.add_theme_color_override("font_hover_color", TEXT)
-		b.add_theme_color_override("font_disabled_color", Color("#55584c"))
+	Styles.style_button(b, "primary" if primary else "secondary", 22)
 	return b
 
 

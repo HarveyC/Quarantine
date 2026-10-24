@@ -76,7 +76,7 @@ func _card(o: Dictionary, i: int) -> Control:
 	var f := W.Frame.new(Vector4(22, 18, 22, 18))
 	var teal: bool = o.id == "carry"
 	var line := Styles.AMBER if mine else (Styles.BORDER_STRONG if o.ok else Styles.BORDER_SOFT)
-	f.set_look(Color(0.12, 0.11, 0.07, 0.94) if mine else Color(0.05, 0.065, 0.055, 0.94), line, Styles.AMBER, o.ok)
+	f.set_look(Color(0.12, 0.11, 0.07, 0.94) if mine else Color(0.043, 0.065, 0.103, 0.94), line, Styles.AMBER, o.ok)
 	f.custom_minimum_size = Vector2(330, 300)
 	var box := Styles.vbox(10)
 	f.add_child(box)

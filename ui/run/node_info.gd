@@ -4,8 +4,8 @@ extends RefCounted
 
 const Styles := preload("res://ui/styles.gd")
 
-const NEST_RED := Color("ff7a62")
-const DEPOT_GOLD := Color("c9a24a")
+const NEST_RED := Color("ff5fa2")
+const DEPOT_GOLD := Color("d9b46a")
 
 const ICON := {
 	RunMap.SKIRMISH: "skirmish", RunMap.AMBUSH: "ambush", RunMap.NEST: "nest", RunMap.EVENT: "event",

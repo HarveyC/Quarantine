@@ -38,7 +38,7 @@ func _ready() -> void:
 	theme = Styles.make_theme()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var shade := ColorRect.new()
-	shade.color = Color(0.01, 0.015, 0.012, 0.72)
+	shade.color = Color(0.009, 0.015, 0.028, 0.72)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed:

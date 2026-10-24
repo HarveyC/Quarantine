@@ -54,11 +54,24 @@ const PLAYERS: Array[Color] = [Color("79b0ff"), Color("ff9a6b"), Color("c4a6ff")
 static var text_scale := 1.0
 
 
-static func _weight(base: FontFile, wght: int) -> FontVariation:
+static func _weight(base: FontFile, wght: int, spacing := 0) -> FontVariation:
 	var f := FontVariation.new()
 	f.base_font = base
 	f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): wght}
+	f.spacing_glyph = spacing
 	return f
+
+
+## A fresh copy of one of the FONT_* variations (a nested FontVariation would drop the weight),
+## so a caller can tune its spacing without touching the shared one.
+static func font_copy(f: Font, spacing := 0) -> FontVariation:
+	var src := f as FontVariation
+	var out := FontVariation.new()
+	out.base_font = src.base_font if src != null else f
+	if src != null:
+		out.variation_opentype = src.variation_opentype
+	out.spacing_glyph = spacing
+	return out
 
 
 static func fs(size: int) -> int:
@@ -259,10 +272,7 @@ static func caps(text: String, size := 15, color := TEXT, bold := true) -> Label
 	if size >= 22:
 		return display(text, size, color, bold)
 	var l := label(text.to_upper(), size, color)
-	var f := FontVariation.new()
-	f.base_font = FONT_COND_BOLD if bold else FONT_COND
-	f.spacing_glyph = maxi(1, roundi(size * 0.1))
-	l.add_theme_font_override("font", f)
+	l.add_theme_font_override("font", font_copy(FONT_COND_BOLD if bold else FONT_COND, maxi(1, roundi(size * 0.08))))
 	return l
 
 
@@ -270,9 +280,7 @@ static func caps(text: String, size := 15, color := TEXT, bold := true) -> Label
 ## roughly the cap height a condensed face of that size would have had.
 static func display(text: String, size := 28, color := TEXT, heavy := true, upper := true) -> Label:
 	var l := label(text.to_upper() if upper else text, roundi(size * 0.8), color)
-	var f := FontVariation.new()   # its own variation, so a caller may tune spacing
-	f.base_font = FONT_DISPLAY if heavy else FONT_DISPLAY_MEDIUM
-	l.add_theme_font_override("font", f)
+	l.add_theme_font_override("font", font_copy(FONT_DISPLAY if heavy else FONT_DISPLAY_MEDIUM))
 	return l
 
 
