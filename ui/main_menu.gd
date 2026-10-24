@@ -86,6 +86,11 @@ func _build_menu(root: VBoxContainer) -> void:
 	hot_run.pressed.connect(func() -> void: run_requested.emit(2))
 	var local_btn := _button(_menu_box, "Quick mission (hot-seat, no run)")
 	local_btn.pressed.connect(func() -> void: local_requested.emit(2))
+	var sound_btn := _button(_menu_box, "Sound")
+	sound_btn.pressed.connect(func() -> void:
+		var ss := get_node_or_null("/root/Soundscape")
+		if ss != null:
+			ss.toggle_settings())
 
 
 func _build_lobby(root: VBoxContainer) -> void:

@@ -903,7 +903,8 @@ func _beat_mission_end(ev: Dictionary) -> Dictionary:
 	ended = true
 	enemy_phase = false
 	var result := int(ev.get("result", Types.Result.NONE))
-	_sfx("victory" if result == Types.Result.VICTORY else "defeat")
+	if get_node_or_null("/root/Soundscape") == null:   # otherwise the Soundscape plays a music stinger
+		_sfx("victory" if result == Types.Result.VICTORY else "defeat")
 	view.hud.show_end(result)
 	return {}
 
