@@ -539,7 +539,7 @@ actions, and save/resume is `RunState.to_dict()`. Solo (1 player) is a first-cla
 player owns all 4 soldiers, every vote resolves the moment they click, and no lobby or network is
 involved (`LocalSession`). In co-op each player controls one soldier (squad size = player
 count) plus their own reserve recruits; a player whose soldier is down in a fight is counted as
-ready (`Rules.commands_a_soldier`) and watches until a recruit deploys after the fight.
+ready automatically (`Rules._auto_ready`) and watches until a recruit deploys after the fight.
 
 ### Modules and owners
 

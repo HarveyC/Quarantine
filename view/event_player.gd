@@ -20,6 +20,7 @@ const Palette := preload("res://view/palette.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const CameraRig := preload("res://view/camera_rig.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
+const ShotCamera := preload("res://view/shot_camera.gd")
 const ENEMY_PAD := 0.3   # extra hold after each enemy-phase action
 ## Events that keep an open shot cinematic on screen (the shot's consequences).
 const CINE_FOLLOW := ["damage", "died", "infection", "turned", "alerted"]
@@ -182,34 +183,71 @@ func _flat(v: Vector3) -> Vector3:
 	return Vector3(v.x, 0, v.z)
 
 
-## Over-the-shoulder camera pose behind `from` looking at `at`, trying the right then
-## the left shoulder, then a high angle if walls are in the way.
-func _ots_pose(from: Vector3, at: Vector3, back := 2.4, side := 0.85, height := 1.8) -> Transform3D:
+## Over-the-shoulder camera eye behind `from` looking at `at`. Tries the right then the
+## left shoulder at a few distances and heights, wanting room for the lens and clear lines
+## to the shooter and the target (and to where the camera drifts during the aim). Settles
+## for seeing just the shooter, then for a high angle above the scenery.
+func _ots_eye(from: Vector3, at: Vector3, drift: Vector3) -> Vector3:
 	var dir := _flat(at - from).normalized()
 	if dir == Vector3.ZERO:
 		dir = Vector3.FORWARD
 	var right := dir.cross(Vector3.UP)
-	var look := at + Vector3(0, 0.9, 0)
-	for opt in [[side, back, height], [-side, back, height], [side * 0.6, back * 0.8, 2.9], [0.0, 0.6, 3.6]]:
-		var eye: Vector3 = from - dir * opt[1] + right * opt[0] + Vector3(0, opt[2], 0)
-		if _clear_view(eye, from + Vector3(0, 1.2, 0)):
-			return CameraRig.look_pose(eye, look)
-	return CameraRig.look_pose(from - dir * 0.6 + Vector3(0, 3.6, 0), look)
-
-
-## True if no wall cell sits between the camera and its subject (walls are 2.2 high).
-func _clear_view(eye: Vector3, subject: Vector3) -> bool:
-	var grid: Grid = view.state.grid if view.state != null else null
+	var shoulder := from + Vector3(0, 1.3, 0)
+	var target := at + Vector3(0, 1.3, 0)
+	var opts: Array[Vector3] = []   # side, back, height
+	for h in [1.8, 2.4]:
+		for b in [2.4, 1.8, 1.3]:
+			for sd in [0.85, -0.85]:
+				opts.append(Vector3(sd, b, h))
+	for o in [Vector3(0.5, 1.9, 3.0), Vector3(-0.5, 1.9, 3.0), Vector3(0.3, 1.2, 3.8), Vector3(-0.3, 1.2, 3.8)]:
+		opts.append(o)
+	var eyes: Array[Vector3] = []
+	for o in opts:
+		eyes.append(from - dir * o.y + right * o.x + Vector3(0, o.z, 0))
+	var grid := _grid()
 	if grid == null:
-		return true
-	for i in 7:
-		var p := eye.lerp(subject, i / 6.0)
-		if p.y > 2.35:
-			continue
-		var c := Board.world_to_cell(p)
-		if grid.in_bounds(c) and grid.tile(c) == Types.Tile.WALL:
-			return false
-	return true
+		return eyes[0]
+	for eye in eyes:
+		if ShotCamera.sees(grid, eye, [shoulder, target]) and ShotCamera.sees(grid, eye + drift, [shoulder, target]) \
+				and ShotCamera.line_clear(grid, eye, eye + drift):
+			return eye
+	for eye in eyes:
+		if ShotCamera.sees(grid, eye, [shoulder]) and ShotCamera.eye_clear(grid, eye + drift):
+			return eye
+	var high := from - dir * 0.8
+	high.y = maxf(from.y + 3.8, ShotCamera.top_near(grid, high) + 1.6)
+	return high
+
+
+## Where the camera pushes in to watch the round land: off the target's shoulder, at a
+## spot it can glide to from `cur` without passing through scenery. Null if none works.
+func _push_eye(cur: Vector3, shooter: Vector3, target: Vector3, look: Vector3) -> Variant:
+	var dir := _flat(target - shooter).normalized()
+	if dir == Vector3.ZERO:
+		dir = Vector3.FORWARD
+	var right := dir.cross(Vector3.UP)
+	var dist := _flat(target - shooter).length()
+	var stand_off := clampf(dist * 0.55, 3.2, 5.5)
+	var grid := _grid()
+	for h in [1.5, 2.2, 3.0]:
+		for b in [stand_off, stand_off * 0.75, 2.6]:
+			for sd in [1.0, -1.0, 0.4]:
+				var eye: Vector3 = target - dir * b + right * sd + Vector3(0, h, 0)
+				if grid == null:
+					return eye
+				if ShotCamera.sees(grid, eye, [look, look + Vector3(0, 0.4, 0)]) and ShotCamera.line_clear(grid, cur, eye):
+					return eye
+	return null
+
+
+## A clear line of sight from `eye` to `subject`, with room around the camera.
+func _clear_view(eye: Vector3, subject: Vector3) -> bool:
+	var grid := _grid()
+	return grid == null or ShotCamera.sees(grid, eye, [subject])
+
+
+func _grid() -> Grid:
+	return view.state.grid if view.state != null else null
 
 
 func _blood(uv: UnitView) -> Color:
@@ -334,9 +372,9 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		view.fx.floating_text(_head(shooter), "REACTION", Palette.AMBER, 40)
 	if cine:
 		_begin_cinematic()
-		var pose_a := _ots_pose(shooter.position, target.position)
-		var pose_b := pose_a.translated(dir * 0.5)
-		view.camera_rig.cine(pose_a, pose_b, Vector2(46, 40))
+		var look := target.position + Vector3(0, 0.9, 0)
+		var eye_a := _ots_eye(shooter.position, target.position, dir * 0.5)
+		view.camera_rig.cine(CameraRig.look_pose(eye_a, look), CameraRig.look_pose(eye_a + dir * 0.5, look), Vector2(46, 40))
 		var cap := "%s  >  %s" % [shooter.label(), target.label()]
 		view.hud.cine_caption(("REACTION FIRE  -  " if reaction else "") + cap, "%d%% to hit" % chance if chance > 0 else "")
 		_sfx("cinematic")
@@ -362,13 +400,10 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 			if cine:
 				# Push along the line of fire towards the target as the round flies.
 				# Stop short of the target so its whole body stays in frame.
-				var dist := _flat(target.position - shooter.position).length()
-				var stand_off := clampf(dist * 0.55, 3.2, 5.5)
-				var eye := target.position - dir * stand_off + right * 1.0 + Vector3(0, 1.5, 0)
-				if not _clear_view(eye, target.chest_world()):
-					eye = view.camera_rig.transform * view.camera_rig.camera.transform.origin
-				var pose_b := view.camera_rig.camera.transform
-				pose_b = view.camera_rig.transform * pose_b
+				var pose_b := view.camera_rig.transform * view.camera_rig.camera.transform
+				var eye: Variant = _push_eye(pose_b.origin, shooter.position, target.position, target.chest_world())
+				if eye == null:
+					eye = pose_b.origin
 				view.camera_rig.cine(pose_b, CameraRig.look_pose(eye, target.chest_world()), Vector2(40, 30))
 				world_scale = 0.3
 		if not st.landed:
@@ -531,12 +566,15 @@ func _melee_beat(ev: Dictionary) -> Dictionary:
 		_begin_cinematic()
 		var mid := (uv.position + tv.position) * 0.5
 		var perp := _flat(tv.position - uv.position).normalized().cross(Vector3.UP)
-		var eye := mid + perp * 2.6 + Vector3(0, 1.3, 0)
-		if not _clear_view(eye, mid + Vector3(0, 1, 0)):
-			eye = mid - perp * 2.6 + Vector3(0, 1.3, 0)
-			if not _clear_view(eye, mid + Vector3(0, 1, 0)):
-				eye = mid + Vector3(0, 3.5, 0) - perp * 1.2
 		var look := mid + Vector3(0, 0.8, 0)
+		var eye := mid + Vector3(0, 3.5, 0) - perp * 1.2
+		for o in [Vector2(2.6, 1.3), Vector2(-2.6, 1.3), Vector2(1.9, 2.0), Vector2(-1.9, 2.0), Vector2(1.4, 3.0), Vector2(-1.4, 3.0)]:
+			var e: Vector3 = mid + perp * o.x + Vector3(0, o.y, 0)
+			if _clear_view(e, mid + Vector3(0, 1, 0)) and _clear_view(e.lerp(look, 0.25), mid + Vector3(0, 1, 0)):
+				eye = e
+				break
+		if _grid() != null and not ShotCamera.eye_clear(_grid(), eye):
+			eye.y = maxf(eye.y, ShotCamera.top_near(_grid(), eye) + 1.6)
 		view.camera_rig.cine(CameraRig.look_pose(eye, look), CameraRig.look_pose(eye.lerp(look, 0.25), look), Vector2(48, 40))
 		view.hud.cine_caption("%s  >  %s" % [uv.label(), tv.label()], "%d%% to hit" % int(ev.get("chance", 0)) if ev.has("chance") else "")
 	_sfx("claw", 0.0, 0.25 if cine else 0.0)
