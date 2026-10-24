@@ -12,6 +12,7 @@ const UnitView := preload("res://view/unit_view.gd")
 var player := 0
 var _rows: VBoxContainer
 var _ready_btn: Button
+var _title: Label
 
 
 func build(p: int) -> void:
@@ -22,7 +23,8 @@ func build(p: int) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	add_child(box)
-	box.add_child(Styles.label("PLAYER %d" % (p + 1), 18, Palette.player_ui(p)))
+	_title = Styles.label("PLAYER %d" % (p + 1), 18, Palette.player_ui(p))
+	box.add_child(_title)
 	_rows = VBoxContainer.new()
 	_rows.add_theme_constant_override("separation", 4)
 	box.add_child(_rows)
@@ -46,10 +48,13 @@ func refresh(view: MissionView, selected_id: int, can_act: bool) -> void:
 	for uv in view.unit_views.values():
 		if uv.is_soldier and uv.owner_player == player:
 			_rows.add_child(_row(view, uv, uv.unit_id == selected_id))
+	var pname: String = view.session.player_names.get(player, "")
+	var mine: bool = view.session.is_local(player)
+	_title.text = "PLAYER %d%s%s" % [player + 1, "  ·  " + pname if pname != "" else "", "  (you)" if mine and not view.session is LocalSession else ""]
 	var is_ready: bool = view.state.ready.get(player, false)
 	_ready_btn.set_pressed_no_signal(is_ready)
 	_ready_btn.text = "READY - waiting" if is_ready else "READY"
-	_ready_btn.disabled = not can_act
+	_ready_btn.disabled = not can_act or not mine
 	_ready_btn.add_theme_color_override("font_color", Palette.player_ui(player) if is_ready else Styles.TEXT)
 
 

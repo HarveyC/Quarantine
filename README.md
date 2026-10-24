@@ -10,7 +10,12 @@ First playable MVP: one mission, four soldiers, local hot-seat co-op.
 
 ## Playing the MVP
 
-Hot-seat co-op: Player 1 has the Trooper and Marksman, Player 2 the Medic and Breacher. Both act in any
+Launch the game and you get a menu: **Host online game**, **Join** (enter the host's address), or
+**Local hot-seat**. In an online game each player controls only their own soldiers and has their own
+READY button; the host runs the authoritative simulation. Direct connection is by IP, so over the
+internet the host forwards the port (default 24680) or everyone shares a LAN tool like Tailscale.
+
+### Local hot-seat: Player 1 has the Trooper and Marksman, Player 2 the Medic and Breacher. Both act in any
 order during the squad phase; the enemy phase runs when both press READY.
 
 | Input | Does |
@@ -24,3 +29,6 @@ order during the squad phase; the enemy phase runs when both press READY.
 
 Dev flags: `godot --headless -- --autoplay` plays a mission headlessly;
 `xvfb-run godot --rendering-driver opengl3 -- --screenshot=out.png [--screenshot-action=shoot]` saves a frame.
+Networking can be smoke-tested headlessly with `./tests/net_playtest.sh`, which runs a host and a
+client through a whole match and checks they agree. CLI shortcuts: `--host[=port]`,
+`--join=addr[:port]`, `--name=...`, `--autostart=N`.

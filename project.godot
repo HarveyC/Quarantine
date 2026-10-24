@@ -5,7 +5,7 @@ config_version=5
 
 config/name="Quarantine"
 config/description="Co-op tactics roguelike: Carriers in the Quarantine Zone."
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/app.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
 
 [display]

@@ -1,0 +1,358 @@
+class_name NetSession
+extends Node
+## Online co-op over ENet, host-authoritative.
+##
+## Every peer runs the same deterministic rules on the same seed. Clients never change
+## their state on their own: they send action requests to the host, the host validates
+## them (including that the sender owns the soldier), applies them, and broadcasts the
+## accepted action with a sequence number and a checksum of the resulting state. Clients
+## apply it and compare checksums; on a mismatch or a gap they ask for a full snapshot.
+##
+## This node must sit at the same path on every peer (App adds it as "Net").
+
+signal lobby_changed
+signal match_started(state: GameState)
+signal resynced(state: GameState)
+signal rejected(reason: String)
+signal disconnected(reason: String)
+
+const DEFAULT_PORT := 24680
+const MAX_PLAYERS := 4
+const READY := "ready"   # pseudo action type: {"type": READY, "player": int, "ready": bool}
+
+var state: GameState
+var my_name := "Player"
+var is_host := false
+var my_player := -1
+var in_match := false
+## peer id -> {"name": String, "player": int}. Owned by the host, mirrored to clients.
+var lobby := {}
+## Host only: players whose peer dropped mid-match. Their soldiers hunker and they auto-ready.
+var absent := {}
+var player_names := {}
+
+var _seq := 0
+var _config := {}
+var _waiting := false
+var _absent_pending := false
+
+
+# --- connecting --------------------------------------------------------------
+
+## Returns "" on success, otherwise a reason.
+func host(port: int, name: String) -> String:
+	var peer := ENetMultiplayerPeer.new()
+	var err := peer.create_server(port, MAX_PLAYERS - 1)
+	if err != OK:
+		return "Could not open port %d (%s)" % [port, error_string(err)]
+	_attach(peer, name)
+	is_host = true
+	my_player = 0
+	lobby = {1: {"name": my_name, "player": 0}}
+	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	_refresh_names()
+	lobby_changed.emit()
+	return ""
+
+
+func join(address: String, port: int, name: String) -> String:
+	var peer := ENetMultiplayerPeer.new()
+	var err := peer.create_client(address, port)
+	if err != OK:
+		return "Could not connect to %s:%d (%s)" % [address, port, error_string(err)]
+	_attach(peer, name)
+	multiplayer.connected_to_server.connect(func() -> void: _hello.rpc_id(1, my_name))
+	multiplayer.connection_failed.connect(func() -> void: _drop("Could not reach the host at %s:%d" % [address, port]))
+	multiplayer.server_disconnected.connect(func() -> void: _drop("The host left the game"))
+	return ""
+
+
+func leave() -> void:
+	if multiplayer.multiplayer_peer != null:
+		multiplayer.multiplayer_peer.close()
+	multiplayer.multiplayer_peer = null
+	in_match = false
+
+
+func _attach(peer: ENetMultiplayerPeer, name: String) -> void:
+	my_name = name.strip_edges() if name.strip_edges() != "" else "Player"
+	multiplayer.multiplayer_peer = peer
+
+
+func _drop(reason: String) -> void:
+	leave()
+	disconnected.emit(reason)
+
+
+## Local IPv4 addresses, to tell a friend where to connect.
+static func local_addresses() -> Array[String]:
+	var out: Array[String] = []
+	for a in IP.get_local_addresses():
+		if a.count(".") == 3 and not a.begins_with("127.") and not a.begins_with("169.254."):
+			out.append(a)
+	return out
+
+
+# --- session interface used by the view (same as LocalSession) -----------------
+
+func local_players() -> Array[int]:
+	return [my_player] as Array[int]
+
+
+func is_local(player: int) -> bool:
+	return player == my_player
+
+
+func can_restart() -> bool:
+	return is_host
+
+
+func is_waiting() -> bool:
+	return _waiting
+
+
+func submit(action: Dictionary) -> void:
+	var err := Rules.validate(state, action)
+	if err != "":
+		rejected.emit(err)
+		return
+	_send(action)
+
+
+func set_ready(player: int, on: bool) -> void:
+	_send({"type": READY, "player": player, "ready": on})
+
+
+func restart() -> void:
+	if is_host:
+		start_match()
+
+
+func status_text() -> String:
+	var others := lobby.size() - 1
+	return "%s · %d player%s" % ["Hosting" if is_host else "Online", lobby.size(), "" if others == 0 else "s"]
+
+
+func _send(action: Dictionary) -> void:
+	_waiting = true
+	if is_host:
+		_handle_request(1, action)
+	else:
+		_request.rpc_id(1, action)
+
+
+# --- lobby --------------------------------------------------------------------
+
+## Host: begin (or restart) the mission with everyone currently connected.
+func start_match() -> void:
+	if not is_host:
+		return
+	absent.clear()
+	# Re-number players 0..n-1 in join order so the squad split has no gaps.
+	var ids := lobby.keys()
+	ids.sort()
+	for i in ids.size():
+		lobby[ids[i]].player = i
+	_lobby.rpc(lobby)
+	_set_lobby(lobby)
+	var config := MatchConfig.make(lobby.size())
+	_start.rpc(config)
+	_start(config)
+
+
+@rpc("any_peer", "reliable")
+func _hello(name: String) -> void:
+	if not is_host:
+		return
+	var id := multiplayer.get_remote_sender_id()
+	var slot := _free_slot(name)
+	if slot < 0:
+		_kick.rpc_id(id, "That game is full" if not in_match else "That match is full or already running")
+		return
+	lobby[id] = {"name": name, "player": slot}
+	absent.erase(slot)
+	_lobby.rpc(lobby)
+	_set_lobby(lobby)
+	if in_match:
+		_sync.rpc_id(id, _config, state.to_dict(), _seq)
+
+
+## Lobby: next unused player number. Mid-match: an absent player's slot, preferring the same name.
+func _free_slot(name: String) -> int:
+	var used := {}
+	for v in lobby.values():
+		used[v.player] = true
+	if not in_match:
+		for p in MAX_PLAYERS:
+			if not used.has(p):
+				return p
+		return -1
+	for p in absent:
+		if player_names.get(p, "") == name:
+			return p
+	return absent.keys()[0] if not absent.is_empty() else -1
+
+
+func _on_peer_disconnected(id: int) -> void:
+	if not lobby.has(id):
+		return
+	var p: int = lobby[id].player
+	lobby.erase(id)
+	if in_match:
+		absent[p] = true
+	_lobby.rpc(lobby)
+	_set_lobby(lobby)
+	_queue_absent_turns()
+
+
+@rpc("authority", "reliable")
+func _lobby(l: Dictionary) -> void:
+	_set_lobby(l)
+
+
+func _set_lobby(l: Dictionary) -> void:
+	lobby = l
+	var me := multiplayer.get_unique_id()
+	if lobby.has(me):
+		my_player = lobby[me].player
+	_refresh_names()
+	lobby_changed.emit()
+
+
+func _refresh_names() -> void:
+	# Keep names of players who dropped so the HUD can still label their soldiers.
+	for v in lobby.values():
+		player_names[v.player] = v.name
+
+
+@rpc("authority", "reliable")
+func _kick(reason: String) -> void:
+	_drop(reason)
+
+
+# --- match flow ---------------------------------------------------------------
+
+@rpc("authority", "reliable")
+func _start(config: Dictionary) -> void:
+	_config = config
+	_seq = 0
+	_waiting = false
+	in_match = true
+	state = MatchConfig.build(config)
+	match_started.emit(state)   # the view connects to events, then calls Rules.start_mission
+
+
+@rpc("any_peer", "reliable")
+func _request(action: Dictionary) -> void:
+	if is_host:
+		_handle_request(multiplayer.get_remote_sender_id(), action)
+
+
+func _handle_request(sender: int, action: Dictionary) -> void:
+	var err := _check_request(sender, action)
+	if err != "":
+		if sender == 1:
+			_on_rejected(err)
+		else:
+			_rejected.rpc_id(sender, err)
+		return
+	_commit_host(action)
+	if sender != 1:
+		_ack.rpc_id(sender)
+	else:
+		_waiting = false
+
+
+func _check_request(sender: int, action: Dictionary) -> String:
+	if not in_match or state == null:
+		return "No match running"
+	if not lobby.has(sender):
+		return "Not in this game"
+	var player: int = lobby[sender].player
+	if action.get("type") == READY:
+		if action.get("player") != player:
+			return "That's not your READY button"
+		return "" if state.phase == Types.Phase.TEAM else "Wait for the squad phase"
+	var u := state.get_unit(action.get("unit", -1))
+	if u == null or u.owner_player != player:
+		return "That soldier belongs to another player"
+	return Rules.validate(state, action)
+
+
+func _commit_host(action: Dictionary) -> void:
+	_seq += 1
+	_apply(action)
+	_commit.rpc(_seq, action, state.checksum())
+	_queue_absent_turns()
+
+
+@rpc("authority", "reliable")
+func _commit(seq: int, action: Dictionary, checksum: int) -> void:
+	if state == null or seq != _seq + 1:
+		_request_sync.rpc_id(1)
+		return
+	_seq = seq
+	_apply(action)
+	if state.checksum() != checksum:
+		push_warning("[net] state drifted from host at action %d; resyncing" % seq)
+		_request_sync.rpc_id(1)
+
+
+func _apply(action: Dictionary) -> void:
+	if action.type == READY:
+		Rules.set_ready(state, action.player, action.ready)
+	else:
+		Rules.apply(state, action)
+
+
+@rpc("authority", "reliable")
+func _ack() -> void:
+	_waiting = false
+
+
+@rpc("authority", "reliable")
+func _rejected(reason: String) -> void:
+	_on_rejected(reason)
+
+
+func _on_rejected(reason: String) -> void:
+	_waiting = false
+	rejected.emit(reason)
+
+
+@rpc("any_peer", "reliable")
+func _request_sync() -> void:
+	if is_host and in_match:
+		_sync.rpc_id(multiplayer.get_remote_sender_id(), _config, state.to_dict(), _seq)
+
+
+@rpc("authority", "reliable")
+func _sync(config: Dictionary, snapshot: Dictionary, seq: int) -> void:
+	_config = config
+	_seq = seq
+	_waiting = false
+	in_match = true
+	state = GameState.from_dict(snapshot)
+	resynced.emit(state)
+
+
+# --- absent players -----------------------------------------------------------
+
+func _queue_absent_turns() -> void:
+	if is_host and in_match and not absent.is_empty() and not _absent_pending:
+		_absent_pending = true
+		_play_absent_turns.call_deferred()
+
+
+## Disconnected players' soldiers hunker down and their READY is pressed for them.
+func _play_absent_turns() -> void:
+	_absent_pending = false
+	if not in_match or state.phase != Types.Phase.TEAM:
+		return
+	for p in absent.keys():
+		for u in state.controllable_units(p):
+			var hunker := {"type": Types.HUNKER, "unit": u.id}
+			if Rules.validate(state, hunker) == "":
+				_commit_host(hunker)
+		if state.phase == Types.Phase.TEAM and not state.ready.get(p, false):
+			_commit_host({"type": READY, "player": p, "ready": true})

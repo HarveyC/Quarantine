@@ -28,7 +28,7 @@ func can_act() -> bool:
 
 func controllable() -> Array[Unit]:
 	var out: Array[Unit] = []
-	for p in view.state.players:
+	for p in view.session.local_players():
 		out.append_array(view.state.controllable_units(p))
 	return out
 
@@ -271,7 +271,7 @@ func submit(action: Dictionary) -> void:
 	pending = {}
 	targets.clear()
 	view.board.clear_overlays()
-	Rules.apply(view.state, action)
+	view.session.submit(action)
 	changed.emit()
 
 

@@ -2,12 +2,14 @@ extends ColorRect
 ## Full-screen Victory / Defeat overlay with a Restart button.
 
 signal restart_pressed
+signal leave_pressed
 
 const Styles := preload("res://ui/styles.gd")
 const Palette := preload("res://view/palette.gd")
 
 var _title: Label
 var _sub: Label
+var _restart: Button
 
 
 func build() -> void:
@@ -35,11 +37,21 @@ func build() -> void:
 	btn.add_theme_font_size_override("font_size", 20)
 	btn.pressed.connect(func() -> void: restart_pressed.emit())
 	box.add_child(btn)
+	_restart = btn
+	var leave := Button.new()
+	leave.text = "MAIN MENU"
+	leave.custom_minimum_size = Vector2(260, 44)
+	leave.add_theme_font_size_override("font_size", 18)
+	leave.pressed.connect(func() -> void: leave_pressed.emit())
+	box.add_child(leave)
 
 
-func show_result(result: int, turn: int) -> void:
+func show_result(result: int, turn: int, can_restart: bool = true) -> void:
+	_restart.visible = can_restart
 	var win := result == Types.Result.VICTORY
 	_title.text = "VICTORY" if win else "DEFEAT"
 	_title.add_theme_color_override("font_color", Palette.TEAL if win else Palette.DANGER)
 	_sub.text = ("Zone cleared in %d turns." if win else "The squad was lost on turn %d.") % turn
+	if not can_restart:
+		_sub.text += "\nWaiting for the host to restart."
 	visible = true

@@ -1,0 +1,157 @@
+extends Control
+## Title screen and lobby: Host, Join by address, or Local hot-seat.
+## Emits requests; App owns the sessions and the mission view.
+
+signal host_requested(name: String, port: int)
+signal join_requested(name: String, address: String, port: int)
+signal local_requested(players: int)
+signal start_requested
+signal leave_requested
+
+const Styles := preload("res://ui/styles.gd")
+const Palette := preload("res://view/palette.gd")
+
+var _name: LineEdit
+var _address: LineEdit
+var _port: LineEdit
+var _status: Label
+var _menu_box: VBoxContainer
+var _lobby_box: VBoxContainer
+var _lobby_title: Label
+var _lobby_list: VBoxContainer
+var _lobby_hint: Label
+var _start_btn: Button
+
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	theme = Styles.make_theme()
+	var bg := ColorRect.new()
+	bg.color = Styles.BG.darkened(0.3)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(460, 0)
+	panel.add_theme_stylebox_override("panel", Styles.panel_box(Styles.BG, Palette.TEAL.darkened(0.5)))
+	center.add_child(panel)
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 12)
+	panel.add_child(root)
+	root.add_child(Styles.label("QUARANTINE", 40, Palette.TEAL))
+	root.add_child(Styles.label("Co-op tactics in the infected zone", 16, Styles.TEXT))
+	_build_menu(root)
+	_build_lobby(root)
+	_status = Styles.label("", 15, Palette.DANGER)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD
+	root.add_child(_status)
+	show_menu()
+
+
+func _build_menu(root: VBoxContainer) -> void:
+	_menu_box = VBoxContainer.new()
+	_menu_box.add_theme_constant_override("separation", 10)
+	root.add_child(_menu_box)
+	_name = _field(_menu_box, "Your name", OS.get_environment("USER").capitalize() if OS.has_environment("USER") else "Player")
+	var host_btn := _button(_menu_box, "Host online game")
+	host_btn.pressed.connect(func() -> void: host_requested.emit(_name.text, _port_value()))
+	var join_row := HBoxContainer.new()
+	join_row.add_theme_constant_override("separation", 8)
+	_menu_box.add_child(join_row)
+	_address = LineEdit.new()
+	_address.placeholder_text = "Host address, e.g. 192.168.1.20"
+	_address.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_address.text_submitted.connect(func(_t: String) -> void: _emit_join())
+	join_row.add_child(_address)
+	var join_btn := _button(join_row, "Join")
+	join_btn.custom_minimum_size.x = 100
+	join_btn.pressed.connect(_emit_join)
+	_port = _field(_menu_box, "Port", str(NetSession.DEFAULT_PORT))
+	var local_btn := _button(_menu_box, "Local hot-seat (2 players, one screen)")
+	local_btn.pressed.connect(func() -> void: local_requested.emit(2))
+
+
+func _build_lobby(root: VBoxContainer) -> void:
+	_lobby_box = VBoxContainer.new()
+	_lobby_box.add_theme_constant_override("separation", 10)
+	root.add_child(_lobby_box)
+	_lobby_title = Styles.label("LOBBY", 22, Styles.TEXT)
+	_lobby_box.add_child(_lobby_title)
+	_lobby_list = VBoxContainer.new()
+	_lobby_box.add_child(_lobby_list)
+	_lobby_hint = Styles.label("", 14, Styles.MUTED)
+	_lobby_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_lobby_box.add_child(_lobby_hint)
+	_start_btn = _button(_lobby_box, "Start mission")
+	_start_btn.pressed.connect(func() -> void: start_requested.emit())
+	var leave := _button(_lobby_box, "Leave")
+	leave.pressed.connect(func() -> void: leave_requested.emit())
+
+
+func show_menu(message: String = "") -> void:
+	_menu_box.visible = true
+	_lobby_box.visible = false
+	_status.text = message
+
+
+func show_status(message: String) -> void:
+	_status.text = message
+
+
+## Shows the lobby for `net`. Called again whenever the lobby changes.
+func show_lobby(net: NetSession) -> void:
+	_menu_box.visible = false
+	_lobby_box.visible = true
+	_status.text = ""
+	for c in _lobby_list.get_children():
+		c.queue_free()
+	var entries := net.lobby.values()
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.player < b.player)
+	for e in entries:
+		var you := " (you)" if e.player == net.my_player else ""
+		_lobby_list.add_child(Styles.label("Player %d  ·  %s%s" % [e.player + 1, e.name, you], 18, Palette.player_ui(e.player)))
+	var soldiers := MatchConfig.make(net.lobby.size())
+	var split := PackedStringArray()
+	for p in net.lobby.size():
+		split.append("P%d: %d" % [p + 1, soldiers.squad.filter(func(s: Dictionary) -> bool: return s.player == p).size()])
+	if net.is_host:
+		var addrs := NetSession.local_addresses()
+		_lobby_hint.text = "Friends join with your address: %s (port %d). Over the internet they need your public IP and port %d forwarded, or a shared LAN tool like Tailscale.\nSquad split: %s" % [
+			", ".join(addrs) if not addrs.is_empty() else "?", int(_port_value()), int(_port_value()), ", ".join(split)]
+	else:
+		_lobby_hint.text = "Waiting for the host to start. Squad split: %s" % ", ".join(split)
+	_start_btn.visible = net.is_host
+	_lobby_title.text = "LOBBY  (%d/%d)" % [net.lobby.size(), NetSession.MAX_PLAYERS]
+
+
+func _emit_join() -> void:
+	var addr := _address.text.strip_edges()
+	if addr.is_empty():
+		show_status("Enter the host's address first")
+		return
+	join_requested.emit(_name.text, addr, _port_value())
+
+
+func _port_value() -> int:
+	return int(_port.text) if _port.text.is_valid_int() else NetSession.DEFAULT_PORT
+
+
+func _field(parent: Control, label: String, value: String) -> LineEdit:
+	parent.add_child(Styles.label(label, 14, Styles.MUTED))
+	var e := LineEdit.new()
+	e.text = value
+	parent.add_child(e)
+	return e
+
+
+func _button(parent: Control, text: String) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, 42)
+	b.add_theme_font_size_override("font_size", 18)
+	parent.add_child(b)
+	return b

@@ -14,11 +14,17 @@ const EventPlayer := preload("res://view/event_player.gd")
 const InputController := preload("res://view/input_controller.gd")
 const Hud := preload("res://ui/hud.gd")
 
+signal left_match
+
 const MAP := "res://maps/mission_01.txt"
 const AUTOPLAY_MAX_TURNS := 30
 const AUTOPLAY_SPEED := 12.0
 
 var state: GameState
+## LocalSession or NetSession: who may act, and where actions go. Created on demand for hot-seat.
+var session: Node
+## When false, App drives start() with a session instead of _ready building a local mission.
+var auto_start := true
 var board: Board
 var fx: Fx
 var camera_rig: CameraRig
@@ -29,6 +35,7 @@ var unit_views: Dictionary = {}   # unit id -> UnitView
 var autoplay := false
 var screenshot_path := ""
 var _frames := 0
+var _autoplay_done := false
 var _world: Node3D
 var _units_root: Node3D
 var _ui_layer: CanvasLayer
@@ -40,7 +47,13 @@ func _ready() -> void:
 			autoplay = true
 		elif arg.begins_with("--screenshot="):
 			screenshot_path = arg.trim_prefix("--screenshot=")
-	start(default_mission())
+	if auto_start:
+		start(default_mission())
+
+
+func _exit_tree() -> void:
+	if session is LocalSession and not session.is_inside_tree():
+		session.free()
 
 
 static func default_mission(seed: int = 0) -> GameState:
@@ -56,6 +69,10 @@ static func default_mission(seed: int = 0) -> GameState:
 func start(s: GameState, begin := true) -> void:
 	_teardown()
 	state = s
+	if session == null:
+		session = LocalSession.new()
+	if session is LocalSession:
+		session.state = s
 	_world = Node3D.new()
 	_world.name = "World"
 	add_child(_world)
@@ -102,7 +119,14 @@ func start(s: GameState, begin := true) -> void:
 
 
 func restart() -> void:
-	start(default_mission())
+	if session is LocalSession:
+		start(default_mission())
+	else:
+		session.restart()
+
+
+func leave() -> void:
+	left_match.emit()
 
 
 func _teardown() -> void:
@@ -204,8 +228,8 @@ func _screenshot_step() -> void:
 	elif _frames == 70 and args.has("--screenshot-action=shoot"):
 		input.trigger("shoot")
 	elif _frames == 70 and args.has("--screenshot-action=ready"):
-		for p in state.players:
-			Rules.set_ready(state, p, true)
+		for p in session.local_players():
+			session.set_ready(p, true)
 	elif _frames == 150:
 		get_viewport().get_texture().get_image().save_png(screenshot_path)
 		print("[screenshot] saved ", screenshot_path)
@@ -213,21 +237,28 @@ func _screenshot_step() -> void:
 
 
 func _autoplay_step() -> void:
+	if _autoplay_done:
+		return
 	if state.phase == Types.Phase.ENDED or state.turn > AUTOPLAY_MAX_TURNS:
+		_autoplay_done = true
 		var res: String = Types.Result.keys()[state.result]
-		print("[autoplay] finished: turn %d, result %s, %d events" % [state.turn, res, state.log.size()])
-		get_tree().quit(0)
+		print("[autoplay] finished: turn %d, result %s, %d events, checksum %d" % [state.turn, res, state.log.size(), state.checksum()])
+		# Online, give the last network messages a moment to go out before quitting.
+		get_tree().create_timer(0.1 if session is LocalSession else 1.5).timeout.connect(func() -> void: get_tree().quit(0))
 		return
-	if state.phase != Types.Phase.TEAM:
+	if state.phase != Types.Phase.TEAM or (session.has_method("is_waiting") and session.is_waiting()):
 		return
-	# One shot per frame from any soldier with a visible target, then ready up.
-	for p in state.players:
+	# One shot per frame from any of our soldiers with a visible target, then ready up.
+	for p in session.local_players():
 		for u in state.controllable_units(p):
 			if u.actions_left > 0:
 				var targets := Combat.visible_targets(state, u)
-				if not targets.is_empty() and Rules.apply(state, {"type": Types.SHOOT, "unit": u.id, "target": targets[0].id}):
+				var shot := {"type": Types.SHOOT, "unit": u.id, "target": targets[0].id} if not targets.is_empty() else {}
+				if not shot.is_empty() and Rules.validate(state, shot) == "":
+					session.submit(shot)
 					return
-	print("[autoplay] turn %d: readying all players" % state.turn)
-	for p in state.players:
+	for p in session.local_players():
 		if state.phase == Types.Phase.TEAM and not state.ready.get(p, false):
-			Rules.set_ready(state, p, true)
+			print("[autoplay] turn %d: player %d ready" % [state.turn, p])
+			session.set_ready(p, true)
+			return
