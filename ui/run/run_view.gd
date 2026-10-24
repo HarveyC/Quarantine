@@ -11,6 +11,7 @@ signal leave_requested
 
 const Styles := preload("res://ui/styles.gd")
 const Palette := preload("res://view/palette.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 const W := preload("res://ui/widgets.gd")
 const MapBoard := preload("res://ui/run/map_board.gd")
 const NodeInfo := preload("res://ui/run/node_info.gd")
@@ -135,7 +136,6 @@ func _build() -> void:
 	_outbreak_tier.visible = false
 	ob_row.add_child(_outbreak_tier)
 	ob.mouse_filter = Control.MOUSE_FILTER_PASS
-	ob.tooltip_text = "Outbreak rises by 1 at every node and drops by %d when an act boss dies.\nHigher stages make fights harder." % RunRules.BOSS_OUTBREAK_DROP
 	ob.add_child(ob_row)
 	_outbreak_bar = OutbreakBar.new()
 	_outbreak_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -147,11 +147,15 @@ func _build() -> void:
 	_supplies = _resource(res, "supplies", NodeInfo.DEPOT_GOLD, "Supplies")
 	_intel = _resource(res, "intel", Styles.DIM, "Intel")
 	_serum = _resource(res, "serum", Styles.TEAL, "Serum")
+	Tips.term(_supplies.get_parent(), "supplies")
+	Tips.term(_intel.get_parent(), "intel")
+	Tips.term(_serum.get_parent(), "serum")
 	top.add_child(res)
 	var btns := Styles.hbox(10)
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	_reveal_btn = _top_button("Reveal", "reveal")
 	_reveal_btn.tooltip_text = "Spend 1 Intel to see what a hidden node is."
+	Tips.term(_reveal_btn, "intel")
 	_reveal_btn.toggle_mode = true
 	_reveal_btn.toggled.connect(func(on: bool) -> void:
 		_reveal_mode = on
@@ -270,6 +274,7 @@ func refresh() -> void:
 	_outbreak_tier.text = "+1 each node · -%d per boss" % RunRules.BOSS_OUTBREAK_DROP
 	_outbreak_bar.value = run.outbreak
 	_outbreak_bar.queue_redraw()
+	Tips.term(_outbreak_bar.get_parent(), "outbreak", {"value": run.outbreak})
 	_supplies.text = str(run.supplies)
 	_intel.text = str(run.intel)
 	_serum.text = _serum_text()
@@ -464,6 +469,7 @@ func _option_row(n: Dictionary, i: int) -> Control:
 	if i < 4:
 		head.add_child(W.keycap(str(i + 1)))
 	head.add_child(W.Icon.new(NodeInfo.icon(type), tc if tc != Styles.TEXT else Styles.DIM, 20, 1.8))
+	Tips.term(f, "node_" + type)
 	head.add_child(Styles.caps(NodeInfo.title(n), 17, tc if tc != Styles.TEXT else Styles.TEXT))
 	head.add_child(Styles.spacer())
 	if not run.is_solo():

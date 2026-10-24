@@ -4,6 +4,7 @@ extends RefCounted
 ## tag colours from GearData.TAG_INFO. Colours and fonts come from ui/styles.gd.
 
 const Styles := preload("res://ui/styles.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const PANEL := Color(0.05, 0.07, 0.11, 0.92)
 const PANEL_SOFT := Color(0.06, 0.082, 0.125, 0.94)
@@ -108,8 +109,10 @@ static func tag_chip(tag: String, text := "", dim := false) -> PanelContainer:
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(dot)
 	row.add_child(caps(text if text != "" else tag, 13, c))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(row)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Tips.term(p, "tag_" + tag.to_lower())
 	return p
 
 

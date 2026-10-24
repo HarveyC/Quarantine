@@ -4,6 +4,7 @@ extends "res://ui/frame.gd"
 ## every modifier as a signed row, and the damage range shown on the target's HP pips.
 
 const W := preload("res://ui/widgets.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 var _target: Label
 var _hit: Label
@@ -109,6 +110,10 @@ func show_shot(s: GameState, u: Unit, t: Unit) -> Dictionary:
 	_ring.set_value(hit / 100.0, Styles.AMBER, graze / 100.0)
 	_crit.text = "%d%%" % int(odds.get("crit", 0))
 	_graze.text = "%d%%" % graze
+	Tips.term(_hit, "hit_chance", {"hit": hit, "graze": graze})
+	Tips.term(_strip, "hit_chance", {"hit": hit, "graze": graze})
+	Tips.term(_crit, "crit")
+	Tips.term(_graze, "graze")
 	for c in _strip.get_children():
 		_strip.remove_child(c)
 		c.queue_free()
@@ -130,6 +135,7 @@ func show_shot(s: GameState, u: Unit, t: Unit) -> Dictionary:
 			continue
 		var n := Styles.label(str(row[0]), 14, Styles.DIM)
 		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		Tips.auto(n)
 		_rows.add_child(n)
 		var v := int(row[1])
 		var txt := str(v) if str(row[0]) == "Aim" else "%+d" % v
@@ -144,6 +150,9 @@ func show_shot(s: GameState, u: Unit, t: Unit) -> Dictionary:
 	var notes := PackedStringArray()
 	if odds.get("flanked", false):
 		notes.append("Flanked: no cover, crits more likely")
+		Tips.term(_note, "flank")
+	else:
+		_note.remove_meta(Tips.META)
 	if lo >= t.hp and hit > 0:
 		notes.append("A hit kills")
 	elif hi >= t.hp and hit > 0:

@@ -9,6 +9,7 @@ const Styles := preload("res://ui/styles.gd")
 const Widgets := preload("res://ui/widgets.gd")
 const Frame := preload("res://ui/frame.gd")
 const Icons := preload("res://ui/icons.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const TABS := {"unlocks": "Unlocks", "severity": "Severity", "record": "Record", "achievements": "Achievements"}
 const PACK_ICON := {"gear": "depot", "doctrine": "flag", "mutation": "mutation"}
@@ -111,6 +112,7 @@ func _header() -> Control:
 	fd_text.add_child(_fd)
 	fd_text.add_child(Styles.caps("Field Data", 12, Styles.MUTED))
 	fd_row.add_child(fd_text)
+	Tips.term(fd, "field_data")
 	row.add_child(fd)
 	var back := Button.new()
 	back.text = "BACK"
@@ -199,19 +201,26 @@ func _pack_card(id: String, have: Array, fd: int) -> Control:
 func _content_chip(kind: String, id: String) -> Control:
 	var text := id
 	var col := Styles.BORDER_STRONG
+	var tip := ""
+	var terms: Array = []
 	match kind:
 		"gear":
 			if GearData.exists(id):
 				text = GearData.item_name(id)
+				tip = GearData.desc(id)
 				var tags := GearData.tags_of(id)
 				if not tags.is_empty():
 					col = GearData.tag_color(tags[0])
+					terms.append("tag_" + str(tags[0]).to_lower())
 		"doctrine":
 			text = GearData.DOCTRINES.get(id, {}).get("name", id)
+			tip = str(GearData.DOCTRINES.get(id, {}).get("desc", ""))
 			col = Styles.AMBER.darkened(0.3)
 		"mutation":
 			text = MutationData.get_def(id).get("name", id)
+			tip = str(MutationData.get_def(id).get("desc", ""))
 			col = Styles.TEAL_DIM
+			terms.append("mutation")
 	var p := PanelContainer.new()
 	var sb := Styles.panel_box(Color(col, 0.12), Color(col, 0.7))
 	sb.content_margin_left = 7
@@ -219,7 +228,9 @@ func _content_chip(kind: String, id: String) -> Control:
 	sb.content_margin_top = 1
 	sb.content_margin_bottom = 1
 	p.add_theme_stylebox_override("panel", sb)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE if tip == "" else Control.MOUSE_FILTER_PASS
+	p.tooltip_text = tip
+	Tips.terms(p, terms)
 	p.add_child(Styles.label(text, 12, Styles.TEXT))
 	return p
 
@@ -270,7 +281,7 @@ func _build_severity() -> void:
 	detail.add_child(box)
 	var head := Styles.hbox(14)
 	box.add_child(head)
-	head.add_child(Styles.caps("Severity %d" % pick, 28, Styles.AMBER))
+	head.add_child(Tips.term(Styles.caps("Severity %d" % pick, 28, Styles.AMBER), "severity", {"value": pick}))
 	if pick > 0:
 		head.add_child(Styles.caps(Severity.LEVELS[pick - 1].name, 22, Styles.TEXT))
 	head.add_child(Styles.spacer())
@@ -288,6 +299,7 @@ func _build_severity() -> void:
 		name.custom_minimum_size = Vector2(170, 0)
 		row.add_child(name)
 		row.add_child(Styles.label(lv.rule, 16, Styles.DIM))
+		Tips.terms(row, Glossary.scan(lv.rule))
 		box.add_child(row)
 	if top < Severity.MAX:
 		box.add_child(Styles.label("Win a run at Severity %d to unlock Severity %d." % [top, top + 1], 14, Styles.MUTED))
@@ -305,6 +317,8 @@ func _severity_step(n: int, pick: int, top: int) -> Control:
 	b.pressed.connect(func() -> void:
 		Profile.set_severity(n)
 		show_tab("severity"))
+	b.tooltip_text = Severity.LEVELS[n - 1].rule if n > 0 else "The standard run. No extra rules."
+	Tips.term(b, "severity", {"value": n})
 	var box := Styles.vbox(4)
 	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER

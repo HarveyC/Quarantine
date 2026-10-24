@@ -6,6 +6,7 @@ extends PanelContainer
 
 signal pressed
 
+const Tips := preload("res://ui/tips/tips.gd")
 const UI := preload("res://ui/gear/gear_ui.gd")
 const W := 330
 const H := 470
@@ -52,6 +53,11 @@ func setup(c: Dictionary, rec: Dictionary, index: int) -> void:
 	for n in v.get_children():
 		if n is Control:
 			n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Parts with a hover card (tag chips, set previews, Mk II, ...) still take the pointer;
+	# PASS hands their clicks on to the card.
+	for n in v.find_children("*", "Control", true, false):
+		if n.has_meta(Tips.META):
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
 	mouse_entered.connect(func() -> void:
 		_hover = true
 		UI.play(self, "ui_hover")
@@ -126,6 +132,7 @@ func _build_gear(v: VBoxContainer) -> void:
 		var b := _boxed(v, rar)
 		var h := HBoxContainer.new()
 		h.add_child(UI.caps("Mk I  →  Mk II", 20, rar))
+		Tips.term(h, "mk2")
 		b.add_child(h)
 		b.add_child(UI.wrap(UI.label(GearData.desc(id, 2), 14, UI.TEXT), W - 70))
 		v.add_child(UI.label("Duplicate of an item %s owns. No slot used." % UI.short_name(record), 13, UI.FAINT))
@@ -143,6 +150,7 @@ func _build_gear(v: VBoxContainer) -> void:
 			sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			h.add_child(sp)
 			h.add_child(UI.pips(p.tag, p.from, p.to))
+			Tips.term(h, "set_bonus", {"count": p.to, "color": GearData.tag_color(p.tag)})
 			b.add_child(h)
 			if hot:
 				b.add_child(UI.wrap(UI.label("Set bonus: " + GearData.TAG_INFO[p.tag].bonus, 14, UI.AMBER, "bold"), W - 70))
@@ -182,6 +190,7 @@ func _build_gun(v: VBoxContainer) -> void:
 		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(sp)
 		h.add_child(UI.pips(p.tag, p.from, p.to))
+		Tips.term(h, "set_bonus", {"count": p.to, "color": GearData.tag_color(p.tag)})
 		b.add_child(h)
 		if p.unlocks:
 			b.add_child(UI.wrap(UI.label("Set bonus: " + GearData.TAG_INFO[p.tag].bonus, 14, UI.AMBER, "bold"), W - 70))
@@ -197,7 +206,9 @@ func _build_power(v: VBoxContainer) -> void:
 		sub += " · " + Infection.tier_name(int(card.tier))
 	elif card.has("rarity"):
 		sub += " · " + str(card.rarity).capitalize()
-	_row(v, UI.label(("MUTATION" if is_mut else "CLASS PERK"), 12, UI.FAINT, "mono"), UI.caps(sub, 13, col))
+	var sub_label := UI.caps(sub, 13, col)
+	Tips.term(sub_label, "mutation" if is_mut else "perk", {"value": Infection.THRESHOLDS[clampi(int(card.get("tier", 1)), 0, 4)]} if is_mut else {})
+	_row(v, UI.label(("MUTATION" if is_mut else "CLASS PERK"), 12, UI.FAINT, "mono"), sub_label)
 	v.add_child(UI.wrap(UI.caps(str(card.get("name", card.get("id", "?"))), 36), W - 40))
 	var t := GearTags.normalize(str(card.get("tag", "")))
 	if t != "":
@@ -217,7 +228,7 @@ func _build_power(v: VBoxContainer) -> void:
 
 
 func _build_consumable(v: VBoxContainer) -> void:
-	_row(v, UI.label("POCKET", 12, UI.FAINT, "mono"), UI.caps("Consumable ×%d" % int(card.get("charges", 2)), 13, UI.DIM))
+	_row(v, Tips.term(UI.label("POCKET", 12, UI.FAINT, "mono"), "pocket"), UI.caps("Consumable ×%d" % int(card.get("charges", 2)), 13, UI.DIM))
 	v.add_child(UI.caps(GearData.item_name(card.id), 36))
 	v.add_child(UI.wrap(UI.label(GearData.desc(card.id), 15, UI.COPY), W - 40))
 	if not Loadout.can_add_consumable(record, card.id):
@@ -228,7 +239,7 @@ func _build_cache(v: VBoxContainer) -> void:
 	_row(v, UI.label("CACHE", 12, UI.FAINT, "mono"), UI.caps("Squad", 13, UI.DIM))
 	v.add_child(UI.caps("Supply cache", 36))
 	v.add_child(UI.mono("+%d" % int(card.get("supplies", GearRun.CACHE_SUPPLIES)), 40, UI.AMBER))
-	v.add_child(UI.label("Supplies to the squad, for the depot and the hospital.", 15, UI.COPY))
+	v.add_child(Tips.term(UI.label("Supplies to the squad, for the depot and the hospital.", 15, UI.COPY), "supplies"))
 
 
 func _boxed(v: VBoxContainer, col: Color) -> VBoxContainer:

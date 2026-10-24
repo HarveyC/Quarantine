@@ -13,6 +13,7 @@ const W := preload("res://ui/widgets.gd")
 const Icons := preload("res://ui/icons.gd")
 const InputController := preload("res://view/input_controller.gd")
 const SquadRoster := preload("res://ui/squad_roster.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const SIZE := Vector2(980, 300)
 ## Centre of the portrait and of the arc.
@@ -52,6 +53,7 @@ func build() -> void:
 	_ap = W.Diamonds.new(10.0)
 	_ap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	orbs.add_child(_ap)
+	Tips.term(_ap, "actions")
 	_soldier_box.add_child(orbs)
 	var nm := Styles.hbox(8)
 	nm.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -228,6 +230,9 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 		fg = Color(fg, 0.35)
 	b.tooltip_text = label + ("\n" + str(a.desc) if not mutation and str(a.get("desc", "")) != "" else "")
 	var key: String = a.key
+	var term := "mutation" if mutation else ("hit_chance" if key == "shoot" else Glossary.find(label))
+	if term != "":
+		Tips.term(b, term)
 	b.set_meta("key", key)
 	b.pressed.connect(func() -> void: action_pressed.emit(key))
 	var ip := px * 0.42

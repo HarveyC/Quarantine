@@ -28,6 +28,7 @@ var reveal_mode := false
 ## player -> display name, for vote chips.
 var names := {}
 var hover := -1
+var _legend_rects: Array = []   # [Rect2, node type] per legend item, for hover cards
 
 var _card: Control
 var _t := 0.0
@@ -491,11 +492,21 @@ func _draw() -> void:
 		items.append([type, t, w])
 		lw += w + 22
 	lx = (size.x - (lw - 22)) * 0.5
+	_legend_rects.clear()
 	for it in items:
+		_legend_rects.append([Rect2(lx - 4, ly - 18, it[2] + 8, 26), it[0]])
 		var col := NodeInfo.color(it[0])
 		Icons.draw(self, NodeInfo.icon(it[0]), Rect2(lx, ly - 13, 18, 18), col if col != Styles.TEXT else Styles.DIM, 1.6)
 		draw_string(body, Vector2(lx + 24, ly), it[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Styles.DIM)
 		lx += it[2] + 22
+
+
+## Hover card terms for the legend under the map (TermTips asks).
+func tip_at(p: Vector2) -> Dictionary:
+	for r in _legend_rects:
+		if (r[0] as Rect2).has_point(p):
+			return {"terms": ["node_" + str(r[1])]}
+	return {}
 
 
 ## Where the Bloom's haze reaches on the board (x): past the squad's column, further with the
