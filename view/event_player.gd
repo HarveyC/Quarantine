@@ -1337,8 +1337,43 @@ func _beat_mission_end(ev: Dictionary) -> Dictionary:
 	var result := int(ev.get("result", Types.Result.NONE))
 	if get_node_or_null("/root/Soundscape") == null:   # otherwise the Soundscape plays a music stinger
 		_sfx("victory" if result == Types.Result.VICTORY else "defeat")
+	var cause := str(ev.get("cause", ""))
+	if result == Types.Result.DEFEAT and Objectives.LOSS.has(cause):
+		# Show what lost the fight before the debrief covers it: look at it and name it.
+		var at = _cells_center(Objectives.loss_cells(view.state))
+		if at != null:
+			if not in_cinematic:
+				view.camera_rig.focus(at)
+			view.fx.flash_light(at + Vector3(0, 1, 0), Palette.DANGER, 4.0, 1.2, 5.0)
+			view.fx.floating_text(at + Vector3(0, 1.6, 0), str(Objectives.LOSS[cause].title).to_upper(), Palette.DANGER, 64, 2.0)
+		view.hud.banner(Objectives.LOSS[cause].title, Palette.DANGER)
 	view.hud.show_end(result)
 	return {}
+
+
+## World point in the middle of `cells` (null when there are none).
+func _cells_center(cells: Array[Vector2i]):
+	if cells.is_empty():
+		return null
+	var mid := Vector3.ZERO
+	for c in cells:
+		mid += Board.cell_to_world(c)
+	return mid / cells.size()
+
+
+## The enemy owns the beacon at the end of a round: one more round like that and the fight is lost.
+func _beat_beacon_overrun(ev: Dictionary) -> Dictionary:
+	var at = _cells_center(view.state.grid.marker("beacon"))
+	if at != null:
+		if not in_cinematic:
+			view.camera_rig.focus(at)
+		view.fx.flash_light(at + Vector3(0, 1, 0), Palette.DANGER, 4.0, 0.8, 5.0)
+		view.fx.floating_text(at + Vector3(0, 1.6, 0), "BEACON OVERRUN", Palette.DANGER, 56, 1.6)
+	view.hud.banner("Beacon overrun", Palette.DANGER)
+	view.hud.toast("Get a soldier onto the beacon this turn or the mission fails")
+	view.hud.refresh()
+	_sfx("alert")
+	return {"dur": 1.4}
 
 
 func _beat_hazard(ev: Dictionary) -> Dictionary:

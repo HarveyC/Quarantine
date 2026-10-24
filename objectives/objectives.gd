@@ -10,14 +10,17 @@ extends RefCounted
 ##   skirmish, elite, boss: kill every enemy.
 ##   extract: every living soldier on the evac zone at the end of a squad turn. After turn
 ##            EXTRACT_TURNS the dropship leaves: soldiers off the pad are lost.
-##   hold:    survive HOLD_TURNS rounds; lost if, at the end of a round, enemies stand in the
-##            beacon zone and no soldier does.
+##   hold:    survive HOLD_TURNS rounds; lost once enemies have stood in the beacon zone with no
+##            soldier on it at the end of HOLD_OVERRUN_ROUNDS rounds in a row. The first such round
+##            only warns (a `beacon_overrun` event) and doesn't count as held, so the squad always
+##            gets a turn to retake it.
 ##   rescue:  civilians follow the nearest soldier; win when every living civilian has reached the
 ##            exit (the drop zone). If every civilian dies, killing every enemy wins instead.
 ##   purge:   destroy every spore nest (units of kind NEST_KIND), or kill every enemy.
 
 const EXTRACT_TURNS := 7
 const HOLD_TURNS := 4
+const HOLD_OVERRUN_ROUNDS := 2  # rounds in a row the enemy can own the beacon before it falls
 const BONUS_BY_TURN := 5        # skirmish / elite / purge bonus: done by the end of this turn
 const NEST_KIND := "spore_nest"
 const CIVILIAN := {"name": "Civilian", "max_hp": 3, "mobility": 4}
@@ -30,6 +33,18 @@ const TEXT := {
 	"hold": "Hold the beacon",
 	"rescue": "Escort the civilians to the drop zone",
 	"purge": "Destroy the spore nests",
+}
+
+## Why a fight was lost (Objectives.loss_cause): headline, icon, one line of detail.
+const LOSS := {
+	"beacon": {"title": "Beacon overrun", "icon": "flag",
+		"line": "Enemies held the beacon with no soldier on it for %d rounds running." % HOLD_OVERRUN_ROUNDS},
+	"left_behind": {"title": "Left behind", "icon": "clock",
+		"line": "The dropship left before anyone reached the evac zone."},
+	"turned": {"title": "The squad Turned", "icon": "turned",
+		"line": "The Bloom took every soldier."},
+	"squad_down": {"title": "All soldiers down", "icon": "skull",
+		"line": "No soldier is left standing."},
 }
 
 
@@ -49,6 +64,7 @@ static func setup(s: GameState) -> void:
 	match kind(s):
 		"hold":
 			s.objective.held = 0
+			s.objective.overrun = 0
 			s.objective.contested = false
 		"extract":
 			s.objective.left_behind = 0
@@ -135,8 +151,13 @@ static func _check_hold(s: GameState) -> void:
 	if theirs:
 		s.objective.contested = true
 	if theirs and not ours:
-		s.objective.result = Types.Result.DEFEAT
-		return
+		s.objective.overrun = int(s.objective.get("overrun", 0)) + 1
+		if s.objective.overrun >= HOLD_OVERRUN_ROUNDS:
+			s.objective.result = Types.Result.DEFEAT
+		else:
+			s.emit({"type": "beacon_overrun", "rounds_left": HOLD_OVERRUN_ROUNDS - s.objective.overrun})
+		return   # an overrun round isn't a held one
+	s.objective.overrun = 0
 	s.objective.held += 1
 	_progress(s, s.objective.held, HOLD_TURNS)
 	if s.objective.held >= HOLD_TURNS:
@@ -222,6 +243,37 @@ static func check(s: GameState) -> int:
 	return Types.Result.VICTORY if enemies_dead else Types.Result.NONE
 
 
+## Why the fight was lost: a LOSS key, or "" when it wasn't.
+static func loss_cause(s: GameState) -> String:
+	if s.result != Types.Result.DEFEAT:
+		return ""
+	if not s.objective.is_empty() and kind(s) == "hold" and s.objective.result == Types.Result.DEFEAT:
+		return "beacon"
+	var squad := _squad_units(s)
+	if squad.any(func(u: Unit) -> bool: return u.status.get("left_behind", false)):
+		return "left_behind"
+	if not squad.is_empty() and squad.all(func(u: Unit) -> bool: return u.status.get("turned", false)):
+		return "turned"
+	return "squad_down"
+
+
+## The cells the camera should look at for a loss: the beacon zone, else where the squad fell.
+static func loss_cells(s: GameState) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if loss_cause(s) == "beacon":
+		out.assign(s.grid.marker("beacon"))
+		return out
+	for u in _squad_units(s):
+		out.append(u.pos)
+	return out
+
+
+## Every squad soldier, living, dead or Turned (no civilians or deployables).
+static func _squad_units(s: GameState) -> Array[Unit]:
+	return s.units.filter(func(u: Unit) -> bool:
+		return u.status.get("turned", false) or (Kit.is_soldier(u) and not is_civilian(u) and not u.status.has("deployable")))
+
+
 ## Whether the fight's bonus objective was met (+10 Supplies, +1 Intel in a run). Only after a win.
 static func bonus_met(s: GameState) -> bool:
 	if s.result != Types.Result.VICTORY or s.objective.is_empty():
@@ -243,7 +295,8 @@ static func describe(s: GameState) -> String:
 		"extract":
 			return "%s  ·  dropship leaves after turn %d" % [text, EXTRACT_TURNS]
 		"hold":
-			return "%s  ·  %d/%d turns" % [text, s.objective.get("held", 0), HOLD_TURNS]
+			var line := "%s  ·  %d/%d turns" % [text, s.objective.get("held", 0), HOLD_TURNS]
+			return line + "  ·  OVERRUN, RETAKE IT" if int(s.objective.get("overrun", 0)) > 0 else line
 		"rescue":
 			return "%s  ·  %d/%d safe" % [text, s.objective.get("rescued", []).size(), s.objective.get("civilians", []).size()]
 		"purge":

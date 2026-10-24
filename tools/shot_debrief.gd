@@ -1,6 +1,6 @@
 extends SceneTree
 ## Renders the end-of-fight debrief over a run fight to a PNG (dev check):
-## godot -s tools/shot_debrief.gd -- out.png [players] [lost]
+## godot -s tools/shot_debrief.gd -- out.png [players] [lost | beacon]
 
 const MAIN := preload("res://scenes/main.tscn")
 
@@ -31,7 +31,11 @@ func _init() -> void:
 		Rules.deal_damage(s, foes[i], 999, squad[i % 2])
 	Rules.deal_damage(s, squad[0], 3, foes[0])
 	Infection.add(s, squad[1], 12)
-	if args.has("lost"):
+	if args.has("beacon"):   # a lost Hold the beacon: the squad lives, the objective fails
+		s.grid.objective = "hold"
+		s.objective.kind = "hold"
+		s.objective.result = Types.Result.DEFEAT
+	elif args.has("lost"):
 		for u in squad:
 			u.hp = 0
 	else:

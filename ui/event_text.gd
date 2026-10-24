@@ -101,9 +101,12 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return _c("Concealment lost. %s" % Concealment.cause_text(str(ev.get("cause", "")), by), Palette.DANGER)
 		"turned":
 			return _c("%s has TURNED" % who.call("unit"), Palette.TEAL)
+		"beacon_overrun":
+			return _c("Beacon overrun. Retake it this turn or the mission fails", Palette.DANGER)
 		"mission_end":
 			var r := int(ev.get("result", 0))
-			return _c("=== MISSION %s ===" % ("COMPLETE" if r == Types.Result.VICTORY else "FAILED"), Palette.AMBER)
+			var why: String = Objectives.LOSS.get(str(ev.get("cause", "")), {}).get("title", "")
+			return _c("=== MISSION %s ===" % ("COMPLETE" if r == Types.Result.VICTORY else "FAILED" + (": " + why.to_upper() if why != "" else "")), Palette.AMBER)
 	if EnemyBeats.handles(ev):
 		return EnemyBeats.describe(ev, name_of)
 	return _c(("[%s] %s" % [str(ev.get("type", "?")), str(ev)]).replace("[", "[lb]"), Color(0.55, 0.55, 0.55))

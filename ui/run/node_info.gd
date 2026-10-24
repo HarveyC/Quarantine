@@ -21,7 +21,7 @@ const OBJECTIVE_NAMES := {"skirmish": "Clear", "extract": "Extract", "hold": "Ho
 const OBJECTIVE_TEXT := {
 	"skirmish": "Kill every enemy.",
 	"extract": "Get everyone to the evac zone.",
-	"hold": "Hold the beacon for %d turns." % 4,
+	"hold": "Hold the beacon for %d turns. Don't leave it to the enemy two rounds running." % 4,
 	"rescue": "Escort the civilians to the drop zone.",
 	"purge": "Destroy the spore nests.",
 	"boss": "Kill the boss.",
