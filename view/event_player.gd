@@ -22,9 +22,11 @@ const CameraRig := preload("res://view/camera_rig.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
 const ShotCamera := preload("res://view/shot_camera.gd")
 const GunFeel := preload("res://view/gun_feel.gd")
+const MeleeFx := preload("res://view/melee_beats.gd")
 const ENEMY_PAD := 0.3   # extra hold after each enemy-phase action
 ## Events that keep an open shot cinematic on screen (the shot's consequences).
-const CINE_FOLLOW := ["damage", "died", "infection", "turned", "alerted", "pinned"]
+## A knockback `move` (Shield Bash, Brute slam) also stays on the cinematic.
+const CINE_FOLLOW := ["damage", "died", "infection", "turned", "alerted", "pinned", "stunned", "perk", "bleeding"]
 const STEP_TIME := 0.2   # seconds per tile when walking
 
 ## Player setting: false skips shot cameras (shots still get the full effects).
@@ -94,7 +96,7 @@ func advance(delta: float) -> void:
 
 
 func _start(ev: Dictionary) -> void:
-	if in_cinematic and not CINE_FOLLOW.has(str(ev.get("type", ""))):
+	if in_cinematic and not CINE_FOLLOW.has(str(ev.get("type", ""))) and not ev.get("knockback", false):
 		_end_cinematic()
 	beat_started.emit(ev)
 	var squad_move: bool = ev.get("type") == "move" and not ev.has("_seen")
@@ -266,6 +268,8 @@ func _beat_team_phase(ev: Dictionary) -> Dictionary:
 	turn = int(ev.get("turn", turn))
 	for uv in view.unit_views.values():
 		uv.set_statuses(false, false)
+		if uv.guard:
+			uv.set_guard(false)
 	view.hud.banner("TURN %d  -  SQUAD PHASE" % int(ev.get("turn", 0)), Palette.player_ui(0))
 	_sfx("sting_squad")
 	return {"dur": 0.9}
@@ -311,13 +315,18 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 		return seen.is_empty() or bool(seen[mini(i, seen.size() - 1)]) or (i > 0 and bool(seen[i - 1]))
 	if shown.call(0):
 		_focus(uv)
-	uv.set_moving(true)
+	# Knocked back (Brute slam, Shield Bash): shoved along the path facing the blow, not walking.
+	var shoved: bool = ev.get("knockback", false)
+	if shoved:
+		uv.hit_react(pts[0] - (pts[1] - pts[0]), 1.4)
+	uv.set_moving(not shoved)
 	uv.set_aim(0.0)
 	var update := func(t: float) -> void:
-		var f := t * steps
+		var f := (1.0 - pow(1.0 - t, 2.0) if shoved else t) * steps
 		var i := mini(int(f), steps - 1)
 		uv.position = pts[i].lerp(pts[i + 1], f - i)
-		uv.face_towards(pts[i + 1])
+		if not shoved:
+			uv.face_towards(pts[i + 1])
 		if not seen.is_empty():
 			uv.visible = shown.call(i)
 		if enemy_phase and uv.visible:
@@ -327,7 +336,7 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 		uv.set_moving(false)
 		if not seen.is_empty():
 			uv.visible = bool(seen[seen.size() - 1])
-	return {"dur": STEP_TIME * steps, "update": update, "finish": finish}
+	return {"dur": STEP_TIME * steps * (0.6 if shoved else 1.0), "update": update, "finish": finish}
 
 
 ## The shot timeline. Quick version (no camera, no slow motion) when cinematics are off.
@@ -351,8 +360,8 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var n_rounds: int = feel.rounds
 	# Bursts play out in the slow motion, so space them out further on the shot camera.
 	var gap: float = feel.gap * (2.2 if cine else 1.0)
-	var span := gap * (n_rounds - 1)
-	var flight := ((0.55 if hero else 0.4) if cine else 0.12)
+	var span := GunFeel.round_offset(feel, n_rounds - 1, gap)
+	var flight := ((0.55 if hero else 0.4) if cine else 0.12) * float(feel.get("flight", 1.0))
 	var t_fire := (0.55 if hero else 0.4) if cine else 0.12
 	var t_hit := t_fire + span + flight
 	var dur := t_hit + ((0.9 if hero else 0.7) if cine else 0.3)
@@ -366,7 +375,8 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var rounds: Array[Dictionary] = []
 	for i in n_rounds:
 		var last := i == n_rounds - 1
-		var r := {"t0": t_fire + gap * i, "t1": t_fire + gap * i + flight, "last": last,
+		var t0 := t_fire + GunFeel.round_offset(feel, i, gap)
+		var r := {"t0": t0, "t1": t0 + flight, "last": last, "proj": GunFeel.proj_of(feel, i, n_rounds),
 			"fired": false, "landed": false, "bullets": [], "from": Vector3.ZERO}
 		# Earlier rounds of a hit mostly connect; on a miss (or the first rounds of a graze) they chew up cover.
 		var connects := hit and (last or (i + seed) % 3 != 0) and not (graze and not last)
@@ -388,25 +398,41 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		var cap := "%s  >  %s" % [shooter.label(), target.label()]
 		view.hud.cine_caption(("REACTION FIRE  -  " if reaction else "") + cap, "%d%% to hit" % chance if chance > 0 else "")
 		_sfx("cinematic")
-	var st := {"pushed": false, "done": false}
+	var casing := GunFeel.casing_of(feel)
+	var impact_style := str(feel.get("impact", "spark"))
+	var mech_t := -1.0
+	if feel.get("eject", "") == "mech" and casing != "":
+		mech_t = rounds[n_rounds - 1].t0 + float(feel.get("mech_delay", 0.4)) * (2.0 if cine else 1.0)
+	var st := {"pushed": false, "done": false, "ejected": mech_t < 0.0}
+	var eject := func(i: int) -> void:
+		# Once the shot camera has pushed down the line of fire it passes the shooter's
+		# ejection port: a late casing (pump, bolt) would flash across the lens, so only hear it.
+		if not (cine and st.pushed):
+			view.fx.casing(shooter.muzzle_world() - dir * 0.35, right, casing)
+		# The first casings of a burst are heard landing; after that they blur into the gunfire.
+		if i < 2:
+			_sfx("shell_drop" if casing == "shell" else "brass", 0.0, 0.45 + 0.07 * i)
 	var fire_round := func(i: int) -> void:
 		var r: Dictionary = rounds[i]
 		r.fired = true
 		r.from = shooter.muzzle_world()
 		var barrel: Vector3 = (target.chest_world() - (r.from as Vector3)).normalized()
-		view.fx.muzzle_flash(r.from, col if feel.flash > 0.0 else Palette.TEAL, barrel, feel.flash)
-		if feel.get("smoke", false) or i == 0:
+		var style := str(feel.get("flash_style", "star"))
+		view.fx.muzzle_flash(r.from, col if feel.flash > 0.0 else Palette.TEAL, barrel, feel.flash, style)
+		if (feel.get("smoke", false) or i == 0) and style != "gas" and style != "bio":
 			view.fx.puff(r.from + dir * 0.35, Color(0.6, 0.6, 0.55), 0.2 + 0.12 * feel.flash, 0.6, 0.2)
-		if feel.casing:
-			view.fx.casing(r.from - dir * 0.3, right)
+		if casing != "" and mech_t < 0.0:
+			eject.call(i)
 		shooter.recoil(feel.recoil)
 		for imp in r.impacts:
-			r.bullets.append(view.fx.spawn_bullet(col, false, feel.bullet, r.impacts.size() == 1))
+			var b := view.fx.spawn_round(r.proj, col, feel.bullet, r.impacts.size() == 1)
+			b.set_meta("arc", float(feel.get("arc", 0.0)))
+			r.bullets.append(b)
 		_sfx(feel.sound, 0.0 if i == 0 else -1.5)
 		if i == 0 and feel.has("tail"):
 			_sfx(feel.tail, -3.0, 0.03)
 		if r.last:
-			_sfx("whiz", -4.0, 0.08)
+			_sfx(str(feel.get("whiz", "whiz")), -4.0, 0.08)
 			if feel.has("mech"):
 				_sfx(feel.mech, -2.0, feel.mech_delay * (2.0 if cine else 1.0))
 		view.camera_rig.shake(feel.shake)
@@ -421,7 +447,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 			var imp: Dictionary = r.impacts[k]
 			if feel.get("smoke", false) and k == 0:
 				view.fx.smoke_trail(r.from, imp.pos)
-			_impact_at(shooter, target, imp, r.last and k == 0, crit, graze, cine)
+			_impact_at(shooter, target, imp, r.last and k == 0, crit, graze, cine, impact_style, col, k == 0)
 		if r.last and r.hit:
 			target.hit_react(shooter.position, 1.6 if crit else (0.6 if graze else 1.0))
 			target.flash(Color(1.0, 0.85, 0.7) if crit else Palette.DANGER)
@@ -434,6 +460,9 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		var s := k * dur
 		if cine and s < t_fire:
 			view.camera_rig.cine_progress(s / t_fire)
+		if not st.ejected and s >= mech_t:
+			st.ejected = true
+			eject.call(0)
 		for i in rounds.size():
 			var r: Dictionary = rounds[i]
 			if not r.fired and s >= r.t0:
@@ -471,6 +500,9 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		for r in rounds:
 			for b in r.bullets:
 				view.fx.remove(b)
+		if not st.ejected:
+			st.ejected = true
+			eject.call(0)
 		shooter.set_aim(0.0)
 	return {"dur": dur, "update": update, "finish": finish}
 
@@ -557,37 +589,98 @@ func _cover_face(grid: Grid, c: Vector2i, toward_target: Vector2i, cover: int, r
 	return {"pos": pos, "normal": n, "kind": "cover"}
 
 
-func _impact_at(shooter: UnitView, target: UnitView, imp: Dictionary, main: bool, crit: bool, graze: bool, cine: bool) -> void:
+## One projectile landing. `style` is the gun's "impact" (view/gun_feel.gd): it adds its own
+## splash, debris and sound on top of the surface's; `col` is the round's colour; `lead` is
+## the first projectile of its round (pellet spreads only sound once).
+func _impact_at(shooter: UnitView, target: UnitView, imp: Dictionary, main: bool, crit: bool, graze: bool, cine: bool,
+		style := "spark", col := Color.WHITE, lead := true) -> void:
 	var at: Vector3 = imp.pos
 	var dir := _flat(target.position - shooter.position).normalized()
+	var big := style in ["heavy", "slug"]
+	var small := style in ["pellet", "needle"]
 	match imp.kind:
 		"body":
 			var normal := -dir + Vector3(0, 0.3, 0)
 			var blood := _blood(target)
 			var glow := blood == Palette.TEAL
-			var big := main and crit
-			view.fx.burst(at, -normal * 0.3 + dir, blood, (22 if big else 14) if main else 6, (4.5 if big else 3.2) if main else 2.4, glow, 0.05 if main else 0.035)
-			view.fx.burst(at, normal, Color(1.0, 0.75, 0.4), 6 if main else 3, 5.0, true, 0.025)
+			var huge := main and (crit or style == "slug")
+			view.fx.burst(at, -normal * 0.3 + dir, blood, (22 if huge else 14) if main else 6, (4.5 if huge else 3.2) if main else 2.4, glow, 0.05 if main else 0.035)
+			if style not in ["bio", "dart", "shock"]:
+				view.fx.burst(at, normal, Color(1.0, 0.75, 0.4), 6 if main else 3, 5.0, true, 0.025)
 			if main:
 				view.fx.flash_light(at, blood.lightened(0.3), 2.2 if crit else 1.4, 0.2, 3.0)
 				view.fx.decal(target.position + dir * 0.7, blood.darkened(0.3), 0.3 if graze else 0.42, glow)
 				_sfx("impact_armor" if target.is_soldier and not target.turned else "impact_flesh", 2.0 if crit else 0.0)
-			else:
+			elif lead:
 				_sfx("impact_armor" if target.is_soldier and not target.turned else "impact_flesh", -7.0)
+			if big and main:
+				view.camera_rig.shake(0.35)
 		"cover":
 			var n: Vector3 = imp.normal
-			view.fx.burst(at, n + Vector3(0, 0.4, 0), Color(0.55, 0.53, 0.48), 10 if main else 5, 3.2, false, 0.04)
-			view.fx.burst(at, n, Color(1.0, 0.8, 0.4), 5 if main else 3, 4.5, true, 0.02)
-			view.fx.puff(at + n * 0.1, Color(0.55, 0.52, 0.47), 0.6 if main else 0.35, 0.9, 0.25)
-			view.fx.bullet_hole(at, n)
+			var chips := 10 if main else 5
+			if big:
+				chips = 18 if main else 9
+			elif small:
+				chips = 4 if main else 2
+			view.fx.burst(at, n + Vector3(0, 0.4, 0), Color(0.55, 0.53, 0.48), chips, 4.0 if big else 3.2, false, 0.06 if big else 0.04)
+			if style not in ["bio", "dart"]:
+				view.fx.burst(at, n, Color(1.0, 0.8, 0.4), (8 if style == "needle" else 5) if main else 3, 4.5, true, 0.02)
+			view.fx.puff(at + n * 0.1, Color(0.55, 0.52, 0.47), (1.0 if big else 0.6) if main else 0.35, 0.9, 0.25)
+			if style == "dart":
+				view.fx.stuck_dart(at, -dir, col)
+			else:
+				view.fx.bullet_hole(at, n, 0.13 if big else (0.04 if small else 0.07))
 			if main:
 				view.fx.flash_light(at + n * 0.1, Color(1.0, 0.8, 0.5), 1.2, 0.12, 2.0)
-			_sfx(("ricochet" if cine else "concrete") if main else "concrete", 0.0 if main else -6.0)
+			if lead and style not in ["dart", "pellet", "slug"]:
+				_sfx(("ricochet" if cine else "concrete") if main else "concrete", 0.0 if main else -6.0)
 		_:
-			view.fx.burst(at, Vector3.UP - dir * 0.3, Color(0.42, 0.4, 0.36), 9 if main else 4, 2.6, false, 0.035)
-			view.fx.puff(at + Vector3(0, 0.15, 0), Color(0.5, 0.47, 0.42), 0.55 if main else 0.3, 0.8, 0.35)
-			view.fx.decal(at, Color(0.1, 0.09, 0.08), 0.08)
-			_sfx("concrete", -3.0 if main else -8.0)
+			view.fx.burst(at, Vector3.UP - dir * 0.3, Color(0.42, 0.4, 0.36), (16 if big else 9) if main else 4, 2.6, false, 0.035)
+			view.fx.puff(at + Vector3(0, 0.15, 0), Color(0.5, 0.47, 0.42), (0.9 if big else 0.55) if main else 0.3, 0.8, 0.35)
+			if style == "dart":
+				view.fx.stuck_dart(at, -dir + Vector3(0, 0.4, 0), col)
+			else:
+				view.fx.decal(at, Color(0.1, 0.09, 0.08), 0.14 if big else 0.08)
+			if lead and style not in ["dart", "pellet", "slug"]:
+				_sfx("concrete", -3.0 if main else -8.0)
+	_impact_style(at, imp, dir, style, col, main, lead)
+
+
+## The gun's own mark on an impact: bio rounds splash and smoke with culture, slugs knock a
+## crater of debris loose, pellets spatter, darts thock in, shock rounds crackle.
+func _impact_style(at: Vector3, imp: Dictionary, dir: Vector3, style: String, col: Color, main: bool, lead: bool) -> void:
+	var n: Vector3 = imp.get("normal", -dir)
+	match style:
+		"bio":
+			view.fx.burst(at, n + Vector3(0, 0.5, 0), col, 16 if main else 8, 3.0, true, 0.04)
+			view.fx.puff(at + n * 0.15, col.darkened(0.45), 0.9 if main else 0.5, 1.4, 0.3)
+			view.fx.flash_light(at + n * 0.2, col, 2.2 if main else 1.2, 0.35, 3.0)
+			if imp.kind != "body":
+				view.fx.decal(at, col.darkened(0.55), 0.22, true)
+			if lead:
+				_sfx("impact_bio", 0.0 if main else -5.0)
+		"slug":
+			view.fx.burst(at, n + Vector3(0, 0.6, 0), Color(0.5, 0.48, 0.44), 12, 5.0, false, 0.07)
+			view.fx.puff(at + n * 0.2, Color(0.55, 0.52, 0.47), 1.3, 1.2, 0.35)
+			if lead:
+				_sfx("impact_slug", 0.0 if main else -4.0)
+		"pellet":
+			if lead:
+				_sfx("impact_pellets", 0.0 if main else -4.0)
+		"dart":
+			view.fx.puff(at + n * 0.1, Color(0.85, 0.92, 0.95), 0.3, 0.6, 0.1)
+			if lead:
+				_sfx("impact_dart", 0.0 if main else -5.0)
+		"shock":
+			for k in 3:
+				var off := Vector3(sin(k * 2.1), 0.6 + cos(k * 1.3) * 0.4, cos(k * 2.1)) * 0.35
+				view.fx.spark_arc(at, at + off, col, 0.25)
+			view.fx.flash_light(at, col, 2.5, 0.2, 3.0)
+			if lead:
+				_sfx("impact_shock", 0.0 if main else -5.0)
+		"needle":
+			if lead and imp.kind == "body":
+				_sfx("ricochet", -9.0)
 
 
 func _beat_damage(ev: Dictionary) -> Dictionary:
@@ -640,6 +733,67 @@ func _beat_hunker(ev: Dictionary) -> Dictionary:
 	return _status_beat(ev, false, "HUNKER DOWN")
 
 
+## Warden's Guard stance: shield up until the next squad phase or until it bashes.
+func _beat_guard(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	uv.set_guard(true)
+	view.fx.floating_text(_head(uv), "GUARD", Palette.AMBER, 40)
+	view.fx.pulse(uv.position, Palette.AMBER, 0.6)
+	_sfx("radio")
+	_sfx("bash", -14.0, 0.1)
+	return {"dur": 0.5}
+
+
+## A perk that visibly triggered (Bloodlust's refunded action, Last Stand, ...).
+func _beat_perk(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	var perk := str(ev.get("perk", ""))
+	var col := Palette.TEAL if perk == "bloodlust" else Palette.AMBER
+	view.fx.floating_text(_head(uv) + Vector3(0, 0.25, 0), perk.capitalize().to_upper() + ("  +1 ACTION" if perk == "bloodlust" else ""), col, 40)
+	uv.flash(col)
+	if perk == "bloodlust":
+		view.fx.flash_light(uv.chest_world(), Palette.TEAL, 2.5, 0.35, 3.0)
+		view.fx.burst(uv.chest_world(), Vector3.UP, Palette.TEAL, 10, 1.6, true, 0.025)
+	_sfx("mutation" if perk == "bloodlust" else "ui_confirm", -8.0)
+	return {"dur": 0.45}
+
+
+## Bleed Out: the target starts bleeding.
+func _beat_bleeding(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	view.fx.floating_text(_head(uv), "BLEEDING", MeleeFx.BLEED.lightened(0.35), 36)
+	MeleeFx.drip(view.fx, uv.chest_world(), uv.position, true)
+	return {"dur": 0.35}
+
+
+## Bleed tick at the start of a phase (its damage event follows).
+func _beat_bleed(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	_focus(uv)
+	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "BLEED", MeleeFx.BLEED.lightened(0.35), 34)
+	MeleeFx.drip(view.fx, uv.chest_world(), uv.position)
+	return {"dur": 0.3}
+
+
+## Shield Bash stun: the target loses its next turn.
+func _beat_stunned(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "STUNNED", MeleeFx.SHOCK, 44)
+	MeleeFx.stun(view.fx, uv.chest_world())
+	uv.flash(MeleeFx.SHOCK)
+	return {"dur": 0.5 if in_cinematic else 0.35}
+
+
 func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 	var uv := _uv(ev)
 	if uv == null:
@@ -665,6 +819,15 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 	match str(ev.get("ability", "")):
 		"claw", "slam", "pounce", "maul", "spore_drop":
 			return _melee_beat(ev)
+		"lunge", "riposte":
+			var title := "RIPOSTE" if ev.ability == "riposte" else ("CLEAVE" if ev.get("cleave", false) else "LUNGE")
+			return _melee_beat(ev, {"sound": "blade", "title": title, "fx": "blade"})
+		"bash":
+			var tag := "SHIELD CHARGE" if ev.get("charge", false) else ("GUARD" if ev.get("reaction", false) else "SHIELD BASH")
+			var wv := _uv(ev)
+			if wv != null and ev.get("reaction", false):
+				wv.set_guard(false)   # the Guard stance is spent
+			return _melee_beat(ev, {"sound": "bash", "title": tag, "fx": "shock"})
 		"charge":
 			if int(ev.get("target", -1)) >= 0:
 				return _melee_beat(ev)
@@ -686,34 +849,71 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 	return _power_beat(ev, str(ev.get("ability", "ability")), Palette.AMBER)
 
 
-## Runner claw: side-on camera, wind-up, lunge, slash.
-func _melee_beat(ev: Dictionary) -> Dictionary:
+## Melee strike: wind-up, lunge, impact. Runner claws and the like get a side-on camera;
+## a soldier's strike (Reaper lunge, Warden bash) cuts over the striker's shoulder like
+## a shot does, and in co-op only for your own soldiers. `style`: "sound" (default
+## "claw"), "title" (a floating label: LUNGE, SHIELD BASH, ...), "fx" ("claw", "blade":
+## a teal-edged cut, "shock": a stun-maul discharge).
+func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 	var uv := _uv(ev)
 	var tv := _uv(ev, "target")
+	var title: String = style.get("title", "")
 	if uv == null or tv == null:
-		return _power_beat(ev, "claw", Palette.DANGER)
+		return _power_beat(ev, title if title != "" else "claw", Palette.DANGER)
 	var hit: bool = ev.get("hit", false)
+	var graze: bool = hit and ev.get("graze", false)
+	var fx: String = style.get("fx", "claw")
 	var cine := _use_cinematic(uv)
+	var hero := uv.is_soldier and not uv.turned
 	var t_hit := 0.6 if cine else 0.2
 	var dur := t_hit + (0.8 if cine else 0.3)
+	uv.set_aim(0.0)
 	uv.face_towards(tv.position)
 	_focus(tv)
+	if title != "":
+		view.fx.floating_text(_head(uv), title, Palette.TEAL if fx == "blade" else Palette.AMBER, 44)
 	if cine:
 		_begin_cinematic()
 		var mid := (uv.position + tv.position) * 0.5
-		var perp := _flat(tv.position - uv.position).normalized().cross(Vector3.UP)
 		var look := mid + Vector3(0, 0.8, 0)
-		var eye := mid + Vector3(0, 3.5, 0) - perp * 1.2
-		for o in [Vector2(2.6, 1.3), Vector2(-2.6, 1.3), Vector2(1.9, 2.0), Vector2(-1.9, 2.0), Vector2(1.4, 3.0), Vector2(-1.4, 3.0)]:
-			var e: Vector3 = mid + perp * o.x + Vector3(0, o.y, 0)
-			if _clear_view(e, mid + Vector3(0, 1, 0)) and _clear_view(e.lerp(look, 0.25), mid + Vector3(0, 1, 0)):
-				eye = e
-				break
-		if _grid() != null and not ShotCamera.eye_clear(_grid(), eye):
-			eye.y = maxf(eye.y, ShotCamera.top_near(_grid(), eye) + 1.6)
-		view.camera_rig.cine(CameraRig.look_pose(eye, look), CameraRig.look_pose(eye.lerp(look, 0.25), look), Vector2(48, 40))
-		view.hud.cine_caption("%s  >  %s" % [uv.label(), tv.label()], "%d%% to hit" % int(ev.get("chance", 0)) if ev.has("chance") else "")
-	_sfx("claw", 0.0, 0.25 if cine else 0.0)
+		var eye: Vector3
+		if hero:
+			# Over the striker's shoulder, pulled back and out to the side so both bodies fit
+			# at arm's length; the shot camera's search if none of these is clear.
+			var dir := _flat(tv.position - uv.position).normalized()
+			var right := dir.cross(Vector3.UP)
+			look = mid + Vector3(0, 0.95, 0)
+			eye = Vector3.INF
+			var opts: Array[Vector3] = []   # side, back, height: backing off less as room runs out
+			for b in [3.2, 2.4, 1.6, 0.8]:
+				for h in [2.3, 3.0]:
+					for sd in [2.0, -2.0, 2.6, -2.6]:
+						opts.append(Vector3(sd, b, h))
+			for o in opts:
+				var e: Vector3 = uv.position - dir * o.y + right * o.x + Vector3(0, o.z, 0)
+				if _clear_view(e, uv.position + Vector3(0, 1.1, 0)) and _clear_view(e, tv.position + Vector3(0, 1.0, 0)) \
+						and (_grid() == null or ShotCamera.eye_clear(_grid(), e)):
+					eye = e
+					break
+			if eye == Vector3.INF:
+				eye = _ots_eye(uv.position, tv.position, dir * 0.4)
+		else:
+			var perp := _flat(tv.position - uv.position).normalized().cross(Vector3.UP)
+			eye = mid + Vector3(0, 3.5, 0) - perp * 1.2
+			for o in [Vector2(2.6, 1.3), Vector2(-2.6, 1.3), Vector2(1.9, 2.0), Vector2(-1.9, 2.0), Vector2(1.4, 3.0), Vector2(-1.4, 3.0)]:
+				var e: Vector3 = mid + perp * o.x + Vector3(0, o.y, 0)
+				if _clear_view(e, mid + Vector3(0, 1, 0)) and _clear_view(e.lerp(look, 0.25), mid + Vector3(0, 1, 0)):
+					eye = e
+					break
+			if _grid() != null and not ShotCamera.eye_clear(_grid(), eye):
+				eye.y = maxf(eye.y, ShotCamera.top_near(_grid(), eye) + 1.6)
+		var push := 0.12 if hero else 0.25
+		view.camera_rig.cine(CameraRig.look_pose(eye, look), CameraRig.look_pose(eye.lerp(look, push), look), Vector2(50, 44) if hero else Vector2(48, 40))
+		var pre := (title + "  -  ") if title != "" else ""
+		view.hud.cine_caption(pre + "%s  >  %s" % [uv.label(), tv.label()], "%d%% to hit" % int(ev.get("chance", 0)) if ev.has("chance") else "")
+	# Time the sound so its impact (`lead` seconds into the file) lands with the strike.
+	var lead: float = {"blade": 0.2, "bash": 0.0}.get(style.get("sound", "claw"), 0.35)
+	_sfx(str(style.get("sound", "claw")), 0.0, maxf(0.0, t_hit - lead))
 	var st := {"landed": false}
 	var update := func(k: float) -> void:
 		var s := k * dur
@@ -726,17 +926,23 @@ func _melee_beat(ev: Dictionary) -> Dictionary:
 		if not st.landed:
 			st.landed = true
 			var at := tv.chest_world()
+			var dir := _flat(tv.position - uv.position).normalized()
 			if hit:
-				view.fx.burst(at, _flat(tv.position - uv.position).normalized(), _blood(tv), 16, 3.5, _blood(tv) == Palette.TEAL)
-				view.fx.decal(tv.position, _blood(tv).darkened(0.3), 0.35)
-				tv.hit_react(uv.position, 1.2)
-				tv.flash(Palette.DANGER)
-				_sfx("impact_armor" if tv.is_soldier else "impact_flesh")
-				view.camera_rig.shake(0.8)
+				view.fx.burst(at, dir, _blood(tv), 10 if graze else 16, 3.5, _blood(tv) == Palette.TEAL)
+				view.fx.decal(tv.position, _blood(tv).darkened(0.3), 0.25 if graze else 0.35)
+				tv.hit_react(uv.position, (0.6 if graze else 1.2) * (1.4 if fx == "shock" else 1.0))
+				tv.flash(MeleeFx.SHOCK if fx == "shock" else Palette.DANGER)
+				if fx == "claw":
+					_sfx("impact_armor" if tv.is_soldier else "impact_flesh")
+				view.camera_rig.shake((0.5 if graze else 0.8) * (1.4 if fx == "shock" else 1.0))
 			else:
 				tv.hit_react(uv.position, 0.5)
+			MeleeFx.strike(view.fx, fx, at, dir, hit)
 			if cine:
-				view.hud.cine_result("HIT" if hit else "MISS", Palette.DANGER if hit else Color(0.8, 0.82, 0.8))
+				var word := ("GRAZE" if graze else "HIT") if hit else "MISS"
+				view.hud.cine_result(word, (Palette.AMBER if graze else Palette.DANGER) if hit else Color(0.8, 0.82, 0.8))
+			elif not hit or graze:
+				view.fx.floating_text(_head(tv) + Vector3(0, 0.3, 0), "GRAZE" if hit else "MISS", Palette.AMBER if hit else Color(0.8, 0.82, 0.8), 48)
 		if cine:
 			world_scale = lerpf(0.1, 1.0, clampf((s - t_hit - 0.1) / 0.35, 0.0, 1.0))
 		uv.set_lunge(maxf(0.0, 1.0 - (s - t_hit) / 0.4))
@@ -765,14 +971,14 @@ func _spit_beat(ev: Dictionary) -> Dictionary:
 	var w := Board.cell_to_world(ev.cell)
 	uv.face_towards(w)
 	var from := uv.muzzle_world()
-	var glob := view.fx.spawn_bullet(Palette.TEAL, true)
+	var glob := view.fx.spawn_round("spore", Palette.TEAL, 1.6)
+	glob.set_meta("arc", 1.6 / maxf(0.1, from.distance_to(w)))
 	_sfx("spit")
 	view.fx.floating_text(_head(uv), "SPIT", Palette.TEAL, 44)
 	var st := {"landed": false}
 	var update := func(t: float) -> void:
 		var f := clampf(t / 0.7, 0.0, 1.0)
-		var p := from.lerp(w + Vector3(0, 0.1, 0), f) + Vector3(0, sin(f * PI) * 1.6, 0)
-		view.fx.place_bullet(glob, p, p + (w - from).normalized() * 0.1, 0.0)
+		view.fx.place_bullet(glob, from, w + Vector3(0, 0.1, 0), f)
 		if f >= 1.0 and not st.landed:
 			st.landed = true
 			view.fx.remove(glob)
@@ -806,10 +1012,14 @@ func _suppress_beat(ev: Dictionary) -> Dictionary:
 			var jitter := Vector3(sin(st.n * 2.3) * 0.5, absf(cos(st.n * 1.7)) * 0.4, cos(st.n * 3.1) * 0.5)
 			var to := tv.chest_world() + jitter
 			var feel := _feel(uv)
-			view.fx.muzzle_flash(from, Color(1.0, 0.8, 0.45), to - from, feel.flash)
-			view.fx.tracer(from, to, Color(1.0, 0.8, 0.45), 0.15)
+			var col := GunFeel.color(feel, uv.is_soldier and not uv.turned, uv.turned)
+			view.fx.muzzle_flash(from, col, to - from, feel.flash, str(feel.get("flash_style", "star")))
+			var proj := GunFeel.proj_of(feel, st.n - 1, 6)
+			view.fx.tracer(from, to, col if proj != "ball" else col.darkened(0.4), 0.15)
 			view.fx.burst(to, (from - to).normalized(), Color(0.55, 0.53, 0.48), 4, 2.5, false, 0.03)
-			view.fx.casing(from, (to - from).cross(Vector3.UP).normalized())
+			var casing := GunFeel.casing_of(feel)
+			if casing != "":
+				view.fx.casing(from, (to - from).cross(Vector3.UP).normalized(), casing)
 			uv.recoil(0.6)
 			view.camera_rig.kick(feel.kick * 0.5)
 			_sfx(feel.sound, -3.0)

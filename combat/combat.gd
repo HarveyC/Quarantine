@@ -97,34 +97,38 @@ static func _sweep(s: GameState) -> void:
 
 ## True if a unit at `from` can see `to`. Walls block, low cover and units do not.
 ## A viewer standing next to a wall may "step out" to the open cells beside it.
-## Height (fog of war workstream): between two ground-level cells, raised cells block like walls;
-## if either end is high (a raised cell, or a flying unit on it) you look over the roofs.
+## Height: raised cells taller than both ends block like walls. Two ground units can't see across
+## a roof; from a roof (or flying) you look over other roofs of that height, and from an upper
+## roof (level 2) over everything but walls.
 static func can_see(s: GameState, from: Vector2i, to: Vector2i) -> bool:
 	if from == to:
 		return true
 	if from.distance_to(to) > SIGHT_RANGE:
 		return false
 	var g := s.grid
-	var low := not g.levels.is_empty() and not _is_high(s, from) and not _is_high(s, to)
-	if line_clear(g, from, to, low):
+	var over := maxi(_eye(s, from), _eye(s, to)) if not g.levels.is_empty() else -1
+	if line_clear(g, from, to, over):
 		return true
 	for p in peek_cells(g, from):
-		if line_clear(g, p, to, low):
+		if line_clear(g, p, to, over):
 			return true
 	return false
 
 
-static func _is_high(s: GameState, c: Vector2i) -> bool:
-	if s.grid.level(c) > 0:
-		return true
+## Height of whatever stands at `c`: its level, at least 1 for a flying unit.
+static func _eye(s: GameState, c: Vector2i) -> int:
+	var h := s.grid.level(c)
 	var u := s.unit_at(c)
-	return u != null and u.status.get("flying", false)
+	if u != null and u.status.get("flying", false):
+		h = maxi(h, 1)
+	return h
 
 
 ## Supercover line between cell centers; true if no WALL lies strictly between `a` and `b`
-## (nor a raised cell, with `block_raised`).
+## (nor a raised cell higher than `over`; `over` < 0 ignores height, `true` means 0 for old callers).
 ## When the line passes exactly through a corner it is blocked only if both side cells block.
-static func line_clear(g: Grid, a: Vector2i, b: Vector2i, block_raised := false) -> bool:
+static func line_clear(g: Grid, a: Vector2i, b: Vector2i, over: Variant = -1) -> bool:
+	var top: int = (0 if over else -1) if over is bool else int(over)
 	var nx := absi(b.x - a.x)
 	var ny := absi(b.y - a.y)
 	var sx := signi(b.x - a.x)
@@ -136,7 +140,7 @@ static func line_clear(g: Grid, a: Vector2i, b: Vector2i, block_raised := false)
 		var lhs := (1 + 2 * ix) * ny
 		var rhs := (1 + 2 * iy) * nx
 		if lhs == rhs:
-			if _blocks(g, Vector2i(c.x + sx, c.y), block_raised) and _blocks(g, Vector2i(c.x, c.y + sy), block_raised):
+			if _blocks(g, Vector2i(c.x + sx, c.y), top) and _blocks(g, Vector2i(c.x, c.y + sy), top):
 				return false
 			c += Vector2i(sx, sy)
 			ix += 1
@@ -147,13 +151,13 @@ static func line_clear(g: Grid, a: Vector2i, b: Vector2i, block_raised := false)
 		else:
 			c.y += sy
 			iy += 1
-		if c != b and _blocks(g, c, block_raised):
+		if c != b and _blocks(g, c, top):
 			return false
 	return true
 
 
-static func _blocks(g: Grid, c: Vector2i, block_raised: bool) -> bool:
-	return g.blocks_los(c) or (block_raised and g.level(c) > 0)
+static func _blocks(g: Grid, c: Vector2i, top: int) -> bool:
+	return g.blocks_los(c) or (top >= 0 and g.level(c) > top)
 
 
 ## Open cells a unit at `c` can lean out to: beside each orthogonally adjacent wall.
@@ -199,14 +203,18 @@ static func shot_targets(s: GameState, u: Unit) -> Array[Unit]:
 
 ## Cover a unit at `target` has against an attack from `from`: the best obstacle one step
 ## toward the attacker on x and on y.
+## A raised block beside the target is a building wall: full cover against anyone lower than its roof.
 static func cover_against(g: Grid, target: Vector2i, from: Vector2i) -> int:
 	var best: int = Types.Cover.NONE
 	var sx := signi(from.x - target.x)
 	var sy := signi(from.y - target.y)
-	if sx != 0:
-		best = maxi(best, g.cover_value(target + Vector2i(sx, 0)))
-	if sy != 0:
-		best = maxi(best, g.cover_value(target + Vector2i(0, sy)))
+	for side in [Vector2i(sx, 0), Vector2i(0, sy)]:
+		if side == Vector2i.ZERO:
+			continue
+		var n: Vector2i = target + side
+		best = maxi(best, g.cover_value(n))
+		if g.level(n) > g.level(target) and g.level(from) < g.level(n):
+			best = Types.Cover.FULL
 	return best
 
 
@@ -218,7 +226,7 @@ static func cover_against(g: Grid, target: Vector2i, from: Vector2i) -> int:
 static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2i = attacker.pos, reaction: bool = false) -> Dictionary:
 	var los := can_see(s, from, target.pos) or Kit.shared_sight(s, attacker, target.pos) \
 		or GearFx.smart_link_shot(s, attacker, target)
-	var flat_cover := Kit.cover_against(s, attacker, target, cover_against(s.grid, target.pos, from))
+	var flat_cover := Kit.cover_against(s, attacker, target, cover_against(s.grid, target.pos, from), from)
 	var cover := Elevation.adjust_cover(s, attacker, target, from, flat_cover)
 	var flanked := flat_cover == Types.Cover.NONE and cover == Types.Cover.NONE
 	var breakdown: Array = [["Aim", attacker.aim]]
@@ -448,6 +456,7 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			if dmg > 0:
 				Rules.deal_damage(s, t, dmg, u)
 				Kit.after_melee(s, u, t, dmg)
+			Kit.after_claw(s, u, t)
 	Kit.after_ability(s, u, id, t)
 
 

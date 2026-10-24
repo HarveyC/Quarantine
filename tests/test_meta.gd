@@ -70,15 +70,15 @@ func test_host_flags_do_not_leak_into_a_client_profile() -> void:
 func test_buying_packs_needs_field_data_and_order() -> void:
 	_fresh_profile("buy")
 	var cf := ConfigFile.new()
-	cf.set_value("field", "data", 600)
+	cf.set_value("field", "data", 500)
 	cf.save(Profile.path)
-	assert_eq(Profile.buy("gear_2"), "Needs Firestarter", "packs unlock in order")
+	assert_eq(Profile.buy("gear_2"), "Needs Field issue", "packs unlock in order")
 	assert_eq(Profile.buy("gear_1"), "", "bought")
-	assert_eq(Profile.field_data(), 400, "paid 200")
+	assert_eq(Profile.field_data(), 450, "paid 50")
 	assert_eq(Profile.buy("gear_1"), "Owned", "no double buy")
-	assert_eq(Profile.buy("gear_3"), "Needs Spotter", "still in order")
+	assert_eq(Profile.buy("gear_3"), "Needs Specialist", "still in order")
 	assert_eq(Profile.buy("gear_2"), "", "second pack")
-	assert_eq(Profile.buy("gear_3"), "Needs 500 Field Data", "can't afford")
+	assert_eq(Profile.buy("gear_3"), "Needs 350 Field Data", "can't afford")
 	assert_eq(Profile.meta().packs, ["gear_1", "gear_2"], "meta carries packs")
 	assert_true(Achievements.is_unlocked("researcher"), "first unlock achievement")
 	_done()
@@ -96,7 +96,7 @@ func test_locked_content_never_drops() -> void:
 		assert_true(not locked.has(id), "drew locked %s" % id)
 	assert_true(not MutationData.bonded_pool().has("shared_blood"), "bonded mutations locked")
 	assert_true(not MutationData.regular_pool("critical").has("rampage"), "deep strains locked")
-	RunRules.new_run(1, 77, {"packs": ["gear_1", "mutation_1"]})
+	RunRules.new_run(1, 77, {"packs": ["gear_1", "gear_2", "mutation_1"]})
 	assert_true(not MetaUnlocks.is_locked("phosphor_rounds"), "owned pack unlocks its gear")
 	assert_true(MutationData.bonded_pool().has("shared_blood"), "owned mutation pack")
 	assert_true(MetaUnlocks.is_locked("rampage"), "unowned pack stays locked")
@@ -109,15 +109,26 @@ func test_locked_content_never_drops() -> void:
 	_done()
 
 
-func test_lobby_pools_packs() -> void:
-	_fresh_profile("pool")
+func test_coop_runs_use_the_host_unlocks() -> void:
+	_fresh_profile("host")
+	var cf := ConfigFile.new()
+	cf.set_value("field", "packs", ["gear_1"])
+	cf.save(Profile.path)
 	var net := NetSession.new()
-	net.lobby = {1: {"name": "Host", "player": 0}, 7: {"name": "Friend", "player": 1}}
-	net.handle_packs(7, ["mutation_1", "nonsense", "gear_1"])
-	assert_eq(net.lobby[7].packs, ["gear_1", "mutation_1"], "known packs kept")
-	assert_eq(net.run_meta().packs, ["gear_1", "mutation_1"], "the host gets the friend's packs")
+	net.lobby = {1: {"name": "Host", "player": 0}, 7: {"name": "Friend", "player": 1, "packs": ["mutation_1"]}}
+	assert_eq(net.run_meta().packs, ["gear_1"], "only the host's packs")
 	net.free()
 	_done()
+
+
+func test_first_gear_pack_completes_every_tag() -> void:
+	var meta := {"packs": ["gear_1"]}
+	var locked := MetaUnlocks.locked_ids(meta)
+	for tag in GearData.TAGS:
+		var open := GearData.items_with(tag).filter(func(id): return not locked.has(id))
+		assert_true(open.size() >= GearData.SET_THRESHOLD, "%s has enough pieces for its set bonus" % tag)
+		assert_true(open.any(func(id): return GearData.slot_of(id) == "gadget"), "%s has a gadget" % tag)
+	assert_true(MetaUnlocks.PACKS.gear_1.cost <= 60, "the first pack comes after a run or two")
 
 
 func test_starting_perks() -> void:
@@ -142,7 +153,7 @@ func test_severity_rules_stack() -> void:
 	assert_eq(hard.supplies, Severity.START_SUPPLIES, "3: Short rations")
 	assert_eq(hard.modifiers.get("heal_after_fight"), Severity.HEAL_AFTER_FIGHT, "4: Thin medicine")
 	assert_eq(hard.reserve_of(0).size(), 0, "7: No reserves")
-	assert_eq(easy.reserve_of(0).size(), 1, "normal reserve")
+	assert_eq(easy.reserve_of(0).size(), RunRules.reserve_for(4), "normal reserve")
 	assert_true(hard.soldiers.all(func(r): return r.infection >= Severity.START_INFECTION), "10: Ground zero")
 	assert_eq(Severity.income(hard, 40), 30, "6: Lean pickings")
 	assert_eq(Severity.boss_outbreak_drop(hard, 3), 1, "9: Unbroken")
@@ -152,7 +163,7 @@ func test_severity_rules_stack() -> void:
 	assert_eq(spec.modifiers.extra_enemies, 1, "8: Dense hive")
 	assert_eq(spec.modifiers.boss_health_mult, Severity.BOSS_HEALTH_MULT, "5: Swollen hosts")
 	var mid := RunRules.new_run(1, 21, {"severity": 4})
-	assert_eq(mid.reserve_of(0).size(), 1, "level 4 keeps reserves")
+	assert_eq(mid.reserve_of(0).size(), RunRules.reserve_for(4), "level 4 keeps reserves")
 	assert_eq(Severity.income(mid, 40), 40, "level 4 keeps full pay")
 	_done()
 

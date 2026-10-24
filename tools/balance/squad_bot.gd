@@ -59,6 +59,9 @@ static func choose(s: GameState, u: Unit) -> Dictionary:
 			return _suppress(u, shot.target)
 		if shot.hit >= 30:
 			return shot.action
+	var guard := {"type": Types.ABILITY, "unit": u.id, "ability": "guard"}
+	if u.abilities.has("guard") and _ok(s, guard) and _melee_threat_near(s, u, 8):
+		return guard
 	var ow := {"type": Types.OVERWATCH, "unit": u.id}
 	return ow if _ok(s, ow) else {}
 
@@ -90,6 +93,9 @@ static func _support(s: GameState, u: Unit) -> Dictionary:
 
 
 static func _class_attack(s: GameState, u: Unit) -> Dictionary:
+	var melee := _melee_attack(s, u)
+	if not melee.is_empty():
+		return melee
 	if u.abilities.has("breach"):
 		var best: Dictionary = {}
 		for t in _hostiles(s, u):
@@ -254,3 +260,63 @@ static func _hostiles(s: GameState, u: Unit) -> Array[Unit]:
 
 static func _ok(s: GameState, a: Dictionary) -> bool:
 	return Rules.validate(s, a) == ""
+
+
+# --- melee classes ----------------------------------------------------------------------------
+
+## Reaper / Warden: Bash an adjacent enemy, else Lunge / Shield Charge the best target in reach,
+## else (with 2 actions) close in to striking distance.
+static func _melee_attack(s: GameState, u: Unit) -> Dictionary:
+	if not (u.abilities.has("lunge") or u.abilities.has("bash")):
+		return {}
+	var best := {}
+	var best_v := 0.0
+	for id in ["bash", "shield_charge", "lunge"]:
+		if not u.abilities.has(id):
+			continue
+		for t in _hostiles(s, u):
+			var a := {"type": Types.ABILITY, "unit": u.id, "ability": id, "target": t.id}
+			if not _ok(s, a):
+				continue
+			var land := ClassAbilities.lunge_landing(s, u, t, ClassAbilities.strike_reach(u, id)) if id != "bash" else u.pos
+			var p := float(ClassAbilities.strike_odds(s, u, t, land).hit) / 100.0
+			var dmg := ClassAbilities.BLADE_DAMAGE if id == "lunge" else ClassAbilities.MAUL_DAMAGE
+			var v := p * minf((dmg.x + dmg.y) / 2.0, t.hp) + (p * 3.0 if dmg.x >= t.hp else 0.0)
+			if _immune(s, t) or (t.abilities.has("burst") and id != "bash"):
+				v = 0.01   # a Bloater bursts on whoever killed it up close: shoot it instead
+			elif EnemyRoster.is_static(t):
+				v *= 0.6
+			if id == "bash":
+				v += 1.0   # 1 action, and the stun
+			if v > best_v:
+				best_v = v
+				best = a
+	if not best.is_empty():
+		return best
+	if u.actions_left < 2 or not u.abilities.has("lunge"):
+		return {}
+	# Close in: the reachable cell nearest an awake enemy, preferring cover.
+	var reach := Rules.move_range(s, u)
+	var best_cell := u.pos
+	var best_score := INF
+	for h in _hostiles(s, u):
+		if not EnemyAI.is_alerted(h) or EnemyRoster.is_static(h):
+			continue
+		for c in reach:
+			var d := Kit.cheb(c, h.pos)
+			if d > ClassAbilities.strike_reach(u, "lunge"):
+				continue
+			var score := float(d) - (0.8 if Combat.cover_against(s.grid, c, h.pos) != Types.Cover.NONE else 0.0)
+			if score < best_score:
+				best_score = score
+				best_cell = c
+	if best_cell == u.pos:
+		return {}
+	return {"type": Types.MOVE, "unit": u.id, "to": best_cell}
+
+
+static func _melee_threat_near(s: GameState, u: Unit, dist: int) -> bool:
+	for h in _hostiles(s, u):
+		if EnemyAI.is_alerted(h) and UnitData.is_melee_only(h.kind) and Kit.cheb(u.pos, h.pos) <= dist:
+			return true
+	return false

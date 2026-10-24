@@ -8,6 +8,7 @@ extends Control
 
 signal closed
 
+const Tips := preload("res://ui/tips/tips.gd")
 const UI := preload("res://ui/gear/gear_ui.gd")
 
 var run: RunState
@@ -67,6 +68,7 @@ func _queue_refresh() -> void:
 func _build() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	theme = preload("res://ui/styles.gd").make_theme()
 	var bg := ColorRect.new()
 	bg.color = Color(UI.BG, 0.96)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -140,7 +142,7 @@ func _build() -> void:
 	left.add_child(_toast)
 	var tag_panel := PanelContainer.new()
 	tag_panel.custom_minimum_size = Vector2(470, 0)
-	tag_panel.add_theme_stylebox_override("panel", UI.box(Color("#0f1310"), Color("#262e27"), 1, 0, 14))
+	tag_panel.add_theme_stylebox_override("panel", UI.box(UI.PANEL, UI.BORDER, 1, 0, 14))
 	_tags = VBoxContainer.new()
 	_tags.add_theme_constant_override("separation", 2)
 	tag_panel.add_child(_tags)
@@ -211,7 +213,7 @@ func _build_squad_bar() -> void:
 		var on: bool = r.id == _sid
 		var p := PanelContainer.new()
 		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		p.add_theme_stylebox_override("panel", UI.box(Color("#1a1912") if on else Color("#111512"), UI.AMBER if on else Color("#262e27"), 2 if on else 1, 0, 10))
+		p.add_theme_stylebox_override("panel", UI.box(UI.HELD if on else UI.PANEL_SOFT, UI.AMBER if on else UI.BORDER, 2 if on else 1, 0, 10))
 		p.modulate.a = 1.0 if _can_edit(r) else 0.75
 		p.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var h := HBoxContainer.new()
@@ -268,7 +270,7 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 	var bg := UI.PANEL_SOFT
 	if target_slot:
 		border = UI.AMBER
-		bg = Color("#17170f")
+		bg = UI.HELD
 	elif feeds:
 		border = GearData.tag_color(feeding[0])
 	var sb := UI.box(bg, border, 2 if target_slot else 1, 0, 14)
@@ -295,7 +297,7 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 			v.add_child(UI.label("Drop to equip " + GearData.item_name(_preview_id), 13, UI.AMBER))
 	else:
 		v.add_child(UI.wrap(UI.caps(GearData.item_name(it.id), 22), 200))
-		v.add_child(UI.wrap(UI.label(GearData.desc(it.id, it.mk), 13, Color("#c4c2b3")), 200))
+		v.add_child(UI.wrap(UI.label(GearData.desc(it.id, it.mk), 13, UI.COPY), 200))
 		if target_slot:
 			v.add_child(UI.label("Drop to swap. %s goes to the stash." % GearData.item_name(it.id), 13, UI.AMBER))
 		var tags := HBoxContainer.new()
@@ -307,6 +309,7 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 		v.add_child(sp2)
 		v.add_child(tags)
 		t.tooltip_text = "%s\nMk I: %s\nMk II: %s" % [GearData.item_name(it.id), GearData.desc(it.id, 1), GearData.desc(it.id, 2)]
+		_tag_terms(t, r, GearData.tags_of(it.id))
 	for n in v.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -333,7 +336,7 @@ func _gun_tile(r: Dictionary, id: String) -> Control:
 	var t := DropTile.new()
 	t.custom_minimum_size = Vector2(0, 96)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.add_theme_stylebox_override("panel", UI.box(Color("#17170f") if carried else UI.PANEL_SOFT, UI.AMBER if carried else UI.BORDER, 2 if carried else 1, 0, 10))
+	t.add_theme_stylebox_override("panel", UI.box(UI.HELD if carried else UI.PANEL_SOFT, UI.AMBER if carried else UI.BORDER, 2 if carried else 1, 0, 10))
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
 	var head := HBoxContainer.new()
@@ -350,6 +353,8 @@ func _gun_tile(r: Dictionary, id: String) -> Control:
 		tags.add_child(UI.tag_chip(g.tag))
 		v.add_child(tags)
 	t.tooltip_text = "%s\n%s" % [g.name, g.desc]
+	if g.get("tag", "") != "":
+		_tag_terms(t, r, [g.tag])
 	for n in v.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -383,8 +388,18 @@ func _pocket_tile(p) -> Control:
 		h.add_child(UI.mono("×%d" % int(p.charges), 13, UI.DIM))
 		v.add_child(h)
 		t.tooltip_text = GearData.desc(p.id)
+	Tips.term(t, "pocket")
 	t.add_child(v)
 	return t
+
+
+## Hover card for a gear tile: the item text, then its tag with this soldier's count.
+func _tag_terms(t: Control, r: Dictionary, tags: Array) -> void:
+	if tags.is_empty():
+		return
+	var tag := str(tags[0])
+	Tips.terms(t, tags.map(func(x): return "tag_" + str(x).to_lower()),
+		{"count": GearTags.counts(r).get(tag, 0), "color": GearData.tag_color(tag)})
 
 
 func _build_tags(r: Dictionary) -> void:
@@ -393,7 +408,7 @@ func _build_tags(r: Dictionary) -> void:
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(sp)
-	head.add_child(UI.label("set bonus at %d" % GearData.SET_THRESHOLD, 12, UI.FAINT))
+	head.add_child(Tips.term(UI.label("set bonus at %d" % GearData.SET_THRESHOLD, 12, UI.FAINT), "set_bonus"))
 	_tags.add_child(head)
 	var counts := GearTags.counts(r)
 	var changes := {}
@@ -404,7 +419,7 @@ func _build_tags(r: Dictionary) -> void:
 	for tag in GearData.TAGS:
 		var n: int = counts.get(tag, 0)
 		var ch: Dictionary = changes.get(tag, {})
-		var col := GearData.tag_color(tag) if n > 0 or not ch.is_empty() else Color("#6b6e60")
+		var col := GearData.tag_color(tag) if n > 0 or not ch.is_empty() else UI.FAINT
 		var row := PanelContainer.new()
 		var hot := not ch.is_empty()
 		row.add_theme_stylebox_override("panel", UI.box(Color(col, 0.08) if hot else Color(0, 0, 0, 0), col if hot else Color(0, 0, 0, 0), 1, 0, 8))
@@ -429,6 +444,7 @@ func _build_tags(r: Dictionary) -> void:
 		h.add_child(sp2)
 		h.add_child(UI.pips(tag, n, ch.get("to", -1)))
 		row.add_child(h)
+		Tips.term(row, "tag_" + tag.to_lower(), {"count": n, "color": GearData.tag_color(tag)})
 		_tags.add_child(row)
 		if n >= GearData.SET_THRESHOLD and not ch.get("loses", false):
 			_tags.add_child(_bonus_line("Set bonus on: " + GearData.TAG_INFO[tag].bonus, col))
@@ -485,7 +501,7 @@ func _build_stash(r: Dictionary) -> void:
 			var it: Dictionary = st[i]
 			var rar := GearData.rarity_of(it.id)
 			var held := i == _held
-			t.add_theme_stylebox_override("panel", UI.box(Color("#17170f") if held else UI.PANEL_SOFT, UI.AMBER if held else UI.BORDER, 2 if held else 1, 0, 10))
+			t.add_theme_stylebox_override("panel", UI.box(UI.HELD if held else UI.PANEL_SOFT, UI.AMBER if held else UI.BORDER, 2 if held else 1, 0, 10))
 			var head := HBoxContainer.new()
 			head.add_child(UI.label(GearData.SLOT_NAMES[GearData.slot_of(it.id)].to_upper(), 11, UI.FAINT, "mono"))
 			var sp := Control.new()
@@ -620,7 +636,7 @@ class DropTile:
 		if drag_data == null:
 			return null
 		var p := PanelContainer.new()
-		p.add_theme_stylebox_override("panel", UIS.box(Color("#15180f"), UIS.AMBER, 2, 0, 10))
+		p.add_theme_stylebox_override("panel", UIS.box(UIS.HELD, UIS.AMBER, 2, 0, 10))
 		p.add_child(UIS.caps(drag_label, 18))
 		p.rotation_degrees = -3
 		set_drag_preview(p)

@@ -148,6 +148,19 @@ def carbine():
     return mix(x, hiss)
 
 
+def pistol():
+    # Reaper's sidearm: a small, dry pop with a quick slide clack.
+    x = gunshot(3500, 110, 0.025, 0.2, 2.2, 0.3)
+    return mix(x, pad(np.concatenate([np.zeros(int(0.05 * SR)), mech_click(1600, 0.008) * 0.35]), 0.3))
+
+
+def revolver():
+    # Warden's heavy revolver: a deep, booming single round with a long ring.
+    x = gunshot(2000, 52, 0.11, 0.6, 4.5, 0.85)
+    ring = sine(np.linspace(260, 200, int(0.85 * SR)), 0.85) * env(int(0.85 * SR), 0.001, 0.12) * 0.25
+    return mix(x, ring)
+
+
 def gun_tail(cutoff, dur, gain):
     # The shot echoing back off the colony's buildings: a dark, slapback rumble.
     n = lowpass(noise(dur), cutoff) * env(int(dur * SR), 0.02, dur * 0.35) * gain
@@ -208,12 +221,333 @@ def claw():
     return reverb(mix(whoosh, slash * 1.2), 0.25, 0.2)
 
 
+def blade():
+    # Reaper's machete: a fast rising swish, then a wet cut and the saw teeth catching.
+    d = 0.6
+    n = noise(d)
+    k = int(0.2 * SR)
+    sw = np.zeros(len(n))
+    sw[:k] = bandpass(noise(0.2), 600, np.linspace(1500, 7000, k)) * np.sin(np.linspace(0, np.pi, k)) ** 2
+    cut_len = len(n) - k
+    cut = lowpass(noise(d - 0.2), 2200) * env(cut_len, 0.001, 0.07) * 1.3
+    cut += bandpass(noise(d - 0.2), 250, 900) * env(cut_len, 0.01, 0.12) * 0.8
+    rasp = highpass(noise(d - 0.2), 3000) * env(cut_len, 0.001, 0.03) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 70 * t(d - 0.2))))
+    hit = np.zeros(len(n))
+    hit[k:] = distort(cut + rasp * 0.5, 2.0)
+    return reverb(mix(sw * 0.9, hit), 0.22, 0.2)
+
+
+def bash():
+    # Warden's shield bash: a heavy, hollow thud and the maul's electric crackle.
+    d = 0.7
+    n = int(d * SR)
+    thud = sine(np.linspace(110, 38, n), d) * env(n, 0.001, 0.12) * 1.4
+    slab = lowpass(noise(d), 700) * env(n, 0.001, 0.07) * 1.2
+    clank = sum(sine(f, d) * env(n, 0.0005, dec) * g for f, dec, g in [(420, 0.09, 0.35), (780, 0.06, 0.25)])
+    crackle = highpass(noise(d), 2500) * (rng.uniform(0, 1, n) > 0.985) * 3.0
+    crackle = lowpass(crackle, 9000) * env(n, 0.03, 0.18)
+    buzz = np.sign(sine(120, d)) * env(n, 0.02, 0.15) * 0.18
+    return reverb(distort(thud + slab + clank, 2.5) + crackle + buzz, 0.3, 0.25)
+
+
 def tracer_whiz():
     d = 0.5
     n = noise(d)
     f = np.linspace(5000, 900, len(n))
     w = bandpass(n, f * 0.6, f) * np.sin(np.linspace(0, np.pi, len(n))) ** 3
     return w
+
+
+# --- alternate guns: each gets its own report -----------------------------------
+
+def battle_rifle():
+    # Full-power rifle round: deeper thump and a harder crack than the assault rifle.
+    x = gunshot(2600, 58, 0.07, 0.45, 3.8, 0.6)
+    slap = lowpass(noise(0.6), 220) * env(int(0.6 * SR), 0.001, 0.08) * 0.8
+    return mix(x, slap)
+
+
+def burst_carbine():
+    # Tight, high and quick: a light round with a metallic snap from the short barrel.
+    x = gunshot(4200, 105, 0.028, 0.22, 2.6, 0.3)
+    snap = sine(2900, 0.3) * env(int(0.3 * SR), 0.0004, 0.01) * 0.3
+    return mix(x, snap)
+
+
+def anti_materiel():
+    # The biggest gun in the colony: a sub-bass blast, the muzzle brake's side bark, a long roll.
+    x = gunshot(1800, 42, 0.16, 1.1, 5.5, 1.4)
+    sub = sine(np.linspace(80, 28, int(1.4 * SR)), 1.4) * env(int(1.4 * SR), 0.001, 0.22) * 1.2
+    brake = bandpass(noise(1.4), 600, 3500) * env(int(1.4 * SR), 0.002, 0.04) * 0.9
+    return echo(mix(x, sub, brake), 0.38, 0.4, 4)
+
+
+def scout_carbine():
+    # Light and suppressed-ish: a dry, clipped pop with almost no tail.
+    n = noise(0.25)
+    pop = bandpass(n, 900, 6000) * env(len(n), 0.0005, 0.02)
+    thump = sine(np.linspace(260, 110, len(n)), 0.25) * env(len(n), 0.001, 0.025) * 0.7
+    return reverb(distort(pop + thump, 2.2), 0.15, 0.2)
+
+
+def flechette_smg():
+    # Needles, not bullets: a zippy rasp with a ringing metallic edge.
+    x = gunshot(5000, 130, 0.02, 0.18, 2.2, 0.26)
+    zip_ = bandpass(noise(0.26), np.linspace(9000, 3000, int(0.26 * SR)), 12000) * env(int(0.26 * SR), 0.0005, 0.03) * 0.6
+    ring = sine(np.linspace(5200, 4400, int(0.26 * SR)), 0.26) * env(int(0.26 * SR), 0.0005, 0.04) * 0.18
+    return mix(x, zip_, ring)
+
+
+def dart_rifle():
+    # Pneumatic: a hollow thunk, a puff of gas and a soft hiss. No gunpowder crack at all.
+    n = noise(0.5)
+    thunk = sine(np.linspace(320, 140, len(n)), 0.5) * env(len(n), 0.001, 0.035)
+    puff = bandpass(n, 400, 2500) * env(len(n), 0.002, 0.03) * 0.8
+    hiss = bandpass(noise(0.5), 4000, 10000) * env(len(n), 0.01, 0.12) * 0.35
+    return reverb(thunk + puff + hiss, 0.18, 0.2)
+
+
+def slug_gun():
+    # One solid lump of lead: a round, deep thump instead of the shotgun's ragged roar.
+    x = gunshot(1200, 44, 0.14, 0.55, 4.0, 0.85)
+    boom = sine(np.linspace(110, 40, int(0.85 * SR)), 0.85) * env(int(0.85 * SR), 0.001, 0.13) * 1.1
+    return mix(x, boom)
+
+
+def auto_shotgun():
+    # Punchier and shorter than the pump guns, so three of them can stack into a stutter.
+    x = gunshot(1700, 55, 0.07, 0.3, 5.0, 0.5)
+    rattle = bandpass(noise(0.5), 1500, 5000) * env(int(0.5 * SR), 0.01, 0.03) * 0.25
+    return mix(x, rattle)
+
+
+def pump_shotgun():
+    # A big, boomy hunting gun: long body and a ragged pellet roar.
+    x = gunshot(1300, 45, 0.15, 0.65, 5.5, 0.95)
+    roar = lowpass(noise(0.95), 1800) * env(int(0.95 * SR), 0.003, 0.06) * 0.9
+    return mix(x, roar)
+
+
+def heavy_mg():
+    # Slow, heavy pounding: deep body and a mechanical clunk of the bolt on every round.
+    x = gunshot(2200, 46, 0.1, 0.35, 4.8, 0.55)
+    clunk = sine(620, 0.55) * env(int(0.55 * SR), 0.0005, 0.02) * 0.35
+    return mix(x, clunk, lowpass(noise(0.55), 160) * env(int(0.55 * SR), 0.001, 0.06) * 0.7)
+
+
+def spore_rifle():
+    # Organic: a wet, squelching thump and a bubbling, gurgling discharge.
+    n = noise(0.7)
+    thump = sine(np.linspace(150, 55, len(n)), 0.7) * env(len(n), 0.002, 0.07)
+    squelch = lowpass(n, np.linspace(2600, 400, len(n))) * env(len(n), 0.003, 0.06) * 1.3
+    bub = sine(180 + 90 * np.sin(2 * np.pi * 31 * t(0.7)), 0.7) * env(len(n), 0.03, 0.15) * 0.35
+    return reverb(distort(thump + squelch + bub, 2.4), 0.35, 0.3)
+
+
+# --- melee classes' alternate pistols -----------------------------------------
+
+def machine_pistol():
+    # A tiny, buzzing automatic: thin pop with a high mechanical chatter.
+    x = gunshot(4500, 120, 0.02, 0.16, 2.3, 0.24)
+    chatter = mech_click(2600, 0.005) * 0.3
+    return mix(x, pad(np.concatenate([np.zeros(int(0.03 * SR)), chatter]), 0.24))
+
+
+def bloom_pistol():
+    # The pistol grown through with Bloom: a wet pop and a short fizz.
+    n = noise(0.45)
+    pop = lowpass(n, np.linspace(3200, 600, len(n))) * env(len(n), 0.001, 0.035) * 1.3
+    thump = sine(np.linspace(220, 80, len(n)), 0.45) * env(len(n), 0.001, 0.05) * 0.8
+    fizz = bandpass(noise(0.45), 3500, 9000) * env(len(n), 0.02, 0.09) * 0.4
+    return reverb(distort(pop + thump, 2.0) + fizz, 0.25, 0.25)
+
+
+def hand_cannon():
+    # A handgun that kicks like a rifle: a sharp, ringing boom.
+    x = gunshot(2300, 50, 0.1, 0.55, 5.0, 0.8)
+    ring = sine(np.linspace(340, 280, int(0.8 * SR)), 0.8) * env(int(0.8 * SR), 0.001, 0.09) * 0.3
+    return mix(x, ring)
+
+
+def stun_pistol():
+    # No powder: a capacitor whine snapping into an electric crack and buzz.
+    d = 0.5
+    whine = sine(np.linspace(2500, 5200, int(0.06 * SR)), 0.06) * np.linspace(0, 0.4, int(0.06 * SR))
+    crack = highpass(noise(d), 2000) * env(int(d * SR), 0.0005, 0.02) * 1.2
+    buzz = np.sign(sine(120, d)) * bandpass(noise(d), 400, 4000) * env(int(d * SR), 0.002, 0.08) * 0.6
+    return reverb(np.concatenate([whine, crack + buzz]), 0.2, 0.2)
+
+
+def longslide():
+    # A long-barrelled match pistol: clean, crisp, with a tighter tail than the rifle.
+    x = gunshot(3300, 85, 0.035, 0.3, 2.8, 0.42)
+    return mix(x, pad(np.concatenate([np.zeros(int(0.06 * SR)), mech_click(1500, 0.008) * 0.3]), 0.42))
+
+
+def whiz_zap():
+    # An electric slug crackling past.
+    d = 0.4
+    n = noise(d)
+    crackle = highpass(n, 2500) * (rng.uniform(0, 1, len(n)) > 0.92) * 1.0
+    hum = sine(np.linspace(900, 500, len(n)), d) * 0.3
+    return (crackle + hum) * np.sin(np.linspace(0, np.pi, len(n))) ** 2
+
+
+def impact_shock():
+    # An electric hit: a hard snap and a crackling discharge.
+    d = 0.6
+    snap = highpass(noise(d), 1500) * env(int(d * SR), 0.0005, 0.015) * 1.2
+    crackle = highpass(noise(d), 3000) * (rng.uniform(0, 1, int(d * SR)) > 0.9) * env(int(d * SR), 0.01, 0.15)
+    buzz = np.sign(sine(100, d)) * env(int(d * SR), 0.002, 0.1) * 0.25
+    return reverb(snap + crackle + buzz, 0.2, 0.2)
+
+
+# --- gun mechanisms and round sounds -------------------------------------------
+
+def belt():
+    # LMG belt and links rattling through the feed after a burst.
+    out = np.zeros(int(0.45 * SR))
+    for k in range(9):
+        st = int((0.02 + k * 0.035 + rng.uniform(-0.006, 0.006)) * SR)
+        c = mech_click(rng.uniform(1800, 3200), 0.006) * rng.uniform(0.3, 0.6)
+        out[st:st + len(c)] += c[:len(out) - st]
+    return reverb(out, 0.12, 0.15)
+
+
+def vent():
+    # Bio guns venting their chamber: a wet hiss of spore gas.
+    n = noise(0.5)
+    h = bandpass(n, 2500, 8000) * env(len(n), 0.03, 0.14)
+    gl = sine(120 + 60 * np.sin(2 * np.pi * 17 * t(0.5)), 0.5) * env(len(n), 0.05, 0.1) * 0.25
+    return h * 0.8 + gl
+
+
+def cylinder():
+    # Revolver hammer cocked and the cylinder clicking round.
+    out = np.zeros(int(0.35 * SR))
+    for st, f, d in [(0.0, 1900, 0.006), (0.12, 1300, 0.012), (0.17, 2400, 0.005)]:
+        c = mech_click(f, d)
+        i = int(st * SR)
+        out[i:i + len(c)] += c
+    return reverb(out, 0.12, 0.15)
+
+
+def bolt_heavy():
+    # Anti-materiel bolt: slow, weighty, and a fat casing clangs off the floor.
+    out = np.zeros(int(0.85 * SR))
+    for st, f, d in [(0.0, 700, 0.02), (0.14, 500, 0.03), (0.46, 900, 0.02), (0.54, 650, 0.015)]:
+        c = mech_click(f, d) * 1.2
+        i = int(st * SR)
+        out[i:i + len(c)] += c
+    clang = sum(sine(f, 0.35) * env(int(0.35 * SR), 0.0005, 0.07) * g for f, g in [(1800, 0.25), (2700, 0.15)])
+    i = int(0.3 * SR)
+    out[i:i + len(clang)] += clang
+    return reverb(out, 0.18, 0.2)
+
+
+def whiz_pellets():
+    # A swarm of pellets: a crackling buzz rather than one clean whistle.
+    d = 0.35
+    n = noise(d)
+    w = bandpass(n, 1500, 6000) * np.sin(np.linspace(0, np.pi, len(n))) ** 2
+    crackle = np.zeros(len(n))
+    for k in range(14):
+        s = int(rng.uniform(0.02, 0.3) * SR)
+        g = highpass(noise(0.01), 3000) * env(int(0.01 * SR), 0.0002, 0.002) * rng.uniform(0.4, 0.9)
+        crackle[s:s + len(g)] += g[:len(crackle) - s]
+    return w * 0.6 + crackle
+
+
+def whiz_heavy():
+    # A big round going past: a supersonic crack and a deep tearing whoosh.
+    d = 0.6
+    n = noise(d)
+    crack = highpass(n, 3000) * env(len(n), 0.0003, 0.008)
+    tear = bandpass(noise(d), np.linspace(2200, 300, len(n)), np.linspace(4500, 900, len(n))) * np.sin(np.linspace(0, np.pi, len(n))) ** 2
+    return crack * 0.8 + tear
+
+
+def whiz_bio():
+    # Bio rounds wobble through the air: a wet, warbling flutter.
+    d = 0.5
+    f = 700 + 300 * np.sin(2 * np.pi * 14 * t(d))
+    w = sine(f, d) * np.sin(np.linspace(0, np.pi, int(d * SR))) ** 2 * 0.5
+    fl = bandpass(noise(d), 600, 2500) * (0.5 + 0.5 * np.sin(2 * np.pi * 22 * t(d))) * np.sin(np.linspace(0, np.pi, int(d * SR)))
+    return w + fl * 0.6
+
+
+def whiz_dart():
+    # A fletched dart: a thin, falling whistle.
+    d = 0.45
+    f = np.linspace(3800, 2600, int(d * SR))
+    return sine(f, d) * np.sin(np.linspace(0, np.pi, int(d * SR))) ** 3 * 0.6 + bandpass(noise(d), 5000, 9000) * 0.1
+
+
+def whiz_needle():
+    # Flechettes: a hiss of thin metal slicing the air.
+    d = 0.3
+    n = noise(d)
+    return bandpass(n, np.linspace(9000, 5000, len(n)), 14000) * np.sin(np.linspace(0, np.pi, len(n))) ** 2
+
+
+def impact_bio():
+    # A bio round bursting: a splash and a sizzle as the culture eats into the surface.
+    n = noise(0.8)
+    splat = lowpass(n, 1400) * env(len(n), 0.001, 0.05) * 1.3
+    sizzle = bandpass(noise(0.8), 3000, 9000) * env(len(n), 0.04, 0.25) * 0.5
+    pop = sine(np.linspace(300, 90, len(n)), 0.8) * env(len(n), 0.001, 0.04) * 0.6
+    return reverb(splat + sizzle + pop, 0.2, 0.2)
+
+
+def impact_slug():
+    # A slug landing: a heavy, chunky smack that knocks debris loose.
+    n = noise(0.7)
+    smack = lowpass(n, 2200) * env(len(n), 0.0005, 0.04) * 1.4
+    thud = sine(np.linspace(120, 38, len(n)), 0.7) * env(len(n), 0.001, 0.12) * 1.2
+    debris = np.zeros(len(n))
+    for k in range(10):
+        s = int(rng.uniform(0.05, 0.45) * SR)
+        g = bandpass(noise(0.04), 800, 4000) * env(int(0.04 * SR), 0.0005, 0.01) * rng.uniform(0.2, 0.5)
+        debris[s:s + len(g)] += g[:len(debris) - s]
+    return reverb(distort(smack + thud, 2.0) + debris, 0.3, 0.25)
+
+
+def impact_pellets():
+    # A spread landing: a quick spatter of small hits.
+    out = np.zeros(int(0.4 * SR))
+    for k in range(9):
+        s = int(rng.uniform(0.0, 0.07) * SR)
+        g = bandpass(noise(0.05), 700, 5000) * env(int(0.05 * SR), 0.0005, 0.012) * rng.uniform(0.4, 1.0)
+        out[s:s + len(g)] += g
+    return reverb(out, 0.2, 0.2)
+
+
+def impact_dart():
+    # A dart sticking in: a hard thock and a little twang of the shaft.
+    n = noise(0.35)
+    thock = bandpass(n, 500, 3000) * env(len(n), 0.0005, 0.015)
+    twang = sine(np.linspace(520, 480, len(n)) * (1 + 0.03 * np.sin(2 * np.pi * 28 * t(0.35))), 0.35) * env(len(n), 0.002, 0.08) * 0.4
+    return reverb(thock + twang, 0.15, 0.15)
+
+
+def brass():
+    # Spent brass tinkling on the floor.
+    out = np.zeros(int(0.4 * SR))
+    for st, g in [(0.0, 1.0), (0.09, 0.5), (0.15, 0.3)]:
+        c = sum(sine(f, 0.12) * env(int(0.12 * SR), 0.0003, 0.02) for f in (5200, 7400)) * g
+        i = int(st * SR)
+        out[i:i + len(c)] += c
+    return out
+
+
+def shell_drop():
+    # A plastic shotgun hull bouncing: duller and lower than brass.
+    out = np.zeros(int(0.4 * SR))
+    for st, g in [(0.0, 1.0), (0.12, 0.45)]:
+        c = mix(bandpass(noise(0.06), 600, 2500) * env(int(0.06 * SR), 0.0005, 0.012), sine(1300, 0.06) * env(int(0.06 * SR), 0.0005, 0.015) * 0.4) * g
+        i = int(st * SR)
+        out[i:i + len(c)] += c
+    return out
 
 
 # --- impacts -----------------------------------------------------------------
@@ -463,7 +797,16 @@ SOUNDS = {
     "sting_enemy": sting_enemy, "cinematic": cinematic_in, "victory": victory, "defeat": defeat,
     "step1": lambda: footstep(1), "step2": lambda: footstep(2), "step3": lambda: footstep(3),
     "smg": smg, "lmg": lmg, "carbine": carbine, "tail_rifle": tail_rifle, "tail_heavy": tail_heavy,
-    "pump": pump, "bolt": bolt,
+    "pump": pump, "bolt": bolt, "pistol": pistol, "revolver": revolver, "blade": blade, "bash": bash,
+    "battle_rifle": battle_rifle, "burst_carbine": burst_carbine, "anti_materiel": anti_materiel,
+    "scout_carbine": scout_carbine, "flechette_smg": flechette_smg, "dart_rifle": dart_rifle,
+    "slug_gun": slug_gun, "auto_shotgun": auto_shotgun, "pump_shotgun": pump_shotgun, "heavy_mg": heavy_mg,
+    "spore_rifle": spore_rifle, "belt": belt, "vent": vent, "cylinder": cylinder, "bolt_heavy": bolt_heavy,
+    "whiz_pellets": whiz_pellets, "whiz_heavy": whiz_heavy, "whiz_bio": whiz_bio, "whiz_dart": whiz_dart,
+    "whiz_needle": whiz_needle, "impact_bio": impact_bio, "impact_slug": impact_slug,
+    "impact_pellets": impact_pellets, "impact_dart": impact_dart, "brass": brass, "shell_drop": shell_drop,
+    "machine_pistol": machine_pistol, "bloom_pistol": bloom_pistol, "hand_cannon": hand_cannon,
+    "stun_pistol": stun_pistol, "longslide": longslide, "whiz_zap": whiz_zap, "impact_shock": impact_shock,
 }
 
 if __name__ == "__main__":

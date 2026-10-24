@@ -9,7 +9,8 @@ extends RefCounted
 ## level picked for the next run, see Severity).
 ##
 ## Sections: "meta" (unlock flags), "field" (Field Data balance, packs, Severity), "history"
-## (lifetime stats), "runs" (recent run log), "achievements" (id -> unix time).
+## (lifetime stats), "runs" (recent run log), "achievements" (id -> unix time), "squad" (the
+## squad last picked per mode).
 
 const SECTION := "meta"
 const HISTORY_SIZE := 25
@@ -81,6 +82,21 @@ static func severity() -> int:
 static func set_severity(n: int) -> void:
 	var cf := _load()
 	cf.set_value("field", "severity", clampi(n, 0, severity_max()))
+	cf.save(path)
+
+
+# --- squad picks ------------------------------------------------------------------------
+
+## The squad last picked for a mode ("solo", "hotseat" or "online"): player -> Array of classes,
+## so the lobby opens on it next time. Empty if none was saved.
+static func last_squad(mode: String) -> Dictionary:
+	var v = _load().get_value("squad", mode, {})
+	return v if v is Dictionary else {}
+
+
+static func set_last_squad(mode: String, picks: Dictionary) -> void:
+	var cf := _load()
+	cf.set_value("squad", mode, picks.duplicate(true))
 	cf.save(path)
 
 

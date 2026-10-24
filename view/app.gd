@@ -6,10 +6,13 @@ extends Node
 ##   --host[=port]  --join=address[:port]  --name=Name  --autostart=N (host starts at N players)
 ##   --autoplay / --screenshot=... with neither host nor join start a local hot-seat match directly.
 ##   --run=N starts a local run for N players (1 = solo); --autostart-run makes --autostart start a run.
+##   --training starts the training mission (--training-step=N opens on lesson N).
 ##   --drop-client-at=N (host) cuts the first client off after action N, to test reconnecting.
 
 const MISSION := preload("res://scenes/main.tscn")
 const MainMenu := preload("res://ui/main_menu.gd")
+const Coach := preload("res://ui/tutorial/coach.gd")
+const TutorialOverlay := preload("res://ui/tutorial/tutorial_overlay.gd")
 ## Longest a finished fight waits on its debrief before moving on anyway.
 const DEBRIEF_MAX := 20.0
 const FADE_OUT := 0.35
@@ -29,6 +32,8 @@ var _autostart_run := false
 var _autostart := 0
 var _autostart_armed := false
 var _menu_layer: CanvasLayer
+## First-time tips and the "play training first?" card, above everything but the fade.
+var coach: Coach
 
 
 func _ready() -> void:
@@ -59,15 +64,26 @@ func _ready() -> void:
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	fade_layer.add_child(_fade)
+	var coach_layer := CanvasLayer.new()
+	coach_layer.layer = 15
+	add_child(coach_layer)
+	coach = Coach.new()
+	coach.app = self
+	coach_layer.add_child(coach)
 	menu.host_requested.connect(_host)
 	menu.join_requested.connect(_join)
 	menu.local_requested.connect(_local)
 	menu.start_requested.connect(net.start_match)
-	menu.run_requested.connect(_local_run)
+	menu.run_requested.connect(_on_run_requested)
+	menu.training_requested.connect(_start_training)
 	menu.continue_requested.connect(_continue_run)
 	menu.start_run_requested.connect(_start_net_run)
 	menu.leave_requested.connect(_leave)
-	menu.class_picked.connect(net.pick_class)
+	menu.squad_picked.connect(net.pick_squad)
+	menu.local_run_requested.connect(func(players: int, picks: Dictionary) -> void: _local_run(players, 0, picks))
+	menu.local_quick_requested.connect(func(players: int, picks: Dictionary) -> void:
+		var local := _make_local()
+		local.start_new(players, 0, picks))
 	menu.steam_host_requested.connect(_host_steam)
 	menu.steam_invite_requested.connect(func() -> void:
 		if not net.invite_friends():
@@ -126,6 +142,8 @@ func _handle_args() -> void:
 		_join(nm, parts[0], port)
 		if args.has("double-join"):   # test aid: an impatient second click on Join
 			_join(nm, parts[0], port)
+	elif args.has("training"):
+		_start_training()
 	elif args.has("run"):
 		_local_run(int(args.run) if args.run.is_valid_int() else 1, int(args.get("seed", "0")))
 	elif args.has("lineup") or args.has("lineup-mode"):
@@ -213,9 +231,44 @@ func _make_local() -> LocalSession:
 	return local
 
 
-## Solo (1) or hot-seat run on this machine: no lobby, no network.
-func _local_run(players: int, seed: int = 0) -> void:
-	_make_local().start_run(players, seed)
+## Run button on the title screen: a new player is offered the training mission first, then
+## picks their squad in the local lobby.
+func _on_run_requested(players: int) -> void:
+	if Onboarding.should_offer_training() and not coach.disabled:
+		coach.offer_training(_start_training, func() -> void: menu.show_local_lobby(players))
+		return
+	menu.show_local_lobby(players)
+
+
+## The training mission (tutorial/): a solo fight with a coach overlay on the HUD.
+func _start_training() -> void:
+	var t := TutorialSession.new()
+	t.name = "Training"
+	add_child(t)
+	session = t
+	t.match_started.connect(func(s: GameState) -> void:
+		_show_mission(t, s, true)
+		_attach_training(t))
+	t.start_tutorial()
+
+
+func _attach_training(t: TutorialSession) -> void:
+	var o := TutorialOverlay.new()
+	view.hud.add_child(o)
+	o.setup(view, t)
+	o.skip_requested.connect(_leave)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--training-step="):   # dev aid: open on a lesson for screenshots
+			t.jump_to.call_deferred(int(a.trim_prefix("--training-step=")))
+	o.finished.connect(func(start_run: bool) -> void:
+		_leave()
+		if start_run:
+			menu.show_local_lobby(1))
+
+
+## Solo (1) or hot-seat run on this machine, no network. `picks`: player -> Array of classes.
+func _local_run(players: int, seed: int = 0, picks: Dictionary = {}) -> void:
+	_make_local().start_run(players, seed, picks)
 
 
 func _continue_run() -> void:

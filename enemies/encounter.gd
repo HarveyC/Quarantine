@@ -332,6 +332,8 @@ static func _resolve_telegraphs(s: GameState) -> void:
 					smashed.append(c)
 			if not smashed.is_empty():
 				s.emit({"type": "cover_destroyed", "cells": smashed, "unit": t.get("unit", -1)})
+			for c in t.cells:
+				Elevation.blast(s, c, 0)
 		if s.phase == Types.Phase.ENDED:
 			return
 	s.encounter["telegraphs"] = keep

@@ -72,7 +72,7 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 	var line := col.darkened(0.45)
 	if selected or targeted:
 		line = Styles.AMBER if targeted else col
-	f.set_look(Color(0.04, 0.05, 0.045, 0.86), line, Styles.AMBER, false)
+	f.set_look(Color(0.034, 0.05, 0.08, 0.86), line, Styles.AMBER, false)
 	var row := Styles.hbox(5)
 	f.add_child(row)
 	var ic := W.Icon.new(Icons.for_class(uv.kind) if uv.is_soldier else "enemy", col, 15.0, 2.0)
@@ -90,7 +90,7 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 		if uv.hunkered:
 			row.add_child(W.Icon.new("hunker", Styles.AMBER, 14.0, 2.0))
 	else:
-		row.add_child(Styles.caps(uv.display_name, 11, Color("ffb3a3")))
+		row.add_child(Styles.caps(uv.display_name, 11, Styles.DANGER_TEXT))
 	var hp := W.Pips.new(Vector2(7, 4))
 	var lose := 0
 	if targeted and shooter != null:

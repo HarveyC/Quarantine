@@ -23,6 +23,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `elevation/` | `Elevation` | **maps** | High ground: aim and cover from height, in-fight level changes |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
+| `tutorial/`, `ui/tutorial/` | `Onboarding`, `TutorialScript`, `TutorialSession` | **onboarding** | Training mission, first-time tips, what the player has been taught |
 | `net/` | `NetSession`, `LocalSession`, `NetTransport` (`EnetTransport`, `SteamTransport`) | net | Sessions the view talks to; online replication over ENet or Steam (see docs/STEAM.md) |
 | `platform/` | `Platform` autoload, `CloudSync`, `CrashReporter` | net | Steam (optional), cloud saves, achievements bridge, rich presence, crash reports |
 | `tests/` | `TestCase` | everyone | `tests/test_<module>.gd` per workstream |
@@ -104,8 +105,17 @@ Rules for parallel work:
 | `lock_lost` | `unit` (a Sharpshooter's target broke line of sight, or it was suppressed) |
 | `fell` | `unit`, `damage` — knocked off a ledge or its raised tile collapsed (before its `damage` event) |
 | `revealed_area` | `cell`, `radius` — a Recon drone shows an area from above for the rest of the fight |
+| `guard` | `unit` (a Warden entered Guard stance: it Bashes the first enemy that steps next to it before its next team phase) |
+| `stunned` | `unit`, `by` — a Shield Bash stunned the unit (it loses its next turn, or the rest of the turn it was moving in) |
+| `bleeding` / `bleed` | `unit`, `turns` / `damage` (Reaper Bleed Out; the tick at the start of the bleeding unit's phase, before its `damage` event) |
 
-`move` may carry `knockback: true` (Brute slam/charge) and is also emitted for the Source's pull
+Melee classes: `lunge` (Reaper) emits its dash as ordinary `move` events (overwatch and Guard can
+interrupt them), then an `ability` event with `hit`, `graze`, `damage`, `chance` (Cleave adds more with
+`cleave: true`; Riposte uses ability `riposte`). `bash` (Warden) has the same fields, plus `reaction: true`
+from Guard or `charge: true` from Shield Charge, and is followed by the target's knockback `move` and `stunned`.
+A Reaper's melee kill that refunds an action emits `perk` with `perk: "bloodlust"`.
+
+`move` may carry `knockback: true` (Brute slam/charge, Shield Bash) and is also emitted for the Source's pull
 (the moved unit is the soldier). Enemy abilities (`slam`, `charge`, `burst`, `pounce`, `maul`,
 `scream`, `brood_spit`, `airstrike`, `flashbang`, `pull`, `core_slam`) use the `ability` event;
 area ones add `cells` and `units`.
@@ -362,24 +372,35 @@ generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --scre
 
 ## High ground (elevation/)
 
-One raised level. Data on the `Grid`: `level(c) -> int` (0 ground, 1 raised), `is_ladder(c)`,
-`has_levels()`, serialized in `to_dict`. Parcels mark it with `^` (raised floor), `%` (low cover on
-a roof) and `/` (ladder: a ground cell that climbs to the raised cell beside it).
+Three levels: ground (0), roof (1), upper roof (2). Data on the `Grid`: `level(c)`, `is_ladder(c)`,
+`is_stairs(c)`, `is_fragile(c)`, `has_levels()`, all serialized in `to_dict`. Glyphs are read by
+`Grid.read_glyph` (shared by handmade maps and MapGen): `^` roof, `%` half cover on a roof, `~`
+fragile roof (scaffold), `2` upper roof, `$` half cover on it, `/` ladder and `s` stairs on the
+ground, `|` ladder and `S` stairs on a roof; MapGen also reads `e` (enemy spawn on a roof).
 
-- **Movement** (`Grid._can_step`): a step between levels needs a ladder at one end and must be
-  straight, not diagonal; diagonals can't cut round a ledge corner. `reachable` and `find_path` take
-  `ignore_levels := true` for leapers and flyers.
+- **Movement** (`Grid.step_cost`, Dijkstra in `reachable`/`find_path`, which return/minimise move
+  cost): flat steps cost 1. Going up one level must be straight and needs stairs (cost 1) or a ladder
+  (`Grid.LADDER_COST` = 2) at either end. Going down works the same way, or by dropping off any ledge
+  (one way, 1 per level dropped, no damage). Diagonals never cut wall or ledge corners.
+  `ignore_levels := true` (leapers, flyers) changes level anywhere for 1. `Grid.path_cost` sums a path.
 - **Shooting** (`Combat.hit_chance` calls `Elevation`): from higher ground +10 aim ("High ground" in
-  the breakdown) and the target's cover counts one step lower (full to half, half to none). Shooting
-  up at a higher target, it has at least half cover. Height never makes a shot a flank (no flank
-  crit). Line of sight by height is in `Combat.can_see` (see Fog of war). `Elevation.height(s, u)` is the cell's level, or 1 for status `flying`.
+  the breakdown, same for 1 or 2 levels up) and the target's cover counts one step lower. Shooting up
+  at a higher target, it has at least half cover. Height never makes a shot a flank.
+  `Combat.cover_against`: a raised block beside the target is a building wall, full cover against
+  shooters below its roof.
+- **Sight** (`Combat.can_see`): a raised cell blocks the line when it is higher than both ends
+  (a flyer counts as at least level 1). Vision sight radius +2 per level.
 - **Changing levels** in a fight: `Elevation.set_level(s, cell, n)` only (emits `level_changed`,
-  drops ladders that join nothing; units on the cell stay and stand at the new level).
-  `Grid.set_level` is the raw write for map building. `Elevation.is_ledge(grid, c)`: a raised cell
-  beside lower walkable ground.
-- **View**: `Board.cell_to_world` lifts raised cells by `Board.RAISE`, so units, props and overlays
-  sit on roofs; roofs are steel decks with amber lips, ladders are drawn on their climb side, and
-  mouse picking tries the roof plane first.
+  drops ladders/stairs that join nothing, clears `fragile` at ground). `Elevation.blast(s, center,
+  radius, by)` collapses fragile cells in the area (frag grenade radius 1, airstrike cells) and units
+  on them fall (`fell`, 2 damage per level). The Burrower's collapse is `EnemyTerrain.collapse`.
+- **View**: `Board.cell_to_world` lifts cells by `Board.RAISE` per level. Roofs are grey steel decks,
+  upper roofs paler, scaffolds plank decks on poles with a tarp skirt; amber lips on ledges; ladders
+  and stairs drawn on their climb side. Mouse picking tries the highest level's plane first.
+- **MapGen**: 8x8 `@landmark` parcels fill a 2x2 block of `L` slots (lanes=0 plots). Validation: every
+  walkable cell must walk to and back from the drop zone (one-way pits are sealed), 6-35% raised
+  cells, at least 2 stairs/ladders. Dev aid: `-- --objective=hold --biome=wall --screenshot-action=map`
+  renders the whole map with fog and HUD off.
 
 ## Objectives (objectives/)
 
@@ -546,9 +567,13 @@ every state change goes through `Rules`: peers never diverge as long as they app
 in the same order on the same seed.
 
 - **`core/match_config.gd` (`MatchConfig`)**: a serializable description of a mission (map, squad,
-  enemy list, seed). `squad_plan(players, picks)` decides who plays what: solo is a squad of 4 for
-  player 0, co-op is one soldier per player, of the class they picked in the lobby
-  (`NetSession.pick_class`, stored as `lobby[id].class`) or the first class nobody took. Every peer builds an identical `GameState` from it.
+  enemy list, seed). `squad_plan(players, picks)` decides who plays what: every player commands their
+  own squad of 1 to 4 soldiers, `MatchConfig.MAX_SQUAD` (4) in all, with the classes they picked
+  in the lobby (`NetSession.pick_squad`, stored as `lobby[id].squad`; the local solo / hot-seat
+  lobby passes the same picks to `LocalSession.start_run`). Blanks take the first class nobody
+  has; with no picks solo gets 4 and co-op 1 each. Picks over 4 are trimmed from the biggest
+  squad, and everyone keeps at least one soldier. Fights scale with soldiers (`fight.squad`), Serum
+  and rewards come per soldier, and each player's reserve is `RunRules.reserve_for(soldiers)`. Every peer builds an identical `GameState` from it.
 - **`net/local_session.gd` (`LocalSession`)** and **`net/net_session.gd` (`NetSession`)** implement the
   same small interface the view talks to: `local_players()`, `is_local(player)`, `submit(action)`,
   `set_ready(player, on)`, `restart()`, `can_restart()`, `status_text()`, `player_names`. The view and
@@ -647,7 +672,7 @@ Module-owned fields (opaque to the framework, saved and synced as-is):
 - **`MetaUnlocks`**: Field Data packs. Content listed in an unowned pack is locked: `bind(meta)`
   runs in `RunRules.new_run` and `RunState.from_dict`, and the draws (GearDraw, the Doctrine vote,
   MutationData pools) skip `is_locked(id)`. Unlisted content is always available; a meta with no
-  `packs` key (tests, tools) locks nothing. Online, the host pools every lobby player's packs.
+  `packs` key (tests, tools) locks nothing. Online, every player uses the host's packs (`NetSession.run_meta`).
 - **`Severity`** 0-10 (the doc's "Outbreak levels"): stacking rules applied in `new_run`,
   `MatchConfig.for_fight`, depot prices, fight income and the boss Outbreak drop.
 - **`Achievements`**: `DEFS`, `unlocked()`, `is_unlocked(id)`, `on_unlocked(cb)`, `stats()` for
@@ -807,6 +832,37 @@ that turn). Main menu: "Continue run" resumes locally; online, the host ticks "C
 run" in the lobby and absent players are benched until they join. `Profile` (`user://profile.cfg`)
 keeps unlock flags between runs (`act1_boss_beaten`, anything a module sets true in `run.meta`) and
 run counts; runs get a copy as `run.meta`.
+
+## Training and first-time tips (tutorial/, ui/tutorial/)
+
+Owned by the onboarding workstream. Visual first: tile markers, arrows and short captions, no
+text walls.
+
+- **`Onboarding`** (`tutorial/onboarding.gd`): what this player has been taught, in the profile
+  (`user://profile.cfg`, section `onboarding`): `training_done`, `training_offered`, `hints_off`, and
+  `hint_<id>` per tip shown. `should_offer_training()`, `hints_enabled()` / `set_hints_enabled(on)`,
+  `reset_hints()` (for a settings screen). Each machine has its own profile, so online every player
+  gets their own tips.
+- **Training mission**: `TutorialScript` (pure, like `Rules`) builds a fixed map (`maps/tutorial.txt`,
+  Trooper + Marksman for player 0) and runs 12 lessons in `STEPS`: welcome and camera, move, cover,
+  Ready / team phase, fog of war, hit chance, high ground, overwatch, clear, Infection and a mutation,
+  Turning, purge the nest. Each lesson has a goal read from the state (a soldier on a marked tile, an
+  enemy spotted, a reaction shot, a mutation used...) and a set-up when it starts (a Runner in the
+  fog, a wave of two, a dose of Infection) that goes through `EnemyRoster` / `Encounter.spawn` /
+  `Infection.add`, so the view plays it like any fight. A hidden spore nest walled into a corner keeps
+  the fight open between lessons and dies at the end. `TutorialSession` (a `LocalSession`, never
+  saves) ticks the script after each change. Main menu "Training", or `-- --training`
+  (`--training-step=N` opens on lesson N for screenshots).
+- **Overlay** (`ui/tutorial/tutorial_overlay.gd`, added to the HUD by `App`): the lesson card top right,
+  amber markers on the lesson's tiles (`cell_markers.gd`), an arrow to the HUD piece it is about
+  (`ActionBar.find_button(key)` / `ready_button()`, target panel, roster), and its own "Training
+  complete" card instead of the Victory screen. It hides while the event player is busy.
+- **First-time tips** (`ui/tutorial/coach.gd`, on its own layer in `App`): watches the run view
+  (`RunView.hint_target(key)`) and the fight's events and shows one short card per moment: route
+  map, Outbreak, Intel, spoils, loadout, each node kind, the squad phase, Infection, Lapse, Turned,
+  telegraphed strikes, reinforcements. Fight tips fire only for this machine's soldiers. Off for
+  `--autoplay` and screenshot runs (`--hints` turns them back on). It also asks a new player
+  "play training first?" before their first run from the menu.
 
 ## Deployables (turrets, decoys)
 

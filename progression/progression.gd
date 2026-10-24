@@ -36,7 +36,20 @@ const QUICK_PLAY_MUTATIONS := {
 	"breacher": {"exposed": "hollow_bones", "mutating": "leech_bite"},
 	"hazmat": {"exposed": "lure_scent", "mutating": "acid_spit"},
 	"vector": {"exposed": "adrenal_surge", "mutating": "leech_bite", "strain": "flies"},
+	"reaper": {"exposed": "hollow_bones", "mutating": "leech_bite"},
+	"warden": {"exposed": "clotting_blood", "mutating": "chitin_plates"},
 }
+
+## How each unlockable class is earned, one short sentence for menus (Field HQ).
+const CLASS_UNLOCK_HINTS := {
+	"hazmat": "Beat the Act 1 boss.",
+	"vector": "Win a fight with a soldier at Mutating Infection or higher who didn't Turn.",
+	"reaper": "Win a fight where one soldier killed 3 enemies standing next to them.",
+	"warden": "Win a fight where one soldier was hit 4 times and lived.",
+}
+## Unlock thresholds for the melee classes (Unit status counters kept by Kit).
+const REAPER_CLOSE_KILLS := 3
+const WARDEN_HITS_TAKEN := 4
 
 
 # ---------------------------------------------------------------- record
@@ -226,8 +239,8 @@ static func graft_error(record: Dictionary, id: String) -> String:
 static func graft_bonded(a: Dictionary, b: Dictionary, id: String) -> String:
 	if not MutationData.get_def(id).get("bonded", false):
 		return "Not a Bonded mutation"
-	if a.get("owner", -1) == b.get("owner", -2) or a == b:
-		return "Bond two soldiers of different players"
+	if a == b or a.get("id", -1) == b.get("id", -2):
+		return "Bond two different soldiers"
 	for r in [a, b]:
 		var err := graft(r, id)
 		if err != "":
@@ -323,15 +336,23 @@ static func apply_card(record: Dictionary, card: Dictionary) -> String:
 	return "Unknown card"
 
 
+## Who `record` can share a Bonded mutation with: in co-op a soldier of another player, solo any
+## other soldier in the squad.
+static func bond_partners(run: RunState, record: Dictionary) -> Array:
+	var solo := run.players.size() <= 1
+	return run.squad().filter(func(o: Dictionary) -> bool:
+		return o.get("id", -1) != record.get("id", -2) and (solo or o.get("owner", -1) != record.get("owner", -1)))
+
+
 ## Queues an Infested nest's 1-of-3 mutation pick for this soldier (at least one Mutating or
-## Critical; a Bonded one may appear when the run has 2+ players). Picked with prog_graft.
+## Critical; a Bonded one may appear when it has a partner, see bond_partners). Picked with prog_graft.
 static func queue_nest_offer(run: RunState, record: Dictionary) -> void:
 	var rng: RandomNumberGenerator = run.rng
 	var high := _candidates(record, MutationData.regular_pool("mutating") + MutationData.regular_pool("critical"))
 	var cards: Array[String] = []
 	if not high.is_empty():
 		cards.append(high[rng.randi() % high.size()])
-	if run.players.size() >= 2 and rng.randf() < 0.5:
+	if not bond_partners(run, record).is_empty() and rng.randf() < 0.5:
 		var bonded := _candidates(record, MutationData.bonded_pool())
 		if not bonded.is_empty():
 			cards.append(bonded[rng.randi() % bonded.size()])
@@ -388,20 +409,35 @@ static func unlocked_classes(meta: Dictionary) -> Array[String]:
 		out.append("hazmat")
 	if meta.get("vector_unlocked", false):
 		out.append("vector")
+	for kind in ["reaper", "warden"]:
+		if meta.get(kind + "_unlocked", false):
+			out.append(kind)
 	return out
 
 
-## After every fight (outcome = RunRules.fight_outcome): a won fight ended by a soldier at
-## Mutating or higher who didn't Turn unlocks the Vector.
+## After every fight (outcome = RunRules.fight_outcome), a won fight unlocks a class when one
+## surviving, un-Turned soldier ended it: at Mutating or higher (Vector), with 3 kills on adjacent
+## enemies (Reaper), or after taking 4 hits (Warden). See CLASS_UNLOCK_HINTS.
 static func on_fight_end(run: RunState, outcome: Dictionary) -> void:
-	if outcome.get("result", Types.Result.NONE) != Types.Result.VICTORY or run.meta.get("vector_unlocked", false):
+	if outcome.get("result", Types.Result.NONE) != Types.Result.VICTORY:
 		return
 	for e in outcome.get("soldiers", []):
 		var u := Unit.from_dict(e.unit)
-		if u.is_alive() and not u.status.get("turned", false) and u.infection >= MUTATING_AT:
-			run.meta["vector_unlocked"] = true
-			run.emit({"type": "class_unlocked", "kind": "vector"})
-			return
+		if not u.is_alive() or u.status.get("turned", false):
+			continue
+		if u.infection >= MUTATING_AT:
+			_unlock(run, "vector")
+		if int(u.status.get("close_kills", 0)) >= REAPER_CLOSE_KILLS:
+			_unlock(run, "reaper")
+		if int(u.status.get("hits_taken", 0)) >= WARDEN_HITS_TAKEN:
+			_unlock(run, "warden")
+
+
+static func _unlock(run: RunState, kind: String) -> void:
+	if run.meta.get(kind + "_unlocked", false):
+		return
+	run.meta[kind + "_unlocked"] = true
+	run.emit({"type": "class_unlocked", "kind": kind})
 
 
 # ---------------------------------------------------------------- run actions
@@ -433,8 +469,8 @@ static func validate(run: RunState, action: Dictionary) -> String:
 				var partner := run.get_soldier(int(action.get("partner", -1)))
 				if partner.is_empty() or partner.get("status", "") != RunSoldier.ACTIVE:
 					return "Pick a partner"
-				if partner.get("owner", -1) == r.get("owner", -1):
-					return "Bond two soldiers of different players"
+				if not bond_partners(run, r).has(partner):
+					return "Bond two soldiers of different players" if run.players.size() > 1 else "Bond two different soldiers"
 			else:
 				return graft_error(r, id)
 		"prog_skip_offer":

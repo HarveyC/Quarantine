@@ -21,6 +21,10 @@ const PASSIVES := {
 		"desc": "You gain half Infection from every source, but mutations cost 5 more to use."},
 	"vector": {"id": "willing_host", "name": "Willing Host",
 		"desc": "Start every fight at 25 Infection or more. Mutations cost 5 less to use (minimum 5)."},
+	"reaper": {"id": "bloodlust", "name": "Bloodlust",
+		"desc": "A melee kill gives back 1 action, once per turn. Overwatch shots at you take -15 aim."},
+	"warden": {"id": "bulwark", "name": "Bulwark",
+		"desc": "An ally right behind you has at least half cover from that side. Overwatch shots at you take -20 aim."},
 }
 
 const PERKS := {
@@ -138,6 +142,36 @@ const PERKS := {
 		"desc": "+1 damage while you're Mutating or higher."},
 	"spore_veil": {"class": "vector", "name": "Spore Veil", "tag": "Strain", "rare": true,
 		"desc": "+10 defense while you're Exposed or higher."},
+	# Reaper: Close and Strain
+	"bleed_out": {"class": "reaper", "name": "Bleed Out", "tag": "Close", "rare": false,
+		"desc": "Melee hits make the target bleed: 1 damage at the start of each of its next 2 turns."},
+	"harvest": {"class": "reaper", "name": "Harvest", "tag": "Strain", "rare": false,
+		"desc": "Melee kills heal you for 2."},
+	"long_stride": {"class": "reaper", "name": "Long Stride", "tag": "Close", "rare": false,
+		"desc": "Lunge reaches 6 tiles."},
+	"riposte": {"class": "reaper", "name": "Riposte", "tag": "Guard", "rare": false,
+		"desc": "Once per enemy phase, strike back at the first enemy that claws at you."},
+	"hamstring": {"class": "reaper", "name": "Hamstring", "tag": "Close", "rare": false,
+		"desc": "Melee hits cost the target 2 mobility on its next turn."},
+	"red_mist": {"class": "reaper", "name": "Red Mist", "tag": "Strain", "rare": true,
+		"desc": "At Critical Infection, your melee strikes never miss."},
+	"cleave": {"class": "reaper", "name": "Cleave", "tag": "Close", "rare": true,
+		"desc": "Lunge also strikes every other enemy next to where you land."},
+	# Warden: Guard and Purge
+	"vigilant": {"class": "warden", "name": "Vigilant", "tag": "Guard", "rare": false,
+		"desc": "Guard can bash up to 2 enemies."},
+	"sterilize": {"class": "warden", "name": "Sterilize", "tag": "Purge", "rare": false,
+		"desc": "Each Bash that hits removes 5 Infection from you."},
+	"intimidate": {"class": "warden", "name": "Intimidate", "tag": "Suppress", "rare": false,
+		"desc": "A Bash that hits also Suppresses every other enemy next to the target."},
+	"shield_charge": {"class": "warden", "name": "Shield Charge", "tag": "Close", "rare": false, "ability": "shield_charge",
+		"desc": "New ability: move up to 3 tiles and Bash. Ends turn, cooldown 3."},
+	"tower_shield": {"class": "warden", "name": "Tower Shield", "tag": "Guard", "rare": false,
+		"desc": "Bulwark gives full cover instead of half."},
+	"last_wall": {"class": "warden", "name": "Last Wall", "tag": "Guard", "rare": true,
+		"desc": "The first time you would die in a fight, drop to 1 HP instead."},
+	"unbreakable": {"class": "warden", "name": "Unbreakable", "tag": "Guard", "rare": true, "max_hp": 3,
+		"desc": "+3 max HP, and hits from adjacent enemies deal 1 less damage (minimum 1)."},
 }
 
 

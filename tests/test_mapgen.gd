@@ -121,5 +121,37 @@ func test_every_map_has_climbable_high_ground() -> void:
 					if g.level(Vector2i(x, y)) > 0 and dist.has(Vector2i(x, y)):
 						roofs += 1
 			assert_true(roofs >= 4, tag + " has reachable high ground (got %d)" % roofs)
-			for l in g.ladders:
-				assert_true(g.level(l) == 0 and g.is_walkable(l), tag + " ladder on open ground")
+			for l in g.ladders.keys() + g.stairs.keys():
+				assert_true(g.is_walkable(l), tag + " ladder or stairs on open ground")
+
+
+func test_landmark_plots_place_a_big_building() -> void:
+	var data := MapGen.parse(FileAccess.get_file_as_string("res://maps/biome_wall.txt"))
+	assert_true(data.parcels.get("landmark", []).size() >= 3, "act 1 has landmark buildings")
+	for lm in data.parcels.landmark:
+		assert_eq(lm.rows.size(), 8, lm.name + " is 8 rows")
+		for r in lm.rows:
+			assert_eq(r.length(), 8, lm.name + " is 8 wide")
+	var with_l := 0
+	for p in data.plots:
+		if Array(p.rows).any(func(r: String) -> bool: return r.contains("L")):
+			with_l += 1
+			assert_eq(p.lanes, 0, p.name + " landmark plots have no lanes")
+	assert_true(with_l >= 6, "most objectives have a landmark plot")
+	# Some generated maps reach the upper roof level.
+	var tall := 0
+	for seed in range(1, 31):
+		var g := MapGen.generate(_spec("skirmish", seed))
+		if g.levels.has(2):
+			tall += 1
+	assert_true(tall >= 5, "upper roofs show up (%d/30)" % tall)
+
+
+func test_every_cell_can_walk_back_to_the_drop_zone() -> void:
+	for o in OBJECTIVES:
+		for seed in range(1, 16):
+			var g := MapGen.generate(_spec(o, seed))
+			var start := g.player_spawns[0]
+			var back := MapGen._can_return(g, [start])
+			for c in g.reachable(start, 9999):
+				assert_true(back.has(c), "%s seed %d: %s can get back" % [o, seed, c])

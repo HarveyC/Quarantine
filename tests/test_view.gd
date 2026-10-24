@@ -205,6 +205,27 @@ func test_shot_cinematic_takes_and_returns_camera() -> void:
 	v.free()
 
 
+func test_every_gun_fires_through_the_shot_beat() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldier := v.state.controllable_units(0)[0]
+	var enemy := v.state.living(Types.Team.ENEMY)[0]
+	var uv := v.view_for(soldier.id)
+	var k := 0
+	for id in Weapons.TABLE:
+		uv.weapon = id
+		for outcome in [[true, false], [false, false], [true, true]]:
+			v.player.enqueue({"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": outcome[0], "graze": outcome[1],
+				"crit": false, "damage": 1, "chance": 50, "reaction": k % 2 == 0})
+			var steps := 0
+			while v.player.is_busy() and steps < 600:
+				v.player.advance(1.0 / 20.0)
+				steps += 1
+			assert_true(not v.player.is_busy(), "%s shot finishes" % id)
+			k += 1
+	v.free()
+
+
 func test_cinematics_off_plays_quick_shot() -> void:
 	var v := _make_view()
 	v.player.flush()
@@ -425,3 +446,128 @@ func test_run_fight_ends_on_debrief() -> void:
 	assert_true(v.debrief_done, "view knows")
 	v.free()
 	l.free()
+
+
+func _melee_view(kind: String) -> Node3D:
+	var u := Unit.new()
+	u.id = 1
+	u.kind = kind
+	u.team = Types.Team.PLAYER
+	u.owner_player = 0
+	u.max_hp = 6
+	u.hp = 6
+	var uv = preload("res://view/unit_view.gd").new()
+	uv.build(u)
+	return uv
+
+
+## Reaper and Warden borrow a body, hold melee props instead of a rifle, and draw the
+## sidearm only to shoot; the Warden's Guard stance raises the shield.
+func test_melee_classes_hold_melee_props_and_draw_the_sidearm() -> void:
+	var MeleeKit := preload("res://view/melee_kit.gd")
+	for kind in ["reaper", "warden"]:
+		var uv = _melee_view(kind)
+		assert_true(uv.is_melee_class(), "%s is a melee class" % kind)
+		assert_true(not uv._skin.armed, "%s holds no rifle by IK" % kind)
+		var weapon := uv._model.find_child("melee_weapon", true, false) as Node3D
+		var drawn := uv._model.find_child("sidearm_drawn", true, false) as Node3D
+		assert_true(weapon != null and drawn != null, "%s has its melee weapon and sidearm" % kind)
+		assert_true(uv._model.find_child("shield", true, false) != null if kind == "warden" else uv._model.find_child("bloom_arm", true, false) != null, "%s class prop" % kind)
+		uv.tick(0.05)
+		assert_true(weapon.visible and not drawn.visible, "%s: melee weapon in hand at rest" % kind)
+		uv.aim_now(1.0)
+		uv.tick(0.05)
+		assert_true(drawn.visible and not weapon.visible, "%s: sidearm drawn to aim" % kind)
+		uv.tick(0.5)
+		assert_eq(String(uv._skin.player.current_animation), "Pistol_Aim_Neutral", "%s pistol stance" % kind)
+		var hand: Vector3 = uv._to_world(uv._skin.skel, uv._skin.bone_pose("hand_r").origin)
+		assert_true(uv.muzzle_world().distance_to(hand) < 0.45, "%s muzzle at the weapon hand" % kind)
+		uv.aim_now(0.0)
+		uv.tick(0.5)
+		assert_true(weapon.visible and not drawn.visible, "%s: sidearm holstered again" % kind)
+		assert_true(MeleeKit.size_of(kind) > 0.9, "size")
+		if kind == "warden":
+			uv.set_guard(true)
+			uv.tick(0.5)
+			assert_eq(String(uv._skin.player.current_animation), "Idle_Shield", "guard raises the shield")
+			assert_true(uv._status_label.text.contains("GUARD"), "guard tag")
+		uv.free()
+
+
+func test_melee_class_events_play() -> void:
+	var s := MissionView.default_mission(1234)
+	var squad := s.living(Types.Team.PLAYER)
+	squad[0].kind = "reaper"
+	squad[2].kind = "warden"
+	var v: MissionView = MAIN.instantiate()
+	v.start(s, true)
+	v.player.flush()
+	var reaper: Unit = squad[0]
+	var warden: Unit = squad[2]
+	var foes := s.living(Types.Team.ENEMY)
+	var foe: Unit = foes[0]
+	var wv := v.view_for(warden.id)
+	var events: Array[Dictionary] = [
+		{"type": "move", "unit": reaper.id, "from": reaper.pos, "path": [reaper.pos + Vector2i(1, 0)]},
+		{"type": "ability", "unit": reaper.id, "ability": "lunge", "target": foe.id, "hit": true, "graze": false, "damage": 3, "chance": 80},
+		{"type": "damage", "unit": foe.id, "amount": 3, "hp": 2, "source": reaper.id},
+		{"type": "ability", "unit": reaper.id, "ability": "lunge", "cleave": true, "target": foes[1].id, "hit": true, "graze": true, "damage": 1, "chance": 80},
+		{"type": "damage", "unit": foes[1].id, "amount": 1, "hp": 4, "source": reaper.id},
+		{"type": "perk", "unit": reaper.id, "perk": "bloodlust"},
+		{"type": "bleeding", "unit": foe.id, "turns": 2},
+		{"type": "guard", "unit": warden.id},
+		{"type": "ability", "unit": warden.id, "ability": "bash", "target": foe.id, "hit": true, "graze": false, "damage": 2, "chance": 75, "reaction": true},
+		{"type": "damage", "unit": foe.id, "amount": 2, "hp": 0, "source": warden.id},
+		{"type": "move", "unit": foe.id, "from": foe.pos, "path": [foe.pos + Vector2i(0, 1)], "knockback": true},
+		{"type": "stunned", "unit": foe.id, "by": warden.id},
+		{"type": "move", "unit": warden.id, "from": warden.pos, "path": [warden.pos + Vector2i(0, -1)]},
+		{"type": "ability", "unit": warden.id, "ability": "bash", "charge": true, "target": foes[1].id, "hit": false, "graze": false, "damage": 0, "chance": 60},
+		{"type": "ability", "unit": reaper.id, "ability": "riposte", "target": foes[1].id, "hit": true, "graze": false, "damage": 2, "chance": 70},
+		{"type": "bleed", "unit": foe.id, "damage": 1},
+		{"type": "guard", "unit": warden.id},
+	]
+	var guard_seen := []
+	v.player.beat_started.connect(func(ev: Dictionary) -> void:
+		if ev.get("type") == "stunned":
+			guard_seen.append(wv.guard))
+	for ev in events:
+		v.player.enqueue(ev)
+	var steps := 0
+	while v.player.is_busy() and steps < 3000:
+		v.player.advance(1.0 / 30.0)
+		steps += 1
+	assert_true(not v.player.is_busy(), "queue drained")
+	assert_eq(guard_seen, [false], "a Guard bash spends the stance")
+	assert_true(wv.guard, "guard shown again")
+	assert_eq(v.view_for(foe.id).cell, foe.pos + Vector2i(0, 1), "knocked back")
+	assert_true(v.hud.combat_log.line_count() >= events.size(), "every event logged")
+	v.player.enqueue({"type": "team_phase", "turn": 2})
+	v.player.flush()
+	assert_true(not wv.guard, "guard ends at the next squad phase")
+	var EventText := preload("res://ui/event_text.gd")
+	var line := EventText.describe(events[1], func(id: int) -> String: return str(id))
+	assert_true(line.contains("lunges at") and line.contains("80%"), "lunge log line")
+	v.free()
+
+
+## Unit-targeted abilities highlight only the targets Combat lists.
+func test_unit_ability_highlights_its_targets() -> void:
+	var v := _make_view()
+	v.player.flush()
+	v.input.cycle()
+	var u := v.input.selected_unit()
+	var foes := v.state.living(Types.Team.ENEMY)
+	v.input._trigger(u, {"key": "ability:lunge", "label": "Lunge", "targeting": "unit", "type": Types.ABILITY,
+		"id": "lunge", "enabled": true, "targets": [foes[0].id]})
+	assert_eq(v.input.mode, v.input.Mode.TARGET_UNIT, "targeting")
+	assert_true(v.view_for(foes[0].id)._target_ring.visible, "listed target highlighted")
+	assert_true(not v.view_for(foes[1].id)._target_ring.visible, "others not")
+	v.input._show_landing(u, foes[0].pos)   # no ClassAbilities.lunge_landing yet: no error, no path
+	v.input.cancel()
+	assert_true(v.input.unit_targets.is_empty(), "cleared on cancel")
+	var Icons := preload("res://ui/icons.gd")
+	for k in ["reaper", "warden"]:
+		assert_eq(Icons.for_class(k), k, "%s class icon" % k)
+	for id in ["lunge", "bash", "guard", "shield_charge"]:
+		assert_eq(Icons.for_action({"id": id}), id, "%s icon" % id)
+	v.free()

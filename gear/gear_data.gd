@@ -224,7 +224,7 @@ const CONSUMABLES := {
 	"smoke_grenade": {"name": "Smoke grenade", "price": 15, "desc": "+20 defense in radius 1 for 2 turns"},
 	"recon_drone": {"name": "Recon drone", "price": 15, "desc": "Reveals a 6-tile radius for the fight"},
 	"suppressant_shot": {"name": "Suppressant shot", "price": 20, "desc": "-15 Infection"},
-	"frag_grenade": {"name": "Frag grenade", "price": 20, "desc": "3 damage in radius 1, destroys cover"},
+	"frag_grenade": {"name": "Frag grenade", "price": 20, "desc": "3 damage in radius 1, destroys cover and brings down scaffolds"},
 	"stim": {"name": "Stim", "price": 25, "desc": "+1 action this turn, +5 Infection"},
 	"containment_foam": {"name": "Containment foam", "price": 30, "desc": "Restrains a Lapsed or Turned soldier for 2 turns without killing them"},
 }
@@ -257,6 +257,7 @@ const DOCTRINES := {
 const CLASS_LANES := {
 	"trooper": ["Guard", "Suppress"], "marksman": ["Mark", "Overwatch"], "medic": ["Purge", "Guard"],
 	"breacher": ["Close", "Suppress"], "hazmat": ["Burn", "Purge"], "vector": ["Strain", "Purge"],
+	"reaper": ["Close", "Strain"], "warden": ["Guard", "Purge"],
 }
 
 
