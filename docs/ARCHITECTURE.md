@@ -221,7 +221,9 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   preview for cards). Set bonus at 3, Prototype at two tags at 2.
 - **Draws** (`GearDraw`): tag weight = 1 + 2 per point (max +6); rarity odds per act with +2% Rare pity per
   Common seen; `draw_item(rng, counts, rarity, exclude, only_tags)`; `depot_items(rng, squad_counts, act)`.
-- **Run hooks** (`GearRun`, the run framework's contract): `init_run`, `starting_kit_offers` (1 of 3
+- **Run hooks** (`GearRun`, the run framework's contract): `init_run` (also gives every soldier, reserve
+  included, 1 charge of their class consumable, `GearData.STARTER_CONSUMABLES`), `on_recruit(run, record)`
+  (called by `RunRules.add_recruit`, same starter), `starting_kit_offers` (1 of 3
   Commons per soldier), `on_fight_won(run, "skirmish"|"nest"|"boss")` (one 1-of-3 offer per squad soldier:
   gear 45%, perk 15%, mutation 15% (Progression cards), consumable 15%, cache 10%; from the second fight
   an on-build card and a pivot card; nest card 1 Rare in the lead tag; boss all Rare plus the Doctrine

@@ -194,6 +194,14 @@ const CONSUMABLES := {
 	"containment_foam": {"name": "Containment foam", "price": 30, "desc": "Restrains a Lapsed or Turned soldier for 2 turns without killing them"},
 }
 const CONSUMABLE_CHARGES := 2  # a consumable reward card gives 2 charges
+## Every soldier starts a run (or joins as a recruit) with one charge of a class consumable.
+## A class not listed here gets a random one from STARTER_FALLBACK.
+const STARTER_CONSUMABLES := {
+	"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit",
+	"breacher": "flashbang", "hazmat": "suppressant_shot", "vector": "stim",
+}
+const STARTER_FALLBACK: Array[String] = ["medkit", "flashbang", "smoke_grenade"]
+const STARTER_CHARGES := 1
 
 ## Squad-wide passives voted on after each act boss (stored in run.modifiers.doctrines).
 const DOCTRINES := {
