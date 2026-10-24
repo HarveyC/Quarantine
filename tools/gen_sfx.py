@@ -148,6 +148,19 @@ def carbine():
     return mix(x, hiss)
 
 
+def pistol():
+    # Reaper's sidearm: a small, dry pop with a quick slide clack.
+    x = gunshot(3500, 110, 0.025, 0.2, 2.2, 0.3)
+    return mix(x, pad(np.concatenate([np.zeros(int(0.05 * SR)), mech_click(1600, 0.008) * 0.35]), 0.3))
+
+
+def revolver():
+    # Warden's heavy revolver: a deep, booming single round with a long ring.
+    x = gunshot(2000, 52, 0.11, 0.6, 4.5, 0.85)
+    ring = sine(np.linspace(260, 200, int(0.85 * SR)), 0.85) * env(int(0.85 * SR), 0.001, 0.12) * 0.25
+    return mix(x, ring)
+
+
 def gun_tail(cutoff, dur, gain):
     # The shot echoing back off the colony's buildings: a dark, slapback rumble.
     n = lowpass(noise(dur), cutoff) * env(int(dur * SR), 0.02, dur * 0.35) * gain
@@ -206,6 +219,35 @@ def claw():
     slash = highpass(noise(0.45), 2500) * env(len(n), 0.001, 0.05)
     slash = np.concatenate([np.zeros(int(0.22 * SR)), slash])[:len(n)]
     return reverb(mix(whoosh, slash * 1.2), 0.25, 0.2)
+
+
+def blade():
+    # Reaper's machete: a fast rising swish, then a wet cut and the saw teeth catching.
+    d = 0.6
+    n = noise(d)
+    k = int(0.2 * SR)
+    sw = np.zeros(len(n))
+    sw[:k] = bandpass(noise(0.2), 600, np.linspace(1500, 7000, k)) * np.sin(np.linspace(0, np.pi, k)) ** 2
+    cut_len = len(n) - k
+    cut = lowpass(noise(d - 0.2), 2200) * env(cut_len, 0.001, 0.07) * 1.3
+    cut += bandpass(noise(d - 0.2), 250, 900) * env(cut_len, 0.01, 0.12) * 0.8
+    rasp = highpass(noise(d - 0.2), 3000) * env(cut_len, 0.001, 0.03) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 70 * t(d - 0.2))))
+    hit = np.zeros(len(n))
+    hit[k:] = distort(cut + rasp * 0.5, 2.0)
+    return reverb(mix(sw * 0.9, hit), 0.22, 0.2)
+
+
+def bash():
+    # Warden's shield bash: a heavy, hollow thud and the maul's electric crackle.
+    d = 0.7
+    n = int(d * SR)
+    thud = sine(np.linspace(110, 38, n), d) * env(n, 0.001, 0.12) * 1.4
+    slab = lowpass(noise(d), 700) * env(n, 0.001, 0.07) * 1.2
+    clank = sum(sine(f, d) * env(n, 0.0005, dec) * g for f, dec, g in [(420, 0.09, 0.35), (780, 0.06, 0.25)])
+    crackle = highpass(noise(d), 2500) * (rng.uniform(0, 1, n) > 0.985) * 3.0
+    crackle = lowpass(crackle, 9000) * env(n, 0.03, 0.18)
+    buzz = np.sign(sine(120, d)) * env(n, 0.02, 0.15) * 0.18
+    return reverb(distort(thud + slab + clank, 2.5) + crackle + buzz, 0.3, 0.25)
 
 
 def tracer_whiz():
@@ -463,7 +505,7 @@ SOUNDS = {
     "sting_enemy": sting_enemy, "cinematic": cinematic_in, "victory": victory, "defeat": defeat,
     "step1": lambda: footstep(1), "step2": lambda: footstep(2), "step3": lambda: footstep(3),
     "smg": smg, "lmg": lmg, "carbine": carbine, "tail_rifle": tail_rifle, "tail_heavy": tail_heavy,
-    "pump": pump, "bolt": bolt,
+    "pump": pump, "bolt": bolt, "pistol": pistol, "revolver": revolver, "blade": blade, "bash": bash,
 }
 
 if __name__ == "__main__":

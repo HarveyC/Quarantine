@@ -155,6 +155,19 @@ static func ready_player(view: MissionView) -> int:
 	return -1
 
 
+## The live action button whose key starts with `prefix` (shoot, overwatch, mutation:...),
+## or null. Training arrows point at these.
+func find_button(prefix: String) -> Control:
+	for b in _buttons.get_children():
+		if str(b.get_meta("key", "")).begins_with(prefix):
+			return b
+	return null
+
+
+func ready_button() -> Control:
+	return _ready
+
+
 ## Fans the buttons along the arc, evenly from left to right.
 func _place(actions: Array, input: InputController, can_act: bool) -> void:
 	var n := actions.size()
@@ -213,8 +226,9 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 		b.add_theme_stylebox_override("hover", on)
 	if b.disabled:
 		fg = Color(fg, 0.35)
-	b.tooltip_text = label + ("\n" + str(a.desc) if a.get("key") == "shoot" and a.has("desc") else "")
+	b.tooltip_text = label + ("\n" + str(a.desc) if not mutation and str(a.get("desc", "")) != "" else "")
 	var key: String = a.key
+	b.set_meta("key", key)
 	b.pressed.connect(func() -> void: action_pressed.emit(key))
 	var ip := px * 0.42
 	var ic := W.Icon.new(Icons.for_action(a), fg, ip, 2.0)

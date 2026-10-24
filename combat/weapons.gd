@@ -41,6 +41,10 @@ const TABLE := {
 	"carbine": {"name": "Bio-carbine", "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3,
 		"trait": "snap", "reaction": 0,
 		"desc": "Snap shots: overwatch reaction shots take no aim penalty."},
+	"sidearm": {"name": "Sidearm", "close": 3.0, "close_aim": 10, "falloff": 7.0, "falloff_aim": 4,
+		"desc": "Backup pistol: +10 aim within 3 tiles, falls off past 7. The real weapon is in the other hand."},
+	"revolver": {"name": "Heavy revolver", "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "crit": 10,
+		"desc": "One-handed over the shield rim: +10% crit, falls off past 6."},
 	# Alternate guns.
 	"battle_rifle": {"name": "Battle rifle", "classes": ["trooper", "marksman"], "rarity": "uncommon", "tag": "Suppress",
 		"look": "rifle", "close": 3.0, "close_aim": 10, "falloff": 12.0, "falloff_aim": 2, "aim": -5, "dmg": 1,
@@ -78,6 +82,23 @@ const TABLE := {
 		"look": "carbine", "close": 3.0, "close_aim": 5, "falloff": 10.0, "falloff_aim": 3, "crit": 10, "dmg": 1, "aim": -5,
 		"trait": "snap", "reaction": 0,
 		"desc": "+1 damage, +10% crit, -5 aim. Snap shots: overwatch reaction shots take no aim penalty."},
+	# Melee classes' alternates are all one-handed, so they ride in the hand the sidearm did.
+	"machine_pistol": {"name": "Machine pistol", "classes": ["reaper"], "rarity": "uncommon", "tag": "Close",
+		"look": "sidearm", "close": 3.0, "close_aim": 20, "falloff": 5.0, "falloff_aim": 6, "graze": 20, "trait": "spread",
+		"desc": "Sprays up close: +20 aim within 3 tiles, falls off fast past 5. Spread: wider graze band."},
+	"bloom_pistol": {"name": "Bloom pistol", "classes": ["reaper"], "rarity": "rare", "tag": "Strain",
+		"look": "sidearm", "close": 3.0, "close_aim": 10, "falloff": 7.0, "falloff_aim": 4, "dmg": 1, "aim": -5,
+		"trait": "snap", "reaction": 0,
+		"desc": "+1 damage, -5 aim. Snap shots: overwatch reaction shots take no aim penalty."},
+	"hand_cannon": {"name": "Hand cannon", "classes": ["reaper", "warden"], "rarity": "rare", "tag": "Mark",
+		"look": "revolver", "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "dmg": 1, "crit": 15, "aim": -5,
+		"desc": "+1 damage, +15% crit, -5 aim. Falls off past 6."},
+	"stun_pistol": {"name": "Stun pistol", "classes": ["warden"], "rarity": "uncommon", "tag": "Suppress",
+		"look": "sidearm", "close": 3.0, "close_aim": 10, "falloff": 6.0, "falloff_aim": 4, "dmg": -1, "trait": "pin",
+		"desc": "-1 damage. Pinning fire: a miss still suppresses the target."},
+	"longslide": {"name": "Longslide pistol", "classes": ["warden"], "rarity": "uncommon", "tag": "Overwatch",
+		"look": "sidearm", "close": 3.0, "close_aim": 0, "falloff": 9.0, "falloff_aim": 3, "aim": 5, "crit": 5,
+		"desc": "Long barrel: +5 aim, +5% crit, holds out to 9 tiles."},
 	"spit": {"name": "Spit", "close": 3.0, "close_aim": 15, "falloff": 10.0, "falloff_aim": 3,
 		"desc": "Acidic spit."},
 }
@@ -85,7 +106,7 @@ const TABLE := {
 ## Unit kind -> weapon id. Anything not listed fires the default rifle profile.
 const BY_KIND := {
 	"trooper": "rifle", "marksman": "dmr", "medic": "pdw", "breacher": "shotgun",
-	"hazmat": "lmg", "vector": "carbine",
+	"hazmat": "lmg", "vector": "carbine", "reaper": "sidearm", "warden": "revolver",
 	"fallen": "rifle", "colonel_hale": "rifle", "sharpshooter": "dmr", "spitter": "spit",
 }
 

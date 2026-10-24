@@ -9,6 +9,7 @@ signal host_requested(name: String, port: int)
 signal join_requested(name: String, address: String, port: int)
 signal local_requested(players: int)
 signal run_requested(players: int)
+signal training_requested
 signal continue_requested
 signal start_requested
 signal start_run_requested
@@ -124,6 +125,8 @@ func _build_menu(body: Control) -> void:
 	col.add_child(_continue_sub)
 	_solo_btn = _menu_button(col, "Solo run", "solo", func() -> void: run_requested.emit(1))
 	_solo_btn.tooltip_text = "One soldier, one player. A full three-act run."
+	var training := _menu_button(col, "Training", "flag", func() -> void: training_requested.emit())
+	training.tooltip_text = "A short guided mission that teaches the rules."
 	_steam_host_btn = _menu_button(col, "Host on Steam", "coop", func() -> void: steam_host_requested.emit(_name.text))
 	_steam_host_btn.tooltip_text = "A friends-only lobby. Invite friends through Steam."
 	_steam_host_btn.visible = _platform() != null and _platform().steam_ready()

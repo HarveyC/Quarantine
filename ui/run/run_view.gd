@@ -612,6 +612,24 @@ func _close_loadout() -> void:
 		_full_holder.visible = _screen != null and _screen.get_parent() == _full_holder
 
 
+## Pieces first-time tips point at (ui/tutorial/coach.gd): map, next_node, outbreak, reveal, loadout,
+## squad, vote, and the open full-screen screen ("screen") or loadout ("loadout_screen").
+func hint_target(key: String) -> Control:
+	match key:
+		"map": return _map
+		"next_node":
+			var opts := run.reachable_nodes() if run != null else []
+			return _map.dots.get(opts[0]) if not opts.is_empty() else null
+		"outbreak": return _outbreak_bar.get_parent() as Control
+		"reveal": return _reveal_btn
+		"loadout": return _loadout_btn
+		"squad": return _squad_row
+		"vote": return _vote_box
+		"screen": return _screen if _screen != null and _screen.get_parent() == _full_holder else null
+		"loadout_screen": return _loadout
+	return null
+
+
 func _waiting_panel(text: String) -> Control:
 	var p := PanelContainer.new()
 	p.add_theme_stylebox_override("panel", Styles.panel_box(PANEL_BG, Palette.AMBER.darkened(0.4), 2))

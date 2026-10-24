@@ -77,7 +77,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
-	if session is LocalSession and not session.is_inside_tree():
+	if is_instance_valid(session) and session is LocalSession and not session.is_inside_tree():
 		session.free()
 
 
@@ -185,7 +185,7 @@ func on_debrief_finished() -> void:
 
 
 func restart() -> void:
-	if session is LocalSession:
+	if session is LocalSession and not (session is TutorialSession):
 		start(default_mission())
 	else:
 		session.restart()

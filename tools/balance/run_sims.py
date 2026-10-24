@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Runs the balance sim in parallel and writes one JSONL file per batch.
 
-    GODOT=path/to/godot python3 tools/balance/run_sims.py OUT_DIR [--quick] [--only=fight,boss,duel,threat]
+    GODOT=path/to/godot python3 tools/balance/run_sims.py OUT_DIR [--quick] [--only=fight,boss,melee,meleeboss,duel,threat]
 
 Then: python3 tools/balance/report.py OUT_DIR
 """
@@ -11,7 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GODOT = os.environ.get("GODOT", "godot")
 STARTERS = ["trooper", "marksman", "medic", "breacher"]
-ALL = STARTERS + ["hazmat", "vector"]
+MELEE = ["reaper", "warden"]
+ALL = STARTERS + ["hazmat", "vector"] + MELEE
 REGULARS = ["runner", "spitter", "fallen", "bloater", "leaper", "brute", "lurker", "drifter",
             "sharpshooter", "shrieker", "burrower"]
 
@@ -30,6 +31,16 @@ def batches(quick):
             for combo in combos[: max(1, len(combos) // 2)]:
                 out.append(dict(tag=f"boss|a{act}|s{size}|{'+'.join(combo)}", squad=",".join(combo),
                                 act=act, node="boss", n=max(6, per)))
+    # Melee classes in real squads: one melee soldier swapped into starter mixes, every act.
+    melee_squads = [[m] for m in MELEE] + [[m, o] for m in MELEE for o in ("trooper", "medic", "marksman")] \
+        + [["trooper", "marksman", "medic", m] for m in MELEE] + [["reaper", "warden"], ["reaper", "warden", "medic", "marksman"]]
+    for act in (1, 2, 3):
+        for combo in melee_squads:
+            out.append(dict(tag=f"melee|a{act}|s{len(combo)}|{'+'.join(combo)}", squad=",".join(combo),
+                            act=act, node="skirmish", n=8 * k))
+            if len(combo) >= 2:
+                out.append(dict(tag=f"meleeboss|a{act}|s{len(combo)}|{'+'.join(combo)}", squad=",".join(combo),
+                                act=act, node="boss", n=4 * k))
     # Class duels: one soldier against two of each regular enemy (act 1 rank).
     for cls in ALL:
         for e in REGULARS:

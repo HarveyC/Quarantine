@@ -29,6 +29,10 @@ const FEEL := {
 		"sound": "lmg", "tail": "tail_heavy", "bullet": 1.1, "casing": true},
 	"carbine": {"rounds": 2, "gap": 0.09, "flash": 0.9, "recoil": 0.7, "shake": 0.28, "kick": 0.5,
 		"sound": "carbine", "tail": "tail_rifle", "bullet": 1.0, "casing": true, "color": Color(0.75, 1.0, 0.6)},
+	"sidearm": {"rounds": 1, "gap": 0.0, "flash": 0.55, "recoil": 0.5, "shake": 0.15, "kick": 0.25,
+		"sound": "pistol", "tail": "tail_rifle", "bullet": 0.75, "casing": true},
+	"revolver": {"rounds": 1, "gap": 0.0, "flash": 1.1, "recoil": 1.1, "shake": 0.45, "kick": 0.8,
+		"sound": "revolver", "tail": "tail_heavy", "bullet": 1.1, "casing": false, "smoke": true},
 	"spit": {"rounds": 1, "gap": 0.0, "flash": 0.0, "recoil": 0.6, "shake": 0.2, "kick": 0.0,
 		"sound": "spit", "bullet": 1.6, "casing": false, "color": Palette.TEAL},
 }
@@ -47,6 +51,11 @@ const VARIANTS := {
 	"auto_shotgun": {"rounds": 3, "gap": 0.16, "pellets": 6, "mech": null, "recoil": 1.4, "shake": 0.7},
 	"pump_shotgun": {"pellets": 8},
 	"heavy_mg": {"rounds": 7, "gap": 0.1, "flash": 1.6, "recoil": 1.1, "shake": 0.6, "kick": 0.9, "bullet": 1.3},
+	"machine_pistol": {"rounds": 4, "gap": 0.045, "recoil": 0.4},
+	"bloom_pistol": {"flash": 0.8, "bullet": 1.1, "color": Palette.TEAL},
+	"hand_cannon": {"flash": 1.5, "recoil": 1.5, "shake": 0.7, "kick": 1.2, "bullet": 1.4},
+	"stun_pistol": {"rounds": 2, "gap": 0.12, "bullet": 0.9, "color": Color(0.7, 0.8, 1.0)},
+	"longslide": {"flash": 0.75, "recoil": 0.6, "bullet": 0.9},
 	"spore_rifle": {"rounds": 1, "flash": 1.1, "recoil": 1.0, "kick": 0.8, "bullet": 1.5, "color": Palette.TEAL},
 }
 

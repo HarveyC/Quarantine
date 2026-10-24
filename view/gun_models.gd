@@ -121,39 +121,7 @@ static func swap_look(model: Node, look: String) -> void:
 		if m != null:
 			by_role[m.resource_name] = m
 	var def: Dictionary = GUNS[look]
-	var tools := {}
-	for p in def.parts:
-		var role: String = p[0]
-		if not tools.has(role):
-			var st := SurfaceTool.new()
-			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			tools[role] = st
-		var prim: PrimitiveMesh
-		var xf := Transform3D.IDENTITY
-		if p[1] == "box":
-			var b := BoxMesh.new()
-			b.size = p[3]
-			prim = b
-			xf.origin = p[2]
-		else:
-			var a: Vector3 = p[2]
-			var e: Vector3 = p[3]
-			var c := CylinderMesh.new()
-			c.top_radius = p[4]
-			c.bottom_radius = p[4]
-			c.height = a.distance_to(e)
-			c.radial_segments = 10
-			c.rings = 1
-			prim = c
-			xf = Transform3D(Basis(Vector3.RIGHT, PI * 0.5), (a + e) * 0.5)
-		(tools[role] as SurfaceTool).append_from(prim, 0, xf)
-	var mesh := ArrayMesh.new()
-	for role in tools:
-		var st: SurfaceTool = tools[role]
-		st.generate_normals()
-		st.commit(mesh)
-		mesh.surface_set_material(mesh.get_surface_count() - 1, by_role.get(role, _role_material(role)))
-	old.mesh = mesh
+	old.mesh = build_mesh(def.parts, by_role)
 	var skel := model.find_children("*", "Skeleton3D", true, false)
 	if skel.is_empty():
 		return
@@ -167,8 +135,78 @@ static func swap_look(model: Node, look: String) -> void:
 			sk.set_bone_pose_position(i, rest.origin)
 
 
-static func _role_material(role: String) -> StandardMaterial3D:
+## One mesh from primitive parts, one surface per role. Parts: [role, "box", centre, size
+## (, euler)], [role, "tube", from, to, radius] (along any direction) or [role, "ball",
+## centre, radius]. `by_role` supplies materials to reuse; other roles get a plain one
+## (coloured from `colors`: an albedo Color, or [albedo, emission]) that ModelKit tints.
+static func build_mesh(parts: Array, by_role := {}, colors := {}) -> ArrayMesh:
+	var tools := {}
+	for p in parts:
+		var role: String = p[0]
+		if not tools.has(role):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			tools[role] = st
+		var prim: PrimitiveMesh
+		var xf := Transform3D.IDENTITY
+		match p[1]:
+			"box":
+				var b := BoxMesh.new()
+				b.size = p[3]
+				prim = b
+				xf.origin = p[2]
+				if p.size() > 4:
+					xf.basis = Basis.from_euler(p[4])
+			"ball":
+				var sp := SphereMesh.new()
+				sp.radius = p[3]
+				sp.height = p[3] * 2.0
+				sp.radial_segments = 10
+				sp.rings = 5
+				prim = sp
+				xf.origin = p[2]
+			_:
+				var a: Vector3 = p[2]
+				var e: Vector3 = p[3]
+				var c := CylinderMesh.new()
+				c.top_radius = p[4]
+				c.bottom_radius = p[4]
+				c.height = a.distance_to(e)
+				c.radial_segments = 10
+				c.rings = 1
+				prim = c
+				xf = Transform3D(_y_to((e - a).normalized()), (a + e) * 0.5)
+		(tools[role] as SurfaceTool).append_from(prim, 0, xf)
+	var mesh := ArrayMesh.new()
+	for role in tools:
+		var st: SurfaceTool = tools[role]
+		st.generate_normals()
+		st.commit(mesh)
+		var m: Material = by_role.get(role, null)
+		if m == null:
+			m = _role_material(role, colors.get(role, null))
+		mesh.surface_set_material(mesh.get_surface_count() - 1, m)
+	return mesh
+
+
+## Rotation taking +Y onto `d` (a cylinder's axis onto the tube's direction).
+static func _y_to(d: Vector3) -> Basis:
+	var axis := Vector3.UP.cross(d)
+	if axis.length() < 1e-5:
+		return Basis.IDENTITY if d.y > 0.0 else Basis(Vector3.RIGHT, PI)
+	return Basis(axis.normalized(), acos(clampf(Vector3.UP.dot(d), -1.0, 1.0)))
+
+
+static func _role_material(role: String, color: Variant = null) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.resource_name = role
 	m.albedo_color = {"amber": Palette.AMBER, "glow": Palette.TEAL}.get(role, Color(0.3, 0.3, 0.3))
+	if color is Color:
+		m.albedo_color = color
+	elif color is Array:
+		m.albedo_color = color[0]
+		m.emission = color[1]
+	if role == "metal":
+		m.metallic = 0.6
+		m.roughness = 0.45
 	return m
