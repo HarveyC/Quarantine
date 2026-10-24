@@ -168,7 +168,7 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 		return
 	if source.team != Types.Team.ENEMY or target.team != Types.Team.PLAYER or not target.is_alive():
 		return
-	add(s, target, damage_gain(amount))
+	add(s, target, GearFx.bite_infection(s, target, damage_gain(amount)))
 
 
 ## Infection gained from taking `amount` damage from an Infected.

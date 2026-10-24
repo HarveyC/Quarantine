@@ -1,0 +1,431 @@
+extends Control
+## Post-fight reward screen (REWARD phase): one 1-of-3 pick per soldier each local player
+## controls (solo picks for all four), the Doctrine vote after an act boss, and rank-up picks
+## from Progression once the gear picks are done. Sends gear_pick / gear_doctrine through
+## session.submit_run. Keys: 1-3 pick a card, Enter take, S skip, Tab next soldier.
+
+const UI := preload("res://ui/gear/gear_ui.gd")
+const GearCard := preload("res://ui/gear/gear_card.gd")
+
+var run: RunState
+var session
+var _sid := -1
+var _card := -1
+var _to_stash := false
+var _took := {}          # sid -> what this screen saw them take
+var _dirty := false
+
+var _title: Label
+var _sub: Label
+var _tabs: HBoxContainer
+var _center: HBoxContainer
+var _hint: Label
+var _skip: Button
+var _stash: Button
+var _take: Button
+var _squad: VBoxContainer
+var _cards: Array = []
+var _prog_box: Control
+
+
+func setup(r: RunState, s) -> void:
+	run = r
+	session = s
+	_build()
+	run.event.connect(func(_ev) -> void: _queue_refresh())
+	_refresh()
+
+
+func _local_players() -> Array:
+	return session.local_players() if session != null and session.has_method("local_players") else run.players
+
+
+func _queue_refresh() -> void:
+	if not _dirty:
+		_dirty = true
+		call_deferred("_refresh")
+
+
+func _build() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	var bg := ColorRect.new()
+	bg.color = Color(UI.BG, 0.93)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+	var m := MarginContainer.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right"]:
+		m.add_theme_constant_override("margin_" + side, 40)
+	m.add_theme_constant_override("margin_top", 26)
+	m.add_theme_constant_override("margin_bottom", 26)
+	add_child(m)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	m.add_child(v)
+	var head := VBoxContainer.new()
+	head.add_theme_constant_override("separation", 2)
+	_sub = UI.caps("", 15, UI.GOOD)
+	_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	head.add_child(_sub)
+	_title = UI.caps("Choose your gear", 52)
+	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	head.add_child(_title)
+	_hint = UI.label("", 15, UI.DIM)
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	head.add_child(_hint)
+	v.add_child(head)
+	_tabs = HBoxContainer.new()
+	_tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	_tabs.add_theme_constant_override("separation", 10)
+	v.add_child(_tabs)
+	_center = HBoxContainer.new()
+	_center.alignment = BoxContainer.ALIGNMENT_CENTER
+	_center.add_theme_constant_override("separation", 30)
+	_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(_center)
+	var bar := HBoxContainer.new()
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.add_theme_constant_override("separation", 16)
+	_skip = UI.button("Skip for +%d Supplies" % GearRun.SKIP_SUPPLIES, false, "S")
+	_skip.pressed.connect(_skip_pick)
+	bar.add_child(_skip)
+	_stash = UI.button("Send to stash", false)
+	_stash.toggle_mode = true
+	_stash.toggled.connect(func(on: bool) -> void:
+		_to_stash = on
+		_update_take())
+	bar.add_child(_stash)
+	_take = UI.button("Take", true, "Enter")
+	_take.custom_minimum_size.x = 300
+	_take.pressed.connect(_take_pick)
+	bar.add_child(_take)
+	v.add_child(bar)
+	# Squad status, top right.
+	var sq := PanelContainer.new()
+	sq.add_theme_stylebox_override("panel", UI.box(Color(UI.PANEL, 0.85), UI.BORDER, 1, 0, 12))
+	sq.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	sq.position = Vector2(-290, 24)
+	sq.custom_minimum_size = Vector2(260, 0)
+	_squad = VBoxContainer.new()
+	_squad.add_theme_constant_override("separation", 6)
+	sq.add_child(_squad)
+	add_child(sq)
+
+
+# --- State -----------------------------------------------------------------------------
+
+## Soldiers this screen's players pick for, in squad order.
+func _my_soldiers() -> Array:
+	var out: Array = []
+	for r in run.squad():
+		if _local_players().has(run.controller_of(r)):
+			out.append(r)
+	return out
+
+
+func _pending(r: Dictionary) -> bool:
+	return not GearRun.offer_for(run, r.id).is_empty()
+
+
+func _next_pending() -> int:
+	var mine := _my_soldiers()
+	for r in mine:
+		if _pending(r):
+			return r.id
+	return -1
+
+
+func _refresh() -> void:
+	_dirty = false
+	if run == null:
+		return
+	if _sid == -1 or not _pending(run.get_soldier(_sid)):
+		var nxt := _next_pending()
+		if nxt != _sid:
+			_sid = nxt
+			_card = -1
+			_to_stash = false
+	var vote := GearRun.doctrine_vote(run)
+	var kit := false
+	if _sid != -1:
+		kit = GearRun.offer_for(run, _sid).get("source", "") == "kit"
+	_sub.text = ("Act %d · before the first fight" % run.act).to_upper() if kit else ("Act %d · fight won" % run.act).to_upper()
+	_title.text = "PICK YOUR STARTING GEAR" if kit else "CHOOSE YOUR GEAR"
+	_build_tabs()
+	_build_squad()
+	for c in _center.get_children():
+		c.queue_free()
+	_cards.clear()
+	_prog_box = null
+	if _sid != -1:
+		_show_offer(run.get_soldier(_sid))
+	elif not vote.is_empty():
+		_show_doctrines(vote)
+	elif _progression_pending():
+		_show_progression()
+	else:
+		_show_waiting()
+	_update_take()
+
+
+func _build_tabs() -> void:
+	for c in _tabs.get_children():
+		c.queue_free()
+	var mine := _my_soldiers()
+	_tabs.visible = mine.size() > 1 and _sid != -1
+	for r in mine:
+		var tab := PanelContainer.new()
+		var on: bool = r.id == _sid
+		tab.add_theme_stylebox_override("panel", UI.box(Color("#1a1912") if on else Color("#111512"), UI.AMBER if on else Color("#262e27"), 2 if on else 1, 0, 10))
+		tab.mouse_filter = Control.MOUSE_FILTER_STOP
+		tab.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		var stripe := ColorRect.new()
+		stripe.color = UI.player_color(r.owner)
+		stripe.custom_minimum_size = Vector2(4, 40)
+		h.add_child(stripe)
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 3)
+		var name_row := HBoxContainer.new()
+		name_row.add_theme_constant_override("separation", 6)
+		name_row.add_child(UI.caps(UI.short_name(r), 17))
+		name_row.add_child(UI.caps(UI.class_name_of(r), 13, UI.FAINT))
+		col.add_child(name_row)
+		var status := ""
+		var scol := UI.DIM
+		if _pending(r):
+			status = "Choosing" if on else "Pick waiting"
+			scol = UI.player_color(r.owner) if on else UI.AMBER
+		else:
+			status = _took.get(r.id, "Done")
+			scol = UI.GOOD
+		var tags := HBoxContainer.new()
+		tags.add_theme_constant_override("separation", 4)
+		var counts := GearTags.counts(r)
+		for t in GearTags.ranked(counts).slice(0, 2):
+			tags.add_child(UI.tag_chip(t, "%s %d" % [t, counts[t]]))
+		tags.add_child(UI.caps(status, 12, scol))
+		col.add_child(tags)
+		h.add_child(col)
+		tab.add_child(h)
+		var sid: int = r.id
+		tab.gui_input.connect(func(ev: InputEvent) -> void:
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT and _pending(run.get_soldier(sid)):
+				_sid = sid
+				_card = -1
+				UI.play(self, "ui_click")
+				_refresh())
+		for n in h.find_children("*", "Control", true, false):
+			n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_tabs.add_child(tab)
+
+
+func _build_squad() -> void:
+	for c in _squad.get_children():
+		c.queue_free()
+	_squad.add_child(UI.caps("Squad", 13, UI.DIM))
+	var names: Dictionary = session.player_names if session != null and "player_names" in session and session.player_names is Dictionary else {}
+	for p in run.players:
+		var left := 0
+		for r in run.squad():
+			if run.controller_of(r) == p and _pending(r):
+				left += 1
+		var voted: bool = GearRun.doctrine_vote(run).get("votes", {}).has(p)
+		var h := HBoxContainer.new()
+		var sw := ColorRect.new()
+		sw.color = UI.player_color(p)
+		sw.custom_minimum_size = Vector2(10, 10)
+		sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(sw)
+		h.add_child(UI.label("  " + str(names.get(p, "Player %d" % (p + 1))), 15, UI.TEXT, "bold"))
+		var sp := Control.new()
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(sp)
+		var txt := "%d to pick" % left if left > 0 else ("Voted" if voted else "Ready")
+		h.add_child(UI.caps(txt, 13, UI.player_color(p) if left > 0 else UI.GOOD))
+		_squad.add_child(h)
+	_squad.add_child(UI.label("Supplies  %d" % run.supplies, 14, UI.AMBER, "mono"))
+	var st := Loadout.stash(run)
+	_squad.add_child(UI.label("Stash  %d / %d" % [st.size(), GearData.STASH_SIZE], 14, UI.DIM, "mono"))
+
+
+func _show_offer(r: Dictionary) -> void:
+	var offer := GearRun.offer_for(run, r.id)
+	var cards: Array = offer.get("cards", [])
+	_hint.text = "%s picks 1 of 3 for %s" % [_player_name(run.controller_of(r)), UI.soldier_name(r)]
+	for i in cards.size():
+		var c: GearCard = GearCard.new()
+		c.setup(cards[i], r, i)
+		var idx := i
+		c.pressed.connect(func() -> void: _select(idx))
+		_center.add_child(c)
+		_cards.append(c)
+		c.set_selected(i == _card)
+		# Deal the cards in.
+		c.modulate.a = 0.0
+		var tw := c.create_tween()
+		tw.tween_interval(0.06 * i)
+		tw.tween_property(c, "modulate:a", 1.0, 0.22)
+
+
+func _show_doctrines(vote: Dictionary) -> void:
+	_title.text = "CHOOSE A DOCTRINE"
+	_sub.text = ("Act %d boss down" % (run.act - 1 if run.act > 1 else 1)).to_upper()
+	_hint.text = "Squad-wide for the rest of the run. Majority wins; the host breaks a tie."
+	var mine: Array = _local_players().filter(func(p): return not run.benched.get(p, false))
+	for i in vote.options.size():
+		var id: String = vote.options[i]
+		var d: Dictionary = GearData.DOCTRINES.get(id, {})
+		var p := PanelContainer.new()
+		p.custom_minimum_size = Vector2(300, 300)
+		p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		p.add_theme_stylebox_override("panel", UI.box(UI.PANEL, UI.BORDER_HI, 1, 0, 20))
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 10)
+		v.add_child(UI.label("DOCTRINE", 12, UI.FAINT, "mono"))
+		v.add_child(UI.caps(d.get("name", id), 32))
+		v.add_child(UI.wrap(UI.label(d.get("desc", ""), 16, Color("#cfccbd")), 260))
+		var votes: Array = []
+		for pl in vote.votes:
+			if vote.votes[pl] == id:
+				votes.append(_player_name(pl))
+		var sp := Control.new()
+		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		v.add_child(sp)
+		v.add_child(UI.label(("Votes: " + ", ".join(votes)) if not votes.is_empty() else "No votes yet", 13, UI.DIM))
+		for pl in mine:
+			var b := UI.button("Vote" if mine.size() == 1 else "Vote · %s" % _player_name(pl), vote.votes.get(pl) != id)
+			b.disabled = vote.votes.get(pl) == id
+			var player: int = pl
+			b.pressed.connect(func() -> void:
+				UI.play(self, "ui_confirm")
+				session.submit_run({"type": "gear_doctrine", "player": player, "doctrine": id}))
+			v.add_child(b)
+		p.add_child(v)
+		_center.add_child(p)
+
+
+func _progression_pending() -> bool:
+	return RunHooks.call_static("Progression", "has_pending", [run], false) and RunHooks.has("Progression", "pick_screen")
+
+
+func _show_progression() -> void:
+	_title.text = "RANK UP"
+	_hint.text = ""
+	var script = RunHooks.call_static("Progression", "pick_screen")
+	if script == null:
+		_show_waiting()
+		return
+	var ctl: Control = script.new() if script is Script else script
+	ctl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ctl.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_center.add_child(ctl)
+	if ctl.has_method("setup"):
+		ctl.setup(run, session)
+	_prog_box = ctl
+
+
+func _show_waiting() -> void:
+	_hint.text = ""
+	var l := UI.caps("Waiting for teammates to pick…", 26, UI.DIM)
+	_center.add_child(l)
+
+
+func _player_name(p: int) -> String:
+	if session != null and "player_names" in session and session.player_names is Dictionary and session.player_names.has(p):
+		return str(session.player_names[p])
+	return "You" if run.is_solo() else "Player %d" % (p + 1)
+
+
+# --- Picking ---------------------------------------------------------------------------
+
+func _select(i: int) -> void:
+	if i < 0 or i >= _cards.size():
+		return
+	_card = i
+	UI.play(self, "ui_click")
+	for j in _cards.size():
+		_cards[j].set_selected(j == i)
+	_update_take()
+
+
+func _update_take() -> void:
+	var has_offer := _sid != -1
+	_skip.visible = has_offer
+	_take.visible = has_offer
+	_stash.visible = false
+	if not has_offer:
+		return
+	var kit: bool = GearRun.offer_for(run, _sid).get("source", "") == "kit"
+	_skip.text = ("SKIP" if kit else "SKIP FOR +%d SUPPLIES" % GearRun.SKIP_SUPPLIES) + "   [S]"
+	if _card < 0 or _card >= _cards.size():
+		_take.text = "PICK A CARD   [1-3]"
+		_take.disabled = true
+		return
+	var c: GearCard = _cards[_card]
+	var is_gear: bool = c.card.get("kind") == "gear"
+	_stash.visible = is_gear and Loadout.preview_equip(c.record, c.card.id).mode != "upgrade"
+	_stash.set_pressed_no_signal(_to_stash)
+	var verb := "Stash" if _to_stash and _stash.visible else "Take"
+	_take.text = "%s %s   [Enter]" % [verb, c.title()]
+	var err := GearRun.validate(run, _action(_card))
+	_take.disabled = err != ""
+	if err != "":
+		_take.text = err.to_upper()
+
+
+func _action(card: int) -> Dictionary:
+	var r := run.get_soldier(_sid)
+	var a := {"type": "gear_pick", "player": run.controller_of(r), "soldier": _sid, "card": card}
+	if _to_stash and card >= 0 and _stash.visible:
+		a["to_stash"] = true
+	return a
+
+
+func _take_pick() -> void:
+	if _card < 0 or _take.disabled:
+		return
+	var c: GearCard = _cards[_card]
+	_took[_sid] = "Took " + c.title()
+	UI.play(self, "ui_confirm")
+	var a := _action(_card)
+	var tw := c.create_tween().set_parallel()
+	tw.tween_property(c, "scale", Vector2(1.12, 1.12), 0.16)
+	tw.tween_property(c, "modulate", Color(1.4, 1.3, 0.9, 0.0), 0.22)
+	for o in _cards:
+		if o != c:
+			o.create_tween().tween_property(o, "modulate:a", 0.0, 0.15)
+	tw.chain().tween_callback(func() -> void: session.submit_run(a))
+
+
+func _skip_pick() -> void:
+	if _sid == -1:
+		return
+	_took[_sid] = "Skipped"
+	UI.play(self, "ui_click")
+	session.submit_run(_action(-1))
+
+
+func _unhandled_key_input(ev: InputEvent) -> void:
+	if not ev.pressed or ev.echo or _sid == -1:
+		return
+	match ev.keycode:
+		KEY_1, KEY_2, KEY_3:
+			_select(ev.keycode - KEY_1)
+		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+			_take_pick()
+		KEY_S:
+			_skip_pick()
+		KEY_TAB:
+			var mine := _my_soldiers().filter(func(r): return _pending(r))
+			if mine.size() > 1:
+				var i := mine.find_custom(func(r): return r.id == _sid)
+				_sid = mine[(i + 1) % mine.size()].id
+				_card = -1
+				_refresh()
+		_:
+			return
+	get_viewport().set_input_as_handled()
