@@ -30,6 +30,7 @@ var _cine_fov := Vector2(50, 50)
 var _cine_k := 0.0
 var _shake := 0.0
 var _shake_t := 0.0
+var _kick := 0.0
 
 
 func _init() -> void:
@@ -84,6 +85,11 @@ func shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
 
+## Recoil punch: the camera snaps back a little and the FOV widens, then settles.
+func kick(amount: float) -> void:
+	_kick = minf(2.0, _kick + amount)
+
+
 func rotate_step(dir: int) -> void:
 	_target_yaw += dir * PI * 0.5
 
@@ -115,6 +121,7 @@ func _process(delta: float) -> void:
 	_yaw = lerp_angle(_yaw, _target_yaw, k)
 	_dist = lerpf(_dist, _target_dist, k)
 	_shake = move_toward(_shake, 0.0, delta * 2.5)
+	_kick = move_toward(_kick, 0.0, delta * (4.0 + _kick * 6.0))
 	_shake_t += delta
 	_apply()
 
@@ -160,14 +167,14 @@ func _apply() -> void:
 	if cinematic:
 		var e := _cine_k * _cine_k * (3.0 - 2.0 * _cine_k)   # smoothstep
 		var pose := _cine_from.interpolate_with(_cine_to, e)
-		pose.origin += jitter
+		pose.origin += jitter + pose.basis.z * _kick * 0.07
 		# The camera is a child of the rig, so express the world pose in rig space.
 		camera.transform = transform.affine_inverse() * pose
-		camera.fov = lerpf(_cine_fov.x, _cine_fov.y, e)
+		camera.fov = lerpf(_cine_fov.x, _cine_fov.y, e) + _kick * 2.5
 		return
 	var pitch := deg_to_rad(PITCH_DEG)
 	var offset := Vector3(sin(_yaw) * cos(pitch), sin(pitch), cos(_yaw) * cos(pitch)) * _dist
-	camera.transform = Transform3D(Basis.looking_at(-offset, Vector3.UP), offset + jitter)
+	camera.transform = Transform3D(Basis.looking_at(-offset, Vector3.UP), offset * (1.0 + _kick * 0.012) + jitter)
 
 
 ## Cell under a screen point, by intersecting the camera ray with the floor plane.

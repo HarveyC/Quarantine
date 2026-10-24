@@ -93,19 +93,91 @@ func tracer(from: Vector3, to: Vector3, color: Color, life := 0.35) -> void:
 	_items.append({"node": beam, "life": life, "max": life, "kind": "fade", "mat": m, "a0": 0.95})
 
 
-func muzzle_flash(at: Vector3, color := Color(1.0, 0.8, 0.45)) -> void:
+## Muzzle flash: a light, a hot core and flame petals blown out along `dir` (the barrel).
+## `size` scales it per weapon (see view/gun_feel.gd).
+func muzzle_flash(at: Vector3, color := Color(1.0, 0.8, 0.45), dir := Vector3.ZERO, size := 1.0) -> void:
+	if size <= 0.0:
+		return
 	var light := OmniLight3D.new()
 	light.light_color = color
-	light.light_energy = 4.0
-	light.omni_range = 3.0
+	light.light_energy = 4.0 * size
+	light.omni_range = 2.5 + 1.5 * size
 	light.position = at
 	add_child(light)
-	_items.append({"node": light, "life": 0.18, "max": 0.18, "kind": "light", "e0": 4.0})
-	var m := Palette.overlay(Color(color, 0.9))
-	var spark := Palette.box(Vector3(0.18, 0.18, 0.18), m)
-	spark.position = at
-	add_child(spark)
-	_items.append({"node": spark, "life": 0.12, "max": 0.12, "kind": "fade", "mat": m, "a0": 0.9})
+	_items.append({"node": light, "life": 0.12, "max": 0.12, "kind": "light", "e0": 4.0 * size})
+	var core := _flash_quad(Color(1.0, 0.95, 0.8), Vector2(0.32, 0.32) * size, true)
+	core.position = at + dir * 0.05
+	add_child(core)
+	_items.append({"node": core, "life": 0.07, "max": 0.07, "kind": "fade", "mat": core.material_override, "a0": 1.0})
+	if dir.length() < 0.01:
+		return
+	dir = dir.normalized()
+	var up := Vector3.UP if absf(dir.y) < 0.95 else Vector3.RIGHT
+	# Two crossed petals along the barrel, plus a short star of side vents.
+	for i in 2:
+		var p := _flash_quad(color.lightened(0.2), Vector2(0.16, 0.62) * size, false)
+		p.basis = Basis.looking_at(dir, up).rotated(dir, PI * 0.5 * i) * Basis(Vector3.RIGHT, -PI * 0.5)
+		p.position = at + dir * 0.3 * size
+		add_child(p)
+		_items.append({"node": p, "life": 0.06, "max": 0.06, "kind": "fade", "mat": p.material_override, "a0": 0.95})
+	var side := dir.cross(up).normalized()
+	for sgn in [-1.0, 1.0]:
+		var v := _flash_quad(color, Vector2(0.1, 0.26) * size, false)
+		var d: Vector3 = (side * sgn + dir * 0.4).normalized()
+		v.basis = Basis.looking_at(d, up) * Basis(Vector3.RIGHT, -PI * 0.5)
+		v.position = at + d * 0.12 * size
+		add_child(v)
+		_items.append({"node": v, "life": 0.05, "max": 0.05, "kind": "fade", "mat": v.material_override, "a0": 0.85})
+
+
+func _flash_quad(color: Color, size: Vector2, billboard: bool) -> MeshInstance3D:
+	var m := Palette.overlay(Color(color, 1.0))
+	m.albedo_texture = _soft_dot()
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if billboard:
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var mesh := QuadMesh.new()
+	mesh.size = size
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+## A thin smoke line left hanging along a heavy round's path.
+func smoke_trail(from: Vector3, to: Vector3) -> void:
+	var length := from.distance_to(to)
+	if length < 0.01:
+		return
+	var m := Palette.overlay(Color(0.75, 0.75, 0.72, 0.28))
+	var beam := Palette.box(Vector3(0.05, 0.05, length), m)
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(beam)
+	beam.position = (from + to) * 0.5
+	beam.basis = Basis.looking_at(to - from, Vector3.UP if absf((to - from).normalized().y) < 0.99 else Vector3.RIGHT)
+	_items.append({"node": beam, "life": 1.4, "max": 1.4, "kind": "fade", "mat": m, "a0": 0.28})
+
+
+## Scorched bullet hole on a surface facing `normal` (cover, walls). Shares the decal cap.
+func bullet_hole(at: Vector3, normal: Vector3, size := 0.07) -> void:
+	var m := Palette.overlay(Color(0.06, 0.05, 0.04, 0.9))
+	m.albedo_texture = _soft_dot()
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2.ONE * size * 2.0
+	var d := MeshInstance3D.new()
+	d.mesh = mesh
+	d.material_override = m
+	d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var n := normal.normalized()
+	d.basis = Basis.looking_at(-n, Vector3.UP if absf(n.y) < 0.95 else Vector3.RIGHT)
+	d.position = at + n * 0.012
+	add_child(d)
+	_decals.append(d)
+	if _decals.size() > MAX_DECALS:
+		_decals.pop_front().queue_free()
 
 
 func pulse(at: Vector3, color: Color, life := 0.7) -> void:
@@ -118,24 +190,29 @@ func pulse(at: Vector3, color: Color, life := 0.7) -> void:
 
 ## A glowing round, placed by the caller each frame with `place_bullet` (so its
 ## flight follows the shot cinematic's clock, slow motion included). Free with `remove`.
-func spawn_bullet(color: Color, big := false) -> Node3D:
+## `size` scales the round (1.0 = rifle); `lit` = false skips the light (shotgun pellets).
+func spawn_bullet(color: Color, big := false, size := 1.0, lit := true) -> Node3D:
 	var root := Node3D.new()
 	var m := Palette.emissive(color, 9.0)
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.albedo_color = color.lightened(0.5)
-	var core := Palette.box(Vector3(0.05, 0.05, 0.55) * (1.8 if big else 1.0), m)
+	var core := Palette.box(Vector3(0.05, 0.05, 0.55) * (1.8 if big else size), m)
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(core)
-	var trail_m := Palette.overlay(Color(color, 0.35))
-	var trail := Palette.box(Vector3(0.025, 0.025, 2.2), trail_m)
-	trail.position.z = 1.2
+	var trail_m := Palette.overlay(Color(color, 0.3))
+	trail_m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD   # a streak of light, not a grey slab
+	var trail_len := 2.2 * minf(1.0, size)
+	var trail := Palette.box(Vector3(0.018, 0.018, trail_len), trail_m)
+	trail.position.z = trail_len * 0.55
+	root.set_meta("trail", trail_len)
 	trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(trail)
-	var light := OmniLight3D.new()
-	light.light_color = color
-	light.light_energy = 2.5
-	light.omni_range = 2.5
-	root.add_child(light)
+	if lit:
+		var light := OmniLight3D.new()
+		light.light_color = color
+		light.light_energy = 2.5
+		light.omni_range = 2.5
+		root.add_child(light)
 	add_child(root)
 	return root
 
@@ -149,8 +226,9 @@ func place_bullet(b: Node3D, from: Vector3, to: Vector3, k: float) -> void:
 		b.basis = Basis.looking_at(d, Vector3.UP if absf(d.normalized().y) < 0.99 else Vector3.RIGHT)
 	# Trail only stretches back over the distance already flown.
 	var trail := b.get_child(1) as Node3D
-	var flown := clampf(d.length() * k, 0.0, 2.2)
-	trail.scale.z = maxf(0.01, flown / 2.2)
+	var trail_len: float = b.get_meta("trail", 2.2)
+	var flown := clampf(d.length() * k, 0.0, trail_len)
+	trail.scale.z = maxf(0.01, flown / trail_len)
 	trail.position.z = flown * 0.5
 
 

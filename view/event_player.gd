@@ -21,9 +21,10 @@ const UnitView := preload("res://view/unit_view.gd")
 const CameraRig := preload("res://view/camera_rig.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
 const ShotCamera := preload("res://view/shot_camera.gd")
+const GunFeel := preload("res://view/gun_feel.gd")
 const ENEMY_PAD := 0.3   # extra hold after each enemy-phase action
 ## Events that keep an open shot cinematic on screen (the shot's consequences).
-const CINE_FOLLOW := ["damage", "died", "infection", "turned", "alerted"]
+const CINE_FOLLOW := ["damage", "died", "infection", "turned", "alerted", "pinned"]
 const STEP_TIME := 0.2   # seconds per tile when walking
 
 ## Player setting: false skips shot cameras (shots still get the full effects).
@@ -254,13 +255,8 @@ func _blood(uv: UnitView) -> Color:
 	return Color("6a1a14") if uv.is_soldier and not uv.turned else Palette.TEAL
 
 
-func _gun_sound(uv: UnitView) -> String:
-	if not uv.is_soldier:
-		return "spit"
-	match uv.kind:
-		"marksman": return "sniper"
-		"breacher": return "shotgun"
-	return "rifle"
+func _feel(uv: UnitView) -> Dictionary:
+	return GunFeel.for_kind(uv.kind)
 
 
 # --- beats -------------------------------------------------------------------
@@ -336,7 +332,10 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 
 ## The shot timeline. Quick version (no camera, no slow motion) when cinematics are off.
 ## Times are in seconds of beat time; slow motion only slows `world_scale` (bodies, FX)
-## and the round's flight is spread over a longer window.
+## and the rounds' flight is spread over a longer window. Each weapon fires its own
+## pattern (view/gun_feel.gd): bursts, a single heavy round, or a spread of pellets. The
+## last round carries the shot's outcome; on a miss every round hits the target's cover
+## (or the ground and walls behind it).
 func _beat_shot(ev: Dictionary) -> Dictionary:
 	var shooter := _uv(ev)
 	var target := _uv(ev, "target")
@@ -346,23 +345,34 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var crit: bool = ev.get("crit", false)
 	var graze: bool = ev.get("graze", false)
 	var reaction: bool = ev.get("reaction", false)
+	var feel := _feel(shooter)
 	var cine := _use_cinematic(shooter)
 	var hero := shooter.is_soldier and not shooter.turned and not reaction
+	var n_rounds: int = feel.rounds
+	# Bursts play out in the slow motion, so space them out further on the shot camera.
+	var gap: float = feel.gap * (2.2 if cine else 1.0)
+	var span := gap * (n_rounds - 1)
+	var flight := ((0.55 if hero else 0.4) if cine else 0.12)
 	var t_fire := (0.55 if hero else 0.4) if cine else 0.12
-	var t_hit := t_fire + ((0.55 if hero else 0.4) if cine else 0.12)
+	var t_hit := t_fire + span + flight
 	var dur := t_hit + ((0.9 if hero else 0.7) if cine else 0.3)
 	shooter.face_towards(target.position)
 	shooter.set_aim(1.0)
 	_focus(target)
 	var dir := _flat(target.position - shooter.position).normalized()
 	var right := dir.cross(Vector3.UP)
-	var aim := target.chest_world()
-	if not hit:
-		var side := 1.0 if (int(ev.get("unit", 0)) + int(ev.get("target", 0))) % 2 == 0 else -1.0
-		aim += right * side * 0.7 + Vector3(0, 0.25, 0) + dir * 2.5
-	elif graze:
-		aim += right * 0.22 + Vector3(0, 0.2, 0)
-	var col := Color(1.0, 0.78, 0.4) if shooter.is_soldier and not shooter.turned else Palette.TEAL
+	var col := GunFeel.color(feel, shooter.is_soldier and not shooter.turned, shooter.turned)
+	var seed := int(ev.get("unit", 0)) * 31 + int(ev.get("target", 0)) * 7 + turn
+	var rounds: Array[Dictionary] = []
+	for i in n_rounds:
+		var last := i == n_rounds - 1
+		var r := {"t0": t_fire + gap * i, "t1": t_fire + gap * i + flight, "last": last,
+			"fired": false, "landed": false, "bullets": [], "from": Vector3.ZERO}
+		# Earlier rounds of a hit mostly connect; on a miss (or the first rounds of a graze) they chew up cover.
+		var connects := hit and (last or (i + seed) % 3 != 0) and not (graze and not last)
+		r.hit = connects
+		r.impacts = _round_impacts(shooter, target, feel, connects, last and graze, seed + i * 13)
+		rounds.append(r)
 	var chance := int(ev.get("chance", 0))
 	var word := "MISS"
 	if hit:
@@ -378,80 +388,206 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		var cap := "%s  >  %s" % [shooter.label(), target.label()]
 		view.hud.cine_caption(("REACTION FIRE  -  " if reaction else "") + cap, "%d%% to hit" % chance if chance > 0 else "")
 		_sfx("cinematic")
-	var st := {"fired": false, "landed": false, "bullet": null, "from": Vector3.ZERO, "pose": Transform3D()}
+	var st := {"pushed": false, "done": false}
+	var fire_round := func(i: int) -> void:
+		var r: Dictionary = rounds[i]
+		r.fired = true
+		r.from = shooter.muzzle_world()
+		var barrel: Vector3 = (target.chest_world() - (r.from as Vector3)).normalized()
+		view.fx.muzzle_flash(r.from, col if feel.flash > 0.0 else Palette.TEAL, barrel, feel.flash)
+		if feel.get("smoke", false) or i == 0:
+			view.fx.puff(r.from + dir * 0.35, Color(0.6, 0.6, 0.55), 0.2 + 0.12 * feel.flash, 0.6, 0.2)
+		if feel.casing:
+			view.fx.casing(r.from - dir * 0.3, right)
+		shooter.recoil(feel.recoil)
+		for imp in r.impacts:
+			r.bullets.append(view.fx.spawn_bullet(col, false, feel.bullet, r.impacts.size() == 1))
+		_sfx(feel.sound, 0.0 if i == 0 else -1.5)
+		if i == 0 and feel.has("tail"):
+			_sfx(feel.tail, -3.0, 0.03)
+		if r.last:
+			_sfx("whiz", -4.0, 0.08)
+			if feel.has("mech"):
+				_sfx(feel.mech, -2.0, feel.mech_delay * (2.0 if cine else 1.0))
+		view.camera_rig.shake(feel.shake)
+		view.camera_rig.kick(feel.kick)
+	var land_round := func(i: int) -> void:
+		var r: Dictionary = rounds[i]
+		r.landed = true
+		for b in r.bullets:
+			view.fx.remove(b)
+		r.bullets = []
+		for k in r.impacts.size():
+			var imp: Dictionary = r.impacts[k]
+			if feel.get("smoke", false) and k == 0:
+				view.fx.smoke_trail(r.from, imp.pos)
+			_impact_at(shooter, target, imp, r.last and k == 0, crit, graze, cine)
+		if r.last and r.hit:
+			target.hit_react(shooter.position, 1.6 if crit else (0.6 if graze else 1.0))
+			target.flash(Color(1.0, 0.85, 0.7) if crit else Palette.DANGER)
+			view.camera_rig.shake(1.0 if crit else (0.4 if graze else 0.7))
+		elif r.hit:
+			target.hit_react(shooter.position, 0.45)
+		elif r.last:
+			target.hit_react(shooter.position + _flat((r.impacts[0].pos as Vector3) - target.position) * 4.0, 0.35)
 	var update := func(k: float) -> void:
 		var s := k * dur
-		if not st.fired:
-			if cine:
-				view.camera_rig.cine_progress(s / t_fire)
-			if s < t_fire:
-				return
-			st.fired = true
-			st.from = shooter.muzzle_world()
-			view.fx.muzzle_flash(st.from, col)
-			view.fx.puff(st.from + dir * 0.35, Color(0.6, 0.6, 0.55), 0.22, 0.5, 0.2)
-			if shooter.is_soldier:
-				view.fx.casing(st.from - dir * 0.3, right)
-			shooter.recoil(1.4 if shooter.kind in ["marksman", "breacher"] else 1.0)
-			st.bullet = view.fx.spawn_bullet(col, shooter.kind == "breacher")
-			_sfx(_gun_sound(shooter))
-			_sfx("whiz", -4.0, 0.08)
-			view.camera_rig.shake(0.35)
-			if cine:
-				# Push along the line of fire towards the target as the round flies.
-				# Stop short of the target so its whole body stays in frame.
-				var pose_b := view.camera_rig.transform * view.camera_rig.camera.transform
-				var eye: Variant = _push_eye(pose_b.origin, shooter.position, target.position, target.chest_world())
-				if eye == null:
-					eye = pose_b.origin
-				view.camera_rig.cine(pose_b, CameraRig.look_pose(eye, target.chest_world()), Vector2(40, 30))
-				world_scale = 0.3
-		if not st.landed:
-			var f := clampf((s - t_fire) / (t_hit - t_fire), 0.0, 1.0)
-			view.fx.place_bullet(st.bullet, st.from, aim, f)
-			if cine:
-				view.camera_rig.cine_progress(f)
-			if s < t_hit:
-				return
-			st.landed = true
-			view.fx.remove(st.bullet)
-			st.bullet = null
-			_impact(shooter, target, aim, hit, crit, graze, cine)
+		if cine and s < t_fire:
+			view.camera_rig.cine_progress(s / t_fire)
+		for i in rounds.size():
+			var r: Dictionary = rounds[i]
+			if not r.fired and s >= r.t0:
+				fire_round.call(i)
+			if r.fired and not r.landed:
+				var f := clampf((s - r.t0) / (r.t1 - r.t0), 0.0, 1.0)
+				for j in r.bullets.size():
+					view.fx.place_bullet(r.bullets[j], r.from, r.impacts[j].pos, f)
+				if s >= r.t1:
+					land_round.call(i)
+		if cine and rounds[0].fired and not st.pushed:
+			# Push along the line of fire towards the target as the rounds fly.
+			# Stop short of the target so its whole body stays in frame.
+			st.pushed = true
+			var pose_b := view.camera_rig.transform * view.camera_rig.camera.transform
+			var eye: Variant = _push_eye(pose_b.origin, shooter.position, target.position, target.chest_world())
+			if eye == null:
+				eye = pose_b.origin
+			view.camera_rig.cine(pose_b, CameraRig.look_pose(eye, target.chest_world()), Vector2(40, 30))
+			world_scale = 0.3
+		if cine and st.pushed and s < t_hit:
+			view.camera_rig.cine_progress(clampf((s - t_fire) / (t_hit - t_fire), 0.0, 1.0))
+		if s >= t_hit and not st.done:
+			st.done = true
 			if cine:
 				view.hud.cine_result(word, word_col)
 			elif not hit or crit or graze:
 				view.fx.floating_text(_head(target) + Vector3(0, 0.3, 0), word, word_col, 52)
 		# Hit-stop right after impact, then ease back to full speed.
-		if cine:
+		if cine and s >= t_hit:
 			world_scale = lerpf(0.08, 1.0, clampf((s - t_hit - 0.12) / 0.35, 0.0, 1.0))
 		if s > dur - 0.3:
 			shooter.set_aim(0.0)
 	var finish := func() -> void:
-		view.fx.remove(st.bullet)
+		for r in rounds:
+			for b in r.bullets:
+				view.fx.remove(b)
 		shooter.set_aim(0.0)
 	return {"dur": dur, "update": update, "finish": finish}
 
 
-func _impact(shooter: UnitView, target: UnitView, at: Vector3, hit: bool, crit: bool, graze: bool, cine: bool) -> void:
+## Where one round's projectiles end up: [{pos, normal, kind: "body"|"cover"|"ground"}],
+## one per pellet. `graze` nicks the edge of the body.
+func _round_impacts(shooter: UnitView, target: UnitView, feel: Dictionary, hit: bool, graze: bool, seed: int) -> Array[Dictionary]:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
 	var dir := _flat(target.position - shooter.position).normalized()
-	if hit:
-		var normal := -dir + Vector3(0, 0.3, 0)
-		var blood := _blood(target)
-		var glow := blood == Palette.TEAL
-		view.fx.burst(at, -normal * 0.3 + dir, blood, 22 if crit else 14, 4.5 if crit else 3.2, glow, 0.05)
-		view.fx.burst(at, normal, Color(1.0, 0.75, 0.4), 6, 5.0, true, 0.025)
-		view.fx.flash_light(at, blood.lightened(0.3), 2.2 if crit else 1.4, 0.2, 3.0)
-		view.fx.decal(target.position + dir * 0.7, blood.darkened(0.3), 0.3 if graze else 0.42, glow)
-		target.hit_react(shooter.position, 1.6 if crit else (0.6 if graze else 1.0))
-		target.flash(Color(1.0, 0.85, 0.7) if crit else Palette.DANGER)
-		_sfx("impact_armor" if target.is_soldier else "impact_flesh", 2.0 if crit else 0.0)
-		view.camera_rig.shake(1.0 if crit else (0.4 if graze else 0.7))
-	else:
-		view.fx.burst(at, -dir + Vector3.UP, Color(0.55, 0.53, 0.48), 10, 3.0, false, 0.04)
-		view.fx.puff(at, Color(0.55, 0.52, 0.47), 0.7, 0.9, 0.3)
-		view.fx.burst(at, -dir, Color(1.0, 0.8, 0.4), 5, 4.0, true, 0.02)
-		target.hit_react(shooter.position + _flat(at - target.position) * 4.0, 0.35)
-		_sfx("ricochet" if cine else "concrete")
+	var right := dir.cross(Vector3.UP)
+	var out: Array[Dictionary] = []
+	var pellets: int = maxi(1, int(feel.get("pellets", 0)))
+	var spread := 0.0 if pellets == 1 else 0.28
+	var miss: Dictionary = {} if hit else _miss_point(shooter, target, rng)
+	for p in pellets:
+		var j := Vector3(rng.randf_range(-1, 1) * right.x, rng.randf_range(-0.6, 0.6), rng.randf_range(-1, 1) * right.z) * spread
+		if hit:
+			var at := target.chest_world() + j
+			if graze:
+				at += right * 0.22 + Vector3(0, 0.2, 0)
+			elif pellets == 1:
+				at += Vector3(rng.randf_range(-0.06, 0.06), rng.randf_range(-0.08, 0.1), rng.randf_range(-0.06, 0.06))
+			out.append({"pos": at, "normal": -dir, "kind": "body"})
+		else:
+			var m: Dictionary = miss.duplicate()
+			var lateral: Vector3 = (miss.normal as Vector3).cross(Vector3.UP).normalized()
+			if lateral == Vector3.ZERO:
+				lateral = right
+			m.pos = (miss.pos as Vector3) + lateral * rng.randf_range(-0.3, 0.3) * (2.0 if pellets > 1 else 1.0)
+			if m.kind == "cover":
+				m.pos += Vector3(0, rng.randf_range(-0.15, 0.15), 0) * (2.0 if pellets > 1 else 1.0)
+			out.append(m)
+	return out
+
+
+## A missed round's landing spot: the face of the target's cover toward the shooter if it
+## has any, else the first wall or low cover a few tiles behind it, else the ground there.
+func _miss_point(shooter: UnitView, target: UnitView, rng: RandomNumberGenerator) -> Dictionary:
+	var grid := _grid()
+	var dir := _flat(target.position - shooter.position).normalized()
+	var right := dir.cross(Vector3.UP)
+	var side := 1.0 if rng.randf() < 0.5 else -1.0
+	if grid != null:
+		var tc := target.cell
+		var sc := shooter.cell
+		var best := Types.Cover.NONE
+		var cover_cell := tc
+		for step in [Vector2i(signi(sc.x - tc.x), 0), Vector2i(0, signi(sc.y - tc.y))]:
+			if step != Vector2i.ZERO and grid.cover_value(tc + step) > best:
+				best = grid.cover_value(tc + step)
+				cover_cell = tc + step
+		if best != Types.Cover.NONE:
+			return _cover_face(grid, cover_cell, cover_cell - tc, best, rng)
+		# Nothing in front: the round flies past and finds whatever is behind.
+		var start := Board.cell_to_world(tc)
+		for k in range(1, 6):
+			var p := start + dir * k + right * side * 0.4
+			var c := Board.world_to_cell(p)
+			if not grid.in_bounds(c):
+				break
+			var cv := grid.cover_value(c)
+			if cv != Types.Cover.NONE:
+				var back := Board.world_to_cell(p - dir)
+				var face := back - c
+				if absi(face.x) + absi(face.y) != 1:
+					face = Vector2i(-signi(roundi(dir.x)), 0) if absf(dir.x) > absf(dir.z) else Vector2i(0, -signi(roundi(dir.z)))
+				return _cover_face(grid, c, -face, cv, rng)
+	var ground := target.position + dir * rng.randf_range(1.6, 2.8) + right * side * rng.randf_range(0.4, 0.9)
+	ground.y = Board.lift(Board.world_to_cell(ground)) + 0.02
+	return {"pos": ground, "normal": Vector3.UP, "kind": "ground"}
+
+
+## A point on the side of cover cell `c` that faces away from `toward_target`
+## (the side the shooter sees).
+func _cover_face(grid: Grid, c: Vector2i, toward_target: Vector2i, cover: int, rng: RandomNumberGenerator) -> Dictionary:
+	var n := Vector3(-toward_target.x, 0, -toward_target.y).normalized()
+	if n == Vector3.ZERO:
+		n = Vector3.BACK
+	var full := cover == Types.Cover.FULL
+	var base := Board.cell_to_world(c)
+	var h := rng.randf_range(0.5, 1.5) if full else rng.randf_range(0.25, 0.6)
+	var pos := base + n * (0.5 if full else 0.42) + Vector3(0, h, 0)
+	return {"pos": pos, "normal": n, "kind": "cover"}
+
+
+func _impact_at(shooter: UnitView, target: UnitView, imp: Dictionary, main: bool, crit: bool, graze: bool, cine: bool) -> void:
+	var at: Vector3 = imp.pos
+	var dir := _flat(target.position - shooter.position).normalized()
+	match imp.kind:
+		"body":
+			var normal := -dir + Vector3(0, 0.3, 0)
+			var blood := _blood(target)
+			var glow := blood == Palette.TEAL
+			var big := main and crit
+			view.fx.burst(at, -normal * 0.3 + dir, blood, (22 if big else 14) if main else 6, (4.5 if big else 3.2) if main else 2.4, glow, 0.05 if main else 0.035)
+			view.fx.burst(at, normal, Color(1.0, 0.75, 0.4), 6 if main else 3, 5.0, true, 0.025)
+			if main:
+				view.fx.flash_light(at, blood.lightened(0.3), 2.2 if crit else 1.4, 0.2, 3.0)
+				view.fx.decal(target.position + dir * 0.7, blood.darkened(0.3), 0.3 if graze else 0.42, glow)
+				_sfx("impact_armor" if target.is_soldier and not target.turned else "impact_flesh", 2.0 if crit else 0.0)
+			else:
+				_sfx("impact_armor" if target.is_soldier and not target.turned else "impact_flesh", -7.0)
+		"cover":
+			var n: Vector3 = imp.normal
+			view.fx.burst(at, n + Vector3(0, 0.4, 0), Color(0.55, 0.53, 0.48), 10 if main else 5, 3.2, false, 0.04)
+			view.fx.burst(at, n, Color(1.0, 0.8, 0.4), 5 if main else 3, 4.5, true, 0.02)
+			view.fx.puff(at + n * 0.1, Color(0.55, 0.52, 0.47), 0.6 if main else 0.35, 0.9, 0.25)
+			view.fx.bullet_hole(at, n)
+			if main:
+				view.fx.flash_light(at + n * 0.1, Color(1.0, 0.8, 0.5), 1.2, 0.12, 2.0)
+			_sfx(("ricochet" if cine else "concrete") if main else "concrete", 0.0 if main else -6.0)
+		_:
+			view.fx.burst(at, Vector3.UP - dir * 0.3, Color(0.42, 0.4, 0.36), 9 if main else 4, 2.6, false, 0.035)
+			view.fx.puff(at + Vector3(0, 0.15, 0), Color(0.5, 0.47, 0.42), 0.55 if main else 0.3, 0.8, 0.35)
+			view.fx.decal(at, Color(0.1, 0.09, 0.08), 0.08)
+			_sfx("concrete", -3.0 if main else -8.0)
 
 
 func _beat_damage(ev: Dictionary) -> Dictionary:
@@ -669,11 +805,16 @@ func _suppress_beat(ev: Dictionary) -> Dictionary:
 			var from := uv.muzzle_world()
 			var jitter := Vector3(sin(st.n * 2.3) * 0.5, absf(cos(st.n * 1.7)) * 0.4, cos(st.n * 3.1) * 0.5)
 			var to := tv.chest_world() + jitter
-			view.fx.muzzle_flash(from)
+			var feel := _feel(uv)
+			view.fx.muzzle_flash(from, Color(1.0, 0.8, 0.45), to - from, feel.flash)
 			view.fx.tracer(from, to, Color(1.0, 0.8, 0.45), 0.15)
 			view.fx.burst(to, (from - to).normalized(), Color(0.55, 0.53, 0.48), 4, 2.5, false, 0.03)
+			view.fx.casing(from, (to - from).cross(Vector3.UP).normalized())
 			uv.recoil(0.6)
-			_sfx("rifle", -3.0)
+			view.camera_rig.kick(feel.kick * 0.5)
+			_sfx(feel.sound, -3.0)
+			if st.n == 1 and feel.has("tail"):
+				_sfx(feel.tail, -4.0)
 	var finish := func() -> void:
 		uv.set_aim(0.0)
 		view.fx.puff(tv.position + Vector3(0, 0.6, 0), Color(0.5, 0.5, 0.45), 1.2, 1.0, 0.4)
