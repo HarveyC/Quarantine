@@ -339,7 +339,7 @@ static func _snipe(s: GameState, u: Unit) -> void:
 	var t := s.get_unit(int(u.status.sighted))
 	u.status.erase("sighted")
 	var dmg := s.rng.randi_range(u.damage.x, u.damage.y)
-	var cover := Combat.cover_against(s.grid, t.pos, u.pos)
+	var cover := Elevation.adjust_cover(s, u, t, u.pos, Combat.cover_against(s.grid, t.pos, u.pos))
 	if cover == Types.Cover.FULL:
 		dmg = maxi(1, dmg / 2)
 	s.emit({"type": "shot", "unit": u.id, "target": t.id, "hit": true, "graze": cover == Types.Cover.FULL,
@@ -540,8 +540,8 @@ static func knockback(s: GameState, t: Unit, dir: Vector2i, steps: int) -> void:
 	var occ := s.occupied(t.id)
 	for i in steps:
 		var n := c + dir
-		if not s.grid.is_walkable(n) or occ.has(n):
-			break
+		if not s.grid.is_walkable(n) or occ.has(n) or EnemyTerrain.level(s, n) > EnemyTerrain.level(s, c):
+			break   # a knock stops against a wall, a unit, or a step up
 		if dir.x != 0 and dir.y != 0 and not (s.grid.is_walkable(c + Vector2i(dir.x, 0)) and s.grid.is_walkable(c + Vector2i(0, dir.y))):
 			break
 		c = n

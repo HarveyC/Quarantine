@@ -700,7 +700,7 @@ Folder `enemies/`, owned by the enemy roster workstream. Design doc section "Ene
 | `Encounter` | Fight-level rules called by `Rules`: spawners, waves, spore zones (as `Hazards` spore tiles), telegraphs, affixes, bosses |
 | `EnemyAbilities` | Enemy-only abilities, routed by `Rules` instead of `Combat` |
 | `EnemyBehaviours` | AI behaviours Cover shooter, Seek cluster, Ambush, Support, the Brute charge and the bosses (`EnemyAI` dispatches to it) |
-| `EnemyTerrain` | Elevation reads for enemies (`Grid.level` when it exists), fall damage, collapsing raised tiles via `Elevation.set_level` |
+| `EnemyTerrain` | Elevation reads for enemies (`Grid.level`), fall damage (2 per level; knockbacks stop at a step up), collapsing raised tiles via `Elevation.set_level` |
 | `EnemyIntent` | Pure "what will it do" reads for the view's intent labels and danger tiles |
 
 View side: `view/enemy_beats.gd` (beats and log lines for the events above, placeholder scale per
@@ -736,7 +736,7 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
 - **Vertical enemies**: Leaper (marks a 3x3 landing a turn ahead, jumps over terrain and height,
   overwatch can't catch it, knocks soldiers off ledges), Drifter (flies over everything, drops from
   above ignoring cover), Sharpshooter (claims high ground, telegraphed laser lock that fires next
-  turn unless line of sight breaks or it is suppressed), Burrower (act 3, hidden underground, erupts
+  turn unless line of sight breaks or it is suppressed; height lowers the target's cover as for any shot), Burrower (act 3, hidden underground, erupts
   next to the soldier on the highest ground, destroys cover and collapses raised tiles). Each act
   weights its `EnemyRoster.SIGNATURE` enemies double.
 - **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
