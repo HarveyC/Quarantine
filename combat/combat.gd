@@ -369,7 +369,7 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 		"claw":
 			if not u.is_enemy_of(t):
 				return "Not an enemy"
-			if not s.grid.touching(u.pos, t.pos):
+			if not s.grid.melee_reach(u.pos, t.pos):
 				return "Not adjacent"
 	return ""
 

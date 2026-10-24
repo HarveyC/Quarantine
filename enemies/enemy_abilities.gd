@@ -106,7 +106,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			return "Not an enemy"
 		match id:
 			"slam":
-				if _cheb(u.pos, t.pos) != 1:
+				if not s.grid.melee_reach(u.pos, t.pos):
 					return "Not adjacent"
 			"spore_drop":
 				if _cheb(u.pos, t.pos) > DROP_RANGE:
@@ -124,7 +124,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 					return "Already pinning"
 				if t.status.has("pinned_by"):
 					return "Already pinned"
-				if pounce_cell(s, u, t) == Vector2i(-1, -1) and _cheb(u.pos, t.pos) != 1:
+				if pounce_cell(s, u, t) == Vector2i(-1, -1) and not s.grid.melee_reach(u.pos, t.pos):
 					return "Out of reach"
 		return ""
 	if def.targeting == "cell":
@@ -249,8 +249,8 @@ static func charge_lane(s: GameState, u: Unit, from: Vector2i, dir: Vector2i) ->
 		var n := c + dir
 		if not s.grid.in_bounds(n) or s.grid.tile(n) == Types.Tile.WALL:
 			break
-		if not s.grid.touching(c, n):
-			break
+		if not s.grid.melee_reach(c, n):
+			break   # walls and ledges stop a charge; stairs don't
 		var o := s.unit_at(n)
 		if o != null and o != u:
 			hit = o
@@ -297,7 +297,9 @@ static func _charge(s: GameState, u: Unit) -> void:
 			knockback(s, hit, dir, 1)
 
 
-## Leaper: lands on the cell it marked last turn. Ignores terrain, height and overwatch.
+## Leaper: lands on the cell it marked last turn. Ignores terrain, height and overwatch. The impact
+## hits every level around the landing (that is how Leapers get at raised soldiers); the claws that
+## follow it need Grid.melee_reach like any other.
 static func _leap(s: GameState, u: Unit) -> void:
 	var cell: Vector2i = u.status.leap_cell
 	u.status.erase("leap_cell")
@@ -420,21 +422,22 @@ static func burst(s: GameState, u: Unit) -> void:
 		Encounter.add_spores(s, cells, SPORE_TURNS, u)
 
 
-## Free cell next to `t` the Lurker can reach this move, closest first; (-1, -1) if none.
+## Free cell next to `t` (in melee reach: same level or a stair step) the Lurker can reach this
+## move, closest first; (-1, -1) if none.
 static func pounce_cell(s: GameState, u: Unit, t: Unit) -> Vector2i:
 	var reach := Rules.move_range(s, u)
 	var best := Vector2i(-1, -1)
 	var best_steps := 1 << 20
 	for d in Grid.DIRS8:
 		var c: Vector2i = t.pos + d
-		if reach.has(c) and int(reach[c]) < best_steps:
+		if reach.has(c) and int(reach[c]) < best_steps and s.grid.melee_reach(c, t.pos):
 			best = c
 			best_steps = reach[c]
 	return best
 
 
 static func _pounce(s: GameState, u: Unit, t: Unit) -> void:
-	if _cheb(u.pos, t.pos) != 1:
+	if not s.grid.melee_reach(u.pos, t.pos):
 		var cell := pounce_cell(s, u, t)
 		var path := s.grid.find_path(u.pos, cell, s.occupied(u.id))
 		var from := u.pos
