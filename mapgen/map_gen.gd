@@ -42,6 +42,10 @@ const ALL_TRANSFORMS: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7]
 const UPRIGHT_TRANSFORMS: Array[int] = [0, 4]
 
 static var _biomes := {}
+## Generated fuel barrels per map (when its parcels place none), and where they may go.
+const BARRELS := 2
+const BARREL_DROP_GAP := 7
+const BARREL_POD_REACH := 3
 ## Why the last rejected layout failed validation (dev aid for tuning parcels).
 static var last_reject := ""
 
@@ -303,6 +307,7 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 
 	g.player_spawns.assign(deploy)
 	g.enemy_spawns.assign(_interleave_pods(g, pods, dist, reserved))
+	_place_barrels(g, deploy, rng)
 	if objective == "rescue":
 		markers.exit.assign(deploy)
 	if markers.hive.is_empty():
@@ -310,6 +315,31 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 	markers.reinforce.assign(_reinforce_cells(g, objective, dist, markers))
 	g.markers = markers
 	return g
+
+
+## Fuel barrels (see Destruction): parcels can place them with "!"; a map with none gets up to
+## BARRELS of its half-cover pieces near enemy pods turned into barrels, well away from the drop
+## zone and never two side by side. Runs last, so it never changes the rest of the layout.
+static func _place_barrels(g: Grid, deploy: Array[Vector2i], rng: RandomNumberGenerator) -> void:
+	if not g.volatile.is_empty():
+		return
+	var spots: Array[Vector2i] = []
+	for y in g.height:
+		for x in g.width:
+			var c := Vector2i(x, y)
+			if g.tile(c) != Types.Tile.LOW or g.level(c) != 0:
+				continue
+			if deploy.any(func(d: Vector2i) -> bool: return maxi(absi(d.x - c.x), absi(d.y - c.y)) < BARREL_DROP_GAP):
+				continue
+			if g.enemy_spawns.any(func(e: Vector2i) -> bool: return maxi(absi(e.x - c.x), absi(e.y - c.y)) <= BARREL_POD_REACH):
+				spots.append(c)
+	for i in BARRELS:
+		while not spots.is_empty():
+			var c: Vector2i = spots.pop_at(rng.randi() % spots.size())
+			if Grid.DIRS8.any(func(d: Vector2i) -> bool: return g.is_volatile(c + d)):
+				continue
+			g.volatile[c] = true
+			break
 
 
 ## Walking distance from the nearest deploy cell, using the game's own 8-way movement rules.

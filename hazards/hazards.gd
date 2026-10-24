@@ -43,6 +43,8 @@ static func add(s: GameState, cells: Array, kind: String, turns: int, source_id:
 		changed.append(c)
 	if not changed.is_empty():
 		s.emit({"type": "hazard", "kind": kind, "cells": changed, "turns": turns, "source": source_id, "spare": spare_team})
+		if kind == "fire":
+			Destruction.on_fire(s, changed, source_id)   # fuel barrels next to new fire go off
 	return changed
 
 

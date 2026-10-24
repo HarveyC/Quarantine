@@ -674,6 +674,35 @@ def breach():
     return mix(boom, debris * 0.6)
 
 
+def explosion():
+    """A blast: sharp crack, a deep chest thump that rolls, and debris raining back down."""
+    n = noise(2.6)
+    crack = highpass(n[:int(0.08 * SR)], 1500) * env(int(0.08 * SR), 0.0005, 0.02)
+    thump = sine(46, 2.6) * env(len(n), 0.004, 0.45) + sine(31, 2.6) * env(len(n), 0.01, 0.8) * 0.7
+    roar = lowpass(n, 700) * env(len(n), 0.006, 0.6) * 1.2
+    boom = distort(mix(pad(crack, 2.6) * 0.9, thump * 1.3, roar), 2.5)
+    debris = np.zeros(len(n))
+    for k in range(18):
+        s0 = int(rng.uniform(0.25, 2.0) * SR)
+        g = highpass(noise(0.04), 1800) * env(int(0.04 * SR), 0.0005, 0.008) * rng.uniform(0.05, 0.22)
+        debris[s0:s0 + len(g)] += g[:len(debris) - s0]
+    return reverb(mix(boom, debris), 0.7, 0.3)
+
+
+def collapse():
+    """A wall or roof coming down: a heavy crunch and a slide of rubble."""
+    n = noise(1.6)
+    crunch = bandpass(n, 120, 1800) * env(len(n), 0.003, 0.25)
+    body = sine(58, 1.6) * env(len(n), 0.005, 0.3) * 0.8
+    slide = bandpass(n, 400, 3500) * env(len(n), 0.15, 0.5) * 0.35
+    rubble = np.zeros(len(n))
+    for k in range(14):
+        s0 = int(rng.uniform(0.1, 1.3) * SR)
+        g = bandpass(noise(0.05), 600, 5000) * env(int(0.05 * SR), 0.0005, 0.012) * rng.uniform(0.1, 0.35)
+        rubble[s0:s0 + len(g)] += g[:len(rubble) - s0]
+    return reverb(mix(crunch, body, slide, rubble), 0.45, 0.25)
+
+
 # --- movement / UI -----------------------------------------------------------
 
 def footstep(seed):
@@ -807,6 +836,7 @@ SOUNDS = {
     "impact_pellets": impact_pellets, "impact_dart": impact_dart, "brass": brass, "shell_drop": shell_drop,
     "machine_pistol": machine_pistol, "bloom_pistol": bloom_pistol, "hand_cannon": hand_cannon,
     "stun_pistol": stun_pistol, "longslide": longslide, "whiz_zap": whiz_zap, "impact_shock": impact_shock,
+    "explosion": explosion, "collapse": collapse,
 }
 
 if __name__ == "__main__":

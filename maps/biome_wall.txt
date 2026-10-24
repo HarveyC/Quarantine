@@ -13,6 +13,9 @@
 ;   s  stairs on the ground (walks up to the roof beside it, a normal step)
 ;   |  ladder on a roof (up to L2)    S  stairs on a roof (up to L2)
 ;   e  enemy spawn on a roof (pod parcels)
+;   Destruction (see Destruction): walls break in 2 hits (to a rubble heap, then floor), roofs drop a
+;   level per 2 hits. !  fuel barrel (half cover that explodes; a map with none gets up to 2 near
+;   pods)    H  reinforced wall (never breaks; the map edge never breaks either)
 ;   Anyone can drop off a ledge (1 move per level, one way), so roofs never strand a unit, but the
 ;   way UP needs stairs or a ladder. Keep each roof joined to its way up inside the parcel.
 ; Roles: deploy, breach (the cordon wall, always on row 1, only mirrored left-right),

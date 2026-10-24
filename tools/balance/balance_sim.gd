@@ -72,7 +72,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var stats := {}   # unit id -> {dealt, taken, kills}
 	for u in s.units:
 		stats[u.id] = {"dealt": 0, "taken": 0}
-	var counter := {"lapses": 0}
+	var counter := {"lapses": 0, "explosions": 0, "barrels": 0, "walls": 0, "cover": 0, "roofs": 0}
 	s.event.connect(func(ev: Dictionary) -> void:
 		if ev.type == "damage":
 			var src := int(ev.source)
@@ -84,7 +84,18 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 					stats[src] = {"dealt": 0, "taken": 0}
 				stats[src].dealt += int(ev.amount)
 		elif ev.type == "lapsed":
-			counter.lapses += 1)
+			counter.lapses += 1
+		elif ev.type == "explosion":
+			counter.explosions += 1
+			if ev.kind == "barrel":
+				counter.barrels += 1
+		elif ev.type == "cover_destroyed":
+			for ch in ev.get("changes", []):
+				match str(ch.kind):
+					"break": counter.walls += 1
+					"clear": counter.cover += 1
+		elif ev.type == "level_changed":
+			counter.roofs += 1)
 	Rules.start_mission(s)
 	while s.phase != Types.Phase.ENDED and s.turn <= TURN_CAP:
 		var turn := s.turn
@@ -109,4 +120,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	if s.phase == Types.Phase.ENDED:
 		res = "win" if s.result == Types.Result.VICTORY else "loss"
 	return {"tag": tag, "act": act, "node": node, "squad": kinds.size(), "seed": seed, "result": res,
-		"turns": s.turn, "lapses": counter.lapses, "soldiers": soldiers, "enemies": foes, "spawned": enemies}
+		"turns": s.turn, "lapses": counter.lapses,
+		"terrain": {"explosions": counter.explosions, "barrels": counter.barrels, "walls": counter.walls,
+			"cover": counter.cover, "roofs": counter.roofs},
+		"soldiers": soldiers, "enemies": foes, "spawned": enemies}

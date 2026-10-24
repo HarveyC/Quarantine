@@ -272,15 +272,20 @@ static func _charge(s: GameState, u: Unit) -> void:
 		if hit != null and c == hit.pos:
 			break
 		if s.grid.tile(c) == Types.Tile.LOW:
-			set_tile(s.grid, c, Types.Tile.FLOOR)
 			smashed.append(c)
 		path.append(c)
 	var from := u.pos
+	if not smashed.is_empty():
+		# Ploughs through the cover in its lane first (a fuel barrel in the way goes off).
+		var hits := {}
+		for c in smashed:
+			hits[c] = 1
+		Destruction.hit(s, hits, u)
+		if not u.is_alive() or s.phase == Types.Phase.ENDED:
+			return
 	if not path.is_empty():
 		u.pos = path[-1]
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": path})
-	if not smashed.is_empty():
-		s.emit({"type": "cover_destroyed", "cells": smashed, "unit": u.id})
 	var dmg := 0
 	if hit != null and u.is_enemy_of(hit):
 		dmg = s.rng.randi_range(u.damage.x, u.damage.y)
@@ -380,13 +385,11 @@ static func _erupt(s: GameState, u: Unit) -> void:
 			victims.append(t)
 	s.emit({"type": "ability", "unit": u.id, "ability": "erupt", "cell": cell, "cells": cells,
 		"units": victims.map(func(x: Unit) -> int: return x.id), "damage": ERUPT_DAMAGE})
-	var smashed: Array[Vector2i] = []
+	var smashed := {}
 	for c in cells:
 		if s.grid.tile(c) == Types.Tile.LOW:
-			set_tile(s.grid, c, Types.Tile.FLOOR)
-			smashed.append(c)
-	if not smashed.is_empty():
-		s.emit({"type": "cover_destroyed", "cells": smashed, "unit": u.id})
+			smashed[c] = 1
+	Destruction.hit(s, smashed, u)
 	for t in victims:
 		Rules.deal_damage(s, t, ERUPT_DAMAGE, u)
 	EnemyTerrain.collapse(s, cells, u)

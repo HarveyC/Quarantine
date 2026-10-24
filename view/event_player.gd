@@ -833,6 +833,10 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 				return _melee_beat(ev)
 		"breach":
 			return _breach_beat(ev)
+		"item:frag_grenade", "item:demo_charge":
+			return _throw_beat(ev)
+		"shoot_barrel":
+			return _barrel_shot_beat(ev)
 		"spit":
 			return _spit_beat(ev)
 		"suppress":
@@ -991,6 +995,73 @@ func _spit_beat(ev: Dictionary) -> Dictionary:
 			view.camera_rig.shake(0.4)
 	var finish := func() -> void: view.fx.remove(glob)
 	return {"dur": 1.0, "update": update, "finish": finish}
+
+
+## Frag grenade (lobbed in an arc) or demo charge (set down against the wall, its light blinking
+## twice). The blast itself is the "explosion" event that follows.
+func _throw_beat(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null or not (ev.get("cell") is Vector2i):
+		return _power_beat(ev, str(ev.get("name", "grenade")), Palette.AMBER)
+	_focus(uv)
+	var w := Board.cell_to_world(ev.cell)
+	uv.face_towards(w)
+	var demo: bool = ev.ability == "item:demo_charge"
+	view.fx.floating_text(_head(uv), "DEMO CHARGE" if demo else "FRAG OUT", Palette.AMBER, 44)
+	_sfx("ui_click", -2.0)
+	var from := uv.position + Vector3(0, 1.3, 0)
+	var to := w + Vector3(0, 0.6 if demo and _grid().tile(ev.cell) == Types.Tile.WALL else 0.12, 0)
+	if demo:
+		from = uv.position + Vector3(0, 0.6, 0)
+	var nade := view.fx.spawn_round("slug", Color("3a4031"), 2.4, false)
+	nade.set_meta("arc", 0.0 if demo else 2.2 / maxf(0.1, from.distance_to(to)))
+	var flight := 0.35 if demo else 0.6
+	var dur := flight + (0.55 if demo else 0.12)
+	var st := {"blink": 0}
+	var update := func(k: float) -> void:
+		var t := k * dur
+		view.fx.place_bullet(nade, from, to, clampf(t / flight, 0.0, 1.0))
+		if demo and t > flight and st.blink < 2 and t > flight + 0.22 * st.blink:
+			st.blink += 1
+			view.fx.flash_light(to + Vector3(0, 0.2, 0), Palette.DANGER, 3.0, 0.15, 2.0)
+			_sfx("ui_hover", 4.0)
+	var finish := func() -> void: view.fx.remove(nade)
+	return {"dur": dur, "update": update, "finish": finish}
+
+
+## Shoot barrel: one aimed shot at the drum (the explosion event follows straight after).
+func _barrel_shot_beat(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null or not (ev.get("cell") is Vector2i):
+		return {}
+	_focus(uv)
+	var w := Board.cell_to_world(ev.cell) + Vector3(0, 0.45, 0)
+	uv.face_towards(w)
+	var feel := _feel(uv)
+	var from := uv.muzzle_world()
+	view.fx.muzzle_flash(from, Color(1.0, 0.8, 0.45), (w - from).normalized(), float(feel.get("flash", 1.0)), str(feel.get("flash_style", "star")))
+	view.fx.tracer(from, w, Palette.AMBER, 0.25)
+	uv.recoil(float(feel.get("recoil", 1.0)))
+	_sfx(str(feel.get("sound", "rifle")))
+	view.fx.burst(w, (from - w).normalized(), Color(1.0, 0.7, 0.3), 10, 3.0, true, 0.03)
+	return {"dur": 0.3}
+
+
+## Destruction: a blast at a cell. Debris, fire and smoke from Fx.explosion, camera shake by size.
+func _beat_explosion(ev: Dictionary) -> Dictionary:
+	if not (ev.get("cell") is Vector2i):
+		return {}
+	var w := Board.cell_to_world(ev.cell)
+	var kind := str(ev.get("kind", "frag"))
+	view.camera_rig.focus(w)
+	view.fx.explosion(w + Vector3(0, 0.2, 0), int(ev.get("radius", 1)), kind)
+	view.camera_rig.shake(1.6 if kind == "barrel" else 1.3)
+	_sfx("explosion", 0.0 if kind != "frag" else -2.0)
+	for id in ev.get("units", []):
+		var tv: UnitView = view.view_for(int(id))
+		if tv != null:
+			tv.hit_react(w, 1.2)
+	return {"dur": 0.75 if kind == "barrel" else 0.6}
 
 
 ## Trooper suppression: a long burst of tracers chewing up the target's cover.

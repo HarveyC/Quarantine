@@ -33,7 +33,7 @@ const ABILITIES := {
 	"stim": {"name": "Stim", "targeting": "unit", "cost": 1, "cooldown": 2,
 		"desc": "Self or adjacent ally: heal 3 and reduce infection by 15. 1 action."},
 	"breach": {"name": "Breach", "targeting": "unit", "cost": -1, "cooldown": 3,
-		"desc": "Hit an enemy within 2 tiles for 4-6, ignoring cover. Never misses. Ends turn."},
+		"desc": "Hit an enemy within 2 tiles for 4-6, ignoring cover, and knock its cover down a step. Never misses. Ends turn."},
 	"claw": {"name": "Claw", "targeting": "unit", "cost": -1, "cooldown": 0,
 		"desc": "Melee attack on an adjacent enemy. Only half cover counts. Ends turn."},
 	"spit": {"name": "Spit", "targeting": "cell", "cost": -1, "cooldown": 3,
@@ -317,6 +317,7 @@ static func available_abilities(s: GameState, u: Unit) -> Array[Dictionary]:
 			"cooldown": cd, "desc": def.desc, "targets": targets,
 			"ready": cd <= 0 and u.actions_left > 0 and u.is_alive() and has_targets})
 	out.append_array(GearFx.available_abilities(s, u))
+	out.append_array(Destruction.available(s, u))
 	return out
 
 
@@ -378,6 +379,7 @@ static func _cheb(a: Vector2i, b: Vector2i) -> int:
 static func _validate_ability(s: GameState, u: Unit, action: Dictionary) -> String:
 	var id: String = action.get("ability", "")
 	if GearFx.owns(id): return GearFx.validate_ability(s, u, action)
+	if Destruction.handles(id): return Destruction.validate(s, u, action)
 	if ClassAbilities.handles(id):
 		return ClassAbilities.validate(s, u, action)
 	if not ABILITIES.has(id) or not u.abilities.has(id):
@@ -407,6 +409,9 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 	var id: String = action.ability
 	if GearFx.owns(id):
 		GearFx.apply_ability(s, u, action)
+		return
+	if Destruction.handles(id):
+		Destruction.apply(s, u, action)
 		return
 	if ClassAbilities.handles(id):
 		ClassAbilities.apply(s, u, action)
@@ -443,7 +448,13 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 		"breach":
 			var dmg := s.rng.randi_range(BREACH_DAMAGE.x, BREACH_DAMAGE.y)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id, "hit": true, "damage": dmg})
+			var cover := Destruction.cover_cells(s.grid, t.pos, u.pos)   # the blast knocks its cover down a step
 			Rules.deal_damage(s, t, dmg, u)
+			if not cover.is_empty() and s.phase != Types.Phase.ENDED:
+				var hits := {}
+				for c in cover:
+					hits[c] = 1
+				Destruction.hit(s, hits, u)
 		"claw":
 			var odds := melee_chance(s, u, t)
 			var r := resolve_roll(s.rng.randi_range(1, 100), odds)
