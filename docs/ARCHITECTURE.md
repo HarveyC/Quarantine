@@ -19,6 +19,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `objectives/` | `Objectives` | **maps** | Fight objectives: win/lose rules, civilians, bonus objective, HUD line |
 | `hazards/` | `Hazards` | **maps** | Fire, spore and acid tiles: placement, hits, ageing |
 | `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
+| `elevation/` | `Elevation` | **maps** | High ground: aim and cover from height, in-fight level changes |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
 | `tests/` | `TestCase` | everyone | `tests/test_<module>.gd` per workstream |
@@ -74,6 +75,7 @@ Rules for parallel work:
 | `hazard` | `kind`, `cells` (changed), `turns`, `source`, `spare` |
 | `hazard_tick` | `unit`, `kind`, `cell`, `damage`, `infection` (emitted before the resulting `damage` / `infection` events) |
 | `hazard_end` | `kind`, `cells` |
+| `level_changed` | `cell`, `level` (Elevation.set_level: a roof collapsed or rose) |
 | `objective` | `kind`, `progress`, `goal` (objective progress changed) |
 | `rescued` | `unit` (a civilian reached the exit) |
 | `left_behind` | `unit` (extract: the dropship left without them; a `died` follows) |
@@ -264,11 +266,12 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 - **Determinism**: its own RNG seeded from the spec (never `state.rng`), so every peer generates the
   same map from the `MatchConfig` the host broadcasts. A resync snapshot also carries the grid.
 - **Content**: `maps/biome_<name>.txt` holds the parcels and plots; its header documents the format.
-  Add parcels there to add variety, no code needed. Sizes: 12x12 (skirmish, elite), 14x14 with
-  1-tile lanes (hold, rescue, purge), 12x16 (extract), 16x16 (boss).
+  Add parcels there to add variety, no code needed. Sizes: 16x16 or 19x19 (skirmish), 16x16 (elite),
+  19x19 with 1-tile lanes (hold, rescue, purge), 16x20 (extract), 20x20 (boss). Most plots have 2-3
+  `T` tower slots (high ground parcels).
 - **Checks** (`_validate`, rerolled up to 30 times, then `maps/mission_01.txt`): every spawn and
-  marker reachable from the drop zone, sealed pockets walled in, each pod's nearest cell 6 to 16 steps
-  out, evac 9+ and other objectives 5+ steps out, nests 5+ apart, the cordon wall keeps 2+ gaps,
+  marker reachable from the drop zone, sealed pockets walled in, each pod's nearest cell 6 to 20 steps
+  out, evac 12+ and other objectives 5+ steps out, nests 5+ apart, the cordon wall keeps 2+ gaps,
   cover density in band. Fix-up passes add half cover to dead ground and full cover to long open
   sightlines without ever sealing a path. `tests/test_mapgen.gd` asserts no fallback across seeds;
   `godot --headless -s tests/dump_maps.gd -- all 300` prints maps and the fallback rate.
@@ -287,6 +290,27 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 
 The view paints `evac` and `beacon` zones on the floor (`Board._build_zones`). For a look at a
 generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --screenshot-action=overview --screenshot=x.png`.
+
+## High ground (elevation/)
+
+One raised level. Data on the `Grid`: `level(c) -> int` (0 ground, 1 raised), `is_ladder(c)`,
+`has_levels()`, serialized in `to_dict`. Parcels mark it with `^` (raised floor), `%` (low cover on
+a roof) and `/` (ladder: a ground cell that climbs to the raised cell beside it).
+
+- **Movement** (`Grid._can_step`): a step between levels needs a ladder at one end and must be
+  straight, not diagonal; diagonals can't cut round a ledge corner. `reachable` and `find_path` take
+  `ignore_levels := true` for leapers and flyers.
+- **Shooting** (`Combat.hit_chance` calls `Elevation`): from higher ground +10 aim ("High ground" in
+  the breakdown) and the target's cover counts one step lower (full to half, half to none). Shooting
+  up at a higher target, it has at least half cover. Height never makes a shot a flank (no flank
+  crit). LOS ignores height. `Elevation.height(s, u)` is the cell's level, or 1 for status `flying`.
+- **Changing levels** in a fight: `Elevation.set_level(s, cell, n)` only (emits `level_changed`,
+  drops ladders that join nothing; units on the cell stay and stand at the new level).
+  `Grid.set_level` is the raw write for map building. `Elevation.is_ledge(grid, c)`: a raised cell
+  beside lower walkable ground.
+- **View**: `Board.cell_to_world` lifts raised cells by `Board.RAISE`, so units, props and overlays
+  sit on roofs; roofs are steel decks with amber lips, ladders are drawn on their climb side, and
+  mouse picking tries the roof plane first.
 
 ## Objectives (objectives/)
 

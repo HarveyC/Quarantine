@@ -1,7 +1,8 @@
 extends Node3D
 ## 3D tiles for a Grid plus the tactical overlays drawn on top of it
 ## (reachable cells, path preview, cover shields, hover cursor, cell markers).
-## One grid cell = one world unit; cell (x, y) sits at world (x, 0, y).
+## One grid cell = one world unit; cell (x, y) sits at world (x, 0, y), or (x, RAISE, y) on high
+## ground, so everything placed with cell_to_world (units, props, overlays) sits on the roof.
 ##
 ## Set dressing (all cosmetic, derived from the grid and a position hash so every
 ## peer builds the same scene): grimy concrete, varied cover props, rubble, glowing
@@ -27,10 +28,20 @@ var _m_full: StandardMaterial3D
 
 static var _grime_tex: Texture2D
 static var _fence_tex: Texture2D
+## The grid being shown, for cell heights in the static helpers (one board at a time).
+static var _shown: Grid
+
+## World height of one level of high ground.
+const RAISE := 1.2
 
 
 static func cell_to_world(c: Vector2i, y := 0.0) -> Vector3:
-	return Vector3(c.x, y, c.y)
+	return Vector3(c.x, y + lift(c), c.y)
+
+
+## World height of a cell's floor.
+static func lift(c: Vector2i) -> float:
+	return RAISE * _shown.level(c) if _shown != null else 0.0
 
 
 static func world_to_cell(p: Vector3) -> Vector2i:
@@ -43,6 +54,7 @@ func center() -> Vector3:
 
 func build(g: Grid) -> void:
 	grid = g
+	_shown = g
 	_tiles = _layer("Tiles")
 	_range_layer = _layer("Range")
 	_path_layer = _layer("Path")
@@ -147,14 +159,22 @@ func _build_tiles() -> void:
 	var rubble := grimy(Color("3d3c38"), 1.0, 0.6)
 	var goo_mat := Palette.emissive(Palette.TEAL, 1.6)
 	var goo_lights := 0
+	var roof_mat := grimy(Palette.WALL.darkened(0.25), 0.9, 0.3)
+	var deck_mat := grimy(Color("8a8f86"), 0.6, 0.35, 0.4)   # steel decking: roofs read lighter than the ground
+	var lip_mat := Palette.emissive(Palette.AMBER, 0.6)
+	var ladder_mat := Palette.mat(Palette.AMBER.darkened(0.3), 0.6, 0.5)
 	for y in grid.height:
 		for x in grid.width:
 			var c := Vector2i(x, y)
 			var h := _hash(c)
 			var shade := (h % 3) + (1 if (x + y) % 2 == 0 else 0)
-			var tile := Palette.box(Vector3(0.97, 0.2, 0.97), floor_mats[shade % floor_mats.size()])
+			var tile := Palette.box(Vector3(0.97, 0.2, 0.97), deck_mat if grid.level(c) > 0 else floor_mats[shade % floor_mats.size()])
 			tile.position = cell_to_world(c, -0.1)
 			_tiles.add_child(tile)
+			if grid.level(c) > 0:
+				_add_platform(c, h, roof_mat, lip_mat)
+			if grid.is_ladder(c):
+				_add_ladder(c, ladder_mat)
 			match grid.tile(c):
 				Types.Tile.WALL: _add_wall(c, h, wall_mat, trim_mat, rib_mat, hazard)
 				Types.Tile.LOW:
@@ -265,6 +285,48 @@ func _build_zones() -> void:
 				var line := Palette.box(Vector3(0.98, 0.012, 0.05) if d.y != 0 else Vector3(0.05, 0.012, 0.98), edge)
 				line.position = cell_to_world(c, 0.01) + Vector3(d.x, 0, d.y) * 0.47
 				_tiles.add_child(line)
+
+
+## The block under a raised cell, with a trim lip on its open (ledge) edges.
+func _add_platform(c: Vector2i, h: int, body: Material, trim: Material) -> void:
+	var top := lift(c)
+	var block := Palette.box(Vector3(1.0, top, 1.0), body)
+	block.position = Vector3(c.x, top * 0.5 - 0.2, c.y)
+	_tiles.add_child(block)
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n: Vector2i = c + d
+		if grid.in_bounds(n) and grid.level(n) >= grid.level(c):
+			continue
+		var along := Vector3(absf(d.y), 0, absf(d.x))
+		var lip := Palette.box(Vector3(0.02, 0.06, 0.02) + along * 1.0, trim)
+		lip.position = Vector3(c.x, top + 0.02, c.y) + Vector3(d.x, 0, d.y) * 0.49
+		_tiles.add_child(lip)
+		if (h + d.x * 3 + d.y * 7) % 3 == 0:
+			var rib := Palette.box(Vector3(0.08, top, 0.08), trim)
+			rib.position = Vector3(c.x, top * 0.5 - 0.2, c.y) + Vector3(d.x, 0, d.y) * 0.5
+			_tiles.add_child(rib)
+
+
+## A ladder on a ground cell, against the raised neighbour(s) it climbs to.
+func _add_ladder(c: Vector2i, m: Material) -> void:
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n: Vector2i = c + d
+		if not grid.in_bounds(n) or grid.level(n) == grid.level(c):
+			continue
+		var lo := minf(lift(c), lift(n))
+		var hi := maxf(lift(c), lift(n))
+		var face := Vector3(c.x, 0, c.y) + Vector3(d.x, 0, d.y) * (0.42 if grid.level(n) > grid.level(c) else -0.58)
+		var along := Vector3(absf(d.y), 0, absf(d.x))
+		for k in [-0.22, 0.22]:
+			var rail := Palette.box(Vector3(0.05, hi - lo + 0.5, 0.05), m)
+			rail.position = face + along * k + Vector3(0, (hi + lo) * 0.5 + 0.2, 0)
+			_tiles.add_child(rail)
+		var rung_y := lo + 0.2
+		while rung_y < hi + 0.4:
+			var rung := Palette.box(Vector3(0.03, 0.03, 0.03) + along * 0.44, m)
+			rung.position = face + Vector3(0, rung_y, 0)
+			_tiles.add_child(rung)
+			rung_y += 0.28
 
 
 func _add_wall(c: Vector2i, h: int, body: Material, trim: Material, rib: Material, hazard: Material) -> void:
