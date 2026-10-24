@@ -53,6 +53,8 @@ const ACTIONS := [
 	["quick_menu", "Quick action menu", [KEY_R]],
 	["shot_cams", "Shot cameras on/off", [KEY_C]],
 	["mute", "Mute", [KEY_M]],
+	["ping", "Ping (tap) / ping wheel (hold)", [KEY_G]],
+	["draw", "Draw on the map (hold)", [KEY_V]],
 	["action_1", "Action 1 (Shoot)", [KEY_1]],
 	["action_2", "Action 2", [KEY_2]],
 	["action_3", "Action 3", [KEY_3]],
@@ -68,11 +70,12 @@ const ACTIONS := [
 
 ## Fixed gamepad bindings: action -> [["button", JoyButton] | ["axis", JoyAxis, sign]].
 ## pad_* and cell_* are gamepad-only: the left stick moves the pointer, the d-pad steps it a cell.
+## The stick clicks ping (L3) and draw (R3); a tap of R3 steps the camera zoom (CameraRig.zoom_cycle).
 const PAD := {
 	"cam_forward": [["axis", JOY_AXIS_RIGHT_Y, -1]], "cam_back": [["axis", JOY_AXIS_RIGHT_Y, 1]],
 	"cam_left": [["axis", JOY_AXIS_RIGHT_X, -1]], "cam_right": [["axis", JOY_AXIS_RIGHT_X, 1]],
 	"cam_rotate_left": [["axis", JOY_AXIS_TRIGGER_LEFT, 1]], "cam_rotate_right": [["axis", JOY_AXIS_TRIGGER_RIGHT, 1]],
-	"cam_zoom_in": [["button", JOY_BUTTON_RIGHT_STICK]], "cam_zoom_out": [["button", JOY_BUTTON_LEFT_STICK]],
+	"ping": [["button", JOY_BUTTON_LEFT_STICK]], "draw": [["button", JOY_BUTTON_RIGHT_STICK]],
 	"next_soldier": [["button", JOY_BUTTON_RIGHT_SHOULDER]], "prev_soldier": [["button", JOY_BUTTON_LEFT_SHOULDER]],
 	"ready": [["button", JOY_BUTTON_START]], "action_1": [["button", JOY_BUTTON_X]],
 	"quick_menu": [["button", JOY_BUTTON_Y]], "settings": [["button", JOY_BUTTON_BACK]],

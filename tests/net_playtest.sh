@@ -8,6 +8,7 @@
 #   Scenario 3: host + client play a whole roguelike run (route votes, nodes, fights) to the end.
 #   Scenario 4: the host cuts the client off mid-match; the client must reconnect by itself, get
 #               its slot back and finish in step with the host.
+#   Scenario 5: host and client each ping and draw on their first turn; each must see the other's.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
@@ -60,6 +61,20 @@ wait $H; wait $C
 check "drop and reconnect mid-match" "$LOG/h4.txt" "$LOG/c4.txt"
 grep -q "cutting off player 2" "$LOG/h4.txt" || { echo "FAIL [drop and reconnect mid-match]: the host never cut the client off"; fail=1; }
 grep -q "reconnected at action" "$LOG/c4.txt" || { echo "FAIL [drop and reconnect mid-match]: the client did not reconnect"; grep "\[net\]" "$LOG/c4.txt" | tail -5; fail=1; }
+
+# Scenario 5
+PORT5=$((PORT + 4))
+"$GODOT" --headless -- --host=$PORT5 --name=Host --autostart=2 --autoplay --autoplay-marks >"$LOG/h5.txt" 2>&1 & H=$!
+sleep 2
+"$GODOT" --headless -- --join=127.0.0.1:$PORT5 --name=Client --autoplay --autoplay-marks >"$LOG/c5.txt" 2>&1 & C=$!
+wait $H; wait $C
+check "pings and drawing" "$LOG/h5.txt" "$LOG/c5.txt"
+for want in "player 1 sees a ping from player 2" "player 1 sees a stroke from player 2"; do
+  grep -q "$want" "$LOG/h5.txt" || { echo "FAIL [pings and drawing]: host log lacks '$want'"; fail=1; }
+done
+for want in "player 2 sees a ping from player 1" "player 2 sees a stroke from player 1"; do
+  grep -q "$want" "$LOG/c5.txt" || { echo "FAIL [pings and drawing]: client log lacks '$want'"; fail=1; }
+done
 
 rm -rf "$LOG"
 exit $fail
