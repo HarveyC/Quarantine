@@ -112,7 +112,10 @@ static func set_ready(s: GameState, player: int, is_ready: bool) -> void:
 	s.ready[player] = is_ready
 	s.emit({"type": "ready", "player": player, "ready": is_ready})
 	if s.ready.values().all(func(r): return r):
-		run_enemy_phase(s)
+		Hazards.on_team_phase_end(s)
+		check_end(s)
+		if s.phase != Types.Phase.ENDED:
+			run_enemy_phase(s)
 
 
 static func run_enemy_phase(s: GameState) -> void:
@@ -128,6 +131,9 @@ static func run_enemy_phase(s: GameState) -> void:
 			u.cooldowns[k] = max(0, u.cooldowns[k] - 1)
 		EnemyAI.take_turn(s, u)
 		u.actions_left = 0
+	if s.phase != Types.Phase.ENDED:
+		Hazards.on_enemy_phase_end(s)
+		check_end(s)
 	if s.phase != Types.Phase.ENDED:
 		start_team_phase(s)
 
@@ -167,6 +173,7 @@ static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
 			return
 	if not segment.is_empty():
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": segment})
+	Hazards.on_move(s, u, path)
 
 
 ## Central damage entry point: every module deals damage through here.
