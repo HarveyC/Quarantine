@@ -305,6 +305,30 @@ func test_hands_stay_on_the_rifle() -> void:
 	uv.free()
 
 
+func test_hits_flinch_without_falling_and_aim_at_the_chest() -> void:
+	for kind in ["runner", "trooper", "brute"]:
+		var u := Unit.new()
+		u.id = 1
+		u.kind = kind
+		u.team = Types.Team.PLAYER if kind == "trooper" else Types.Team.ENEMY
+		u.owner_player = 0 if kind == "trooper" else -1
+		u.max_hp = 5
+		u.hp = 5
+		var uv := preload("res://view/unit_view.gd").new()
+		uv.build(u)
+		uv.tick(0.05)
+		var chest: float = uv.chest_world().y
+		assert_true(chest > 1.0 and chest < 2.2, "%s is shot in the chest, not the hips (%.2f)" % [kind, chest])
+		var standing: float = uv.head_world().y
+		uv.hit_react(Vector3(0, 0, 3), 1.0)
+		var lowest := standing
+		for i in 30:
+			uv.tick(0.05)
+			lowest = minf(lowest, uv.head_world().y)
+		assert_true(lowest > standing * 0.7, "%s flinches but stays on its feet (%.2f of %.2f)" % [kind, lowest, standing])
+		uv.free()
+
+
 func test_infection_growths_follow_tier() -> void:
 	var v := _make_view()
 	v.player.flush()

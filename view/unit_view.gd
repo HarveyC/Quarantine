@@ -350,12 +350,25 @@ func muzzle_world() -> Vector3:
 	return position + Vector3(0, 1.0, 0)
 
 
+## Where shots aim and land: the animated upper chest (or a creature's thorax).
 func chest_world() -> Vector3:
-	return position + Vector3(0, 1.05 if is_soldier else 0.85, 0)
+	var p: Variant = _bone_world(["spine_03", "Thorax"])
+	return p if p != null else position + Vector3(0, 1.05 if is_soldier else 0.85, 0)
 
 
 func head_world() -> Vector3:
-	return position + Vector3(0, 1.5, 0)
+	var p: Variant = _bone_world(["Head"])
+	return (p as Vector3) + Vector3(0, 0.12, 0) if p != null else position + Vector3(0, 1.5, 0)
+
+
+## World position of the first of `bones` this unit's skeleton has, or null.
+func _bone_world(bones: Array) -> Variant:
+	if _skin == null:
+		return null
+	for b in bones:
+		if _skin.skel.find_bone(b) >= 0:
+			return _to_world(_skin.skel, _skin.bone_pose(b).origin)
+	return null
 
 
 ## World position of a point in `node`'s local space, computed from the transform
