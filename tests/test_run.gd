@@ -367,3 +367,42 @@ func test_fights_scale_with_squad_size() -> void:
 	var run := RunRules.new_run(3, 9)
 	var cfg := MatchConfig.for_fight(run, {"kind": "skirmish", "objective": "hold", "seed": 4})
 	assert_eq(cfg.fight.squad, 3, "the fight spec carries the squad size")
+
+
+## Skirmish and Ambush objectives spread across the whole mix in every act: plain clear fights
+## come up, and no single objective (extract included) takes over an act.
+func test_objective_mix_has_variety() -> void:
+	for act in [1, 2, 3]:
+		var counts := {}
+		var total := 0
+		var repeats := 0
+		for seed in 300:
+			var rng := RandomNumberGenerator.new()
+			rng.seed = seed * 7 + act
+			var map := RunMap.generate(rng, act)
+			var in_map := {}
+			for n in map:
+				if n.type == RunMap.SKIRMISH:
+					counts[n.objective] = counts.get(n.objective, 0) + 1
+					in_map[n.objective] = in_map.get(n.objective, 0) + 1
+					total += 1
+			for k in in_map:
+				repeats += in_map[k] - 1
+		for k in ["skirmish", "extract", "hold", "rescue", "purge"]:
+			var share := float(counts.get(k, 0)) / total
+			assert_true(share >= 0.1 and share <= 0.32, "act %d: %s is %.0f%% of skirmishes" % [act, k, share * 100.0])
+		assert_true(float(repeats) / total < 0.3, "act %d: few repeated objectives in one act (%d of %d)" % [act, repeats, total])
+
+
+func test_ambush_objective_avoids_the_acts_repeats() -> void:
+	var run := RunState.new()
+	run.act = 2
+	run.rng.seed = 5
+	run.map = [{"type": RunMap.SKIRMISH, "objective": "extract", "resolved": ""},
+		{"type": RunMap.SKIRMISH, "objective": "extract", "resolved": ""},
+		{"type": RunMap.SKIRMISH, "objective": "extract", "resolved": ""}]
+	var extracts := 0
+	for i in 400:
+		if RunMap.roll_objective(run.rng, run.act, run.map) == "extract":
+			extracts += 1
+	assert_true(extracts < 400 * 0.1, "three extracts already on the map make a fourth rare (%d/400)" % extracts)

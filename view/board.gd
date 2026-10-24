@@ -12,6 +12,8 @@ const Palette := preload("res://view/palette.gd")
 
 var grid: Grid
 var _tiles: Node3D
+## Ground, objective zones, perimeter and lights: built once, untouched by rebuild_tiles.
+var _fixed: Node3D
 var _range_layer: Node3D
 var _path_layer: Node3D
 var _cover_layer: Node3D
@@ -56,6 +58,7 @@ func center() -> Vector3:
 func build(g: Grid) -> void:
 	grid = g
 	_shown = g
+	_fixed = _layer("Fixed")
 	_tiles = _layer("Tiles")
 	_range_layer = _layer("Range")
 	_path_layer = _layer("Path")
@@ -79,6 +82,7 @@ func build(g: Grid) -> void:
 
 
 ## Rebuilds the tile props after the grid changed (cover smashed by a Brute or an airstrike).
+## Only the prop layer is rebuilt: the ground, objective zones, perimeter and lights stay.
 func rebuild_tiles() -> void:
 	_clear(_tiles)
 	_build_tiles()
@@ -138,7 +142,7 @@ static func fence_texture() -> Texture2D:
 func _build_ground() -> void:
 	var ground := Palette.box(Vector3(grid.width + 40, 0.1, grid.height + 40), grimy(BiomeLook.of(grid.biome).ground, 1.0, 0.08))
 	ground.position = center() + Vector3(0, -0.26, 0)
-	_tiles.add_child(ground)
+	_fixed.add_child(ground)
 
 
 func _hash(c: Vector2i) -> int:
@@ -318,14 +322,14 @@ func _build_zones() -> void:
 		for c in cells:
 			var plate := Palette.box(Vector3(0.98, 0.01, 0.98), fill)
 			plate.position = cell_to_world(c, 0.006)
-			_tiles.add_child(plate)
+			_fixed.add_child(plate)
 			# A glowing line along the zone's outer edges.
 			for d in Grid.DIRS4:
 				if inside.has(c + d):
 					continue
 				var line := Palette.box(Vector3(0.98, 0.012, 0.05) if d.y != 0 else Vector3(0.05, 0.012, 0.98), edge)
 				line.position = cell_to_world(c, 0.01) + Vector3(d.x, 0, d.y) * 0.47
-				_tiles.add_child(line)
+				_fixed.add_child(line)
 
 
 ## The block under a raised cell, with a trim lip on its open (ledge) edges.
@@ -680,10 +684,10 @@ func _add_goo(c: Vector2i, h: int, material: Material, with_light: bool) -> void
 ## Chain-link fence around the board with posts, plus a few container stacks outside.
 func _build_perimeter() -> void:
 	if grid.biome == "port":
-		BiomeLook.build_port_perimeter(_tiles, grid)
+		BiomeLook.build_port_perimeter(_fixed, grid)
 		return
 	if grid.biome == "bore":
-		BiomeLook.build_bore_perimeter(_tiles, grid)
+		BiomeLook.build_bore_perimeter(_fixed, grid)
 		return
 	var post_mat := Palette.mat(Color("3a3d3f"), 0.5, 0.6)
 	var mesh_mat := StandardMaterial3D.new()
@@ -713,13 +717,13 @@ func _build_perimeter() -> void:
 		var mid := (a + b) * 0.5
 		fence.position = Vector3(mid.x, 1.2, mid.y)
 		fence.rotation.y = -atan2(b.y - a.y, b.x - a.x)
-		_tiles.add_child(fence)
+		_fixed.add_child(fence)
 		var posts := int(length / 2.5)
 		for i in posts + 1:
 			var p := a.lerp(b, float(i) / posts)
 			var post := Palette.box(Vector3(0.08, 2.6, 0.08), post_mat)
 			post.position = Vector3(p.x, 1.3, p.y)
-			_tiles.add_child(post)
+			_fixed.add_child(post)
 	var cont := [grimy(Color("4a5a4a"), 0.8, 0.3, 0.4), grimy(Color("6b3a2c"), 0.8, 0.3, 0.4), grimy(Color("3e4a5a"), 0.8, 0.3, 0.4)]
 	var spots := [Vector3(-5, 0, 3), Vector3(-4.5, 0, 10), Vector3(grid.width + 3.5, 0, 5), Vector3(5, 0, -4.5), Vector3(11, 0, grid.height + 3.5)]
 	for i in spots.size():
@@ -727,21 +731,21 @@ func _build_perimeter() -> void:
 		var size := Vector3(6.0, 2.6, 2.4) if along_x else Vector3(2.4, 2.6, 6.0)
 		var box := Palette.box(size, cont[i % cont.size()])
 		box.position = spots[i] + Vector3(0, 1.3, 0)
-		_tiles.add_child(box)
+		_fixed.add_child(box)
 		if i % 2 == 0:
 			var top := Palette.box(size, cont[(i + 1) % cont.size()])
 			top.position = spots[i] + Vector3(0, 3.9, 0)
 			top.rotation.y = 0.05
-			_tiles.add_child(top)
+			_fixed.add_child(top)
 
 
 ## Sodium floodlights on poles outside the fence, aimed into the board.
 func _build_lights() -> void:
 	if grid.biome == "port":
-		BiomeLook.build_port_lights(_tiles, grid)
+		BiomeLook.build_port_lights(_fixed, grid)
 		return
 	if grid.biome == "bore":
-		BiomeLook.build_bore_lights(_tiles, grid)
+		BiomeLook.build_bore_lights(_fixed, grid)
 		return
 	var pole_mat := Palette.mat(Color("2d3033"), 0.5, 0.7)
 	var lamp_mat := Palette.emissive(Color("ffcf8a"), 3.0)
@@ -752,11 +756,11 @@ func _build_lights() -> void:
 		var base: Vector3 = spots[i]
 		var pole := Palette.box(Vector3(0.14, 7.0, 0.14), pole_mat)
 		pole.position = base + Vector3(0, 3.5, 0)
-		_tiles.add_child(pole)
+		_fixed.add_child(pole)
 		var head := Palette.box(Vector3(0.6, 0.18, 0.35), lamp_mat)
 		head.position = base + Vector3(0, 7.0, 0)
 		head.basis = Basis.looking_at(aims[i] - head.position, Vector3.UP)
-		_tiles.add_child(head)
+		_fixed.add_child(head)
 		var spot := SpotLight3D.new()
 		spot.light_color = Color("ffb767")
 		spot.light_energy = 5.0
@@ -766,18 +770,18 @@ func _build_lights() -> void:
 		spot.spot_angle_attenuation = 0.7
 		spot.shadow_enabled = i < 3
 		spot.transform = Transform3D(Basis.looking_at(aims[i] - (base + Vector3(0, 6.9, 0)), Vector3.UP), base + Vector3(0, 6.9, 0))
-		_tiles.add_child(spot)
+		_fixed.add_child(spot)
 	# Red warning beacons on two corners of the fence.
 	for p in [Vector3(-1.5, 2.7, -1.5), Vector3(grid.width + 0.5, 2.7, grid.height + 0.5)]:
 		var bulb := Palette.box(Vector3(0.14, 0.14, 0.14), Palette.emissive(Palette.DANGER, 6.0))
 		bulb.position = p
-		_tiles.add_child(bulb)
+		_fixed.add_child(bulb)
 		var l := OmniLight3D.new()
 		l.light_color = Palette.DANGER
 		l.light_energy = 1.2
 		l.omni_range = 3.0
 		l.position = p
-		_tiles.add_child(l)
+		_fixed.add_child(l)
 
 
 # --- overlays ---------------------------------------------------------------
