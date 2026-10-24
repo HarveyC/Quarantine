@@ -21,7 +21,7 @@ const ABILITIES := {
 	"lunge": {"name": "Lunge", "targeting": "unit", "cost": -1, "cooldown": 0,
 		"desc": "Dash up to 4 tiles to a visible enemy and cut it for 4-6, +1 per Infection tier. Only half cover counts. Kills on Infected add 5 Infection. Ends turn."},
 	"bash": {"name": "Shield Bash", "targeting": "unit", "cost": 1, "cooldown": 1,
-		"desc": "Hit an adjacent enemy for 3-4, knock it back a tile and stun it (it loses its next turn). +2 damage on Turned soldiers. 1 action."},
+		"desc": "Hit an adjacent enemy for 3-5, knock it back a tile and stun it (it loses its next turn). +2 damage on Turned soldiers. 1 action."},
 	"guard": {"name": "Guard", "targeting": "none", "cost": -1, "cooldown": 0,
 		"desc": "Until your next turn, Bash the first enemy that steps next to you, which stops it in its tracks. Ends turn."},
 	"shield_charge": {"name": "Shield Charge", "targeting": "unit", "cost": -1, "cooldown": 3,
@@ -44,7 +44,7 @@ const LUNGE_REACH := 4
 const LONG_STRIDE_REACH := 6
 const CHARGE_REACH := 3
 const BLADE_DAMAGE := Vector2i(4, 6)
-const MAUL_DAMAGE := Vector2i(3, 4)
+const MAUL_DAMAGE := Vector2i(3, 5)
 const QUARANTINE_DAMAGE := 2
 const FEED_INFECTION := 5
 const HARVEST_HEAL := 2

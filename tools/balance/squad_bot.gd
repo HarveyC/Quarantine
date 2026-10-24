@@ -282,8 +282,8 @@ static func _melee_attack(s: GameState, u: Unit) -> Dictionary:
 			var p := float(ClassAbilities.strike_odds(s, u, t, land).hit) / 100.0
 			var dmg := ClassAbilities.BLADE_DAMAGE if id == "lunge" else ClassAbilities.MAUL_DAMAGE
 			var v := p * minf((dmg.x + dmg.y) / 2.0, t.hp) + (p * 3.0 if dmg.x >= t.hp else 0.0)
-			if _immune(s, t):
-				v = 0.01
+			if _immune(s, t) or (t.abilities.has("burst") and id != "bash"):
+				v = 0.01   # a Bloater bursts on whoever killed it up close: shoot it instead
 			elif EnemyRoster.is_static(t):
 				v *= 0.6
 			if id == "bash":
