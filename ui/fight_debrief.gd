@@ -1,7 +1,9 @@
 extends Control
 ## End-of-fight debrief in a run. A short beat on the last thing that happened (the final kill or
-## the objective), then a "Mission complete" / "Squad lost" banner over the battlefield with each
-## soldier's kills, wounds and Infection, then `finished` so the app fades into the rewards.
+## the objective; longer after a loss, while the camera shows what lost it), then a "Mission
+## complete" / "Mission failed" / "Squad lost" banner over the battlefield that names the cause of a
+## loss, with each soldier's kills, wounds and Infection, then `finished` so the app fades into the
+## rewards.
 ##
 ## Skippable: a key or click during the beat shows the summary at once, the next one continues;
 ## it also continues on its own after AUTO_CONTINUE seconds. It is local presentation only: every
@@ -16,6 +18,8 @@ const Styles := preload("res://ui/styles.gd")
 
 ## Seconds the camera stays on the final beat before the banner comes in.
 const HOLD := 0.9
+## The same after a loss: long enough to see the overrun beacon or the last soldier fall.
+const LOSS_HOLD := 2.0
 const AUTO_CONTINUE := 8.0
 const DIM := 0.62
 ## Column widths: soldier, kills, wounds, Infection, status.
@@ -75,7 +79,7 @@ static func summarize(s: GameState) -> Dictionary:
 	for r in soldiers:
 		kills += r.kills
 		infection += maxi(0, r.infection_gained)
-	return {"result": s.result, "turns": s.turn, "objective": Objectives.kind(s),
+	return {"result": s.result, "turns": s.turn, "objective": Objectives.kind(s), "cause": Objectives.loss_cause(s),
 		"bonus": s.result == Types.Result.VICTORY and Objectives.bonus_met(s),
 		"kills": kills, "infection": infection, "soldiers": soldiers}
 
@@ -119,7 +123,7 @@ func _process(delta: float) -> void:
 		return
 	_t += delta
 	if not shown:
-		if _t >= HOLD:
+		if _t >= (HOLD if summary.result == Types.Result.VICTORY else LOSS_HOLD):
 			_reveal(false)
 		return
 	_left -= delta
@@ -178,12 +182,14 @@ func _build(session) -> void:
 	_banner = NodeUi.panel(NodeUi.HEALTH if win else NodeUi.BAD, 18)
 	var head := NodeUi.vbox(2)
 	_banner.add_child(head)
-	var title := Styles.caps("Mission complete" if win else "Squad lost", 54, NodeUi.TEXT if win else NodeUi.BAD)
+	var title := Styles.caps(headline(summary), 54, NodeUi.TEXT if win else NodeUi.BAD)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	head.add_child(title)
 	var sub := NodeUi.caption(_subtitle(win), NodeUi.DIM, 16)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	head.add_child(sub)
+	if not win and Objectives.LOSS.has(summary.cause):
+		head.add_child(_cause_row(Objectives.LOSS[summary.cause]))
 	col.add_child(_banner)
 
 	_card = NodeUi.panel(Color(0, 0, 0, 0), 16)
@@ -215,12 +221,36 @@ func _build(session) -> void:
 	_card.modulate.a = 0.0
 
 
+## "Mission complete", "Squad lost" when nobody is left, or "Mission failed" when soldiers
+## survived a lost objective.
+static func headline(sum: Dictionary) -> String:
+	if sum.result == Types.Result.VICTORY:
+		return "Mission complete"
+	return "Mission failed" if sum.get("cause", "") == "beacon" else "Squad lost"
+
+
 func _subtitle(win: bool) -> String:
 	var obj: String = Objectives.TEXT.get(summary.objective, "Clear the zone")
 	var turns := "%d turn%s" % [summary.turns, "" if summary.turns == 1 else "s"]
 	if not win:
-		return "%s  ·  the squad fell on turn %d" % [obj, summary.turns]
+		return "%s  ·  lost on turn %d" % [obj, summary.turns]
 	return "%s  ·  %s" % [obj, turns]
+
+
+## The cause of a loss: icon and headline in a red pill, the detail line under it.
+func _cause_row(loss: Dictionary) -> Control:
+	var col := NodeUi.vbox(4)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	var pill := NodeUi.chip(str(loss.icon), str(loss.title).to_upper(), NodeUi.BAD, 18)
+	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 6
+	col.add_child(gap)
+	col.add_child(pill)
+	var line := NodeUi.caption(str(loss.line), NodeUi.DIM, 14)
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(line)
+	return col
 
 
 func _totals() -> String:

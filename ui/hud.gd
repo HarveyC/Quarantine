@@ -524,7 +524,7 @@ func show_end(result: int) -> void:
 		hide_tooltip()
 		debrief.play(view.state, view.session, view.autoplay)
 		return
-	end_overlay.show_result(result, view.state.turn, view.session.can_restart(), false)
+	end_overlay.show_result(result, view.state.turn, view.session.can_restart(), false, Objectives.loss_cause(view.state))
 
 
 func set_cinematic(on: bool) -> void:
