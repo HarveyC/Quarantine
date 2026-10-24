@@ -17,8 +17,9 @@ const SHORT := {
 	RunMap.DEPOT: "Depot", RunMap.HOSPITAL: "Hospital", RunMap.SURVIVORS: "Survivors",
 	RunMap.BOSS: "Boss", RunMap.UNKNOWN: "Unknown",
 }
-const OBJECTIVE_NAMES := {"extract": "Extract", "hold": "Hold", "rescue": "Rescue", "purge": "Purge", "boss": "Boss"}
+const OBJECTIVE_NAMES := {"skirmish": "Clear", "extract": "Extract", "hold": "Hold", "rescue": "Rescue", "purge": "Purge", "boss": "Boss"}
 const OBJECTIVE_TEXT := {
+	"skirmish": "Kill every enemy.",
 	"extract": "Get everyone to the evac zone.",
 	"hold": "Hold the beacon for %d turns." % 4,
 	"rescue": "Escort the civilians to the drop zone.",

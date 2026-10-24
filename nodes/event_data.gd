@@ -527,7 +527,7 @@ const EVENTS := {
 				"options": [
 					{"id": "download", "label": "Download everything", "desc": "+2 Intel, 50% chance the alarm brings a fight",
 						"effects": [{"op": "intel", "amount": 2}, {"op": "chance", "p": 0.5,
-							"then": [{"op": "fight", "objective": "extract", "ambush": true}],
+							"then": [{"op": "fight", "objective": "skirmish", "ambush": true}],
 							"else": []}],
 						"outcome": "The drive fills slowly. They knew the fungus was aware before the first drill went in. They drilled anyway."},
 					{"id": "skim", "label": "Skim it and go", "desc": "+1 Intel", "default": true,
@@ -627,7 +627,7 @@ const EVENTS := {
 						"outcome": "The nurse watches you take it. She doesn't try to stop you. She just writes down how much."},
 					{"id": "rest", "label": "Rest in the staff room", "desc": "Every soldier heals 25%; 30% chance the patients wake",
 						"effects": [{"op": "heal_pct", "pct": 25, "who": "all"}, {"op": "chance", "p": 0.3,
-							"then": [{"op": "fight", "objective": "extract", "ambush": true, "small": true}],
+							"then": [{"op": "fight", "objective": "skirmish", "ambush": true, "small": true}],
 							"else": []}],
 						"outcome": "Clean beds and running water. Down the corridor, a restraint creaks."},
 					{"id": "help", "label": "Help the nurse", "desc": "-20 Supplies, Outbreak -2", "requires": {"supplies": 20},

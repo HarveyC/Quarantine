@@ -7,7 +7,7 @@ extends RefCounted
 ## A node is a Dictionary:
 ##   id: int, row: 1-5, col: index within its row, x: 0-1 horizontal layout position,
 ##   type: one of the node types below, links: Array[int] of node ids in the next row,
-##   objective: "extract"|"hold"|"rescue"|"purge"|"boss"|"" (fights only),
+##   objective: "skirmish"|"extract"|"hold"|"rescue"|"purge"|"boss"|"" (fights only),
 ##   seed: int (the fight / event seed of this node), visited: bool,
 ##   hidden: bool (an unrevealed "?" node), resolved: the type a "?" node turned into, "" until then.
 
@@ -32,7 +32,13 @@ const WEIGHTS := {
 }
 ## What a "?" node resolves to (percent), before the fight-chance streak bonus.
 const UNKNOWN_WEIGHTS := {EVENT: 60, AMBUSH: 20, DEPOT: 10, SURVIVORS: 10}
-const SKIRMISH_OBJECTIVES := {"extract": 35, "hold": 35, "rescue": 15, "purge": 15}
+## Objectives a Skirmish or Ambush rolls, per act (percent). "skirmish" is a plain clear-the-area
+## fight. Each roll already on the act's map divides that objective's weight (see roll_objective).
+const SKIRMISH_OBJECTIVES := {
+	1: {"skirmish": 30, "extract": 20, "hold": 20, "rescue": 15, "purge": 15},
+	2: {"skirmish": 20, "extract": 20, "hold": 20, "rescue": 20, "purge": 20},
+	3: {"skirmish": 20, "extract": 15, "hold": 25, "rescue": 15, "purge": 25},
+}
 const NEST_OBJECTIVES := {"purge": 50, "hold": 50}
 
 const NAMES := {
@@ -86,10 +92,25 @@ static func generate(rng: RandomNumberGenerator, act: int) -> Array:
 	for n in nodes:
 		n.hidden = n.type == UNKNOWN
 		match n.type:
-			SKIRMISH: n.objective = pick_weighted(rng, SKIRMISH_OBJECTIVES)
+			SKIRMISH: n.objective = roll_objective(rng, act, nodes)
 			NEST: n.objective = pick_weighted(rng, NEST_OBJECTIVES)
 			BOSS: n.objective = "boss"
 	return nodes
+
+
+## A Skirmish / Ambush objective for `act`. Every Skirmish or Ambush on `map` that already has
+## this objective divides its weight by one more, so an act's fights spread across the mix
+## instead of repeating one objective.
+static func roll_objective(rng: RandomNumberGenerator, act: int, map: Array) -> String:
+	var base: Dictionary = SKIRMISH_OBJECTIVES[clampi(act, 1, SKIRMISH_OBJECTIVES.size())]
+	var seen := {}
+	for m in map:
+		if (m.type == SKIRMISH or m.resolved == AMBUSH) and base.has(m.objective):
+			seen[m.objective] = seen.get(m.objective, 0) + 1
+	var w := {}
+	for k in base:
+		w[k] = maxi(1, roundi(float(base[k]) * 4.0 / (4.0 + 4.0 * seen.get(k, 0))))
+	return pick_weighted(rng, w)
 
 
 ## Non-crossing links between two rows: a random monotone staircase walk from the left ends to the
@@ -235,7 +256,7 @@ static func resolve_unknown(run: RunState, n: Dictionary) -> String:
 	n.resolved = pick_weighted(run.rng, w)
 	if n.resolved == AMBUSH:
 		run.unknown_streak = 0
-		n.objective = pick_weighted(run.rng, SKIRMISH_OBJECTIVES)
+		n.objective = roll_objective(run.rng, run.act, run.map)
 	else:
 		run.unknown_streak += 1
 	return n.resolved

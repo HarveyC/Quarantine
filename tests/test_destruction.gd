@@ -225,3 +225,18 @@ func test_generated_maps_get_barrels_near_pods() -> void:
 		if not g.volatile.is_empty():
 			with_barrels += 1
 	assert_true(with_barrels >= 8, "most maps have barrels (%d of 12)" % with_barrels)
+
+
+## The evac pad, beacon, ground, perimeter and lights must survive the prop rebuild that runs
+## whenever cover breaks (they used to vanish the first time anything was smashed).
+func test_objective_zones_survive_a_tile_rebuild() -> void:
+	var g := MapGen.generate({"biome": "wall", "objective": "extract", "seed": 16})
+	assert_true(not g.marker("evac").is_empty(), "the extract map has an evac zone")
+	var board: Node3D = preload("res://view/board.gd").new()
+	board.build(g)
+	var counts := func() -> Vector2i:
+		return Vector2i(board.get_node("Tiles").get_child_count(), board.get_node("Fixed").get_child_count())
+	var before: Vector2i = counts.call()
+	board.rebuild_tiles()
+	assert_eq(counts.call(), before, "rebuild redraws every prop and keeps the zones, ground and lights")
+	board.free()
