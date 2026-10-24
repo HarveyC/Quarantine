@@ -15,6 +15,8 @@ var _range_layer: Node3D
 var _path_layer: Node3D
 var _cover_layer: Node3D
 var _mark_layer: Node3D
+var _hazard_layer: Node3D
+var _hazard_nodes := {}   # cell -> Node3D
 var _hover: MeshInstance3D
 
 var _m_range: StandardMaterial3D
@@ -46,6 +48,7 @@ func build(g: Grid) -> void:
 	_path_layer = _layer("Path")
 	_cover_layer = _layer("Cover")
 	_mark_layer = _layer("Marks")
+	_hazard_layer = _layer("Hazards")
 	_m_range = Palette.overlay(Color(0.55, 0.75, 0.95, 0.09))
 	_m_path = Palette.overlay(Color(Palette.AMBER, 0.9))
 	_m_dest = Palette.overlay(Color(Palette.AMBER, 0.45))
@@ -173,6 +176,70 @@ func _build_tiles() -> void:
 			var dash := Palette.box(Vector3(0.55, 0.005, 0.08), paint)
 			dash.position = Vector3(x, 0.003, grid.height - 3.5)
 			_tiles.add_child(dash)
+
+
+const HAZARD_COLORS := {"fire": Color("ff7a2a"), "spore": Color("2ef2c8"), "acid": Color("b8e03a")}
+
+
+## Draws (or redraws) hazard `kind` on `cells`. Fire also gets a few flickering embers and a light.
+func set_hazard(cells: Array, kind: String) -> void:
+	var color: Color = HAZARD_COLORS.get(kind, Color.WHITE)
+	var plate_mat := Palette.overlay(Color(color, 0.32 if kind == "fire" else 0.22))
+	var glow := Palette.emissive(color, 2.2 if kind == "fire" else 1.0)
+	var lights := 0
+	for c in cells:
+		clear_hazard([c])
+		var n := Node3D.new()
+		n.position = cell_to_world(c, 0.0)
+		_hazard_layer.add_child(n)
+		_hazard_nodes[c] = n
+		var plate := Palette.box(Vector3(0.94, 0.015, 0.94), plate_mat)
+		plate.position.y = 0.012
+		n.add_child(plate)
+		var h := _hash(c)
+		for i in (3 if kind == "fire" else 2):
+			var bit := Palette.box(Vector3.ONE * (0.12 if kind == "fire" else 0.2), glow)
+			bit.position = Vector3(float((h >> (i * 3)) % 7) / 7.0 - 0.43, 0.08, float((h >> (i * 3 + 9)) % 7) / 7.0 - 0.43)
+			if kind != "fire":
+				bit.scale.y = 0.15
+			n.add_child(bit)
+		if kind == "fire" and lights < 3:
+			lights += 1
+			var l := OmniLight3D.new()
+			l.light_color = color
+			l.light_energy = 1.6
+			l.omni_range = 2.4
+			l.position.y = 0.5
+			n.add_child(l)
+
+
+func clear_hazard(cells: Array) -> void:
+	for c in cells:
+		if _hazard_nodes.has(c):
+			_hazard_nodes[c].queue_free()
+			_hazard_nodes.erase(c)
+
+
+## Rebuilds every hazard from state (mission start, snapshot resync).
+func sync_hazards(hazards: Dictionary) -> void:
+	clear_hazard(_hazard_nodes.keys())
+	var by_kind := {}
+	for c in hazards:
+		var k: String = hazards[c].kind
+		if not by_kind.has(k):
+			by_kind[k] = []
+		by_kind[k].append(c)
+	for k in by_kind:
+		set_hazard(by_kind[k], k)
+
+
+## Fire flickers. Called every frame by the mission view.
+func tick_hazards(t: float) -> void:
+	for c in _hazard_nodes:
+		var n: Node3D = _hazard_nodes[c]
+		for child in n.get_children():
+			if child is MeshInstance3D and child.position.y > 0.05:
+				child.position.y = 0.08 + 0.06 * sin(t * 7.0 + float(_hash(c) % 17))
 
 
 ## Objective zones from MapGen markers, painted on the floor: evac pad (green) and beacon (amber).

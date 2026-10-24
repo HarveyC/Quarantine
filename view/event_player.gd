@@ -697,6 +697,38 @@ func _beat_mission_end(ev: Dictionary) -> Dictionary:
 	return {}
 
 
+func _beat_hazard(ev: Dictionary) -> Dictionary:
+	var cells: Array = ev.get("cells", [])
+	if cells.is_empty():
+		return {}
+	var kind := str(ev.get("kind", ""))
+	view.board.set_hazard(cells, kind)
+	var mid := Vector3.ZERO
+	for c in cells:
+		mid += Board.cell_to_world(c)
+	mid /= cells.size()
+	var color: Color = Board.HAZARD_COLORS.get(kind, Color.WHITE)
+	view.fx.floating_text(mid + Vector3(0, 1.2, 0), str(Hazards.KINDS.get(kind, {}).get("name", kind)).to_upper(), color, 40)
+	view.fx.flash_light(mid + Vector3(0, 1, 0), color, 2.5, 0.5)
+	_sfx("spit" if kind != "fire" else "breach", -4.0)
+	return {"dur": 0.4}
+
+
+func _beat_hazard_tick(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	var kind := str(ev.get("kind", ""))
+	var label: String = {"fire": "BURNING", "spore": "SPORES", "acid": "ACID"}.get(kind, kind.to_upper())
+	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), label, Board.HAZARD_COLORS.get(kind, Color.WHITE), 36)
+	return {"dur": 0.3}
+
+
+func _beat_hazard_end(ev: Dictionary) -> Dictionary:
+	view.board.clear_hazard(ev.get("cells", []))
+	return {"dur": 0.0}
+
+
 func _beat_unknown(ev: Dictionary) -> Dictionary:
 	if EnemyBeats.handles(ev):
 		return EnemyBeats.beat(self, ev)

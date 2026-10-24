@@ -108,8 +108,7 @@ func test_bloater_swells_then_bursts() -> void:
 	assert_true(not bl.is_alive(), "bursts and dies")
 	assert_true(a.hp < a.max_hp and b.hp < b.max_hp, "both soldiers hit")
 	assert_true(a.infection >= 15, "burst infects heavily (%d)" % a.infection)
-	if not RunHooks.has("Hazards", "add"):   # once Hazards lands, spores are its tiles
-		assert_true(Encounter.is_spore(s, bl.pos), "leaves spores")
+	assert_true(Encounter.is_spore(s, bl.pos), "leaves spores")
 
 
 func test_bloater_bursts_on_death() -> void:
@@ -276,16 +275,14 @@ func test_waves_are_announced_a_turn_ahead() -> void:
 	assert_eq(_events(s, "spawned").size(), 2, "arrive on turn 3")
 
 
-func test_spores_infect_soldiers_standing_in_them() -> void:
-	if RunHooks.has("Hazards", "add"):
-		return   # covered by the Hazards tests once that module lands
-	var s := make_blank(_open(6, 3))
-	var t := _soldier(s, "trooper", Vector2i(2, 1))
-	Encounter.setup(s, {"act": 1})
-	Encounter.add_spores(s, [Vector2i(2, 1)], 5)
-	s.turn = 1
-	Encounter.on_enemy_phase_start(s)
-	assert_eq(t.infection, Encounter.SPORE_INFECTION, "spore exposure")
+func test_spore_patches_and_spit_puddles_use_hazards() -> void:
+	var s := make_blank(_open(14, 14))
+	_soldier(s, "trooper", Vector2i(1, 12))
+	Encounter.setup(s, {"act": 1, "spore_patches": 2})
+	assert_true(Hazards.cells_of(s, "spore").size() >= 9, "outbreak spore patches placed")
+	var sp := _enemy(s, "spitter", Vector2i(10, 2))
+	Encounter.after_action(s, sp, {"type": Types.ABILITY, "ability": "spit", "cell": Vector2i(1, 1)})
+	assert_true(Encounter.is_spore(s, Vector2i(1, 1)), "spit leaves a puddle")
 
 
 # --- fight builder ------------------------------------------------------------------------

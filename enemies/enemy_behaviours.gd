@@ -161,7 +161,7 @@ static func _cover_cell_score(s: GameState, u: Unit, c: Vector2i, hostiles: Arra
 			Types.Cover.HALF: cover += 1.0
 			_: cover -= 1.5
 		best_hit = maxi(best_hit, int(Combat.hit_chance(s, u, h, c).hit))
-	var score := best_hit / 20.0
+	var score := best_hit / 20.0 - Hazards.avoid_cost(s, u, c)
 	if watchers > 0:
 		score += cover / watchers
 	if nearest > 10.0:
@@ -177,7 +177,7 @@ static func seek_cluster(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictio
 	var field := EnemyAI._distance_field(s.grid, sources)
 	var reach := Rules.move_range(s, u)
 	var score_of := func(c: Vector2i) -> float:
-		return _adjacent(c, hostiles) * 10.0 - float(field.get(c, 99))
+		return _adjacent(c, hostiles) * 10.0 - float(field.get(c, 99)) - Hazards.avoid_cost(s, u, c)
 	var here: float = score_of.call(u.pos)
 	var best_cell := u.pos
 	var best_score := here
@@ -259,7 +259,7 @@ static func _support_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[U
 	var nearest := INF
 	for h in hostiles:
 		nearest = minf(nearest, EnemyAI._dist(c, h.pos))
-	var score := 0.0
+	var score := -Hazards.avoid_cost(s, u, c)
 	if _seen_by(s, c, hostiles):
 		score -= 3.0
 	if nearest < SUPPORT_MIN:

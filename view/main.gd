@@ -114,6 +114,7 @@ func start(s: GameState, begin := true) -> void:
 	board = Board.new()
 	board.name = "Board"
 	board.build(s.grid)
+	board.sync_hazards(s.hazards)
 	_world.add_child(board)
 	_units_root = Node3D.new()
 	_units_root.name = "Units"
@@ -317,6 +318,8 @@ func face_threats(instant := false) -> void:
 # --- headless auto-play ------------------------------------------------------
 
 func _process(_delta: float) -> void:
+	if board != null:
+		board.tick_hazards(Time.get_ticks_msec() / 1000.0)
 	if autoplay and state != null and not player.is_busy():
 		_autoplay_step()
 	if screenshot_path != "":

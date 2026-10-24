@@ -9,12 +9,11 @@ extends RefCounted
 ##   act, node ("skirmish" | "nest" | "boss"), outbreak, stage (Outbreak stage 0-4),
 ##   boss (boss kind), infect_bonus (extra Infection on infected hits), lapse_double (bool),
 ##   waves: [{turn, every, kinds: Array[String] specs}], incoming: [{turn, cells, kinds}],
-##   spores: {Vector2i: last turn it is active}, telegraphs: [{kind, cells, turn, damage, source, smash, unit}],
+##   telegraphs: [{kind, cells, turn, damage, source, smash, unit}],
 ##   over (bool, boss dead: adds die without death effects).
 
 const SPAWN_CAP := 8             # living non-static enemies; spawners pause above this
 const HIDDEN_REVEAL_RANGE := 4
-const SPORE_INFECTION := 10
 const SOURCE_PULSE := 5          # Infection to every soldier per turn in the Source's phase 1
 const SOURCE_SAFE_RADIUS := 3    # spore rings stop this close to the Source
 const CARRIER_BONUS := 1.5       # damage to the opened core from Mutating+ soldiers
@@ -33,7 +32,6 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 	s.encounter = enc.duplicate(true)
 	if enc.is_empty():
 		return
-	s.encounter["spores"] = {}
 	s.encounter["telegraphs"] = []
 	s.encounter["incoming"] = []
 	if enc.get("hive", false):
@@ -144,7 +142,7 @@ static func _seed_spores(s: GameState, patches: int) -> void:
 		var c := Vector2i(s.rng.randi_range(1, s.grid.width - 2), s.rng.randi_range(1, s.grid.height - 2))
 		if not s.grid.is_walkable(c) or _dist_to_squad(s, c) < 5.0:
 			continue
-		add_spores(s, EnemyAbilities.square(s.grid, c, 1), PERMANENT)
+		add_spores(s, EnemyAbilities.square(s.grid, c, 1), Hazards.PERMANENT)
 		patches -= 1
 
 
@@ -167,28 +165,14 @@ static func add_telegraph(s: GameState, t: Dictionary) -> void:
 	s.emit({"type": "telegraph", "unit": t.get("unit", -1), "kind": t.kind, "cells": t.cells, "turn": t.turn})
 
 
-## Marks cells as spore zone through `last_turn`. Soldiers standing in one when the enemy
-## phase starts gain Infection.
-## Uses the shared Hazards module (map variety workstream) once it exists; until then spore
-## zones live in s.encounter.spores.
-static func add_spores(s: GameState, cells: Array, last_turn: int, source: Unit = null) -> void:
-	if RunHooks.has("Hazards", "add"):
-		RunHooks.call_static("Hazards", "add", [s, cells, "spore", last_turn - s.turn + 1, source.id if source else -1])
-		return
-	if not s.encounter.has("spores"):
-		s.encounter["spores"] = {}
-	var added: Array[Vector2i] = []
-	for c in cells:
-		if s.grid.tile(c) == Types.Tile.WALL:
-			continue
-		s.encounter.spores[c] = maxi(int(s.encounter.spores.get(c, 0)), last_turn)
-		added.append(c)
-	if not added.is_empty():
-		s.emit({"type": "spores", "cells": added, "until": last_turn})
+## Spore zone on `cells` for `turns` rounds (Hazards.PERMANENT = until removed), through the
+## shared Hazards module, which applies the Infection and draws the tiles.
+static func add_spores(s: GameState, cells: Array, turns: int, source: Unit = null) -> void:
+	Hazards.add(s, cells, "spore", turns, source.id if source else -1)
 
 
 static func is_spore(s: GameState, c: Vector2i) -> bool:
-	return int(s.encounter.get("spores", {}).get(c, -1)) >= s.turn
+	return Hazards.at(s, c).get("kind", "") == "spore"
 
 
 ## Shrieker buff: +2 move and +10 aim through the next enemy phase.
@@ -248,7 +232,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 
 static func after_action(s: GameState, u: Unit, action: Dictionary) -> void:
 	if action.get("type") == Types.ABILITY and action.get("ability") == "spit" and action.has("cell"):
-		add_spores(s, [action.cell], s.turn + EnemyAbilities.SPORE_TURNS)
+		add_spores(s, [action.cell], EnemyAbilities.SPORE_TURNS, u)
 	if action.get("type") == Types.MOVE and u.team == Types.Team.PLAYER:
 		_reveal_near(s)
 
@@ -302,7 +286,6 @@ static func on_enemy_phase_start(s: GameState) -> void:
 	if s.encounter.is_empty():
 		return
 	_resolve_telegraphs(s)
-	_spore_exposure(s)
 	var src := _boss(s, "the_source")
 	if src != null and int(src.status.get("boss_phase", 1)) == 1:
 		var hit: Array[int] = []
@@ -343,15 +326,6 @@ static func _resolve_telegraphs(s: GameState) -> void:
 		if s.phase == Types.Phase.ENDED:
 			return
 	s.encounter["telegraphs"] = keep
-
-
-static func _spore_exposure(s: GameState) -> void:
-	if RunHooks.has("Hazards", "add"):
-		return   # Hazards applies its own tile effects
-	for u in s.living(Types.Team.PLAYER):
-		if is_spore(s, u.pos):
-			s.emit({"type": "spore_exposure", "unit": u.id, "cell": u.pos, "amount": SPORE_INFECTION})
-			Infection.add(s, u, SPORE_INFECTION)
 
 
 static func _mobile_enemies(s: GameState) -> int:
@@ -409,10 +383,6 @@ static func on_enemy_phase_end(s: GameState) -> void:
 			_end_frenzy(u)
 	if s.encounter.is_empty():
 		return
-	var spores: Dictionary = s.encounter.get("spores", {})
-	for c in spores.keys():
-		if int(spores[c]) <= s.turn:
-			spores.erase(c)
 	var src := _boss(s, "the_source")
 	if src != null:
 		_spread_spore_ring(s, src)
@@ -429,7 +399,7 @@ static func _spread_spore_ring(s: GameState, src: Unit) -> void:
 			var edge := mini(mini(x, y), mini(s.grid.width - 1 - x, s.grid.height - 1 - y))
 			if edge == ring and EnemyAbilities._cheb(c, src.pos) > SOURCE_SAFE_RADIUS:
 				cells.append(c)
-	add_spores(s, cells, PERMANENT)
+	add_spores(s, cells, Hazards.PERMANENT, src)
 
 
 ## Waves due next turn get their cells now, so vents glow a full turn before anything comes out.

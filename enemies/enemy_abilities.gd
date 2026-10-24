@@ -252,7 +252,7 @@ static func burst(s: GameState, u: Unit) -> void:
 		if not small and t.is_alive() and t.team == Types.Team.PLAYER:
 			Infection.add(s, t, BURST_INFECTION)
 	if not small:
-		Encounter.add_spores(s, cells, s.turn + SPORE_TURNS, u)
+		Encounter.add_spores(s, cells, SPORE_TURNS, u)
 
 
 ## Free cell next to `t` the Lurker can reach this move, closest first; (-1, -1) if none.

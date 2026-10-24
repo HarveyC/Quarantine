@@ -8,7 +8,7 @@ extends RefCounted
 ##         "pull" | "pulse" | "hide" | "seek" | "dormant" | "pinning"
 ## dangers(s) -> Array of {kind, cells: Array[Vector2i], unit, turn}: tiles that get hit next
 ##   enemy phase (bursts, charges, airstrikes, core slams). Paint them red.
-## spores(s) -> Array[Vector2i] active spore cells. incoming(s) -> vent cells glowing for a wave.
+## Spore zones are Hazards tiles, drawn by the Board. incoming(s) -> vent cells glowing for a wave.
 ## ripples(s) -> Array[Vector2i] cells of hidden Lurkers (a faint ripple is always shown).
 
 
@@ -78,14 +78,6 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 		if u.status.has("charge_dir"):
 			var lane := EnemyAbilities.charge_lane(s, u, u.pos, u.status.charge_dir)
 			out.append({"kind": "charge", "cells": lane.cells, "unit": u.id, "turn": s.turn})
-	return out
-
-
-static func spores(s: GameState) -> Array[Vector2i]:
-	var out: Array[Vector2i] = []
-	for c in s.encounter.get("spores", {}):
-		if Encounter.is_spore(s, c):
-			out.append(c)
 	return out
 
 

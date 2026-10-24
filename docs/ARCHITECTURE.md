@@ -16,6 +16,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `combat/` | `Combat` | **combat** | LOS, cover, hit chance, shoot, overwatch, hunker, class abilities |
 | `infection/` | `Infection` | **infection** | Meter, tiers, mutation powers, Lapse rolls, Turning, cure |
 | `ai/` | `EnemyAI` | **ai** | Enemy and Lapsed-soldier decisions |
+| `hazards/` | `Hazards` | **maps** | Fire, spore and acid tiles: placement, hits, ageing |
 | `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
@@ -69,14 +70,15 @@ Rules for parallel work:
 | `lapse` / `recover` / `turned` | `unit` |
 | `alerted` | `unit` (an Infected wakes up; emitted once per unit, see Enemy AI) |
 | `mission_end` | `result` (`Types.Result`) |
+| `hazard` | `kind`, `cells` (changed), `turns`, `source`, `spare` |
+| `hazard_tick` | `unit`, `kind`, `cell`, `damage`, `infection` (emitted before the resulting `damage` / `infection` events) |
+| `hazard_end` | `kind`, `cells` |
 | `gear` | `unit`, `item` (gear effect that isn't a shot: `choke` splash `target`/`damage`, `feral_grip` `heal`/`hp`, `close_set` `actions`, `mark_set` `target`, `suppress` `target`) |
 | `burning` / `burn` | `unit`, `turns` / `damage` (set Burning; the start-of-phase tick, before its `damage` event) |
 | `spawned` | `unit`, `kind`, `cell`, `from` (spawner unit id or -1) — a new enemy appeared (Hive node, egg sac, root, wave, split, brood spit) |
 | `telegraph` | `unit`, `kind` (`burst`/`charge`/`airstrike`/`core_slam`), `cells`, `turn` (when it lands) |
 | `strike` | `kind`, `cells`, `unit`, `units` (hit ids), `damage` — a telegraphed airstrike / core slam lands (before its `damage` events) |
 | `cover_destroyed` | `cells`, `unit` — half cover turned to floor (Brute charge, airstrike); the grid has changed |
-| `spores` | `cells`, `until` (last turn active) |
-| `spore_exposure` | `unit`, `cell`, `amount` (before its `infection` event) |
 | `source_pulse` | `unit` (the Source), `units`, `amount` |
 | `reinforcements_incoming` | `cells`, `turn`, `count` — a wave arrives at these vents next enemy phase |
 | `revealed` | `unit` (a hidden Lurker) |
@@ -273,6 +275,26 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 
 The view paints `evac` and `beacon` zones on the floor (`Board._build_zones`). For a look at a
 generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --screenshot-action=overview --screenshot=x.png`.
+
+## Tile hazards (hazards/)
+
+One shared system for ground effects; gear, class abilities, mutations, enemies and maps all call it.
+
+- **State**: `GameState.hazards` = `{cell: {"kind", "turns", "source", "spare"}}`, one hazard per cell,
+  saved in `to_dict` (so it is in the checksum and resyncs). No RNG.
+- **Kinds** (`Hazards.KINDS`): `fire` 2 damage, `spore` +10 Infection to soldiers (enemies immune),
+  `acid` 1 damage. Each lists the kinds it `replaces` on its cell (fire burns spores and acid away) and
+  an AI `avoid` weight. Deployables (`status.deployable`) and Turned units take no Infection.
+- **Add / remove**: `Hazards.add(s, cells, kind, turns, source_id := -1, spare_team := -1) -> Array[Vector2i]`
+  (walls skipped; `turns` in rounds, `Hazards.PERMANENT` = -1; `spare_team` makes it harmless to that
+  team, e.g. a squad-safe burn). Same kind keeps the longer duration. `Hazards.remove(s, cells, kind := "")`.
+- **Hits**: once per move per kind crossed or ended on (`Rules._do_move` -> `Hazards.on_move`), and at
+  the end of the unit's own side's turn while standing in one (`on_team_phase_end` from `Rules.set_ready`,
+  `on_enemy_phase_end` at the end of `Rules.run_enemy_phase`). Damage via `Rules.deal_damage` (no
+  source), Infection via `Infection.add`. Hazards age by one round at the end of the enemy phase.
+- **Queries**: `Hazards.at(s, cell)`, `cells_of(s, kind)`, `affects(u, kind)`, `avoid_cost(s, u, cell)`
+  (0 if harmless to `u`) for AI cell scoring.
+- **View**: `Board.set_hazard` / `clear_hazard` / `sync_hazards`, driven by the events above.
 
 ## View presentation (cinematics, animation, sound)
 
@@ -562,7 +584,7 @@ Folder `enemies/`, owned by the enemy roster workstream. Design doc section "Ene
 |---|---|
 | `EnemyRoster` | Threat costs, act pools, elites and affixes, enemy spec strings, `make(spec)` |
 | `FightBuilder` | `build(spec) -> {enemies, encounter}` and `preview(spec)` for the run map |
-| `Encounter` | Fight-level rules called by `Rules`: spawners, waves, spore zones, telegraphs, affixes, bosses |
+| `Encounter` | Fight-level rules called by `Rules`: spawners, waves, spore zones (as `Hazards` spore tiles), telegraphs, affixes, bosses |
 | `EnemyAbilities` | Enemy-only abilities, routed by `Rules` instead of `Combat` |
 | `EnemyBehaviours` | AI behaviours Cover shooter, Seek cluster, Ambush, Support, the Brute charge and the bosses (`EnemyAI` dispatches to it) |
 | `EnemyIntent` | Pure "what will it do" reads for the view's intent labels and danger tiles |
@@ -574,17 +596,15 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
   with affixes; `"runner+hasted"` = regular that bought an affix. `Rules.new_mission_on_grid` builds
   them with `EnemyRoster.make`.
 - **Rules hooks** (all in `Encounter`): `validate` (pinned soldiers can't act, hidden units can't be
-  targeted), `after_action`, `on_team_phase_start`, `on_enemy_phase_start` (telegraphs land, spore
-  exposure, Source pulse, spawners, waves), `on_unit_turn_start/end` (hasted, regenerating, Bloater
-  swell, Brute wind-up), `on_enemy_phase_end` (frenzy and spore expiry, Source spore rings, wave
+  targeted), `after_action`, `on_team_phase_start`, `on_enemy_phase_start` (telegraphs land, Source pulse, spawners, waves), `on_unit_turn_start/end` (hasted, regenerating, Bloater
+  swell, Brute wind-up), `on_enemy_phase_end` (frenzy expiry, Source spore rings, wave
   warnings), and in `Rules.deal_damage`: `modify_damage` (tethers, armour, Carrier twist, bosses
   always reach phase 2), `on_damaged` (virulent, Outbreak infection bonus, pin release, boss phases),
   `on_died` (splitting, death burst, boss defeat, tethers). `EnemyRoster.infects(source)` gates
   `Infection.on_damaged` (Fallen bullets don't infect).
 - **`GameState.encounter`** is serialized with the state. Keys: `act`, `node`, `objective`,
   `outbreak`, `stage`, `boss`, `hive`, `purge_nests`, `ambush`, `boss_health_mult`, `infect_bonus`,
-  `start_infection`, `spore_patches`, `waves` ([{turn, every, kinds}]), `incoming`, `spores`
-  ({Vector2i: last turn}), `telegraphs` ([{kind, cells, turn, damage, source, smash, unit}]),
+  `start_infection`, `spore_patches`, `waves` ([{turn, every, kinds}]), `incoming`, `telegraphs` ([{kind, cells, turn, damage, source, smash, unit}]),
   `lapse_double`, `over`.
 - **Statuses** (enemy units unless noted): `elite`, `affixes`, `armour`, `hidden`, `boss`,
   `boss_phase`, `spawner` ({kinds, every, next, i}), `tether` (kind whose living units make it

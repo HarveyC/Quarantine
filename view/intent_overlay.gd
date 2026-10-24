@@ -1,7 +1,7 @@
 extends Node3D
 ## Team-phase readability layer for enemies (design doc, Enemy AI and readability): an intent
 ## label over each enemy with a thin line to its likely target, red tiles for everything that
-## hits next enemy phase, teal tiles for spore zones, amber vents for incoming reinforcements,
+## hits next enemy phase, amber vents for incoming reinforcements,
 ## and a faint ripple over hidden Lurkers. Reads GameState through EnemyIntent; never mutates it.
 
 const Palette := preload("res://view/palette.gd")
@@ -39,8 +39,6 @@ func refresh() -> void:
 	var s: GameState = view.state if view != null else null
 	if s == null or s.phase != Types.Phase.TEAM or (view.player != null and view.player.is_busy()):
 		return
-	for c in EnemyIntent.spores(s):
-		_tile(c, _m_spore, 0.012)
 	for c in EnemyIntent.incoming(s):
 		_tile(c, _m_vent, 0.02)
 	for d in EnemyIntent.dangers(s):
