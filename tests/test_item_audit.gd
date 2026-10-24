@@ -177,13 +177,11 @@ func _cases() -> Dictionary:
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "bash") else "no strike"}
 	c["lunge"] = {"kind": "reaper", "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "lunge") else "no strike"}
-	c["shoot_barrel"] = {"kind": "trooper", "act": func(x): return {"cell": Vector2i(6, 2)},
-		"check": func(x): return "" if _logged(x.s, "explosion") else "barrel didn't go off"}
 	return c
 
 
 ## Every ability a soldier can be handed: gadgets, pocket items, class and perk abilities,
-## the any-soldier actions, soldier abilities built into Combat, and Destruction's.
+## the any-soldier actions and soldier abilities built into Combat.
 func _all_active_ids() -> Array[String]:
 	var out: Array[String] = []
 	for k in GearFx.GADGETS:
@@ -196,7 +194,6 @@ func _all_active_ids() -> Array[String]:
 		for a in UnitData.SOLDIERS[kind].get("abilities", []):
 			if not out.has(a):
 				out.append(a)
-	out.append("shoot_barrel")
 	return out
 
 

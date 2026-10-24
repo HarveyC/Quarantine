@@ -1037,7 +1037,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 ## Ability ids with a beat of their own below; the rest go to ItemBeats (gadgets, pocket items,
 ## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge",
-	"breach", "item:frag_grenade", "item:demo_charge", "shoot_barrel", "spit", "suppress", "stim", "item:medkit"]
+	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit"]
 
 
 func _beat_ability(ev: Dictionary) -> Dictionary:
