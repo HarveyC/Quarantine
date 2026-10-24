@@ -8,6 +8,10 @@ config/description="Co-op tactics roguelike: Carriers in the Quarantine Zone."
 run/main_scene="res://scenes/app.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
 
+[autoload]
+
+Soundscape="*res://view/soundscape.gd"
+
 [display]
 
 window/size/viewport_width=1600

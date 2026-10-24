@@ -493,7 +493,19 @@ in an online match plays the same thing.
   after every playback drain `MissionView.face_threats` turns each unit to its nearest hostile
   (dormant enemies keep their own headings). It reads only the shared state, so peers agree.
 - **Sound** (`view/sfx.gd`): `MissionView.sfx.play(name)`; files in `audio/` are synthesized by
-  `tools/gen_sfx.py`. `Sfx.muted` is the M key toggle.
+  `tools/gen_sfx.py`. `Sfx.muted` is the M key toggle (mutes the Master bus).
+- **Music and soundscape** (`view/soundscape.gd`, autoload `Soundscape`): picks a mood from what's
+  on screen (title, route map, rest nodes, fight, boss fight, after a fight, run summary) and
+  crossfades music and the ambience bed (per act: The Wall, Port Ardent, The Bore). Combat music
+  is synced stems (base, pulse, danger, bloom) whose volumes follow `Soundscape.combat_info(view)`:
+  visible enemies, low HP, the enemy turn and squad Infection. Boss fights use the boss stems.
+  Stingers for contact, boss, win/lose, node arrival and spoils. `view/enemy_voices.gd` plays
+  per-kind barks and death cries in 3D from the event player's beats. Every BaseButton gets
+  hover/click sounds (set meta "silent" to opt out). Files in `audio/music`, `audio/amb`,
+  `audio/vo`, `audio/ui` come from `tools/gen_music.py`.
+- **Buses** (`default_bus_layout.tres`): Master > Music (ducks under Weapons), Ambience,
+  SFX > Weapons, Voices, and UI. The Sound panel (`ui/audio_settings.gd`, F10 or the title
+  screen) saves per-bus volume to `user://audio.cfg`.
 - **Look**: environment and lights in `MissionView._build_environment`, set dressing in `Board`,
   vignette and grain in `view/post_fx.gd`.
 
