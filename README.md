@@ -49,7 +49,8 @@ order during the squad phase; the enemy phase runs when both press READY.
 | Left-click soldier / Tab | Select (Tab cycles soldiers with actions left) |
 | Left-click highlighted cell | Move (hover shows path and cover: blue full, yellow half) |
 | 1 Shoot, 2 Overwatch, 3 Hunker, 4+ abilities and mutations | Pick an action |
-| Tab / Enter (in Shoot) | Next target / fire |
+| Tab / Enter or Space (in Shoot) | Next target / fire |
+| Space | Ready / unready (for the selected soldier's player) |
 | Esc or right-click | Cancel, then deselect |
 | WASD, Q/E, wheel, F | Pan, rotate, zoom, focus selected |
 | C | Toggle shot cameras (cinematic over-the-shoulder shots) |

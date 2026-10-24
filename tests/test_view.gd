@@ -127,6 +127,38 @@ func test_ready_buttons_run_enemy_phase() -> void:
 	v.free()
 
 
+func _press(v: MissionView, key: Key) -> void:
+	var k := InputEventKey.new()
+	k.keycode = key
+	k.pressed = true
+	v.input._unhandled_input(k)
+
+
+func test_space_toggles_ready_and_runs_enemy_phase() -> void:
+	var v := _make_view()
+	v.player.flush()
+	_press(v, KEY_SPACE)
+	assert_eq(v.state.ready.get(0), true, "Space readies player 1")
+	v.player.flush()
+	v.input.select(v.state.controllable_units(1)[0].id)   # hot-seat: player 2's soldier
+	_press(v, KEY_SPACE)
+	assert_true(v.state.turn == 2 or v.state.phase == Types.Phase.ENDED, "Space readies player 2, enemy phase resolved")
+	v.player.flush()
+	v.free()
+
+
+func test_space_unreadies_selected_players_soldier() -> void:
+	var v := _make_view()
+	v.player.flush()
+	v.input.select(v.state.controllable_units(0)[0].id)
+	_press(v, KEY_SPACE)
+	assert_eq(v.state.ready.get(0), true, "ready")
+	v.player.flush()
+	_press(v, KEY_SPACE)
+	assert_eq(v.state.ready.get(0), false, "Space again unreadies")
+	v.free()
+
+
 func test_main_scene_enters_tree() -> void:
 	var tree := Engine.get_meta("test_tree", null) as SceneTree
 	assert_true(tree != null, "scene tree available")

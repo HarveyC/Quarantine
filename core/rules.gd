@@ -79,6 +79,7 @@ static func start_team_phase(s: GameState) -> void:
 			u.actions_left = 0
 	Vision.refresh(s)
 	check_end(s)
+	_auto_ready(s)
 
 
 ## Returns "" if the action is legal, otherwise a human-readable reason.
@@ -118,6 +119,7 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		Encounter.after_action(s, u, action)
 		Vision.refresh(s)
 		check_end(s)
+		_auto_ready(s)
 		return true
 	Kit.before_action(s, u, action)
 	match action.type:
@@ -128,6 +130,7 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 	Kit.after_action(s, u, action)
 	Vision.refresh(s)
 	check_end(s)
+	_auto_ready(s)   # this action may have cost a player their last soldier
 	return true
 
 
@@ -146,12 +149,27 @@ static func _expose_attacker(s: GameState, u: Unit, action: Dictionary) -> void:
 
 
 ## Player readiness for the simultaneous team phase. When everyone is ready the enemy phase runs.
+## A player with no soldier left to control (all dead, Turned or Lapsed) is ready automatically.
 static func set_ready(s: GameState, player: int, is_ready: bool) -> void:
 	if s.phase != Types.Phase.TEAM:
 		return
+	if not is_ready and s.controllable_units(player).is_empty():
+		return
 	s.ready[player] = is_ready
 	s.emit({"type": "ready", "player": player, "ready": is_ready})
-	if s.ready.values().all(func(r): return r):
+	_auto_ready(s)
+
+
+## Readies every player who has nobody left to act with, then ends the team phase if
+## everyone is ready. Runs whenever a soldier might have dropped out of the team phase.
+static func _auto_ready(s: GameState) -> void:
+	if s.phase != Types.Phase.TEAM:
+		return
+	for p in s.players:
+		if not s.ready.get(p, false) and s.controllable_units(p).is_empty():
+			s.ready[p] = true
+			s.emit({"type": "ready", "player": p, "ready": true, "auto": true})
+	if s.players.all(func(p): return s.ready.get(p, false)):
 		Hazards.on_team_phase_end(s)
 		Objectives.on_team_phase_end(s)
 		check_end(s)
