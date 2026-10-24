@@ -512,6 +512,22 @@ in an online match plays the same thing.
   screen) saves per-bus volume to `user://audio.cfg`.
 - **Look**: environment and lights in `MissionView._build_environment`, set dressing in `Board`,
   vignette and grain in `view/post_fx.gd`.
+- **Settings** (`view/game_settings.gd`, static class `GameSettings`; autoload `SettingsHost` in
+  `view/settings_host.gd`): graphics (window, v-sync, FPS cap, quality preset, 3D render scale),
+  gameplay (game speed, shot cams, edge scroll, camera speed), accessibility (colour vision filter,
+  UI scale, text size, screen shake) and key bindings, saved to `user://settings.cfg`. View-only,
+  never sent over the network. Read values with `GameSettings.get_value(section, key)` or the
+  helpers (`game_speed()`, `screen_shake()`, `puddle_lights()`...). A scene that builds an
+  `Environment` calls `GameSettings.apply_environment(env)` so the quality preset can drop SSAO,
+  SSIL and volumetric fog. Text built with `Styles.label/caps/mono/bold` follows the text size.
+  The screen is `ui/settings_menu.gd` (F10, gamepad Back, `GameSettings.open_menu(tab)`).
+- **Input actions**: fight and camera controls are InputMap actions built by
+  `GameSettings.apply_input_map()` (`GameSettings.ACTIONS` for keys, `GameSettings.PAD` for the
+  fixed gamepad layout); use `event.is_action_pressed("ready")`, never raw keycodes, so rebinding
+  works. `GameSettings.action_label("ready")` gives the current key for help text. The gamepad
+  pointer in `SettingsHost` turns the left stick into mouse movement and A/B into click/Escape, so
+  plain mouse UIs work on a pad; a screen that wants focus navigation instead joins the group
+  `pad_focus` (the pointer then stands down and Godot's `ui_*` actions drive it).
 
 ## Networking (online co-op)
 

@@ -1,6 +1,8 @@
 extends Node3D
 ## Angled tactical camera. WASD / arrow keys / screen-edge pan, Q/E rotate in
 ## 90 degree steps, mouse wheel zoom. Everything eases towards its target.
+## Keys are InputMap actions (rebindable, see view/game_settings.gd); on a gamepad the
+## right stick pans, LT/RT rotate and the stick clicks zoom.
 ##
 ## Cinematic mode (shot cams): the event player hands over two camera poses and
 ## drives the blend between them on its own clock with `cine_progress`, so slow
@@ -81,13 +83,14 @@ static func look_pose(eye: Vector3, target: Vector3) -> Transform3D:
 	return Transform3D(Basis.looking_at(d, up), eye)
 
 
+## Scaled by the Screen shake setting (0 turns shake and recoil punch off).
 func shake(amount: float) -> void:
-	_shake = maxf(_shake, amount)
+	_shake = maxf(_shake, amount * GameSettings.screen_shake())
 
 
 ## Recoil punch: the camera snaps back a little and the FOV widens, then settles.
 func kick(amount: float) -> void:
-	_kick = minf(2.0, _kick + amount)
+	_kick = minf(2.0, _kick + amount * GameSettings.screen_shake())
 
 
 func rotate_step(dir: int) -> void:
@@ -110,11 +113,12 @@ func _clamp(p: Vector3) -> Vector3:
 
 
 func _process(delta: float) -> void:
+	_discrete_input()
 	var move := _pan_input()
 	if move != Vector2.ZERO:
 		var fwd := Vector3(-sin(_yaw), 0, -cos(_yaw))
 		var right := Vector3(cos(_yaw), 0, -sin(_yaw))
-		var speed := PAN_SPEED * (_dist / 15.0) * delta
+		var speed := PAN_SPEED * GameSettings.camera_speed() * (_dist / 15.0) * delta
 		_target_pos = _clamp(_target_pos + (right * move.x + fwd * move.y) * speed)
 	var k := 1.0 - exp(-delta * 8.0)
 	position = position.lerp(_target_pos, k)
@@ -130,11 +134,10 @@ func _pan_input() -> Vector2:
 	var v := Vector2.ZERO
 	if cinematic:
 		return v
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): v.x -= 1
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): v.x += 1
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): v.y += 1
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): v.y -= 1
-	if edge_pan and DisplayServer.get_name() != "headless" and DisplayServer.window_is_focused():
+	if not _input_blocked():
+		v.x = Input.get_action_strength("cam_right") - Input.get_action_strength("cam_left")
+		v.y = Input.get_action_strength("cam_forward") - Input.get_action_strength("cam_back")
+	if edge_pan and GameSettings.edge_pan() and not _input_blocked() and DisplayServer.get_name() != "headless" and DisplayServer.window_is_focused():
 		var vp := get_viewport()
 		var m := vp.get_mouse_position()
 		var size := vp.get_visible_rect().size
@@ -146,14 +149,29 @@ func _pan_input() -> Vector2:
 	return v.limit_length(1.0)
 
 
+## Rotate and zoom are polled so the gamepad triggers (analog axes) step once per pull.
+func _discrete_input() -> void:
+	if cinematic or _input_blocked():
+		return
+	if Input.is_action_just_pressed("cam_rotate_left"): rotate_step(-1)
+	if Input.is_action_just_pressed("cam_rotate_right"): rotate_step(1)
+	if Input.is_action_just_pressed("cam_zoom_in"): zoom_step(-2)
+	if Input.is_action_just_pressed("cam_zoom_out"): zoom_step(2)
+
+
+## The Settings screen or a text field has the keyboard.
+func _input_blocked() -> bool:
+	GameSettings.ensure_input_map()
+	if GameSettings.is_menu_open():
+		return true
+	var vp := get_viewport()
+	return vp != null and vp.gui_get_focus_owner() is LineEdit
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if cinematic:
 		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		match event.keycode:
-			KEY_Q: rotate_step(-1)
-			KEY_E: rotate_step(1)
-	elif event is InputEventMouseButton and event.pressed:
+	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:
 			MOUSE_BUTTON_WHEEL_UP: zoom_step(-1)
 			MOUSE_BUTTON_WHEEL_DOWN: zoom_step(1)
