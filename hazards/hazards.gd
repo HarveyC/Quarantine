@@ -99,7 +99,8 @@ static func _affects_here(u: Unit, h: Dictionary) -> bool:
 
 
 static func _takes_infection(u: Unit) -> bool:
-	return u.team == Types.Team.PLAYER and not u.status.get("deployable", false) and not u.status.get("turned", false)
+	return u.team == Types.Team.PLAYER and not u.status.has("deployable") and not u.status.has("civilian") \
+		and not u.status.get("turned", false)
 
 
 # ---------------------------------------------------------------- hooks called by Rules

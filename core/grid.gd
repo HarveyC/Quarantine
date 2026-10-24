@@ -18,6 +18,8 @@ var biome := ""
 ## Set by MapGen: named cells for objectives and spawns, String -> Array of Vector2i
 ## (see MapGen.MARKER_KEYS). Empty for handmade maps.
 var markers := {}
+## Set by MapGen: the fight's objective ("skirmish", "extract", ...); "" for handmade maps.
+var objective := ""
 
 
 static func from_rows(rows: PackedStringArray) -> Grid:
@@ -52,7 +54,7 @@ static func load_file(path: String) -> Grid:
 func to_dict() -> Dictionary:
 	return {"width": width, "height": height, "tiles": tiles,
 		"player_spawns": player_spawns.duplicate(), "enemy_spawns": enemy_spawns.duplicate(),
-		"biome": biome, "markers": markers.duplicate(true)}
+		"biome": biome, "markers": markers.duplicate(true), "objective": objective}
 
 
 static func from_dict(d: Dictionary) -> Grid:
@@ -64,6 +66,7 @@ static func from_dict(d: Dictionary) -> Grid:
 	g.enemy_spawns.assign(d.enemy_spawns)
 	g.biome = d.get("biome", "")
 	g.markers = d.get("markers", {}).duplicate(true)
+	g.objective = d.get("objective", "")
 	return g
 
 

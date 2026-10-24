@@ -16,6 +16,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `combat/` | `Combat` | **combat** | LOS, cover, hit chance, shoot, overwatch, hunker, class abilities |
 | `infection/` | `Infection` | **infection** | Meter, tiers, mutation powers, Lapse rolls, Turning, cure |
 | `ai/` | `EnemyAI` | **ai** | Enemy and Lapsed-soldier decisions |
+| `objectives/` | `Objectives` | **maps** | Fight objectives: win/lose rules, civilians, bonus objective, HUD line |
 | `hazards/` | `Hazards` | **maps** | Fire, spore and acid tiles: placement, hits, ageing |
 | `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
@@ -73,6 +74,9 @@ Rules for parallel work:
 | `hazard` | `kind`, `cells` (changed), `turns`, `source`, `spare` |
 | `hazard_tick` | `unit`, `kind`, `cell`, `damage`, `infection` (emitted before the resulting `damage` / `infection` events) |
 | `hazard_end` | `kind`, `cells` |
+| `objective` | `kind`, `progress`, `goal` (objective progress changed) |
+| `rescued` | `unit` (a civilian reached the exit) |
+| `left_behind` | `unit` (extract: the dropship left without them; a `died` follows) |
 | `gear` | `unit`, `item` (gear effect that isn't a shot: `choke` splash `target`/`damage`, `feral_grip` `heal`/`hp`, `close_set` `actions`, `mark_set` `target`, `suppress` `target`) |
 | `burning` / `burn` | `unit`, `turns` / `damage` (set Burning; the start-of-phase tick, before its `damage` event) |
 | `spawned` | `unit`, `kind`, `cell`, `from` (spawner unit id or -1) — a new enemy appeared (Hive node, egg sac, root, wave, split, brood spit) |
@@ -283,6 +287,31 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 
 The view paints `evac` and `beacon` zones on the floor (`Board._build_zones`). For a look at a
 generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --screenshot-action=overview --screenshot=x.png`.
+
+## Objectives (objectives/)
+
+The objective comes with the map: `grid.objective` (set by MapGen, saved with the grid). Progress is
+`GameState.objective` (saved in `to_dict`). A fight ends the moment its objective is met.
+
+| objective | win | loss (besides a squad wipe) |
+|---|---|---|
+| skirmish, elite, boss | every enemy dead | |
+| extract | every living soldier on `evac` at the end of a squad turn | after turn 7 soldiers off the pad die (`left_behind`); defeat if none made it |
+| hold | 4 rounds survived (`held`) | end of a round with enemies and no soldier in `beacon` |
+| rescue | every living civilian on `exit` (kills win only once no civilian is alive) | |
+| purge | no living unit of kind `spore_nest` (or every enemy dead) | |
+
+- **Hooks**: `Objectives.setup(s)` at the end of `Rules.new_mission_on_grid`; `on_team_phase_end`
+  (after hazards, from `Rules.set_ready`) and `on_enemy_phase_end` (after hazards); `Rules.check_end`
+  uses `Objectives.check(s)` after the squad-wiped test. Squad = `Objectives.soldiers(s)` (no
+  deployables, no civilians). Tests fake a win with `s.objective.result = Types.Result.VICTORY`.
+- **Civilians** (rescue): player-team units with `status.civilian`, `owner_player = -1`, not
+  `ai_controlled`; at each squad turn's end they make one MOVE toward the nearest soldier (overwatch
+  and hazards apply), and step onto the exit when a soldier is within 3 tiles. Enemies target them.
+- **Bonus** (`Objectives.bonus_met(s)`, used by `RunRules.fight_outcome`): extract nobody left
+  behind; hold the beacon never contested; rescue every civilian saved; skirmish / elite / purge
+  won by the end of turn 5; boss none.
+- **HUD**: `Objectives.describe(s)` is the objective line under the turn banner.
 
 ## Tile hazards (hazards/)
 

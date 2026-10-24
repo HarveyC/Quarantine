@@ -117,6 +117,7 @@ func _win_fight(run: RunState, bonus: bool = false) -> void:
 		u.hp -= 1
 	for u in s.living(Types.Team.ENEMY):
 		u.hp = 0
+	s.objective.result = Types.Result.VICTORY   # extract / hold fights don't end on kills alone
 	Rules.check_end(s)
 	assert_eq(s.result, Types.Result.VICTORY, "fake win")
 	assert_true(RunRules.apply(run, {"type": RunRules.FIGHT_END, "player": 0, "outcome": RunRules.fight_outcome(s, bonus)}), "fight_end")

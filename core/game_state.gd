@@ -15,6 +15,7 @@ var rng := RandomNumberGenerator.new()
 var players: Array[int] = [0, 1]   # participating player ids
 var ready := {}                     # player id -> bool, for the current team phase
 var log: Array[Dictionary] = []
+var objective := {}                 # fight objective progress, owned by Objectives
 ## Fight-level state owned by Encounter (enemies/): waves, spawners, spore zones, telegraphs, boss.
 var encounter := {}
 var hazards := {}                   # cell -> {"kind", "turns", "source", "spare"}, owned by Hazards
@@ -81,7 +82,7 @@ func to_dict() -> Dictionary:
 		"phase": phase, "turn": turn, "result": result, "rng_seed": rng.seed, "rng_state": rng.state,
 		"players": players.duplicate(), "ready": ready.duplicate(), "next_id": _next_id,
 		"encounter": encounter.duplicate(true),
-		"hazards": hazards.duplicate(true),
+		"hazards": hazards.duplicate(true), "objective": objective.duplicate(true),
 	}
 
 
@@ -100,6 +101,7 @@ static func from_dict(d: Dictionary) -> GameState:
 	s._next_id = d.next_id
 	s.encounter = d.get("encounter", {}).duplicate(true)
 	s.hazards = d.get("hazards", {}).duplicate(true)
+	s.objective = d.get("objective", {}).duplicate(true)
 	return s
 
 
