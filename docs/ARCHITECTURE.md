@@ -323,15 +323,19 @@ All static. Missing ones fall back to the stand-in in brackets.
 
 - **GearRun**: `init_run(run)`, `starting_kit_offers(run)`, `on_fight_won(run, kind)` (roll 1-of-3
   per soldier; after a boss also the Doctrine vote), `has_pending(run) -> bool` [false],
-  `apply_to_unit(unit, entry)` (entry is the squad entry, gear in `entry.gear`), `validate`/`apply`
-  for `gear_*`. Fight income is the framework's; a skipped pick's +10 Supplies is GearRun's (use
+  `apply_to_unit(unit, entry)` (entry is the squad entry, gear in `entry.gear`, Doctrine ids in
+  `entry.doctrines`), `absorb(record, unit)` (survivors after a fight: spend used pockets),
+  `validate`/`apply` for `gear_*`, `autoplay_actions(run)` (default picks, for autoplay and dropped players). Fight income is the framework's; a skipped pick's +10 Supplies is GearRun's (use
   `RunRules.add_supplies`).
 - **Progression**: `new_record(kind) -> Dictionary` [`{kind, rank: 1}`], `apply_record(unit, prog)`,
   `after_fight(prog, unit, fight_number)` (queue rank-up picks), `has_pending(run) -> bool` [false],
-  `on_recruit_deployed(new_prog, lost_prog)`, `validate`/`apply` for `prog_*` (perk picks, grafts,
-  Serum use).
+  `on_recruit_deployed(new_prog, lost_prog)`, `on_fight_end(run, outcome)` (every fight, after the
+  results are applied; may set unlock flags in `run.meta`), `unlocked_classes(meta) -> Array[String]`
+  (recruit pool), `validate`/`apply` for `prog_*` (perk picks, grafts, Serum use).
 - **NodeRules**: `enter(run, kind)`, `is_done(run) -> bool` [true: the node is skipped],
-  `validate`/`apply` for `node_*`. Events that fight set `modifiers.pending_fight`.
+  `validate`/`apply` for `node_*`, `screen(kind)`, `autoplay_actions(run)`. Events that fight set
+  `modifiers.pending_fight`.
+- **Objectives**: `bonus_met(state) -> bool` [false], read by `RunRules.fight_outcome`.
 - **FightBuilder**: `build(spec) -> {"enemies": Array[String], "encounter": Dictionary}`
   [`MatchConfig.default_enemies`]. `spec` = `{act, row, node, objective, outbreak, seed, players,
   modifiers}`; deterministic from it. Optional `preview(spec) -> {"title", "elite"}` for the map.
@@ -357,10 +361,21 @@ reward screen via `Progression.pick_screen()`. Visual target: the approved UI mo
 see-through panels with amber corner marks, amber only for actionable things, teal only for
 Infection, player-colour stripes on soldier cards).
 
-Sessions (`LocalSession`, `NetSession`) gain `run: RunState`, `submit_run(action)` and a
-`run_changed` signal. Online: the host creates the run from a seed and broadcasts it; run actions
-go host -> validate -> broadcast with a sequence number and `run.checksum()`, the same path as
-mission actions (a gap or mismatch resyncs with `run.to_dict()`).
+Sessions (`LocalSession`, `NetSession`) have `run: RunState`, `submit_run(action)` and a
+`run_changed` signal; `App` shows `RunView` (`ui/run/run_view.gd`) between fights and the mission
+view during one (held 3 s after the mission ends so the result plays).
+- **Solo / hot-seat** (`LocalSession.start_run(players)` / `resume_run(saved)`): no lobby, no
+  network. A map click votes for every local player, so solo moves on at once.
+- **Online** (`NetSession.start_run()`, host): the host builds the run from a seed (or `resume`, a
+  loaded save) and sends the whole RunState once (`_run_start`). After that run actions travel as
+  `{"type": "run", "action": ...}` through the same request -> validate -> commit path as mission
+  actions, with one sequence number and a checksum covering run and mission. When the run enters a
+  fight, every peer builds the same GameState from `run.fight_config`; at `mission_end` the host
+  commits `fight_end`. A dropped player is benched (host plays their soldiers from the next fight,
+  they don't vote) and unbenched when they rejoin. The host closes a route vote 20 s after its
+  first pin (`close_vote`).
+- Autoplay (`-- --run=1 --autoplay`, or `--host --autostart=2 --autostart-run --autoplay`) plays a
+  whole run headless; `tests/net_playtest.sh` scenario 3 checks host and client finish a run in sync.
 
 ### Run events
 
@@ -374,5 +389,9 @@ mission actions (a gap or mismatch resyncs with `run.to_dict()`).
 ### Save / resume
 
 `run.save_string()` / `RunState.from_save_string(text)` (Godot `var_to_str`, so ints and Vector2i
-survive). The host (or solo player) saves to `user://run_save.txt` after every run action and at
-mission end; a save made mid-fight carries `fight_snapshot` and resumes into that fight.
+survive). `RunSave` (one slot, `user://run_save.txt`): the host or solo player saves after every
+run action and at the start of every team phase in a fight (`fight_snapshot`, so a resume lands in
+that turn). Main menu: "Continue run" resumes locally; online, the host ticks "Continue the saved
+run" in the lobby and absent players are benched until they join. `Profile` (`user://profile.cfg`)
+keeps unlock flags between runs (`act1_boss_beaten`, anything a module sets true in `run.meta`) and
+run counts; runs get a copy as `run.meta`.

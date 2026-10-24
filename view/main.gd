@@ -297,6 +297,8 @@ func _autoplay_step() -> void:
 		_autoplay_done = true
 		var res: String = Types.Result.keys()[state.result]
 		print("[autoplay] finished: turn %d, result %s, %d events, checksum %d" % [state.turn, res, state.log.size(), state.checksum()])
+		if session.get("run") != null:
+			return   # in a run the run view carries on to the next node
 		# Online, give the last network messages a moment to go out before quitting.
 		get_tree().create_timer(0.1 if session is LocalSession else 1.5).timeout.connect(func() -> void: get_tree().quit(0))
 		return

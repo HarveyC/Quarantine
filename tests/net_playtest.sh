@@ -5,6 +5,7 @@
 #   Scenario 1: host + client play a match.
 #   Scenario 2: the client crashes in the lobby and rejoins; it must come back as player 2 of 2
 #               (the v0.1.0 playtest bug made it player 3, with a ghost holding player 2's soldiers).
+#   Scenario 3: host + client play a whole roguelike run (route votes, nodes, fights) to the end.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
@@ -38,6 +39,15 @@ sleep 1; kill -9 $DEAD 2>/dev/null; wait $DEAD 2>/dev/null
 "$GODOT" --headless -- --join=127.0.0.1:$PORT2 --name=Client --autoplay >"$LOG/c2.txt" 2>&1 & C=$!
 wait $H; wait $C
 check "crash and rejoin in lobby" "$LOG/h2.txt" "$LOG/c2.txt"
+
+# Scenario 3
+PORT3=$((PORT + 2))
+"$GODOT" --headless -- --host=$PORT3 --name=Host --autostart=2 --autostart-run --autoplay >"$LOG/h3.txt" 2>&1 & H=$!
+sleep 2
+"$GODOT" --headless -- --join=127.0.0.1:$PORT3 --name=Client --autoplay >"$LOG/c3.txt" 2>&1 & C=$!
+wait $H; wait $C
+check "play a run" "$LOG/h3.txt" "$LOG/c3.txt"
+grep -q "run finished" "$LOG/h3.txt" || { echo "FAIL [play a run]: the run did not finish"; tail -5 "$LOG/h3.txt"; fail=1; }
 
 rm -rf "$LOG"
 exit $fail

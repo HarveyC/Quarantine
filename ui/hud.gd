@@ -215,7 +215,7 @@ func hide_tooltip() -> void:
 
 
 func show_end(result: int) -> void:
-	end_overlay.show_result(result, view.state.turn, view.session.can_restart())
+	end_overlay.show_result(result, view.state.turn, view.session.can_restart(), view.session.get("run") != null)
 
 
 func set_cinematic(on: bool) -> void:

@@ -22,8 +22,12 @@ const NAMES: Array[String] = [
 
 static func make(run: RunState, kind: String, owner: int, status: String = ACTIVE) -> Dictionary:
 	var stats: Dictionary = UnitData.SOLDIERS[kind]
+	var used := run.soldiers.map(func(o: Dictionary) -> String: return o.name)
+	var free := NAMES.filter(func(n: String) -> bool: return not used.has(n))
+	if free.is_empty():
+		free = NAMES
 	var r := {
-		"id": run.new_sid(), "kind": kind, "name": NAMES[run.rng.randi() % NAMES.size()], "owner": owner,
+		"id": run.new_sid(), "kind": kind, "name": free[run.rng.randi() % free.size()], "owner": owner,
 		"status": status, "hp": stats.max_hp, "max_hp": stats.max_hp, "infection": 0, "fights": 0,
 		"injuries": 0, "scars": [], "sit_out": 0, "gear": {},
 		"prog": RunHooks.call_static("Progression", "new_record", [kind], {"kind": kind, "rank": 1}),
@@ -35,7 +39,8 @@ static func make(run: RunState, kind: String, owner: int, status: String = ACTIV
 static func squad_entry(run: RunState, r: Dictionary) -> Dictionary:
 	return {"kind": r.kind, "player": run.controller_of(r), "sid": r.id, "name": r.name, "hp": r.hp,
 		"infection": r.infection, "prog": r.prog.duplicate(true), "gear": r.gear.duplicate(true),
-		"first_turn_action_loss": run.modifiers.get("first_turn_action_loss", []).has(r.id)}
+		"first_turn_action_loss": run.modifiers.get("first_turn_action_loss", []).has(r.id),
+		"doctrines": run.modifiers.get("doctrines", []).duplicate()}
 
 
 ## Called by Rules.new_mission for each squad entry carrying "sid": applies the persistent state.
@@ -66,5 +71,6 @@ static func absorb(r: Dictionary, u: Unit, fight_number: int) -> String:
 	r.hp = u.hp
 	r.infection = u.infection
 	r.fights += 1
+	RunHooks.call_static("GearRun", "absorb", [r, u])
 	RunHooks.call_static("Progression", "after_fight", [r.prog, u, fight_number])
 	return ACTIVE
