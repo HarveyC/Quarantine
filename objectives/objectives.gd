@@ -59,8 +59,6 @@ static func setup(s: GameState) -> void:
 					ids.append(_spawn_civilian(s, c).id)
 			s.objective.civilians = ids
 			s.objective.rescued = []
-		"purge":
-			s.objective.had_nests = false
 
 
 static func _spawn_civilian(s: GameState, c: Vector2i) -> Unit:
@@ -217,10 +215,9 @@ static func check(s: GameState) -> int:
 			# Killing everything only wins once no civilian is left to save.
 			return Types.Result.VICTORY if enemies_dead and _civilians(s).is_empty() else Types.Result.NONE
 		"purge":
-			var nests := s.living(Types.Team.ENEMY).filter(func(u: Unit) -> bool: return u.kind == NEST_KIND)
-			if not nests.is_empty():
-				s.objective.had_nests = true
-			elif s.objective.had_nests or s.units.any(func(u: Unit) -> bool: return u.kind == NEST_KIND):
+			# Dead units stay in s.units, so this needs no stored state.
+			var nests := s.units.filter(func(u: Unit) -> bool: return u.kind == NEST_KIND)
+			if not nests.is_empty() and not nests.any(func(u: Unit) -> bool: return u.is_alive()):
 				return Types.Result.VICTORY
 	return Types.Result.VICTORY if enemies_dead else Types.Result.NONE
 
