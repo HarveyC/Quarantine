@@ -29,7 +29,7 @@ const OBJECTIVE_MIN_STEPS := 5            # civilians, nests, hive
 const FULL_COVER := Vector2(0.04, 0.24)   # share of all tiles
 const HALF_COVER := Vector2(0.05, 0.22)
 const DEAD_GROUND := 3                    # every floor tile within this many tiles of cover
-const MAX_SIGHTLINE := 10                 # longest straight open run in a row or column
+const MAX_SIGHTLINE := 12                 # longest straight open run in a row or column
 const REINFORCE_MIN_STEPS := 6
 const LANE_COVER_CHANCE := 0.08
 
