@@ -51,6 +51,31 @@ func test_all_ready_runs_enemy_phase_and_next_turn() -> void:
 	assert_true(s.turn == 2 or s.phase == Types.Phase.ENDED, "advanced to turn 2")
 
 
+func test_player_with_no_soldiers_is_ready_automatically() -> void:
+	var s := make_state()
+	Rules.start_mission(s)
+	for u in s.controllable_units(1):
+		u.hp = 0
+	Rules.start_team_phase(s)
+	assert_eq(s.ready.get(1), true, "player 2 has nobody left, so is ready")
+	Rules.set_ready(s, 1, false)
+	assert_eq(s.ready.get(1), true, "can't unready with no soldiers")
+	var turn := s.turn
+	Rules.set_ready(s, 0, true)
+	assert_true(s.turn == turn + 1 or s.phase == Types.Phase.ENDED, "player 1 alone ends the team phase")
+
+
+func test_losing_last_soldier_mid_phase_readies_that_player() -> void:
+	var s := make_state()
+	Rules.start_mission(s)
+	Rules.set_ready(s, 1, true)
+	for u in s.controllable_units(0):
+		u.hp = 0
+	var mover := s.controllable_units(1)[0]
+	assert_true(Rules.apply(s, {"type": Types.HUNKER, "unit": mover.id}), "player 2 still acts")
+	assert_true(s.turn == 2 or s.phase == Types.Phase.ENDED, "phase ends without player 1 readying")
+
+
 func test_unit_round_trips_through_dict() -> void:
 	var u := UnitData.make("medic", Types.Team.PLAYER)
 	u.pos = Vector2i(3, 4)

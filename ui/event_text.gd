@@ -15,6 +15,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"enemy_phase":
 			return _c("--- Enemy phase ---", Palette.DANGER)
 		"ready":
+			if ev.get("auto", false):
+				return _c("Player %d has no soldiers left to act, ready" % (int(ev.get("player", 0)) + 1), Color(0.6, 0.6, 0.6))
 			return _c("Player %d %s" % [int(ev.get("player", 0)) + 1, "is ready" if ev.get("ready", false) else "is not ready"], Color(0.6, 0.6, 0.6))
 		"rejected":
 			return _c("Rejected: %s" % str(ev.get("reason", "")), Color(0.75, 0.5, 0.45))
