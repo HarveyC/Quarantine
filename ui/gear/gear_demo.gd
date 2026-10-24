@@ -1,6 +1,6 @@
 extends Control
 ## Standalone preview of the gear screens on a seeded solo run, without playing the map:
-##   godot res://scenes/gear_demo.tscn -- [--screen=reward|loadout|doctrine|kit] [--shot=out.png]
+##   godot res://scenes/gear_demo.tscn -- [--screen=reward|guns|loadout|doctrine|kit] [--shot=out.png]
 
 const UI := preload("res://ui/gear/gear_ui.gd")
 
@@ -29,7 +29,7 @@ func _ready() -> void:
 	if screen == "loadout" and _preview != "":
 		ctl._held = Loadout.stash(run).find_custom(func(it): return it.id == _preview)
 		ctl._set_preview(_preview)
-	if screen == "reward":
+	if screen == "reward" or screen == "guns":
 		ctl._sid = run.squad()[1].id   # open on the Marksman, whose offer shows each card state
 		ctl._refresh()
 		if _shot != "":
@@ -52,6 +52,10 @@ static func make_run(screen: String) -> RunState:
 	for i in sq.size():
 		for id in kits[i]:
 			Loadout.equip(r, sq[i], id)
+	for i in sq.size():   # a spare gun each; half of them carry theirs
+		var alts := Weapons.alternates_for(sq[i].kind)
+		if not alts.is_empty():
+			Loadout.add_gun(sq[i], alts[0], i % 2 == 0)
 	Loadout.add_consumable(sq[0], "frag_grenade", 2)
 	Loadout.add_consumable(sq[0], "medkit", 1)
 	Loadout.add_consumable(sq[2], "suppressant_shot", 2)
@@ -64,12 +68,15 @@ static func make_run(screen: String) -> RunState:
 	if screen == "doctrine":
 		r.phase = RunState.Phase.REWARD
 		GearRun._open_doctrine_vote(r)
-	elif screen == "reward":
+	elif screen == "reward" or screen == "guns":
 		r.phase = RunState.Phase.REWARD
 		GearRun.on_fight_won(r, "skirmish")
-		# Make the Marksman's offer show a set completion, an upgrade and a Prototype.
+		# Make the Marksman's offer show a set completion, an upgrade and a Prototype (or guns).
 		r.gear.offers[sq[1].id].cards = [GearRun._gear_card("flare_launcher"), GearRun._gear_card("tracer_rounds"),
 			GearRun._gear_card("killbox")]
+		if screen == "guns":
+			r.gear.offers[sq[1].id].cards = [{"kind": "gun", "id": "battle_rifle", "rarity": "uncommon", "tags": ["Suppress"]}, GearRun._gear_card("flare_launcher"),
+				{"kind": "gun", "id": "scout_carbine", "rarity": "uncommon", "tags": ["Close"]}]
 		var first: Dictionary = r.gear.offers[sq[1].id]
 		r.gear.offers.erase(sq[1].id)
 		var rest: Dictionary = r.gear.offers.duplicate()

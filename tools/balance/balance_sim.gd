@@ -6,7 +6,8 @@ extends SceneTree
 ##
 ## Args: squad (comma classes), act (1-3), node (skirmish|nest|boss), outbreak, n (fights),
 ## seed (first seed), enemies (comma enemy specs: overrides FightBuilder), rank (default by act),
-## tag (free text echoed in every line).
+## tag (free text echoed in every line), guns (comma weapon ids lined up with squad; "-" keeps
+## the signature gun).
 
 const SquadBot := preload("res://tools/balance/squad_bot.gd")
 const TURN_CAP := 25
@@ -28,12 +29,12 @@ func _init() -> void:
 	for i in n:
 		var seed := seed0 + i
 		print(JSON.stringify(run_fight(squad_kinds, act, node, int(args.get("outbreak", 0)), seed, rank,
-			str(args.get("enemies", "")), str(args.get("tag", "")))))
+			str(args.get("enemies", "")), str(args.get("tag", "")), str(args.get("guns", "")))))
 	quit(0)
 
 
 func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, seed: int, rank: int,
-		enemy_override: String, tag: String) -> Dictionary:
+		enemy_override: String, tag: String, guns: String = "") -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed * 31 + 7
 	var squad: Array = []
@@ -62,6 +63,12 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var config := {"map": MatchConfig.MAP, "squad": squad, "enemies": enemies, "encounter": enc, "seed": seed,
 		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak}}
 	var s := MatchConfig.build(config)
+	if guns != "":
+		var gl := guns.split(",")
+		var sq := s.units.filter(func(u): return Kit.is_soldier(u))
+		for i in mini(gl.size(), sq.size()):
+			if gl[i] != "-":
+				Weapons.equip_unit(sq[i], gl[i])
 	var stats := {}   # unit id -> {dealt, taken, kills}
 	for u in s.units:
 		stats[u.id] = {"dealt": 0, "taken": 0}
@@ -94,7 +101,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		var st: Dictionary = stats.get(u.id, {"dealt": 0, "taken": 0})
 		if Kit.is_soldier(u) or u.status.has("turned"):
 			soldiers.append({"kind": u.kind, "max_hp": u.max_hp, "hp": u.hp, "dealt": st.dealt, "taken": st.taken,
-				"kills": int(u.status.get("kills", 0)), "infection": u.infection, "turned": u.status.get("turned", false)})
+				"kills": int(u.status.get("kills", 0)), "weapon": Weapons.id_of(u), "infection": u.infection, "turned": u.status.get("turned", false)})
 		elif u.team == Types.Team.ENEMY and not Objectives.is_civilian(u):
 			foes.append({"kind": u.kind, "elite": u.status.get("elite", false), "max_hp": u.max_hp,
 				"alive": u.is_alive(), "dealt": st.dealt, "taken": st.taken})

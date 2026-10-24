@@ -1,6 +1,6 @@
 extends TestCase
 
-const OPS := ["supplies", "intel", "outbreak", "infection", "heal_pct", "hurt_pct", "mutation",
+const OPS := ["gun", "supplies", "intel", "outbreak", "infection", "heal_pct", "hurt_pct", "mutation",
 	"remove_mutation", "perk_pick", "serum", "recruit", "item", "modifier", "mark", "fight",
 	"send_home", "chance", "if_infected", "sit_out"]
 
@@ -318,18 +318,32 @@ func test_depot_stock_and_buy() -> void:
 	var run := _run()
 	run.supplies = 300
 	var ns := NodeRules.enter(run, "depot")
-	assert_eq(ns.stock.size(), 7, "7 items")
-	assert_eq(ns.stock.map(func(e): return e.type), ["gear", "gear", "consumable", "consumable", "consumable", "serum", "service"], "layout")
+	assert_eq(ns.stock.size(), 8, "8 items")
+	assert_eq(ns.stock.map(func(e): return e.type), ["gear", "gear", "gun", "consumable", "consumable", "consumable", "serum", "service"], "layout")
 	assert_true(not _act(run, "node_buy", 0, {"index": 0, "soldier": 3}), "only your own soldiers")
 	var price: int = ns.stock[0].price
 	assert_true(_act(run, "node_buy", 0, {"index": 0, "soldier": 1}), "buy gear")
 	assert_eq(run.supplies, 300 - price, "paid")
 	assert_true(not _act(run, "node_buy", 1, {"index": 0, "soldier": 3}), "sold out")
-	assert_true(_act(run, "node_buy", 1, {"index": 5}), "buy serum")
+	assert_true(_act(run, "node_buy", 1, {"index": 6}), "buy serum")
 	assert_eq(run.serum[1], 4, "+1 dose")
-	assert_true(not _act(run, "node_buy", 0, {"index": 5}), "serum once per depot")
-	assert_true(_act(run, "node_buy", 0, {"index": 2, "soldier": 2}), "buy consumable")
-	assert_eq(Loadout.pockets(run.get_soldier(2))[0].id, ns.stock[2].id, "in pocket")
+	assert_true(not _act(run, "node_buy", 0, {"index": 6}), "serum once per depot")
+	assert_true(_act(run, "node_buy", 0, {"index": 3, "soldier": 2}), "buy consumable")
+	assert_eq(Loadout.pockets(run.get_soldier(2))[0].id, ns.stock[3].id, "in pocket")
+
+
+func test_depot_sells_guns_for_the_right_class() -> void:
+	var run := _run()
+	run.supplies = 300
+	var ns := NodeRules.enter(run, "depot")
+	ns.stock[2].id = "battle_rifle"
+	ns.stock[2].price = Weapons.price("battle_rifle")
+	var trooper := _s(run, "trooper")
+	var breacher := _s(run, "breacher")
+	assert_true(NodeRules.validate(run, {"type": "node_buy", "player": breacher.owner, "index": 2, "soldier": breacher.id}).contains("can't use it"), "wrong class")
+	assert_true(_act(run, "node_buy", trooper.owner, {"index": 2, "soldier": trooper.id}), "buy gun")
+	assert_eq(Loadout.gun(trooper), "battle_rifle", "carried at once")
+	assert_eq(run.supplies, 300 - 55, "Uncommon gun price")
 
 
 func test_depot_armorer_reroll_sell_quartermaster() -> void:
@@ -337,15 +351,15 @@ func test_depot_armorer_reroll_sell_quartermaster() -> void:
 	run.supplies = 200
 	Loadout.equip(run, run.get_soldier(1), "laser_sight")
 	var ns := NodeRules.enter(run, "depot")
-	ns.stock[6].id = "armorer"
-	assert_true(not _act(run, "node_buy", 0, {"index": 6, "soldier": 1, "slot": "ammo"}), "empty slot")
-	assert_true(_act(run, "node_buy", 0, {"index": 6, "soldier": 1, "slot": "weapon"}), "armorer")
+	ns.stock[7].id = "armorer"
+	assert_true(not _act(run, "node_buy", 0, {"index": 7, "soldier": 1, "slot": "ammo"}), "empty slot")
+	assert_true(_act(run, "node_buy", 0, {"index": 7, "soldier": 1, "slot": "weapon"}), "armorer")
 	assert_eq(run.get_soldier(1).gear.slots.weapon.mk, 2, "Mk II")
 	assert_eq(run.supplies, 170, "30 for a Common")
-	var before: Array = ns.stock.slice(0, 5)
+	var before: Array = ns.stock.slice(0, 6)
 	assert_true(_act(run, "node_reroll", 1), "reroll")
 	assert_eq(run.supplies, 150, "first reroll 20")
-	assert_true(ns.stock[6].sold, "service kept")
+	assert_true(ns.stock[7].sold, "service kept")
 	_act(run, "node_reroll", 1)
 	assert_eq(run.supplies, 115, "then 35")
 	assert_true(_act(run, "node_sell", 0, {"soldier": 1, "slot": "weapon"}), "sell")
