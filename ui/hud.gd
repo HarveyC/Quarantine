@@ -15,6 +15,7 @@ const TargetPanel := preload("res://ui/target_panel.gd")
 const Nameplates := preload("res://ui/nameplates.gd")
 const CombatLog := preload("res://ui/combat_log.gd")
 const EndOverlay := preload("res://ui/end_overlay.gd")
+const FightDebrief := preload("res://ui/fight_debrief.gd")
 const CinematicOverlay := preload("res://ui/cinematic_overlay.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const InputController := preload("res://view/input_controller.gd")
@@ -31,11 +32,14 @@ var target_panel: TargetPanel
 var nameplates: Nameplates
 var combat_log: CombatLog
 var end_overlay: EndOverlay
+## Run fights end on this instead of the overlay: banner, squad summary, then on to the rewards.
+var debrief: FightDebrief
 var cine_overlay: CinematicOverlay
 ## HUD pieces hidden while a shot cinematic plays.
 var _tactical: Array[Control] = []
 var _tactical_a := 1.0
 var _cinematic := false
+var _debriefing := false
 var _turn_label: Label
 var _phase_squad: PanelContainer
 var _phase_enemy: PanelContainer
@@ -70,12 +74,13 @@ func setup(v: MissionView) -> void:
 	_build_bottom()
 	_build_overlays()
 	for c in get_children():
-		if c is Control and c != _banner and c != _toast and c != end_overlay:
+		if c is Control and c != _banner and c != _toast and c != end_overlay and c != debrief:
 			_tactical.append(c)
 	cine_overlay = CinematicOverlay.new()
 	cine_overlay.build()
 	add_child(cine_overlay)
 	move_child(end_overlay, get_child_count() - 1)
+	move_child(debrief, get_child_count() - 1)
 	refresh()
 
 
@@ -189,6 +194,9 @@ func _build_overlays() -> void:
 	end_overlay.restart_pressed.connect(func() -> void: view.restart())
 	end_overlay.leave_pressed.connect(func() -> void: view.leave())
 	add_child(end_overlay)
+	debrief = FightDebrief.new()
+	debrief.finished.connect(view.on_debrief_finished)
+	add_child(debrief)
 
 
 # --- updates -----------------------------------------------------------------
@@ -269,6 +277,8 @@ func toast(text: String) -> void:
 ## when the selected soldier could shoot it.
 func show_tooltip(uv: UnitView) -> void:
 	hide_tooltip()
+	if _debriefing:
+		return
 	var col := Styles.player_color(uv.owner_player) if uv.is_soldier else Styles.DANGER
 	var f := W.Frame.new(Vector4(12, 9, 12, 10))
 	f.custom_minimum_size = Vector2(230, 0)
@@ -329,7 +339,12 @@ func hide_tooltip() -> void:
 
 
 func show_end(result: int) -> void:
-	end_overlay.show_result(result, view.state.turn, view.session.can_restart(), view.session.get("run") != null)
+	if view.session.get("run") != null:
+		_debriefing = true
+		hide_tooltip()
+		debrief.play(view.state, view.session, view.autoplay)
+		return
+	end_overlay.show_result(result, view.state.turn, view.session.can_restart(), false)
 
 
 func set_cinematic(on: bool) -> void:
@@ -356,7 +371,7 @@ func _process(delta: float) -> void:
 	_banner_t = maxf(0.0, _banner_t - delta)
 	_toast.modulate.a = clampf(_toast_t / 0.4, 0.0, 1.0)
 	_banner.modulate.a = clampf(_banner_t / 0.4, 0.0, 1.0)
-	_tactical_a = move_toward(_tactical_a, 0.0 if _cinematic else 1.0, delta * 6.0)
+	_tactical_a = move_toward(_tactical_a, 0.0 if _cinematic or _debriefing else 1.0, delta * 6.0)
 	for c in _tactical:
 		c.modulate.a = _tactical_a
 		c.visible = _tactical_a > 0.01

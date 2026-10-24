@@ -264,6 +264,8 @@ static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = 
 	Kit.after_damage(s, target, amount, source)
 	if not target.is_alive():
 		target.overwatch = false
+		if source != null and source.is_enemy_of(target):
+			source.status["kills"] = int(source.status.get("kills", 0)) + 1
 		s.emit({"type": "died", "unit": target.id})
 		Encounter.on_died(s, target)
 		Kit.on_death(s, target, source)

@@ -20,6 +20,8 @@ const IntentOverlay := preload("res://view/intent_overlay.gd")
 const FogOverlay := preload("res://view/fog_overlay.gd")
 
 signal left_match
+## A run fight's debrief was continued or skipped; the app moves on to the run view.
+signal debrief_finished
 
 const MAP := "res://maps/mission_01.txt"
 const AUTOPLAY_MAX_TURNS := 30
@@ -41,6 +43,7 @@ var unit_views: Dictionary = {}   # unit id -> UnitView
 var intents: IntentOverlay
 var fog: FogOverlay
 var autoplay := false
+var debrief_done := false
 var screenshot_path := ""
 var _frames := 0
 var _autoplay_done := false
@@ -105,6 +108,7 @@ static func fight_mission(arg: String, seed: int = 0) -> GameState:
 func start(s: GameState, begin := true) -> void:
 	_teardown()
 	state = s
+	debrief_done = false
 	if session == null:
 		session = LocalSession.new()
 	if session is LocalSession:
@@ -170,6 +174,11 @@ func start(s: GameState, begin := true) -> void:
 	face_threats(true)
 	if begin:
 		Rules.start_mission(s)
+
+
+func on_debrief_finished() -> void:
+	debrief_done = true
+	debrief_finished.emit()
 
 
 func restart() -> void:
