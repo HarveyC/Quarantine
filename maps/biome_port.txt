@@ -1,0 +1,492 @@
+; Act 2 biome "Port Ardent": the colony capital. Tram boulevards, apartment blocks, the
+; Halden-Voss labs and the harbour cranes. Read by MapGen (mapgen/map_gen.gd).
+; Same format as maps/biome_wall.txt (see its header for the glyphs, roles and plots).
+;
+; The breach role here is the Cordon's inner barricade line across a boulevard: overturned
+; trams, buses and sealed shopfronts. Port maps lean on rooftops and gantries for high ground
+; and on narrow streets between solid blocks for full cover.
+
+; ---------------------------------------------------------------- deploy
+@deploy tram_stop
+=##=
+.PP.
+.PP.
+....
+
+@deploy kerbside
+=.=.
+P..P
+.PP.
+....
+
+@deploy cordon_van
+.##.
+P..P
+=PP=
+....
+
+@deploy dock_gate
+.=.=
+.PP.
+P..P
+....
+
+; ---------------------------------------------------------------- breach (the inner barricade)
+@breach overturned_trams
+.=..
+##.#
+..=.
+....
+
+@breach barricade_gap
+....
+#..#
+=..=
+....
+
+@breach bus_wreck
+..=.
+###.
+....
+=...
+
+@breach shopfront
+.=.=
+#.##
+....
+.=..
+
+@breach sealed_block
+=..=
+####
+.=..
+....
+
+; ---------------------------------------------------------------- enemy pods
+@pod market_stalls
+=.=.
+E..E
+.=..
+..E.
+
+@pod apartment_lobby
+##..
+#E.E
+..=.
+.E..
+
+@pod lab_benches
+=E=.
+....
+.E=E
+....
+
+@pod parked_cars
+.==.
+E..E
+....
+.E=.
+
+@pod fountain
+.E..
+E##E
+.##.
+....
+
+@pod balcony
+^^^/
+E..E
+.=..
+..E.
+
+@pod cafe_terrace
+=.=E
+.E..
+=..=
+E...
+
+@pod loading_bay
+.##.
+E..E
+.=..
+E..=
+
+; ---------------------------------------------------------------- towers (high ground)
+@tower tram_gantry
+.=..
+^^^^
+/..=
+....
+
+@tower office_roof
+^^^.
+^%^.
+^^/.
+....
+
+@tower billboard
+.%%.
+.^^.
+./#.
+....
+
+@tower crane_cab
+/^^.
+.^%.
+.^^.
+...=
+
+@tower parking_deck
+%^^/
+^^^.
+....
+.=..
+
+@tower lab_annex
+=^^/
+.%^.
+....
+=...
+
+@tower sky_bridge
+....
+%^^^
+=../
+....
+
+; ---------------------------------------------------------------- filler
+@filler street_corner
+#...
+#.=.
+....
+..?.
+
+@filler news_kiosk
+....
+.#=.
+....
+=..?
+
+@filler planters
+=..=
+....
+.==.
+....
+
+@filler parked_van
+....
+.##=
+....
+?...
+
+@filler tram_tracks
+.=..
+....
+..=.
+?..?
+
+@filler lab_crates
+==..
+....
+..==
+....
+
+@filler shop_ruin
+##..
+#...
+..?=
+....
+
+@filler bench_row
+=.=.
+....
+....
+.=.=
+
+@filler bus_shelter
+.#..
+.=..
+...?
+=...
+
+@filler rubble_heap
+?..?
+.#..
+..?.
+?...
+
+@filler stoop
+....
+/^^.
+.^%.
+....
+
+@filler sandbagged_door
+.==.
+#..#
+....
+..?.
+
+; ---------------------------------------------------------------- objectives
+@evac tram_depot
+=..=
+.OO.
+.OO.
+=..=
+
+@evac harbour_slip
+.==.
+.OO.
+.OO.
+....
+
+@beacon comms_van
+OOO=
+OOO.
+OOO=
+=.=.
+
+@beacon lab_uplink
+=...
+.OOO
+.OOO
+=OOO
+
+@rescue lab_cell
+#.##
+#O.#
+#..#
+##.#
+
+@rescue apartment
+.##.
+#OO.
+#..=
+..=.
+
+@nest culture_vat
+.?..
+.O..
+..=.
+=...
+
+@nest sewer_grate
+=..=
+.O..
+...?
+..=.
+
+@hive lab_core
+.=.=
+....
+.O..
+=..?
+
+@hive bloom_tram
+##..
+..O.
+=...
+..=.
+
+; ---------------------------------------------------------------- multi-level (port)
+@tower fire_escape
+s^^.
+.^2$
+.^S2
+...=
+
+@tower stair_tower
+.^^^
+s^%^
+.^^^
+....
+
+@tower billboard_gantry
+^^^.
+^$|.
+^^^/
+....
+
+@tower scaffolding
+~~~.
+~%~.
+~~~/
+...=
+
+@pod rooftop_pod
+^e^/
+e^%.
+....
+.=E.
+
+@pod balcony_pod
+.E..
+s^e^
+.^^^
+=...
+
+@filler bus_stop_steps
+....
+.s^.
+..^%
+....
+
+@landmark gantry_crane
+...=....
+.~~~~~~.
+.~2222~.
+/~2$$2~.
+.~2S^2~/
+.~~^^~~.
+..s.....
+....=...
+
+@landmark lab_tower
+......=.
+.^^^^^^.
+.^2222^.
+.^2##2^s
+S^2##2^.
+.^^^^^^.
+...s^%^.
+.=......
+
+@landmark tram_depot
+........
+##^^^^##
+.^S22^^.
+./^2$^/.
+..^^^^..
+...ss...
+.=....=.
+........
+
+@landmark apartment_block
+........
+.^^^^^^.
+.^%^^2^.
+s^^^S2$.
+.^^^^22.
+.^%^^^^/
+.^^^^^^.
+........
+
+; ---------------------------------------------------------------- plots
+@plot skirmish boulevard lanes=1
+ETFE
+FFET
+BBBB
+FTDF
+
+@plot skirmish harbour_front lanes=1
+EFTE
+TFEF
+FFFT
+FDFF
+
+@plot skirmish lab_quarter lanes=0
+EFTE
+FETF
+BBBF
+TFFD
+
+@plot extract tram_run lanes=0
+FOTF
+EFFE
+BBBB
+FTFF
+FFDF
+
+@plot extract docks_run lanes=0
+OFTF
+FETF
+EFFE
+TFFF
+FFFD
+
+@plot hold plaza lanes=1
+ETFE
+FTOF
+FFFT
+FDFF
+
+@plot hold barricade_hold lanes=1
+EFTE
+TBOB
+FFTF
+FDFF
+
+@plot rescue lab_beyond lanes=1
+EFOE
+TFFT
+BBBB
+FFDF
+
+@plot rescue block_rescue lanes=1
+ETFO
+FFEF
+TFFF
+DFFT
+
+@plot purge vats lanes=1
+OETO
+EFOF
+TFFT
+FFDF
+
+@plot purge market_nests lanes=1
+OETO
+BBOB
+FTFE
+FFDF
+
+@plot elite hive_lab lanes=0
+EOTE
+BBBB
+FTFF
+FFDF
+
+@plot elite hive_docks lanes=0
+FOET
+ETFF
+FFFT
+FFDF
+
+@plot boss hale_plaza lanes=0
+FEEEF
+TFFFT
+FFFFF
+TFFFT
+FFDFF
+
+; Landmark plots: one big multi-level building in the middle of the fight.
+@plot skirmish port_landmark lanes=0
+EFTE
+FLLF
+FLLE
+FTDF
+
+@plot extract port_landmark_run lanes=0
+FOTE
+ELLF
+FLLE
+TFFF
+FFDF
+
+@plot hold port_landmark_hold lanes=0
+EFTE
+FOLL
+FTLL
+FDFF
+
+@plot purge port_landmark_purge lanes=0
+OETO
+ELLF
+FLLO
+FTDF
+
+@plot elite port_landmark_hive lanes=0
+EOTE
+FLLF
+TLLF
+FFDF

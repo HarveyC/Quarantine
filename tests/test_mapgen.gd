@@ -4,8 +4,12 @@ extends TestCase
 const OBJECTIVES: Array[String] = ["skirmish", "extract", "hold", "rescue", "purge", "elite", "boss"]
 
 
-func _spec(objective: String, seed: int) -> Dictionary:
-	return {"biome": "wall", "objective": objective, "seed": seed}
+## One biome per act: The Wall, Port Ardent, The Bore.
+const BIOMES: Array[String] = ["wall", "port", "bore"]
+
+
+func _spec(objective: String, seed: int, biome := "wall") -> Dictionary:
+	return {"biome": biome, "objective": objective, "seed": seed}
 
 
 func test_same_spec_same_map() -> void:
@@ -23,26 +27,27 @@ func test_different_seeds_give_different_layouts() -> void:
 
 
 func test_every_objective_generates_valid_maps() -> void:
-	for o in OBJECTIVES:
-		for seed in range(1, 41):
-			var g := MapGen.generate(_spec(o, seed))
-			var tag := "%s seed %d" % [o, seed]
-			assert_true(not g.markers.is_empty(), tag + " did not fall back to the handmade map")
-			assert_true(g.width >= 16 and g.width <= 20 and g.height >= 16 and g.height <= 20, tag + " size")
-			assert_eq(g.biome, "wall", tag + " biome")
-			assert_true(g.player_spawns.size() >= 4, tag + " deploy cells")
-			assert_true(g.enemy_spawns.size() >= MapGen.MIN_ENEMY_SPAWNS, tag + " enemy spawns")
-			var reach := g.reachable(g.player_spawns[0], 999)
-			for c in g.player_spawns + g.enemy_spawns:
-				assert_true(reach.has(c), "%s spawn %s reachable" % [tag, c])
-			for k in g.markers:
-				for c in g.markers[k]:
-					assert_true(reach.has(c), "%s marker %s %s reachable" % [tag, k, c])
-			for y in g.height:
-				for x in g.width:
-					if g.is_walkable(Vector2i(x, y)):
-						assert_true(reach.has(Vector2i(x, y)), "%s no sealed-off floor" % tag)
-			assert_true(g.marker("reinforce").size() >= 4, tag + " reinforcement cells")
+	for biome in BIOMES:
+		for o in OBJECTIVES:
+			for seed in range(1, 41):
+				var g := MapGen.generate(_spec(o, seed, biome))
+				var tag := "%s %s seed %d" % [biome, o, seed]
+				assert_true(not g.markers.is_empty(), tag + " did not fall back to the handmade map")
+				assert_true(g.width >= 16 and g.width <= 20 and g.height >= 16 and g.height <= 20, tag + " size")
+				assert_eq(g.biome, biome, tag + " biome")
+				assert_true(g.player_spawns.size() >= 4, tag + " deploy cells")
+				assert_true(g.enemy_spawns.size() >= MapGen.MIN_ENEMY_SPAWNS, tag + " enemy spawns")
+				var reach := g.reachable(g.player_spawns[0], 999)
+				for c in g.player_spawns + g.enemy_spawns:
+					assert_true(reach.has(c), "%s spawn %s reachable" % [tag, c])
+				for k in g.markers:
+					for c in g.markers[k]:
+						assert_true(reach.has(c), "%s marker %s %s reachable" % [tag, k, c])
+				for y in g.height:
+					for x in g.width:
+						if g.is_walkable(Vector2i(x, y)):
+							assert_true(reach.has(Vector2i(x, y)), "%s no sealed-off floor" % tag)
+				assert_true(g.marker("reinforce").size() >= 4, tag + " reinforcement cells")
 
 
 func test_objective_markers() -> void:
@@ -71,8 +76,8 @@ func test_pods_sit_inside_two_moves() -> void:
 
 
 func test_unknown_biome_and_objective_fall_back_to_act_1_skirmish() -> void:
-	var g := MapGen.generate({"biome": "port", "objective": "nonsense", "seed": 5})
-	assert_eq(g.biome, "wall", "port uses the wall parcels until it has its own")
+	var g := MapGen.generate({"biome": "moon", "objective": "nonsense", "seed": 5})
+	assert_eq(g.biome, "wall", "a biome without a parcel file uses the wall parcels")
 	assert_true(g.width >= 16, "skirmish size")
 
 
@@ -110,22 +115,31 @@ func test_mission_starts_on_generated_map() -> void:
 
 
 func test_every_map_has_climbable_high_ground() -> void:
-	for o in ["skirmish", "extract", "hold", "rescue", "purge", "elite", "boss"]:
-		for seed in range(1, 11):
-			var g := MapGen.generate(_spec(o, seed))
-			var tag := "%s seed %d" % [o, seed]
-			var dist := g.reachable(g.player_spawns[0], 9999)
-			var roofs := 0
-			for y in g.height:
-				for x in g.width:
-					if g.level(Vector2i(x, y)) > 0 and dist.has(Vector2i(x, y)):
-						roofs += 1
-			assert_true(roofs >= 4, tag + " has reachable high ground (got %d)" % roofs)
-			for l in g.ladders.keys() + g.stairs.keys():
-				assert_true(g.is_walkable(l), tag + " ladder or stairs on open ground")
+	for biome in BIOMES:
+		for o in OBJECTIVES:
+			for seed in range(1, 11):
+				var g := MapGen.generate(_spec(o, seed, biome))
+				var tag := "%s %s seed %d" % [biome, o, seed]
+				var dist := g.reachable(g.player_spawns[0], 9999)
+				var roofs := 0
+				for y in g.height:
+					for x in g.width:
+						if g.level(Vector2i(x, y)) > 0 and dist.has(Vector2i(x, y)):
+							roofs += 1
+				assert_true(roofs >= 4, tag + " has reachable high ground (got %d)" % roofs)
+				for l in g.ladders.keys() + g.stairs.keys():
+					assert_true(g.is_walkable(l), tag + " ladder or stairs on open ground")
 
 
 func test_landmark_plots_place_a_big_building() -> void:
+	for biome in ["port", "bore"]:
+		var d := MapGen.parse(FileAccess.get_file_as_string("res://maps/biome_%s.txt" % biome))
+		assert_true(d.parcels.get("landmark", []).size() >= 3, biome + " has landmark buildings")
+		var tall := 0
+		for seed in range(1, 31):
+			if MapGen.generate(_spec("skirmish", seed, biome)).levels.has(2):
+				tall += 1
+		assert_true(tall >= 5, "%s upper roofs show up (%d/30)" % [biome, tall])
 	var data := MapGen.parse(FileAccess.get_file_as_string("res://maps/biome_wall.txt"))
 	assert_true(data.parcels.get("landmark", []).size() >= 3, "act 1 has landmark buildings")
 	for lm in data.parcels.landmark:
@@ -148,10 +162,27 @@ func test_landmark_plots_place_a_big_building() -> void:
 
 
 func test_every_cell_can_walk_back_to_the_drop_zone() -> void:
-	for o in OBJECTIVES:
-		for seed in range(1, 16):
-			var g := MapGen.generate(_spec(o, seed))
-			var start := g.player_spawns[0]
-			var back := MapGen._can_return(g, [start])
-			for c in g.reachable(start, 9999):
-				assert_true(back.has(c), "%s seed %d: %s can get back" % [o, seed, c])
+	for biome in BIOMES:
+		for o in OBJECTIVES:
+			for seed in range(1, 16):
+				var g := MapGen.generate(_spec(o, seed, biome))
+				var start := g.player_spawns[0]
+				var back := MapGen._can_return(g, [start])
+				for c in g.reachable(start, 9999):
+					assert_true(back.has(c), "%s %s seed %d: %s can get back" % [biome, o, seed, c])
+
+
+func test_each_act_has_its_own_parcels() -> void:
+	var wall := MapGen.generate(_spec("skirmish", 7, "wall"))
+	for biome in ["port", "bore"]:
+		var data := MapGen.parse(FileAccess.get_file_as_string("res://maps/biome_%s.txt" % biome))
+		var count := 0
+		for role in data.parcels:
+			count += data.parcels[role].size()
+		assert_true(count >= 30, "%s has at least 30 parcels (got %d)" % [biome, count])
+		assert_true(data.plots.size() >= 8, "%s has at least 8 plots" % biome)
+		for o in OBJECTIVES:
+			assert_true(data.plots.any(func(p: Dictionary) -> bool: return p.objectives.has(o)), "%s has a %s plot" % [biome, o])
+		assert_true(MapGen.generate(_spec("skirmish", 7, biome)).tiles != wall.tiles, biome + " lays out its own map")
+	for act in [1, 2, 3]:
+		assert_eq(RunMap.biome(act), BIOMES[act - 1], "act %d biome" % act)

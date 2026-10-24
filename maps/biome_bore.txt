@@ -1,0 +1,482 @@
+; Act 3 biome "The Bore": the 9 km terraforming shaft under Port Ardent. Mine galleries,
+; drill gantries, ore hoppers and caverns overgrown by the Bloom. Read by MapGen
+; (mapgen/map_gen.gd). Same format as maps/biome_wall.txt (see its header).
+;
+; The breach role here is a fault line: a rock seam across the gallery with a few cut
+; passages. Bore maps are tighter than the surface: more full cover from rock pillars,
+; fewer lanes, and high ground on mining gantries and rock shelves.
+
+; ---------------------------------------------------------------- deploy
+@deploy cage_landing
+=##=
+.PP.
+.PP.
+....
+
+@deploy rail_spur
+=..=
+P..P
+.PP.
+....
+
+@deploy lamp_station
+.==.
+P..P
+.PP.
+....
+
+@deploy shelter_bay
+=..=
+.PP.
+P..P
+....
+
+; ---------------------------------------------------------------- breach (the fault line)
+@breach cut_passage
+.=..
+##.#
+....
+..=.
+
+@breach twin_cuts
+....
+#..#
+.=.=
+....
+
+@breach rockfall
+..=.
+###.
+....
+=...
+
+@breach seam
+=..=
+####
+..=.
+....
+
+@breach shored_gap
+.=..
+#.##
+...=
+....
+
+; ---------------------------------------------------------------- enemy pods
+@pod ore_carts
+.=..
+E.E=
+.=..
+..E.
+
+@pod pillar_hall
+#..#
+.E.E
+....
+E.=.
+
+@pod drill_head
+.##.
+E..E
+.=..
+..E.
+
+@pod spore_chimney
+..E.
+E#..
+.#.E
+=...
+
+@pod collapsed_bay
+==..
+E..E
+..#.
+.E..
+
+@pod gantry_foot
+^^^/
+E..E
+.=..
+..E.
+
+@pod root_cluster
+.E..
+%^/E
+^^..
+.E.=
+
+@pod hopper_floor
+=..=
+.E.E
+.#..
+E...
+
+; ---------------------------------------------------------------- towers (high ground)
+@tower drill_gantry
+.=..
+^^^^
+/..=
+....
+
+@tower rock_shelf
+^^^.
+^%^.
+^^/.
+....
+
+@tower hopper_top
+.%%.
+.^^.
+./#.
+....
+
+@tower survey_scaffold
+/^^.
+.^%.
+.^^.
+...=
+
+@tower conveyor_deck
+%^^/
+^^^.
+....
+.=..
+
+@tower pump_house
+=^^/
+.%^.
+....
+..=.
+
+@tower cable_walk
+....
+%^^^
+=../
+....
+
+; ---------------------------------------------------------------- filler
+@filler pillars
+#...
+...#
+.=..
+....
+
+@filler ore_pile
+....
+.#=.
+....
+=..?
+
+@filler cart_rails
+=...
+....
+..=.
+?..?
+
+@filler stalagmites
+?..#
+....
+.#..
+...?
+
+@filler crates
+==..
+....
+..==
+....
+
+@filler cave_in
+##..
+#...
+..?=
+....
+
+@filler lamp_posts
+=..=
+....
+....
+.=.=
+
+@filler fungal_bloom
+.#..
+.=..
+...?
+=...
+
+@filler scree
+?..?
+.#..
+..?.
+?...
+
+@filler ledge
+....
+/^^.
+.^%.
+....
+
+@filler timber_props
+.==.
+#..#
+....
+..?.
+
+@filler sump
+....
+.=#.
+....
+?..=
+
+; ---------------------------------------------------------------- objectives
+@evac lift_cage
+=..=
+.OO.
+.OO.
+=..=
+
+@evac ore_skip
+.==.
+.OO.
+.OO.
+....
+
+@beacon seismic_relay
+OOO=
+OOO.
+OOO=
+=.=.
+
+@beacon depth_charge
+=...
+.OOO
+.OOO
+=OOO
+
+@rescue trapped_crew
+#.##
+#O.#
+#..#
+##.#
+
+@rescue refuge_chamber
+.##.
+#OO.
+#..=
+..=.
+
+@nest spore_vent
+.?..
+.O..
+..=.
+=...
+
+@nest root_pit
+=..=
+.O..
+...?
+..=.
+
+@hive root_knot
+.=.=
+....
+.O..
+=..?
+
+@hive drill_bloom
+##..
+..O.
+=...
+..=.
+
+; ---------------------------------------------------------------- multi-level (bore)
+@tower ore_hopper
+s^^.
+.^2$
+.^S2
+...=
+
+@tower rock_terrace
+.^^^
+s^%^
+.^^^
+....
+
+@tower winch_tower
+^^^.
+^$|.
+^^^/
+....
+
+@tower timber_scaffold
+~~~.
+~%~.
+~~~/
+...=
+
+@pod ledge_pod
+^e^/
+e^%.
+....
+.=E.
+
+@pod shelf_pod
+.E..
+s^e^
+.^^^
+=...
+
+@filler cut_steps
+....
+.s^.
+..^%
+....
+
+@landmark drill_rig
+..=.....
+.^^^^^^.
+.^2222^.
+s^2##2^.
+.^2##2S.
+.^^^^^^.
+.^%^/...
+.....=..
+
+@landmark refinery
+.=......
+.^^^^^^.
+.^2222^.
+s^2$$2^.
+.^2222S.
+.^^^^^^.
+..^%^/..
+......=.
+
+@landmark pump_station
+........
+##^^^^##
+.^S22^^.
+./^2$^/.
+..^^^^..
+...ss...
+.=....=.
+........
+
+; ---------------------------------------------------------------- plots
+@plot skirmish gallery lanes=0
+ETFE
+FFET
+BBBB
+FTDF
+
+@plot skirmish cavern lanes=1
+FETE
+EFFT
+TFFF
+FFDF
+
+@plot skirmish fault_corner lanes=0
+ETFE
+FEFT
+BBBF
+TFFD
+
+@plot extract lift_run lanes=0
+FOTF
+EFFE
+BBBB
+FTFF
+FFDF
+
+@plot extract deep_run lanes=0
+OFFT
+FETF
+EFFE
+TFFF
+FFFD
+
+@plot hold relay_cavern lanes=1
+EFTE
+FTOF
+FFFT
+FDFF
+
+@plot hold fault_hold lanes=0
+EFFE
+TBOB
+FFTF
+FDFF
+
+@plot rescue crew_beyond lanes=1
+EFOE
+TFFT
+BBBB
+FFDF
+
+@plot rescue deep_rescue lanes=0
+ETFO
+FFEF
+TFFF
+DFFT
+
+@plot purge vents lanes=1
+OETO
+EFOF
+TFFT
+FFDF
+
+@plot purge fault_vents lanes=0
+OETO
+BBOB
+FTFE
+FFDF
+
+@plot elite knot_beyond lanes=0
+EOTE
+BBBB
+FTFF
+FFDF
+
+@plot elite knot_cavern lanes=1
+FOET
+ETFF
+FFFT
+FFDF
+
+@plot boss source_chamber lanes=0
+FEEEF
+TFFFT
+FFFFF
+TFFFT
+FFDFF
+
+; Landmark plots: one big multi-level building in the middle of the fight.
+@plot skirmish bore_landmark lanes=0
+EFTE
+FLLF
+FLLE
+FTDF
+
+@plot extract bore_landmark_run lanes=0
+FOTE
+ELLF
+FLLE
+TFFF
+FFDF
+
+@plot hold bore_landmark_hold lanes=0
+EFTE
+FOLL
+FTLL
+FDFF
+
+@plot purge bore_landmark_purge lanes=0
+OETO
+ELLF
+FLLO
+FTDF
+
+@plot elite bore_landmark_hive lanes=0
+EOTE
+FLLF
+TLLF
+FFDF

@@ -136,7 +136,7 @@ static func fence_texture() -> Texture2D:
 
 
 func _build_ground() -> void:
-	var ground := Palette.box(Vector3(grid.width + 40, 0.1, grid.height + 40), grimy(Palette.GROUND, 1.0, 0.08))
+	var ground := Palette.box(Vector3(grid.width + 40, 0.1, grid.height + 40), grimy(BiomeLook.of(grid.biome).ground, 1.0, 0.08))
 	ground.position = center() + Vector3(0, -0.26, 0)
 	_tiles.add_child(ground)
 
@@ -146,14 +146,15 @@ func _hash(c: Vector2i) -> int:
 
 
 func _build_tiles() -> void:
+	var look := BiomeLook.of(grid.biome)
 	var floor_mats: Array[StandardMaterial3D] = []
-	for col in Palette.FLOOR_SHADES:
+	for col in look.floor:
 		floor_mats.append(grimy(col, 0.95, 0.18))
-	var wall_mat := grimy(Palette.WALL.lightened(0.15), 0.9, 0.35)
-	var trim_mat := Palette.mat(Palette.WALL_TRIM, 0.6, 0.4)
-	var rib_mat := grimy(Palette.WALL.lightened(0.08), 0.8, 0.35, 0.2)
+	var wall_mat := grimy(look.wall.lightened(0.15), 0.9, 0.35)
+	var trim_mat := Palette.mat(look.trim, 0.6, 0.4)
+	var rib_mat := grimy(look.wall.lightened(0.08), 0.8, 0.35, 0.2)
 	var hazard := Palette.mat(Palette.AMBER.darkened(0.15), 0.7)
-	var crate_mat := grimy(Palette.CRATE, 0.9, 0.5)
+	var crate_mat := grimy(look.crate, 0.9, 0.5)
 	var band_mat := Palette.mat(Palette.CRATE_BAND, 0.7, 0.3)
 	var bag_mat := grimy(Color("5b5640"), 1.0, 0.6)
 	var concrete := grimy(Color("6a6862"), 0.95, 0.4)
@@ -167,8 +168,8 @@ func _build_tiles() -> void:
 	var rubble := grimy(Color("3d3c38"), 1.0, 0.6)
 	var goo_mat := Palette.emissive(Palette.TEAL, 1.6)
 	var goo_lights := 0
-	var roof_mat := grimy(Palette.WALL.darkened(0.25), 0.9, 0.3)
-	var deck_mat := grimy(Color("8a8f86"), 0.6, 0.35, 0.4)   # steel decking: roofs read lighter than the ground
+	var roof_mat := grimy(look.wall.darkened(0.25), 0.9, 0.3)
+	var deck_mat := grimy(look.deck, 0.6, 0.35, 0.4)   # steel decking: roofs read lighter than the ground
 	var lip_mat := Palette.emissive(Palette.AMBER, 0.6)
 	var ladder_mat := Palette.mat(Palette.AMBER.darkened(0.3), 0.6, 0.5)
 	var deck2_mat := grimy(Color("a3a89c"), 0.55, 0.35, 0.45)  # upper roofs read lighter still
@@ -224,7 +225,7 @@ func _build_tiles() -> void:
 				_:
 					if broke != "" and broke != "roof":
 						_add_debris(c, h, broke, rubble, plank_mat, scorch_mat)
-					elif h % 23 == 0:
+					elif h % look.goo_every == 0:
 						_add_goo(c, h, goo_mat, goo_lights < GameSettings.puddle_lights())
 						goo_lights += 1
 					elif h % 5 == 0:
@@ -678,6 +679,12 @@ func _add_goo(c: Vector2i, h: int, material: Material, with_light: bool) -> void
 
 ## Chain-link fence around the board with posts, plus a few container stacks outside.
 func _build_perimeter() -> void:
+	if grid.biome == "port":
+		BiomeLook.build_port_perimeter(_tiles, grid)
+		return
+	if grid.biome == "bore":
+		BiomeLook.build_bore_perimeter(_tiles, grid)
+		return
 	var post_mat := Palette.mat(Color("3a3d3f"), 0.5, 0.6)
 	var mesh_mat := StandardMaterial3D.new()
 	mesh_mat.albedo_texture = fence_texture()
@@ -730,6 +737,12 @@ func _build_perimeter() -> void:
 
 ## Sodium floodlights on poles outside the fence, aimed into the board.
 func _build_lights() -> void:
+	if grid.biome == "port":
+		BiomeLook.build_port_lights(_tiles, grid)
+		return
+	if grid.biome == "bore":
+		BiomeLook.build_bore_lights(_tiles, grid)
+		return
 	var pole_mat := Palette.mat(Color("2d3033"), 0.5, 0.7)
 	var lamp_mat := Palette.emissive(Color("ffcf8a"), 3.0)
 	var spots := [Vector3(-2.5, 0, -2.5), Vector3(grid.width + 1.5, 0, 4.0), Vector3(3.0, 0, grid.height + 1.5),

@@ -281,6 +281,7 @@ func _build_environment() -> void:
 	rim.light_energy = 0.3
 	rim.rotation_degrees = Vector3(-25, 150, 0)
 	_world.add_child(rim)
+	BiomeLook.light(env, moon, rim, state.grid.biome if state != null else "")
 
 
 func _add_unit_view(u: Unit) -> UnitView:
