@@ -189,6 +189,36 @@ func test_cinematics_off_plays_quick_shot() -> void:
 	v.free()
 
 
+func test_teammate_shots_skip_the_shot_camera() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var local := v.session
+	var net := NetSession.new()
+	net.my_player = 0
+	v.session = net
+	var enemy := v.state.living(Types.Team.ENEMY)[0]
+	var mine := v.state.controllable_units(0)[0]
+	var theirs := v.state.controllable_units(1)[0]
+	v.player.enqueue({"type": "shot", "unit": theirs.id, "target": enemy.id, "hit": false, "graze": false,
+		"crit": false, "damage": 0, "chance": 40, "reaction": false})
+	v.player.advance(0.1)
+	assert_true(not v.camera_rig.cinematic, "teammate's shot keeps my camera")
+	v.player.flush()
+	v.player.enqueue({"type": "shot", "unit": mine.id, "target": enemy.id, "hit": false, "graze": false,
+		"crit": false, "damage": 0, "chance": 40, "reaction": false})
+	v.player.advance(0.3)
+	assert_true(v.camera_rig.cinematic, "my own shot cuts to the shot camera")
+	v.player.flush()
+	v.player.enqueue({"type": "shot", "unit": enemy.id, "target": theirs.id, "hit": false, "graze": false,
+		"crit": false, "damage": 0, "chance": 40, "reaction": false})
+	v.player.advance(0.3)
+	assert_true(v.camera_rig.cinematic, "enemy shots still cut")
+	v.player.flush()
+	v.session = local
+	net.free()
+	v.free()
+
+
 func test_sound_files_exist() -> void:
 	var Sfx := preload("res://view/sfx.gd")
 	for s in Sfx.SOUNDS:

@@ -146,8 +146,18 @@ func _sfx(sound: String, volume_db := 0.0, delay := 0.0) -> void:
 
 
 ## Cinematics play at normal speed only (autoplay / skipping runs them as quick beats).
-func _use_cinematic() -> bool:
-	return cinematics and speed <= 1.5
+## In co-op the camera only cuts for your own soldiers' shots: a teammate's soldier
+## shoots without taking over your camera. Enemies and Turned (AI) soldiers still cut.
+func _use_cinematic(shooter: UnitView = null) -> bool:
+	if not cinematics or speed > 1.5:
+		return false
+	return shooter == null or not _teammate_owned(shooter)
+
+
+func _teammate_owned(uv: UnitView) -> bool:
+	if not uv.is_soldier or uv.turned or uv.owner_player < 0:
+		return false
+	return view.session != null and not view.session.is_local(uv.owner_player)
 
 
 func _begin_cinematic() -> void:
@@ -298,7 +308,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var crit: bool = ev.get("crit", false)
 	var graze: bool = ev.get("graze", false)
 	var reaction: bool = ev.get("reaction", false)
-	var cine := _use_cinematic()
+	var cine := _use_cinematic(shooter)
 	var hero := shooter.is_soldier and not shooter.turned and not reaction
 	var t_fire := (0.55 if hero else 0.4) if cine else 0.12
 	var t_hit := t_fire + ((0.55 if hero else 0.4) if cine else 0.12)
@@ -512,7 +522,7 @@ func _melee_beat(ev: Dictionary) -> Dictionary:
 	if uv == null or tv == null:
 		return _power_beat(ev, "claw", Palette.DANGER)
 	var hit: bool = ev.get("hit", false)
-	var cine := _use_cinematic()
+	var cine := _use_cinematic(uv)
 	var t_hit := 0.6 if cine else 0.2
 	var dur := t_hit + (0.8 if cine else 0.3)
 	uv.face_towards(tv.position)
@@ -567,7 +577,7 @@ func _breach_beat(ev: Dictionary) -> Dictionary:
 	var beat := _beat_shot(shot)
 	var uv := _uv(ev)
 	if uv != null:
-		_sfx("breach", -2.0, 0.35 if _use_cinematic() else 0.0)
+		_sfx("breach", -2.0, 0.35 if _use_cinematic(uv) else 0.0)
 		view.fx.floating_text(_head(uv), "BREACH", Palette.AMBER, 44)
 	return beat
 
