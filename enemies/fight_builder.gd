@@ -87,14 +87,14 @@ static func build(spec: Dictionary) -> Dictionary:
 	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else mini(SQUAD_MIN_START[squad], cap), act, cap)
 	# Spare budget past the cap: an affix on a regular, or an earlier reinforcement wave.
 	if st >= 2 and node != "boss":
-		enc.waves.append({"turn": 3 if st >= 4 else 4, "every": 3 if st >= 4 else 0, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2)})
+		enc.waves.append({"turn": 3 if st >= 4 else 4, "every": 3 if st >= 4 else 0, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2, act)})
 	var flip := false
 	while budget >= BUDGET_PER_ENEMY:
 		budget -= BUDGET_PER_ENEMY
 		flip = not flip
 		if flip or not _hasten_wave(enc.waves):
 			_affix_regular(rng, enemies)
-	_objective_pressure(rng, objective, pool, enc, squad)
+	_objective_pressure(rng, objective, pool, enc, squad, act)
 	if objective == "purge":
 		enc["purge_nests"] = 3
 	if st >= 1:
@@ -131,8 +131,18 @@ static func preview(spec: Dictionary) -> Dictionary:
 	return {"title": "Skirmish", "elite": ""}
 
 
-## Buys regulars until the budget or the cap runs out. Returns the budget left.
+## Most ranged enemies a fight with `cap` slots gets: 1 in 2-4 slots, 2 in 5. The rest are melee.
+static func ranged_limit(cap: int) -> int:
+	return maxi(1, (cap + 1) / 3)
+
+
+## Buys regulars until the budget or the cap runs out. Returns the budget left. Mostly melee: ranged
+## kinds stop once ranged_limit is reached, and Runners (the staple) fit any budget.
 static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, enemies: Array[String], min_start: int, act: int = 1, cap: int = ENEMY_CAP) -> int:
+	var ranged := 0
+	for e in enemies:
+		if EnemyRoster.is_ranged(EnemyRoster.parse(e).kind):
+			ranged += 1
 	while budget > 0 and enemies.size() < cap:
 		var slots := cap - enemies.size()
 		var still_needed := maxi(0, min_start - enemies.size() - 1)
@@ -142,41 +152,44 @@ static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, e
 		var top := 0
 		for k in pool:
 			var c: int = EnemyRoster.COST[k]
-			if c <= max_cost:
+			if c <= max_cost and (ranged < ranged_limit(cap) or not EnemyRoster.is_ranged(k)):
 				affordable.append(k)
 				top = maxi(top, c)
 		if affordable.is_empty():
 			break
 		var preferred: Array[String] = []
 		for k in affordable:
-			if EnemyRoster.COST[k] >= mini(target, top):
+			if EnemyRoster.COST[k] >= mini(target, top) or k == "runner":
 				preferred.append(k)
 		var kind := _pick_weighted(rng, preferred, act)
+		if EnemyRoster.is_ranged(kind):
+			ranged += 1
 		enemies.append(kind)
 		budget -= EnemyRoster.COST[kind]
 	return budget
 
 
-static func _wave(rng: RandomNumberGenerator, pool: Array[String], n: int) -> Array[String]:
+## Reinforcements are melee infected pouring in (mostly Runners), never shooters.
+static func _wave(rng: RandomNumberGenerator, pool: Array[String], n: int, act: int = 1) -> Array[String]:
 	var cheap: Array[String] = []
 	for k in pool:
-		if EnemyRoster.COST[k] <= 2 and k != "lurker":
+		if EnemyRoster.COST[k] <= 2 and k != "lurker" and not EnemyRoster.is_ranged(k):
 			cheap.append(k)
 	var out: Array[String] = []
 	for i in n:
-		out.append(_pick(rng, cheap))
+		out.append(_pick_weighted(rng, cheap, act))
 	return out
 
 
 ## Waves for objective pressure (Hold: every turn from 2 sides; Extract: behind the squad every 2 turns).
-static func _objective_pressure(rng: RandomNumberGenerator, objective: String, pool: Array[String], enc: Dictionary, squad: int = 4) -> void:
+static func _objective_pressure(rng: RandomNumberGenerator, objective: String, pool: Array[String], enc: Dictionary, squad: int = 4, act: int = 1) -> void:
 	match objective:
 		"hold":
-			enc.waves.append({"turn": 2, "every": 1, "kinds": _wave(rng, pool, 1)})
+			enc.waves.append({"turn": 2, "every": 1, "kinds": _wave(rng, pool, 1, act)})
 			if squad >= 3:
-				enc.waves.append({"turn": 3, "every": 2, "kinds": _wave(rng, pool, 1)})
+				enc.waves.append({"turn": 3, "every": 2, "kinds": _wave(rng, pool, 1, act)})
 		"extract":
-			enc.waves.append({"turn": 2, "every": 2, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2)})
+			enc.waves.append({"turn": 2, "every": 2, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2, act)})
 
 
 static func _hasten_wave(waves: Array) -> bool:
@@ -209,12 +222,13 @@ static func _affixes(rng: RandomNumberGenerator, n: int, allow_tether: bool) -> 
 	return out
 
 
-## Like _pick, with the act's signature enemies counted twice.
+## Like _pick, with each kind counted EnemyRoster.weight times and the act's signature enemies
+## counted twice as often.
 static func _pick_weighted(rng: RandomNumberGenerator, from: Array[String], act: int) -> String:
 	var bag: Array[String] = []
 	for k in from:
-		bag.append(k)
-		if EnemyRoster.SIGNATURE.get(act, []).has(k):
+		var n: int = EnemyRoster.weight(k, act) * (2 if EnemyRoster.SIGNATURE.get(act, []).has(k) else 1)
+		for i in n:
 			bag.append(k)
 	return _pick(rng, bag)
 

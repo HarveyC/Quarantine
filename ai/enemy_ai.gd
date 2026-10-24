@@ -224,8 +224,8 @@ static func _choose_runner(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dict
 		var move := _check(s, {"type": Types.MOVE, "unit": u.id, "to": best_cell})
 		if not move.is_empty():
 			return move
-	# 3. Out of reach: close the distance; if stuck, shoot whatever is visible.
-	var adv := _advance(s, u, hostiles)
+	# 3. Out of reach: close the distance through cover; if stuck, shoot whatever is visible.
+	var adv := _advance(s, u, hostiles, true)
 	if not adv.is_empty():
 		return adv
 	var shot := _best_shot(s, u)
@@ -321,19 +321,24 @@ static func _best_shot(s: GameState, u: Unit) -> Dictionary:
 
 
 ## Move to the reachable cell with the shortest walking distance to any hostile, or {}.
-static func _advance(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+## `covered`: a rusher that can't reach anyone this turn gives up to a tile of ground to end it
+## in cover from the soldiers that can see it, instead of in the open in front of their guns.
+static func _advance(s: GameState, u: Unit, hostiles: Array[Unit], covered := false) -> Dictionary:
 	var sources: Array[Vector2i] = []
 	for h in hostiles:
 		sources.append(h.pos)
 	var field := _distance_field(s.grid, sources)
 	var reach := Rules.move_range(s, u)
 	var best_cell := u.pos
-	var best_score: float = field.get(u.pos, INF)
+	var here: float = field.get(u.pos, INF)
+	var best_score: float = here
 	for c in reach:
 		if not field.has(c):
 			continue
 		var steps: int = reach[c]
 		var score: float = field[c] + steps * 0.01
+		if covered and field[c] < here:
+			score -= _approach_cover(s, c, hostiles)
 		if score < best_score:
 			best_score = score
 			best_cell = c
@@ -355,6 +360,28 @@ static func _target_score(s: GameState, u: Unit, t: Unit, from: Vector2i) -> flo
 	if t.hunkered:
 		score -= 1.0
 	return score - _dist(from, t.pos) * 0.2
+
+
+## How safe cell `c` is from the hostiles that can see it: 1.1 when it has full cover from every
+## one of them (or none can see it), 0.6 for at least half cover, 0 when any has it in the open.
+## Height counts: a soldier shooting down from a roof sees past one step of cover.
+static func _approach_cover(s: GameState, c: Vector2i, hostiles: Array[Unit]) -> float:
+	var worst: int = Types.Cover.FULL
+	var seen := false
+	for h in hostiles:
+		if not Combat.can_see(s, h.pos, c):
+			continue
+		seen = true
+		var cover := _grid_cover(s.grid, c, h.pos)
+		if Elevation.height(s, h) > s.grid.level(c):
+			cover = maxi(cover - 1, Types.Cover.NONE)   # shooting down: cover counts one step lower
+		worst = mini(worst, cover)
+	if not seen:
+		return 1.1
+	match worst:
+		Types.Cover.FULL: return 1.1
+		Types.Cover.HALF: return 0.6
+	return 0.0
 
 
 static func _spitter_cell_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Unit]) -> float:
@@ -395,26 +422,39 @@ static func _grid_cover(g: Grid, c: Vector2i, from: Vector2i) -> int:
 	return best
 
 
-## Walking distance (8-way, no corner cutting, ignoring units) from the nearest source.
+## Walking cost (8-way, no corner cutting, ignoring units) from each cell to the nearest source.
+## Uses Grid.step_cost, so on high ground the way to a soldier on a roof runs through its stairs or
+## ladder instead of stopping at the foot of the wall.
 static func _distance_field(g: Grid, sources: Array[Vector2i]) -> Dictionary:
 	var dist := {}
-	var frontier: Array[Vector2i] = []
+	var buckets: Array = [[]]
 	for c in sources:
 		dist[c] = 0
-		frontier.append(c)
-	while not frontier.is_empty():
-		var next: Array[Vector2i] = []
-		for c in frontier:
-			var dc: int = dist[c]
+		buckets[0].append(c)
+	var k := 0
+	while k < buckets.size():
+		var bucket: Array = buckets[k]
+		var i := 0
+		while i < bucket.size():
+			var c: Vector2i = bucket[i]
+			i += 1
+			if dist[c] != k:
+				continue
 			for d in Grid.DIRS8:
-				var n := c + d
-				if dist.has(n) or not g.is_walkable(n):
+				var n: Vector2i = c + d
+				if not g.is_walkable(n):
 					continue
-				if d.x != 0 and d.y != 0 and not (g.is_walkable(c + Vector2i(d.x, 0)) and g.is_walkable(c + Vector2i(0, d.y))):
+				var cost := g.step_cost(n, -d)   # walking from n onto c
+				if cost <= 0:
 					continue
-				dist[n] = dc + 1
-				next.append(n)
-		frontier = next
+				var nd := k + cost
+				if dist.has(n) and dist[n] <= nd:
+					continue
+				dist[n] = nd
+				while buckets.size() <= nd:
+					buckets.append([])
+				buckets[nd].append(n)
+		k += 1
 	return dist
 
 

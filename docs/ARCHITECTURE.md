@@ -975,6 +975,12 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
   turn unless line of sight breaks or it is suppressed; height lowers the target's cover as for any shot), Burrower (act 3, hidden underground, erupts
   next to the soldier on the highest ground, destroys cover and collapses raised tiles). Each act
   weights its `EnemyRoster.SIGNATURE` enemies double.
+- **Mostly melee**: fights are built from melee infected, with the Runner as the staple
+  (`EnemyRoster.WEIGHT`, and it fits any budget). Ranged kinds (`EnemyRoster.RANGED`: Spitter,
+  Fallen, Sharpshooter) are supporting threats, capped at `FightBuilder.ranged_limit` (1, or 2 in a
+  5-enemy fight); reinforcement waves are melee only. Melee AI paths by real walking cost (stairs and
+  ladders, `EnemyAI._distance_field`), and a rusher out of reach ends its move in cover when that
+  costs no ground.
 - **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
 - Dev aid: `-- --fight=<node>,<act>,<outbreak>` plays one built fight on the test map.
 

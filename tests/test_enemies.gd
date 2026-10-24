@@ -628,3 +628,33 @@ func test_built_fights_play_out_deterministically() -> void:
 		var b := _play(fight, 77, 14, 3)
 		assert_eq(a.checksum(), b.checksum(), "same result after a snapshot resync (%s act %d)" % [sp.node, sp.act])
 		assert_true(a.turn >= 2, "fight ran (%s act %d)" % [sp.node, sp.act])
+
+
+func test_fights_are_mostly_melee_with_runners_the_staple() -> void:
+	for act in [1, 2, 3]:
+		for squad in [1, 2, 3, 4]:
+			var counts := {}
+			var ranged := 0
+			var total := 0
+			for seed in range(1, 150):
+				var f := FightBuilder.build({"act": act, "node": "skirmish", "outbreak": seed % 8, "seed": seed, "squad": squad})
+				var n := 0
+				for e in f.enemies:
+					var k: String = EnemyRoster.parse(e).kind
+					counts[k] = counts.get(k, 0) + 1
+					if EnemyRoster.is_ranged(k):
+						n += 1
+				var cap := mini(FightBuilder.ENEMY_CAP, squad + 1)
+				assert_true(n <= FightBuilder.ranged_limit(cap), "at most %d ranged (act %d, squad %d)" % [FightBuilder.ranged_limit(cap), act, squad])
+				for w in f.encounter.waves:
+					for k in w.kinds:
+						assert_true(not EnemyRoster.is_ranged(k), "reinforcement waves are melee")
+				ranged += n
+				total += f.enemies.size()
+			var top := ""
+			for k in counts:
+				if top == "" or counts[k] > counts[top]:
+					top = k
+			assert_eq(top, "runner", "Runners are the most common enemy (act %d, squad %d)" % [act, squad])
+			if squad >= 2:   # a solo fight is only 1-2 enemies, so one shooter is a big share
+				assert_true(ranged * 4 <= total, "ranged are at most a quarter of enemies (act %d, squad %d)" % [act, squad])
