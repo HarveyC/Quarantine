@@ -67,6 +67,10 @@ func _ready() -> void:
 	menu.start_run_requested.connect(_start_net_run)
 	menu.leave_requested.connect(_leave)
 	menu.class_picked.connect(net.pick_class)
+	var story := preload("res://ui/story/story_director.gd").new()
+	story.name = "Story"
+	story.app = self
+	add_child(story)
 	_handle_args()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--menu-shot="):

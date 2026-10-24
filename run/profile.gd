@@ -21,6 +21,7 @@ static func meta() -> Dictionary:
 	if cf.has_section(SECTION):
 		for k in cf.get_section_keys(SECTION):
 			out[k] = cf.get_value(SECTION, k)
+	out["story"] = RunHooks.call_static("StoryProfile", "snapshot", [], {})
 	return out
 
 
@@ -46,3 +47,4 @@ static func record_run(run: RunState) -> void:
 		changed = true
 	if changed:
 		cf.save(PATH)
+	RunHooks.call_static("StoryProfile", "record_run", [run])

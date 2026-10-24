@@ -28,6 +28,8 @@ var kind := ""
 var display_name := ""
 var owner_player := -1
 var is_soldier := true
+## Built from a soldier model: the squad, and an Echo (a Turned soldier from an earlier run) on the enemy team.
+var soldier_body := true
 var cell := Vector2i.ZERO
 var hp := 1
 var max_hp := 1
@@ -89,6 +91,7 @@ func build(u: Unit) -> void:
 	display_name = u.display_name
 	owner_player = u.owner_player
 	is_soldier = u.team == Types.Team.PLAYER
+	soldier_body = is_soldier or u.status.has("echo")
 	hp = u.hp
 	max_hp = u.max_hp
 	infection = u.infection
@@ -105,6 +108,8 @@ func build(u: Unit) -> void:
 	_build_labels()
 	set_cell(u.pos)
 	_refresh_all()
+	if u.status.get("turned", false) and soldier_body:
+		set_turned()
 	if _skin != null:
 		_skin.advance(0.0)
 
@@ -112,14 +117,14 @@ func build(u: Unit) -> void:
 # --- model -------------------------------------------------------------------
 
 func _build_model() -> void:
-	_model = ModelKit.instantiate(kind, is_soldier)
+	_model = ModelKit.instantiate(kind, soldier_body)
 	_rig.add_child(_model)
-	_mats = ModelKit.apply_materials(_model, owner_player, is_soldier)
+	_mats = ModelKit.apply_materials(_model, owner_player, soldier_body)
 	_growths = ModelKit.growths(_model)
 	_sac = ModelKit.find(_model, "sac")
 	if ModelKit.is_skinned(_model):
 		_skin = SkinnedBody.new()
-		_skin.setup(_model, not is_soldier)
+		_skin.setup(_model, not soldier_body)
 		_skin.speed = {"runner": 1.3, "leaper": 1.2, "broodling": 1.4, "brood_mother": 0.7, "brute": 0.85}.get(kind, 1.0)
 	else:
 		_prop = ModelKit.find(_model, "body")
@@ -136,15 +141,15 @@ func _build_lights() -> void:
 	# a soft key light that travels with the unit so it reads at tactical zoom
 	# on the dark map (XCOM-style character light); no shadows, cheap
 	var key := OmniLight3D.new()
-	key.light_color = Color("ffe6c4") if is_soldier else Color("9fc9c0")
-	key.light_energy = 0.75 if is_soldier else 0.5
+	key.light_color = Color("ffe6c4") if soldier_body else Color("9fc9c0")
+	key.light_energy = 0.75 if soldier_body else 0.5
 	key.omni_range = 2.4
 	key.omni_attenuation = 1.6
 	key.shadow_enabled = false
 	key.position = Vector3(0.5, 2.3, 0.7)
 	add_child(key)
 	_model.scale = Vector3.ONE * MODEL_SCALE * ModelKit.size_of(kind)
-	if is_soldier:
+	if soldier_body:
 		_glow.omni_range = 2.2
 		_glow.light_energy = 0.0
 		_glow.position = Vector3(0, 1.1, 0)
@@ -165,7 +170,7 @@ func _set_veins(k: float) -> void:
 		var role: String = m.get_meta("role")
 		if role in ModelKit.VEINABLE:
 			# bare infected skin carries fewer veins than the cloth so they don't read as camo
-			m.set_shader_parameter("infection", k * 0.75 if role in ["body", "chitin"] and not is_soldier else k)
+			m.set_shader_parameter("infection", k * 0.75 if role in ["body", "chitin"] and not soldier_body else k)
 
 
 func _build_rings() -> void:
@@ -353,7 +358,7 @@ func muzzle_world() -> Vector3:
 ## Where shots aim and land: the animated upper chest (or a creature's thorax).
 func chest_world() -> Vector3:
 	var p: Variant = _bone_world(["spine_03", "Thorax"])
-	return p if p != null else position + Vector3(0, 1.05 if is_soldier else 0.85, 0)
+	return p if p != null else position + Vector3(0, 1.05 if soldier_body else 0.85, 0)
 
 
 func head_world() -> Vector3:
@@ -404,7 +409,7 @@ func tick(delta: float) -> void:
 	if _sac != null:
 		var s := 1.0 + sin(_time * 3.0) * 0.06 + _aim * 0.12 - _recoil * 0.2
 		_sac.scale = Vector3(s, s * 0.95, s)
-	if _glow != null and _glow.visible and not is_soldier:
+	if _glow != null and _glow.visible and not soldier_body:
 		_glow.light_energy = _enemy_glow() * (0.8 + 0.2 * sin(_time * 4.0 + unit_id))
 	if _skin != null:
 		_animate_skinned(delta)
@@ -451,7 +456,7 @@ func set_death_progress(t: float) -> void:
 		_model.scale = Vector3.ONE * MODEL_SCALE * maxf(0.05, 1.0 - t * 0.9)   # props wither
 	# the infected (and turned) sink into the ground at the end; fallen soldiers stay
 	var sink := maxf(0.0, t - 0.7) / 0.3
-	_rig.position.y = -sink * (0.9 if not is_soldier or turned else 0.0)
+	_rig.position.y = -sink * (0.9 if not soldier_body or turned else 0.0)
 	if _glow != null:
 		_glow.light_energy *= 1.0 - t * 0.5
 	for n in [_hp_sprite, _class_label, _status_label, _infection_ring, _select_ring, _target_ring]:
@@ -503,7 +508,7 @@ func _refresh_infection() -> void:
 	var col := Palette.tier_color(tier)
 	_infection_mat.emission = col
 	_infection_mat.emission_energy_multiplier = 0.6 + tier * 1.4 + infection * 0.01
-	if not is_soldier:
+	if not soldier_body:
 		return
 	var stage := Infection.Tier.TURNED if turned else tier
 	for g in _growths:

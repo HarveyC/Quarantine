@@ -11,7 +11,7 @@ const REVEAL := "reveal"           # + "node": id. Spend 1 Intel to reveal a "?"
 const BENCH := "bench"             # host only, + "target": player, "on": bool. A player left / came back.
 const FIGHT_END := "fight_end"     # host only, + "outcome": RunRules.fight_outcome(state).
 
-const ROUTES := {"gear_": "GearRun", "prog_": "Progression", "node_": "NodeRules"}
+const ROUTES := {"gear_": "GearRun", "prog_": "Progression", "node_": "NodeRules", "story_": "Story"}
 
 const START_SUPPLIES := 60
 const START_INTEL := 1
@@ -50,6 +50,7 @@ static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}, pick
 	for p in n:
 		for k in START_RESERVE:
 			run.soldiers.append(RunSoldier.make(run, random_class(run), p, RunSoldier.RESERVE))
+	RunHooks.call_static("Story", "init_run", [run])
 	return run
 
 
@@ -266,6 +267,9 @@ static func _advance(run: RunState) -> void:
 				if not _rewards_done(run):
 					run.phase = RunState.Phase.REWARD
 					return
+			"victory":
+				_end_run(run, Types.Result.VICTORY)
+				return
 	_node_finished(run)
 
 
@@ -294,7 +298,8 @@ static func _after_node(run: RunState) -> void:
 
 static func _rewards_done(run: RunState) -> bool:
 	return not RunHooks.call_static("GearRun", "has_pending", [run], false) \
-		and not RunHooks.call_static("Progression", "has_pending", [run], false)
+		and not RunHooks.call_static("Progression", "has_pending", [run], false) \
+		and not RunHooks.call_static("Story", "has_pending", [run], false)
 
 
 ## Every step of the node is done: back to the map, or on to the next act after the boss.
@@ -331,7 +336,8 @@ static func _start_fight(run: RunState, st: Dictionary) -> void:
 static func fight_outcome(s: GameState, bonus: Variant = null) -> Dictionary:
 	if bonus == null:
 		bonus = RunHooks.call_static("Objectives", "bonus_met", [s], false)
-	var out := {"result": s.result, "bonus": bonus, "soldiers": []}
+	var out := {"result": s.result, "bonus": bonus, "soldiers": [],
+		"echoes_down": RunHooks.call_static("Story", "echoes_down", [s], [])}
 	for u in s.units:
 		if u.status.has("sid"):
 			out.soldiers.append({"sid": u.status.sid, "unit": u.to_dict()})
@@ -359,12 +365,18 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 			r.sit_out -= 1
 	run.emit({"type": "fight_end", "result": outcome.result, "kind": kind})
 	RunHooks.call_static("Progression", "on_fight_end", [run, outcome])
+	RunHooks.call_static("Story", "on_fight_end", [run, outcome, kind])
 	if outcome.result != Types.Result.VICTORY or run.squad().is_empty():
 		_end_run(run, Types.Result.DEFEAT)
 		return
 	run.fights_won += 1
 	if kind == RunMap.BOSS and run.act >= RunState.ACTS:
-		_end_run(run, Types.Result.VICTORY)
+		# The ending vote (Story) runs in the reward phase, then the run is won.
+		if RunHooks.call_static("Story", "begin_ending", [run], false):
+			run.steps = [{"step": "rewards"}, {"step": "victory"}]
+			_advance(run)
+		else:
+			_end_run(run, Types.Result.VICTORY)
 		return
 	var heal: float = run.modifiers.get("heal_after_fight", HEAL_AFTER_FIGHT)
 	for r in run.squad():

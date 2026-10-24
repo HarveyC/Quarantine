@@ -63,6 +63,8 @@ var seen_events: Array = []
 var unknown_streak := 0
 ## Soldiers who Turned this run, kept for Echoes later: [{"sid", "kind", "name", "act"}].
 var echoes: Array = []
+## Owned by Story: wave, Echoes met, intel recovered, the ending vote. Opaque to the framework.
+var story := {}
 ## Read-only copy of the player profile's meta flags (unlocks, Outbreak level) for this run.
 var meta := {}
 var log: Array[Dictionary] = []
@@ -156,6 +158,7 @@ func to_dict() -> Dictionary:
 		"fight_snapshot": fight_snapshot.duplicate(true), "node_state": node_state.duplicate(true),
 		"gear": gear.duplicate(true), "modifiers": modifiers.duplicate(true), "seen_events": seen_events.duplicate(),
 		"unknown_streak": unknown_streak, "echoes": echoes.duplicate(true), "meta": meta.duplicate(true),
+		"story": story.duplicate(true),
 	}
 
 
@@ -168,7 +171,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	r._next_sid = d.next_sid
 	for key in ["phase", "result", "host_player", "act", "row", "node", "supplies", "intel", "outbreak",
 			"fights_won", "unknown_streak", "benched", "map", "serum", "soldiers", "votes", "steps",
-			"fight_config", "fight_snapshot", "node_state", "gear", "modifiers", "seen_events", "echoes", "meta"]:
+			"fight_config", "fight_snapshot", "node_state", "gear", "modifiers", "seen_events", "echoes", "meta", "story"]:
 		if d.has(key):
 			var v: Variant = d[key]
 			r.set(key, v.duplicate(true) if v is Dictionary or v is Array else v)
