@@ -281,7 +281,7 @@ static func _strike_target_error(s: GameState, u: Unit, id: String, t: Unit) -> 
 	if not u.is_enemy_of(t):
 		return "Not an enemy"
 	if id == "bash":
-		return "" if s.grid.touching(u.pos, t.pos) else "Not adjacent"
+		return "" if s.grid.melee_reach(u.pos, t.pos) else "Not adjacent"
 	if not Combat.visible_targets(s, u).has(t):
 		return "No line of sight"
 	if lunge_landing(s, u, t, strike_reach(u, id)) == NO_CELL:
@@ -300,14 +300,14 @@ static func strike_reach(u: Unit, id: String) -> int:
 ## adjacent, else the closest free cell next to `t` (ties: the one where `t` has no cover).
 ## NO_CELL if there is none. Pure (the view previews it).
 static func lunge_landing(s: GameState, u: Unit, t: Unit, reach: int) -> Vector2i:
-	if s.grid.touching(u.pos, t.pos):
+	if s.grid.melee_reach(u.pos, t.pos):
 		return u.pos
 	var dist := s.grid.reachable(u.pos, reach, s.occupied(u.id))
 	var best := NO_CELL
 	var best_score := INF
 	for d in Grid.DIRS8:
 		var c: Vector2i = t.pos + d
-		if c == u.pos or not dist.has(c) or s.unit_at(c) != null or not s.grid.touching(c, t.pos):
+		if c == u.pos or not dist.has(c) or s.unit_at(c) != null or not s.grid.melee_reach(c, t.pos):
 			continue
 		var score := float(dist[c])
 		if Combat.cover_against(s.grid, t.pos, c) != Types.Cover.NONE:
@@ -336,13 +336,13 @@ static func _melee_ability(s: GameState, u: Unit, id: String, t: Unit) -> void:
 		var landing := lunge_landing(s, u, t, strike_reach(u, id))
 		if landing != u.pos:
 			Rules.move_along(s, u, landing)
-		if not u.is_alive() or not t.is_alive() or Kit.cheb(u.pos, t.pos) != 1 or s.phase == Types.Phase.ENDED:
+		if not u.is_alive() or not t.is_alive() or not s.grid.melee_reach(u.pos, t.pos) or s.phase == Types.Phase.ENDED:
 			return   # overwatch (or a Guard) stopped the dash
 	if id == "lunge":
 		var others: Array[Unit] = []
 		if Kit.has_perk(u, "cleave"):
 			for o in s.living():
-				if o != t and u.is_enemy_of(o) and Kit.cheb(o.pos, u.pos) == 1:
+				if o != t and u.is_enemy_of(o) and s.grid.melee_reach(u.pos, o.pos):
 					others.append(o)
 		strike(s, u, t, "lunge")
 		for o in others:
@@ -437,7 +437,7 @@ static func is_guarding(s: GameState, w: Unit) -> bool:
 static func guards_against(s: GameState, mover: Unit, cell: Vector2i) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for w in s.units:
-		if w != mover and w.is_enemy_of(mover) and is_guarding(s, w) and Kit.cheb(w.pos, cell) == 1:
+		if w != mover and w.is_enemy_of(mover) and is_guarding(s, w) and s.grid.melee_reach(w.pos, cell):
 			out.append(w)
 	return out
 

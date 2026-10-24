@@ -203,7 +203,7 @@ static func _choose_runner(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dict
 	# 1. Adjacent: claw (or shoot if claw is unavailable).
 	var adjacent: Array[Unit] = []
 	for h in hostiles:
-		if s.grid.touching(u.pos, h.pos):
+		if s.grid.melee_reach(u.pos, h.pos):
 			adjacent.append(h)
 	if not adjacent.is_empty():
 		adjacent.sort_custom(func(a: Unit, b: Unit) -> bool:
@@ -223,7 +223,7 @@ static func _choose_runner(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dict
 	for h in hostiles:
 		for d in Grid.DIRS8:
 			var c: Vector2i = h.pos + d
-			if c == u.pos or not reach.has(c) or not s.grid.touching(c, h.pos):
+			if c == u.pos or not reach.has(c) or not s.grid.melee_reach(c, h.pos):
 				continue
 			var steps: int = reach[c]
 			var score := _target_score(s, u, h, c) - steps * 0.1 - _guard_penalty(s, u, c)

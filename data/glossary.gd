@@ -266,7 +266,7 @@ static func _build() -> Dictionary:
 		"line": "Shooting down from a roof: better aim, and their cover drops a step.",
 		"art": "high_ground",
 		"stats": [["+%d" % Elevation.AIM_BONUS, "aim"], ["-1", "cover step"], ["%d" % Elevation.FALL_DAMAGE_PER_LEVEL, "fall dmg / level"]],
-		"more": ["Full cover becomes half, half becomes none.", "Shooting up at a roof: they always have half cover.", "One level or two, the bonus is the same."],
+		"more": ["Full cover becomes half, half becomes none.", "Shooting up at a roof: they always have half cover.", "One level or two, the bonus is the same.", "Melee only reaches the same level, or across a stair step."],
 		"see": ["cover", "flank"],
 		"aliases": ["Height", "Elevation", "Roof", "Rooftop"]}
 	t["fuel_barrel"] = {"name": "Fuel barrel", "kind": "terrain", "icon": "barrel", "tone": "danger",

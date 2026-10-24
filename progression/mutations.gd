@@ -124,7 +124,7 @@ static func target_error(s: GameState, u: Unit, id: String, t: Unit) -> String:
 		return "No such target"
 	match id:
 		"leech_bite":
-			if not u.is_enemy_of(t) or not s.grid.touching(u.pos, t.pos):
+			if not u.is_enemy_of(t) or not s.grid.melee_reach(u.pos, t.pos):
 				return "Not an adjacent enemy"
 		"acid_spit":
 			if not u.is_enemy_of(t) or u.pos.distance_to(t.pos) > ACID_RANGE or not Combat.can_see(s, u.pos, t.pos):
@@ -319,8 +319,8 @@ static func _seize(s: GameState, t: Unit) -> void:
 			best = o
 	if best == null:
 		return
-	if Kit.cheb(best.pos, t.pos) == 1 or UnitData.is_melee_only(t.kind):
-		if Kit.cheb(best.pos, t.pos) != 1:
+	if s.grid.melee_reach(t.pos, best.pos) or UnitData.is_melee_only(t.kind):
+		if not s.grid.melee_reach(t.pos, best.pos):
 			return
 		var dmg := _melee(s, t, best)
 		s.emit({"type": "ability", "unit": t.id, "ability": "claw", "target": best.id, "hit": dmg > 0,
