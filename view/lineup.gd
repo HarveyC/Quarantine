@@ -9,8 +9,10 @@ extends Node3D
 
 const UnitView := preload("res://view/unit_view.gd")
 const PostFx := preload("res://view/post_fx.gd")
+const ModelKit := preload("res://view/model_kit.gd")
 
-const ENEMIES: Array[String] = ["runner", "spitter"]
+const ENEMIES: Array[String] = ["runner", "spitter", "leaper", "shrieker", "broodling", "brute", "bloater",
+	"brood_mother", "fallen", "sharpshooter", "colonel_hale", "lurker", "burrower"]
 
 var mode := "classes"
 var shot_path := ""
@@ -48,20 +50,21 @@ func _ready() -> void:
 				if values[i] >= 100:
 					uv.set_turned()
 		_:
-			var kinds := ["trooper", "marksman", "medic", "breacher"]
-			var x := -3.6
+			# squad (and a civilian) in front, the infected behind them
+			var kinds := ["trooper", "marksman", "medic", "breacher", "civilian"]
 			for i in kinds.size():
-				var uv := _spawn(kinds[i], 0 if i < 2 else 1, 0)
-				uv.position = Vector3(x, 0, 0)
-				x += 1.2
-			x += 0.3
+				var uv := _spawn(kinds[i], [0, 0, 1, 1, -1][i], 0)
+				uv.position = Vector3((i - 2) * 1.3, 0, 1.2)
+			var x := -6.2
 			for k in ENEMIES:
+				var w := 0.9 * ModelKit.size_of(k)
+				x += w * 0.5
 				var uv := _spawn(k, -1, 0)
-				uv.position = Vector3(x, 0, 0)
-				x += 1.35
-	var cam_z := 6.2 if mode == "infection" else 7.4
-	_cam.position = Vector3(0, 1.75, cam_z)
-	_cam.look_at(Vector3(0, 0.9, 0))
+				uv.position = Vector3(x, 0, -1.6)
+				x += w * 0.5 + 0.25
+	var cam_z := 6.2 if mode == "infection" else 9.5
+	_cam.position = Vector3(0, 2.2 if mode != "infection" else 1.75, cam_z)
+	_cam.look_at(Vector3(0, 1.0, 0))
 
 
 func _spawn(kind: String, player: int, infection: int) -> Node3D:
@@ -70,7 +73,7 @@ func _spawn(kind: String, player: int, infection: int) -> Node3D:
 	u.kind = kind
 	u.display_name = kind.capitalize()
 	u.owner_player = player
-	u.team = Types.Team.PLAYER if player >= 0 else Types.Team.ENEMY
+	u.team = Types.Team.ENEMY if kind in ENEMIES else Types.Team.PLAYER
 	u.max_hp = 6
 	u.hp = 6
 	u.infection = infection

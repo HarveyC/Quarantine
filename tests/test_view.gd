@@ -196,16 +196,51 @@ func test_sound_files_exist() -> void:
 	assert_true(ResourceLoader.exists("res://audio/ambience.wav"), "ambience")
 
 
-func test_models_have_rig_joints() -> void:
+func test_characters_are_rigged() -> void:
 	var ModelKit := preload("res://view/model_kit.gd")
-	for kind in ModelKit.MODELS:
-		var m := ModelKit.instantiate(kind, kind not in ["runner", "spitter"])
-		for j in ["hips", "torso", "head", "leg_l", "leg_r", "knee_l", "knee_r", "arm_l", "arm_r", "elbow_l", "elbow_r", "muzzle"]:
-			assert_true(ModelKit.find(m, j) != null, "%s has joint %s" % [kind, j])
-		if kind not in ["runner", "spitter"]:
-			assert_true(ModelKit.find(m, "gun") != null and ModelKit.find(m, "support") != null, "%s has a weapon" % kind)
+	var SkinnedBody := preload("res://view/skinned_body.gd")
+	for kind in ModelKit.CHARACTERS:
+		var m := ModelKit.instantiate(kind, true)
+		assert_true(ModelKit.is_skinned(m), "%s is skinned" % kind)
+		var body := SkinnedBody.new()
+		body.setup(m, kind not in ["trooper", "marksman", "medic", "breacher", "civilian"])
+		for pose in ["idle", "walk", "death"]:
+			assert_true(body.has_clip(pose), "%s has a %s clip" % [kind, pose])
+		if kind in ["trooper", "marksman", "medic", "breacher"]:
+			assert_true(body.armed, "%s carries a weapon" % kind)
+			assert_true(body.skel.find_bone("muzzle") >= 0, "%s has a muzzle" % kind)
 			assert_eq(ModelKit.growths(m).size() >= 3, true, "%s has infection growths" % kind)
 		m.free()
+	for kind in ModelKit.MODELS:
+		var p := ModelKit.instantiate(kind, false)
+		assert_true(ModelKit.find(p, "body") != null, "%s prop has a body" % kind)
+		p.free()
+
+
+func test_hands_stay_on_the_rifle() -> void:
+	var u := Unit.new()
+	u.id = 1
+	u.kind = "trooper"
+	u.team = Types.Team.PLAYER
+	u.owner_player = 0
+	u.max_hp = 5
+	u.hp = 5
+	var uv := preload("res://view/unit_view.gd").new()
+	uv.build(u)
+	for aim in [0.0, 1.0]:
+		uv.aim_now(aim)
+		uv.set_moving(aim < 0.5)
+		for i in 10:
+			uv.tick(0.05)
+		var body = uv._skin
+		var grip: Vector3 = body.bone_pose("support").origin
+		assert_true(body.bone_pose("hand_l").origin.distance_to(grip) < 0.06, "off hand on the support grip (aim %s)" % aim)
+		assert_true(body.bone_pose("hand_r").origin.distance_to(body.bone_pose("gun").origin) < 0.06, "trigger hand on the grip (aim %s)" % aim)
+	assert_eq(String(uv._skin.player.current_animation), "Idle", "standing still plays idle")
+	uv.set_moving(true)
+	uv.tick(0.5)
+	assert_eq(String(uv._skin.player.current_animation), "Jog_Fwd", "moving plays the jog")
+	uv.free()
 
 
 func test_infection_growths_follow_tier() -> void:

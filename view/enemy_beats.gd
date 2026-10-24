@@ -6,13 +6,11 @@ extends RefCounted
 const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
 
-## Placeholder body scale per kind: [width, height]. Bosses and elites read bigger.
+## Placeholder body scale per kind: [width, height], for kinds still without their own
+## model (ModelKit.CHARACTERS sizes the rest). Bosses and elites read bigger.
 const SCALE := {
-	"fallen": [1.0, 1.05], "bloater": [1.45, 1.05], "broodling": [0.9, 0.7], "brute": [1.45, 1.35],
-	"lurker": [1.25, 0.6], "shrieker": [0.85, 1.25], "hive_node": [1.3, 0.7], "egg_sac": [0.9, 0.55],
-	"spore_nest": [1.1, 0.6], "source_root": [1.2, 0.9], "brood_mother": [2.0, 1.8],
-	"colonel_hale": [1.05, 1.1], "the_source": [2.6, 2.2], "leaper": [0.95, 0.85],
-	"drifter": [1.1, 0.7], "sharpshooter": [0.95, 1.1], "burrower": [1.3, 0.75],
+	"hive_node": [1.3, 0.7], "egg_sac": [0.9, 0.55], "spore_nest": [1.1, 0.6],
+	"source_root": [1.2, 0.9], "the_source": [2.6, 2.2], "drifter": [1.1, 0.7],
 }
 const ELITE_SCALE := 1.2
 
