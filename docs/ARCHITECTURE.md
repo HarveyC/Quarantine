@@ -70,6 +70,26 @@ Rules for parallel work:
 | `mission_end` | `result` (`Types.Result`) |
 | `gear` | `unit`, `item` (gear effect that isn't a shot: `choke` splash `target`/`damage`, `feral_grip` `heal`/`hp`, `close_set` `actions`, `mark_set` `target`, `suppress` `target`) |
 | `burning` / `burn` | `unit`, `turns` / `damage` (set Burning; the start-of-phase tick, before its `damage` event) |
+| `spawned` | `unit`, `kind`, `cell`, `from` (spawner unit id or -1) — a new enemy appeared (Hive node, egg sac, root, wave, split, brood spit) |
+| `telegraph` | `unit`, `kind` (`burst`/`charge`/`airstrike`/`core_slam`), `cells`, `turn` (when it lands) |
+| `strike` | `kind`, `cells`, `unit`, `units` (hit ids), `damage` — a telegraphed airstrike / core slam lands (before its `damage` events) |
+| `cover_destroyed` | `cells`, `unit` — half cover turned to floor (Brute charge, airstrike); the grid has changed |
+| `spores` | `cells`, `until` (last turn active) |
+| `spore_exposure` | `unit`, `cell`, `amount` (before its `infection` event) |
+| `source_pulse` | `unit` (the Source), `units`, `amount` |
+| `reinforcements_incoming` | `cells`, `turn`, `count` — a wave arrives at these vents next enemy phase |
+| `revealed` | `unit` (a hidden Lurker) |
+| `pinned` / `released` | `unit` (soldier), `by` (Lurker) |
+| `regenerate` | `unit`, `healed`, `hp` |
+| `immune` | `unit`, `source`, `reason` (kind it is tethered to) — damage was ignored, no `damage` event follows |
+| `untethered` | `unit` |
+| `boss_phase` | `unit`, `phase`, `boss`, `text`, plus `hp`/`max_hp` for Hale |
+| `boss_defeated` | `unit`, `boss` — the remaining enemies then die |
+
+`move` may carry `knockback: true` (Brute slam/charge) and is also emitted for the Source's pull
+(the moved unit is the soldier). Enemy abilities (`slam`, `charge`, `burst`, `pounce`, `maul`,
+`scream`, `brood_spit`, `airstrike`, `flashbang`, `pull`, `core_slam`) use the `ability` event;
+area ones add `cells` and `units`.
 
 New event types are fine; add them to this table.
 
@@ -496,3 +516,50 @@ the map thread's `Hazards` module.
   carry units with a `sid`.
 - Events: `deployed` (`unit`, `kind`, `cell`, `owner`), `deployable_end` (`unit`, then `died`).
   The view builds a unit view lazily; models fall back to the trooper model until a turret model exists.
+
+## Enemies (roster, elites, bosses)
+
+Folder `enemies/`, owned by the enemy roster workstream. Design doc section "Enemies".
+
+| Class | What it does |
+|---|---|
+| `EnemyRoster` | Threat costs, act pools, elites and affixes, enemy spec strings, `make(spec)` |
+| `FightBuilder` | `build(spec) -> {enemies, encounter}` and `preview(spec)` for the run map |
+| `Encounter` | Fight-level rules called by `Rules`: spawners, waves, spore zones, telegraphs, affixes, bosses |
+| `EnemyAbilities` | Enemy-only abilities, routed by `Rules` instead of `Combat` |
+| `EnemyBehaviours` | AI behaviours Cover shooter, Seek cluster, Ambush, Support, the Brute charge and the bosses (`EnemyAI` dispatches to it) |
+| `EnemyIntent` | Pure "what will it do" reads for the view's intent labels and danger tiles |
+
+View side: `view/enemy_beats.gd` (beats and log lines for the events above, placeholder scale per
+kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the event queue drains).
+
+- **Spec strings** (MatchConfig `enemies`): `"runner"`; `"brute!armoured,hasted"` = elite (double HP)
+  with affixes; `"runner+hasted"` = regular that bought an affix. `Rules.new_mission_on_grid` builds
+  them with `EnemyRoster.make`.
+- **Rules hooks** (all in `Encounter`): `validate` (pinned soldiers can't act, hidden units can't be
+  targeted), `after_action`, `on_team_phase_start`, `on_enemy_phase_start` (telegraphs land, spore
+  exposure, Source pulse, spawners, waves), `on_unit_turn_start/end` (hasted, regenerating, Bloater
+  swell, Brute wind-up), `on_enemy_phase_end` (frenzy and spore expiry, Source spore rings, wave
+  warnings), and in `Rules.deal_damage`: `modify_damage` (tethers, armour, Carrier twist, bosses
+  always reach phase 2), `on_damaged` (virulent, Outbreak infection bonus, pin release, boss phases),
+  `on_died` (splitting, death burst, boss defeat, tethers). `EnemyRoster.infects(source)` gates
+  `Infection.on_damaged` (Fallen bullets don't infect).
+- **`GameState.encounter`** is serialized with the state. Keys: `act`, `node`, `objective`,
+  `outbreak`, `stage`, `boss`, `hive`, `purge_nests`, `ambush`, `boss_health_mult`, `infect_bonus`,
+  `start_infection`, `spore_patches`, `waves` ([{turn, every, kinds}]), `incoming`, `spores`
+  ({Vector2i: last turn}), `telegraphs` ([{kind, cells, turn, damage, source, smash, unit}]),
+  `lapse_double`, `over`.
+- **Statuses** (enemy units unless noted): `elite`, `affixes`, `armour`, `hidden`, `boss`,
+  `boss_phase`, `spawner` ({kinds, every, next, i}), `tether` (kind whose living units make it
+  immune), `swelling`, `charge_dir`, `pinning`, soldier `pinned_by`, `frenzy`/`frenzy_mob`/`frenzy_aim`,
+  `pull_turn`. **`burned_turn`** (int turn) is read, not written: set it from a flame ability to stop
+  Regenerating that turn (GearFx `burning` also stops it).
+- **Static units** (`UnitData.ENEMIES[kind].static`: Hive node, egg sac, spore nest, Source root)
+  never act; `Objectives` can count living `spore_nest` units for Purge.
+- **Outbreak stages** (`FightBuilder.stage`): Spreading +1 enemy (2 budget) and a spore patch;
+  Rampant +1 more, a wave on turn 4, +5 Infection on infected hits; Critical a skirmish elite (50%),
+  2 patches, 2 elite affixes in nests; Collapse +10 starting Infection and waves every 3 turns.
+  Budget past the 5-enemy cap buys affixes or an earlier wave. Objective pressure: Hold gets a wave
+  every turn from 2 sides, Extract 2 enemies every 2 turns, Purge 3 spore nests on `markers.nest`.
+- **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
+- Dev aid: `-- --fight=<node>,<act>,<outbreak>` plays one built fight on the test map.

@@ -60,6 +60,12 @@ func build(g: Grid) -> void:
 	add_child(_hover)
 
 
+## Rebuilds the tile props after the grid changed (cover smashed by a Brute or an airstrike).
+func rebuild_tiles() -> void:
+	_clear(_tiles)
+	_build_tiles()
+
+
 func _layer(n: String) -> Node3D:
 	var l := Node3D.new()
 	l.name = n

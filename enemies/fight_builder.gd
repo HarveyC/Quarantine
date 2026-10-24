@@ -1,0 +1,196 @@
+class_name FightBuilder
+extends RefCounted
+## Builds a fight's enemy list and encounter from a threat budget (design doc, Enemies:
+## Outbreak scaling). Pure and deterministic from `spec.seed`. OWNER: enemies workstream.
+##
+## spec = {act (1-3), row, node ("skirmish" | "ambush" | "nest" | "boss"),
+##         objective ("extract" | "hold" | "rescue" | "purge" | "boss"), outbreak, seed, players,
+##         modifiers: {extra_enemies, enemies_dead_at_start, ambush, boss_health_mult}}
+## Fights never scale with player count: `players` is ignored on purpose.
+
+const SKIRMISH_BUDGET := {1: 4, 2: 6, 3: 8}
+const NEST_BUDGET := {1: 3, 2: 4, 3: 5}     # on top of the elite and the Hive node
+const BOSS_BUDGET := {1: 0, 2: 0, 3: 0}     # bosses bring their own adds
+const BUDGET_PER_ENEMY := 2                  # each "+1 enemy" from Outbreak or events
+const ENEMY_CAP := 5
+const MIN_START := 3
+const STAGE_NAMES: Array[String] = ["Contained", "Spreading", "Rampant", "Critical", "Collapse"]
+
+
+## Outbreak stage: 0 Contained (0-2), 1 Spreading (3-5), 2 Rampant (6-8), 3 Critical (9-12), 4 Collapse (13+).
+static func stage(outbreak: int) -> int:
+	if outbreak >= 13:
+		return 4
+	if outbreak >= 9:
+		return 3
+	if outbreak >= 6:
+		return 2
+	if outbreak >= 3:
+		return 1
+	return 0
+
+
+static func build(spec: Dictionary) -> Dictionary:
+	var act := clampi(int(spec.get("act", 1)), 1, 3)
+	var node := str(spec.get("node", "skirmish"))
+	var objective := str(spec.get("objective", ""))
+	var mods: Dictionary = spec.get("modifiers", {})
+	var st := stage(int(spec.get("outbreak", 0)))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(spec.get("seed", 1)) * 7919 + 17
+	# The elite is rolled first so preview() can show it without knowing Outbreak.
+	var elite_kind := _pick(rng, EnemyRoster.elite_pool(act))
+	var extra := (1 if st >= 1 else 0) + (1 if st >= 2 else 0) + int(mods.get("extra_enemies", 0))
+	if node == "boss":
+		extra = (1 if st >= 2 else 0) + int(mods.get("extra_enemies", 0))   # bosses bring their own adds
+	var budget := 0
+	match node:
+		"nest": budget = NEST_BUDGET[act]
+		"boss": budget = BOSS_BUDGET[act]
+		_: budget = SKIRMISH_BUDGET[act]
+	budget += BUDGET_PER_ENEMY * extra
+	var enemies: Array[String] = []
+	var enc := {"act": act, "node": node, "objective": objective, "outbreak": int(spec.get("outbreak", 0)),
+		"stage": st, "waves": []}
+	if node == "nest":
+		enemies.append(EnemyRoster.spec(elite_kind, true, _affixes(rng, 2 if st >= 3 else 1, true)))
+		enc["hive"] = true
+	elif node != "boss" and st >= 3 and rng.randf() < 0.5:
+		var cost: int = EnemyRoster.COST[elite_kind] * 2
+		if budget >= cost + 1:
+			enemies.append(EnemyRoster.spec(elite_kind, true, _affixes(rng, 1, false)))
+			budget -= cost
+	if node == "boss":
+		enc["boss"] = EnemyRoster.BOSS_OF_ACT[act]
+		if act == 2:
+			for i in 3:
+				enemies.append("fallen")
+		if mods.has("boss_health_mult"):
+			enc["boss_health_mult"] = float(mods.boss_health_mult)
+	var pool := EnemyRoster.pool(act)
+	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else MIN_START)
+	# Spare budget past the cap: an affix on a regular, or an earlier reinforcement wave.
+	if st >= 2 and node != "boss":
+		enc.waves.append({"turn": 3 if st >= 4 else 4, "every": 3 if st >= 4 else 0, "kinds": _wave(rng, pool, 2)})
+	var flip := false
+	while budget >= BUDGET_PER_ENEMY:
+		budget -= BUDGET_PER_ENEMY
+		flip = not flip
+		if flip or not _hasten_wave(enc.waves):
+			_affix_regular(rng, enemies)
+	_objective_pressure(rng, objective, pool, enc)
+	if objective == "purge":
+		enc["purge_nests"] = 3
+	if st >= 1:
+		enc["spore_patches"] = 2 if st >= 3 else 1
+	if st >= 2:
+		enc["infect_bonus"] = 5
+	if st >= 4:
+		enc["start_infection"] = 10
+	if node == "ambush" or mods.get("ambush", false):
+		enc["ambush"] = true
+	var dead := int(mods.get("enemies_dead_at_start", 0))
+	while dead > 0 and enemies.size() > 1 and not EnemyRoster.parse(enemies[-1]).elite:
+		enemies.pop_back()
+		dead -= 1
+	return {"enemies": enemies, "encounter": enc}
+
+
+## What the map screen shows for a fight node. Does not depend on Outbreak.
+static func preview(spec: Dictionary) -> Dictionary:
+	var act := clampi(int(spec.get("act", 1)), 1, 3)
+	var node := str(spec.get("node", "skirmish"))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(spec.get("seed", 1)) * 7919 + 17
+	var elite_kind := _pick(rng, EnemyRoster.elite_pool(act))
+	match node:
+		"nest":
+			var name: String = UnitData.ENEMIES[elite_kind].name
+			return {"title": "Infested nest: Elite " + name, "elite": elite_kind}
+		"boss":
+			var boss: String = EnemyRoster.BOSS_OF_ACT[act]
+			return {"title": UnitData.ENEMIES[boss].name, "elite": ""}
+		"ambush":
+			return {"title": "Ambush", "elite": ""}
+	return {"title": "Skirmish", "elite": ""}
+
+
+## Buys regulars until the budget or the cap runs out. Returns the budget left.
+static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, enemies: Array[String], min_start: int) -> int:
+	while budget > 0 and enemies.size() < ENEMY_CAP:
+		var slots := ENEMY_CAP - enemies.size()
+		var still_needed := maxi(0, min_start - enemies.size() - 1)
+		var max_cost := budget - still_needed
+		var target := ceili(float(budget) / slots)
+		var affordable: Array[String] = []
+		var top := 0
+		for k in pool:
+			var c: int = EnemyRoster.COST[k]
+			if c <= max_cost:
+				affordable.append(k)
+				top = maxi(top, c)
+		if affordable.is_empty():
+			break
+		var preferred: Array[String] = []
+		for k in affordable:
+			if EnemyRoster.COST[k] >= mini(target, top):
+				preferred.append(k)
+		var kind := _pick(rng, preferred)
+		enemies.append(kind)
+		budget -= EnemyRoster.COST[kind]
+	return budget
+
+
+static func _wave(rng: RandomNumberGenerator, pool: Array[String], n: int) -> Array[String]:
+	var cheap: Array[String] = []
+	for k in pool:
+		if EnemyRoster.COST[k] <= 2 and k != "lurker":
+			cheap.append(k)
+	var out: Array[String] = []
+	for i in n:
+		out.append(_pick(rng, cheap))
+	return out
+
+
+## Waves for objective pressure (Hold: every turn from 2 sides; Extract: behind the squad every 2 turns).
+static func _objective_pressure(rng: RandomNumberGenerator, objective: String, pool: Array[String], enc: Dictionary) -> void:
+	match objective:
+		"hold":
+			enc.waves.append({"turn": 2, "every": 1, "kinds": _wave(rng, pool, 1)})
+			enc.waves.append({"turn": 3, "every": 2, "kinds": _wave(rng, pool, 1)})
+		"extract":
+			enc.waves.append({"turn": 2, "every": 2, "kinds": _wave(rng, pool, 2)})
+
+
+static func _hasten_wave(waves: Array) -> bool:
+	for w in waves:
+		if int(w.turn) > 2:
+			w.turn = int(w.turn) - 1
+			return true
+	return false
+
+
+static func _affix_regular(rng: RandomNumberGenerator, enemies: Array[String]) -> void:
+	for i in enemies.size():
+		var p := EnemyRoster.parse(enemies[i])
+		if p.elite or not p.affixes.is_empty():
+			continue
+		enemies[i] = EnemyRoster.spec(p.kind, false, _affixes(rng, 1, false))
+		return
+
+
+static func _affixes(rng: RandomNumberGenerator, n: int, allow_tether: bool) -> Array[String]:
+	var options: Array[String] = []
+	for a in EnemyRoster.AFFIXES:
+		if a != "tethered" or allow_tether:
+			options.append(a)
+	var out: Array[String] = []
+	for i in n:
+		var a := _pick(rng, options)
+		options.erase(a)
+		out.append(a)
+	return out
+
+
+static func _pick(rng: RandomNumberGenerator, from: Array[String]) -> String:
+	return from[rng.randi_range(0, from.size() - 1)]
