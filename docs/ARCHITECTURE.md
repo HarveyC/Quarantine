@@ -23,6 +23,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `elevation/` | `Elevation` | **maps** | High ground: aim and cover from height, in-fight level changes |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
+| `tutorial/`, `ui/tutorial/` | `Onboarding`, `TutorialScript`, `TutorialSession` | **onboarding** | Training mission, first-time tips, what the player has been taught |
 | `net/` | `NetSession`, `LocalSession`, `NetTransport` (`EnetTransport`, `SteamTransport`) | net | Sessions the view talks to; online replication over ENet or Steam (see docs/STEAM.md) |
 | `platform/` | `Platform` autoload, `CloudSync`, `CrashReporter` | net | Steam (optional), cloud saves, achievements bridge, rich presence, crash reports |
 | `tests/` | `TestCase` | everyone | `tests/test_<module>.gd` per workstream |
@@ -824,6 +825,37 @@ that turn). Main menu: "Continue run" resumes locally; online, the host ticks "C
 run" in the lobby and absent players are benched until they join. `Profile` (`user://profile.cfg`)
 keeps unlock flags between runs (`act1_boss_beaten`, anything a module sets true in `run.meta`) and
 run counts; runs get a copy as `run.meta`.
+
+## Training and first-time tips (tutorial/, ui/tutorial/)
+
+Owned by the onboarding workstream. Visual first: tile markers, arrows and short captions, no
+text walls.
+
+- **`Onboarding`** (`tutorial/onboarding.gd`): what this player has been taught, in the profile
+  (`user://profile.cfg`, section `onboarding`): `training_done`, `training_offered`, `hints_off`, and
+  `hint_<id>` per tip shown. `should_offer_training()`, `hints_enabled()` / `set_hints_enabled(on)`,
+  `reset_hints()` (for a settings screen). Each machine has its own profile, so online every player
+  gets their own tips.
+- **Training mission**: `TutorialScript` (pure, like `Rules`) builds a fixed map (`maps/tutorial.txt`,
+  Trooper + Marksman for player 0) and runs 12 lessons in `STEPS`: welcome and camera, move, cover,
+  Ready / team phase, fog of war, hit chance, high ground, overwatch, clear, Infection and a mutation,
+  Turning, purge the nest. Each lesson has a goal read from the state (a soldier on a marked tile, an
+  enemy spotted, a reaction shot, a mutation used...) and a set-up when it starts (a Runner in the
+  fog, a wave of two, a dose of Infection) that goes through `EnemyRoster` / `Encounter.spawn` /
+  `Infection.add`, so the view plays it like any fight. A hidden spore nest walled into a corner keeps
+  the fight open between lessons and dies at the end. `TutorialSession` (a `LocalSession`, never
+  saves) ticks the script after each change. Main menu "Training", or `-- --training`
+  (`--training-step=N` opens on lesson N for screenshots).
+- **Overlay** (`ui/tutorial/tutorial_overlay.gd`, added to the HUD by `App`): the lesson card top right,
+  amber markers on the lesson's tiles (`cell_markers.gd`), an arrow to the HUD piece it is about
+  (`ActionBar.find_button(key)` / `ready_button()`, target panel, roster), and its own "Training
+  complete" card instead of the Victory screen. It hides while the event player is busy.
+- **First-time tips** (`ui/tutorial/coach.gd`, on its own layer in `App`): watches the run view
+  (`RunView.hint_target(key)`) and the fight's events and shows one short card per moment: route
+  map, Outbreak, Intel, spoils, loadout, each node kind, the squad phase, Infection, Lapse, Turned,
+  telegraphed strikes, reinforcements. Fight tips fire only for this machine's soldiers. Off for
+  `--autoplay` and screenshot runs (`--hints` turns them back on). It also asks a new player
+  "play training first?" before their first run from the menu.
 
 ## Deployables (turrets, decoys)
 
