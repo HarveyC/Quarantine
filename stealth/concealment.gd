@@ -86,6 +86,8 @@ static func detects(s: GameState, watcher: Unit, h: Unit) -> bool:
 		return false
 	if not UnitData.ENEMIES.has(watcher.kind):
 		return false
+	if GearFx.in_smoke(s, h):
+		return false
 	var r := HUSH_RADIUS if Kit.awake(h, "hive_hush") else DETECT_RADIUS
 	return watcher.pos.distance_to(h.pos) <= r and Combat.can_see(s, watcher.pos, h.pos)
 
@@ -94,16 +96,33 @@ static func detects(s: GameState, watcher: Unit, h: Unit) -> bool:
 ## only the enemies the squad can see, so this never leaks what is under the fog).
 static func danger_cells(s: GameState, watchers: Array) -> Dictionary:
 	var out := {}
+	var fields := sight_fields(s, watchers)
+	for id in fields:
+		out.merge(fields[id].cells)
+	return out
+
+
+## Each dormant watcher's own detection area: {enemy id: {"cells": {cell: true}, "at": pos}}.
+## Walkable cells within DETECT_RADIUS it has line of sight to (walls, map edges and high ground
+## carve it), minus smoke. Awake, static and hidden enemies have none.
+static func sight_fields(s: GameState, watchers: Array) -> Dictionary:
+	var out := {}
 	var r := int(DETECT_RADIUS)
 	for w: Unit in watchers:
 		if not w.is_alive() or EnemyAI.is_alerted(w) or EnemyRoster.is_static(w) or w.status.get("hidden", false):
 			continue
+		if not UnitData.ENEMIES.has(w.kind):
+			continue
+		var cells := {}
 		for y in range(w.pos.y - r, w.pos.y + r + 1):
 			for x in range(w.pos.x - r, w.pos.x + r + 1):
 				var c := Vector2i(x, y)
-				if s.grid.in_bounds(c) and not out.has(c) and w.pos.distance_to(c) <= DETECT_RADIUS \
-						and s.grid.is_walkable(c) and Combat.can_see(s, w.pos, c):
-					out[c] = true
+				if s.grid.in_bounds(c) and w.pos.distance_to(c) <= DETECT_RADIUS and c != w.pos \
+						and s.grid.is_walkable(c) and Combat.can_see(s, w.pos, c) \
+						and Hazards.at(s, c).get("kind", "") != "smoke":
+					cells[c] = true
+		if not cells.is_empty():
+			out[w.id] = {"cells": cells, "at": w.pos}
 	return out
 
 

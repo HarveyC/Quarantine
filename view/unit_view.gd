@@ -44,6 +44,10 @@ var guard := false        # Warden's Guard stance (shield up until the next squa
 var lapsed := false
 var turned := false
 var dead := false
+var concealed := false    # squad Concealed: a cold-blue dashed ring at the feet
+## Timed tags the beats put on this unit (MARKED, SUPPRESSED, STUNNED, CONTAINED):
+## key -> the phase index (Combat.phase_index) it ends on. Shown on the status line.
+var tags := {}
 
 var _body: Node3D        # yaw only
 var _rig: Node3D         # bob, lean, knockback, lunge
@@ -68,6 +72,7 @@ var _infection_mat: StandardMaterial3D
 var _select_ring: MeshInstance3D
 var _target_ring: MeshInstance3D
 var _guard_ring: MeshInstance3D
+var _cloak_ring: Node3D
 var _drawn := false      # melee classes: sidearm out (aiming) instead of the melee weapon
 ## False when the HUD draws its own nameplates, which hides the floating 3D labels.
 static var world_labels := true
@@ -204,6 +209,18 @@ func _build_rings() -> void:
 	_guard_ring.scale.y = 0.2
 	_guard_ring.visible = false
 	add_child(_guard_ring)
+	# Concealed: twelve cold-blue dashes around the feet, the squad-wide "unseen" read.
+	_cloak_ring = Node3D.new()
+	_cloak_ring.position.y = 0.03
+	_cloak_ring.visible = false
+	var dash := Palette.overlay(Color(Palette.STEALTH, 0.9))
+	for i in 12:
+		var a := TAU * float(i) / 12.0
+		var d := Palette.box(Vector3(0.16, 0.02, 0.05), dash)
+		d.position = Vector3(cos(a), 0, sin(a)) * 0.58
+		d.rotation.y = -a + PI * 0.5
+		_cloak_ring.add_child(d)
+	add_child(_cloak_ring)
 
 
 func _build_labels() -> void:
@@ -309,6 +326,28 @@ func set_turned() -> void:
 	_refresh_status()
 
 
+## Squad concealment shown on this soldier (EventPlayer.concealed).
+func set_concealed(on: bool) -> void:
+	concealed = on
+	_cloak_ring.visible = on and is_soldier and not dead and _overlays_on
+
+
+func set_tag(key: String, until: int) -> void:
+	tags[key] = maxi(until, int(tags.get(key, -1)))
+	_refresh_status()
+
+
+## Drops tags that ended by phase `now`.
+func expire_tags(now: int) -> void:
+	var gone := false
+	for k in tags.keys():
+		if int(tags[k]) <= now:
+			tags.erase(k)
+			gone = true
+	if gone:
+		_refresh_status()
+
+
 func set_selected(on: bool) -> void:
 	_select_ring.visible = on
 
@@ -323,6 +362,7 @@ func set_overlays_visible(on: bool) -> void:
 	for n in [_hp_sprite, _class_label, _status_label]:
 		n.visible = on and not dead and world_labels
 	_guard_ring.visible = on and guard and not dead
+	_cloak_ring.visible = on and concealed and is_soldier and not dead
 	if not on:
 		_select_ring.visible = false
 		_target_ring.visible = false
@@ -493,7 +533,7 @@ func set_death_progress(t: float) -> void:
 	_rig.position.y = -sink * (0.9 if not soldier_body or turned else 0.0)
 	if _glow != null:
 		_glow.light_energy *= 1.0 - t * 0.5
-	for n in [_hp_sprite, _class_label, _status_label, _infection_ring, _select_ring, _target_ring, _guard_ring]:
+	for n in [_hp_sprite, _class_label, _status_label, _infection_ring, _select_ring, _target_ring, _guard_ring, _cloak_ring]:
 		n.visible = n.visible and t < 0.3
 	if t >= 1.0:
 		visible = false
@@ -574,5 +614,8 @@ func _refresh_status() -> void:
 		parts.append("GUARD")
 	if hunkered:
 		parts.append("HUNKERED")
+	for k in ["stunned", "suppressed", "marked", "contained"]:
+		if tags.has(k) and not dead:
+			parts.append(k.to_upper())
 	_status_label.text = " ".join(parts)
 	_status_label.modulate = Palette.DANGER if (lapsed or turned) else Palette.AMBER

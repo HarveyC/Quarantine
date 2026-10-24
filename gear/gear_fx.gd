@@ -8,7 +8,6 @@ extends RefCounted
 ##   "burn_source": int    unit id that set it Burning (Burn set spread, Spotter flare)
 ##   "gear_fire_mobility": int mobility currently added by Flame-retardant coat
 ##   "suppress_extra": int extra aim penalty on a Suppressed unit (Compensator, Shock rounds Mk II)
-##   "smoked": int         phase index a smoke grenade's +20 defense ends on
 ##   "contained": int      phase index until which the unit gains no Infection (Containment emitter)
 ##   "gear_uses": {ability id: uses this fight}
 ##   "gear_refund_turn": int  turn a Close-set kill last refunded a move
@@ -20,6 +19,8 @@ extends RefCounted
 
 const BURN_DAMAGE := 2
 const SMOKE_DEFENSE := 20
+const SMOKE_RADIUS := 1
+const SMOKE_TURNS := 2
 const CLOSE := 3.0
 
 ## Items whose effect needs a system the game doesn't have yet (fog of war, restraint,
@@ -88,6 +89,11 @@ static func has_set(u: Unit, tag: String) -> bool:
 
 static func is_burning(_s: GameState, u: Unit) -> bool:
 	return int(u.status.get("burning", 0)) > 0
+
+
+## Standing in a smoke grenade's cloud: +SMOKE_DEFENSE, and dormant Infected can't spot you.
+static func in_smoke(s: GameState, u: Unit) -> bool:
+	return Hazards.at(s, u.pos).get("kind", "") == "smoke"
 
 
 static func is_marked(s: GameState, u: Unit) -> bool:
@@ -161,7 +167,7 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 		breakdown.append(["Suppressed (gear)", -int(a.status.suppress_extra)])
 	if t.status.has("gear") and has(t, "riot_shield") and cover == Types.Cover.NONE:
 		breakdown.append(["Riot shield", -Combat.COVER_HALF])
-	if Combat.has_status(s, t, "smoked"):
+	if in_smoke(s, t):
 		breakdown.append(["Smoke", -SMOKE_DEFENSE])
 	if t.status.has("gear"):
 		if has(t, "ghillie_cloak") and t.overwatch:
@@ -607,15 +613,38 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 	match key:
 		"flare_launcher":
 			var hit: Array = (area.call(1) as Array).filter(func(o): return u.is_enemy_of(o))
+			ev["units"] = hit.map(func(o): return o.id)
+			s.emit(ev)   # the throw plays first, then what it did
 			for o in hit:
 				_mark(s, o, 3)
-			ev["units"] = hit.map(func(o): return o.id)
-		"concussion_launcher", "flashbang":
-			var r := 2 if key == "concussion_launcher" and mk(u, key) >= 2 else 1
+				s.emit({"type": "gear", "unit": u.id, "item": "mark", "target": o.id})
+			_gives_away(s, u, hit)
+			return
+		"concussion_launcher":
+			var r := 2 if mk(u, key) >= 2 else 1
 			var hit: Array = (area.call(r) as Array).filter(func(o): return u.is_enemy_of(o))
+			ev["units"] = hit.map(func(o): return o.id)
+			ev["radius"] = r
+			s.emit(ev)
 			for o in hit:
 				_suppress(s, u, o)
+			_gives_away(s, u, hit)
+			return
+		"flashbang":
+			# Stuns: each enemy caught loses its next turn. Bosses and nests shrug it off and are
+			# only Suppressed.
+			var hit: Array = (area.call(1) as Array).filter(func(o): return u.is_enemy_of(o))
 			ev["units"] = hit.map(func(o): return o.id)
+			s.emit(ev)
+			for o in hit:
+				if EnemyRoster.is_boss(o) or UnitData.ENEMIES.get(o.kind, {}).get("static", false):
+					_suppress(s, u, o)
+					continue
+				o.status["k_skip_turn"] = true
+				o.overwatch = false
+				s.emit({"type": "stunned", "unit": o.id, "by": u.id})
+			_gives_away(s, u, hit)
+			return
 		"thermite_charge":
 			var line := fire_line(u.pos, cell, THERMITE_LENGTH[clampi(mk(u, key), 1, 2) - 1])
 			s.emit(ev)
@@ -649,9 +678,13 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			return
 		"containment_emitter":
 			var until := Combat.phase_index(s) + 2
+			var held: Array = []
 			for o in s.living(Types.Team.PLAYER):
 				if _cheb(o.pos, u.pos) <= 2:
 					o.status["contained"] = until
+					held.append(o.id)
+			ev["units"] = held
+			ev["until"] = until
 		"deployable_cover":
 			s.grid.tiles[cell.y * s.grid.width + cell.x] = Types.Tile.WALL
 		"grapple":
@@ -683,10 +716,22 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			Vision.add_reveal(s, cell, Vision.DRONE_RADIUS)
 			return
 		"smoke_grenade":
-			for o in area.call(1):
-				if not u.is_enemy_of(o):
-					o.status["smoked"] = Combat.phase_index(s) + 4
+			# A smoke cloud on the tiles: whoever stands in it is harder to hit and can't be
+			# spotted, for as long as it hangs (Hazards "smoke").
+			s.emit(ev)
+			var cells: Array[Vector2i] = []
+			for y in range(cell.y - SMOKE_RADIUS, cell.y + SMOKE_RADIUS + 1):
+				for x in range(cell.x - SMOKE_RADIUS, cell.x + SMOKE_RADIUS + 1):
+					cells.append(Vector2i(x, y))
+			Hazards.add(s, cells, "smoke", SMOKE_TURNS, u.id)
+			return
 	s.emit(ev)
+
+
+## An attack on dormant enemies (flashbang, concussion, flare) gives a Concealed squad away.
+static func _gives_away(s: GameState, u: Unit, hit: Array) -> void:
+	if not hit.is_empty():
+		Concealment.lose(s, "fired", hit[0], u)
 
 
 static func _use_charge(u: Unit, id: String) -> void:

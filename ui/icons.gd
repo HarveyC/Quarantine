@@ -6,7 +6,12 @@ const CLASS_ICON := {"trooper": "trooper", "marksman": "marksman", "medic": "med
 	"hazmat": "hazmat", "vector": "vector", "reaper": "reaper", "warden": "warden"}
 const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "breach": "breach",
 	"incinerate": "incinerate", "siphon": "siphon", "lunge": "lunge", "bash": "bash", "guard": "guard", "shield_charge": "shield_charge",
-	"item:frag_grenade": "grenade", "item:demo_charge": "charge"}
+	"item:frag_grenade": "grenade", "item:demo_charge": "charge",
+	"item:smoke_grenade": "smoke", "item:flashbang": "flash", "item:medkit": "medic", "item:stim": "medic",
+	"item:suppressant_shot": "purge", "item:recon_drone": "drone", "gear:flare_launcher": "tag",
+	"gear:concussion_launcher": "suppress", "gear:thermite_charge": "incinerate", "gear:med_injector": "purge",
+	"gear:adrenal_pump": "mutation", "gear:deployable_cover": "cover_half", "gear:grapple": "move",
+	"gear:containment_emitter": "cure", "gear:sentry_turret": "overwatch"}
 
 
 static func for_class(kind: String) -> String:
@@ -144,6 +149,27 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 		"clock":
 			circle.call(12, 12, 8)
 			line.call([[12, 8], [12, 12], [15, 14]])
+		"smoke":   # a canister under a rolling cloud
+			arc.call(8, 10, 4, PI * 0.6, PI * 1.9)
+			arc.call(14, 7.5, 4.5, PI * 1.05, PI * 2.1)
+			arc.call(18, 11.5, 3.5, PI * 1.5, PI * 2.6)
+			line.call([[4.5, 13], [20.5, 13]])
+			line.call([[9, 15], [15, 15], [15, 21], [9, 21], [9, 15]])
+		"flash":   # a starburst
+			for k in 8:
+				var a := TAU * k / 8.0
+				var r0 := 3.5
+				var r1 := 10.0 if k % 2 == 0 else 7.0
+				line.call([[12 + cos(a) * r0, 12 + sin(a) * r0], [12 + cos(a) * r1, 12 + sin(a) * r1]])
+			dot.call(12, 12, 2)
+		"stun":   # a jagged bolt
+			line.call([[14, 2.5], [7, 13], [12, 13], [9, 21.5], [17, 10], [12, 10], [14, 2.5]])
+		"drone":   # four rotors round a body
+			line.call([[7, 7], [17, 17]])
+			line.call([[17, 7], [7, 17]])
+			for c in [[6, 6], [18, 6], [6, 18], [18, 18]]:
+				circle.call(c[0], c[1], 3)
+			dot.call(12, 12, 2.4)
 		"concealed":   # a closed eye, lashes down, struck through
 			line.call([[2, 11], [6, 14.5], [12, 16], [18, 14.5], [22, 11]])
 			line.call([[6, 14.5], [4.5, 17.5]])

@@ -22,6 +22,7 @@ const Palette := preload("res://view/palette.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const CameraRig := preload("res://view/camera_rig.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
+const ItemBeats := preload("res://view/item_beats.gd")
 const ShotCamera := preload("res://view/shot_camera.gd")
 const GunFeel := preload("res://view/gun_feel.gd")
 const MeleeFx := preload("res://view/melee_beats.gd")
@@ -47,7 +48,12 @@ var speed := 1.0
 var enemy_phase := false   # displayed phase, which lags GameState while the queue plays
 ## Displayed squad concealment (Concealment), which also lags GameState: the HUD chip, the red
 ## detection tiles and the stealth music follow this, so the alarm lands when it plays.
-var concealed := false
+var concealed := false:
+	set(on):
+		concealed = on
+		if view != null:
+			for uv in view.unit_views.values():
+				uv.set_concealed(on)
 var turn := 0
 var ended := false
 ## Slows unit animation and effects (not the beat clock) for slow motion and hit-stop.
@@ -340,16 +346,27 @@ func _feel(uv: UnitView) -> Dictionary:
 
 # --- beats -------------------------------------------------------------------
 
+## The displayed phase as Combat.phase_index counts it (timed statuses end on these).
+func phase_now() -> int:
+	return turn * 2 + (1 if enemy_phase else 0)
+
+
+func _expire_tags() -> void:
+	for uv in view.unit_views.values():
+		uv.expire_tags(phase_now())
+
+
 func _beat_team_phase(ev: Dictionary) -> Dictionary:
 	enemy_phase = false
 	turn = int(ev.get("turn", turn))
+	_expire_tags()
 	for uv in view.unit_views.values():
 		uv.set_statuses(false, false)
 		if uv.guard:
 			uv.set_guard(false)
 	if turn == 1 and concealed:
 		view.hud.banner("SQUAD CONCEALED", Palette.STEALTH)
-		view.hud.toast("Unseen. Red tiles give you away, so does opening fire")
+		view.hud.toast("Unseen. Stay out of the red ground and hold fire to stay hidden")
 		_sfx("sting_squad", -4.0)
 		return {"dur": 1.4}
 	if turn == 1 and not Concealment.used(view.state) and not view.state.encounter.is_empty():
@@ -362,6 +379,7 @@ func _beat_team_phase(ev: Dictionary) -> Dictionary:
 func _beat_enemy_phase(ev: Dictionary) -> Dictionary:
 	enemy_phase = true
 	turn = int(ev.get("turn", turn))
+	_expire_tags()
 	view.hud.banner("ENEMY ACTIVITY", Palette.DANGER)
 	_sfx("sting_enemy")
 	return {"dur": 0.9}
@@ -872,6 +890,7 @@ func _beat_stunned(ev: Dictionary) -> Dictionary:
 	var uv := _uv(ev)
 	if uv == null:
 		return {}
+	uv.set_tag("stunned", phase_now() + (1 if enemy_phase else 2))
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "STUNNED", MeleeFx.SHOCK, 44)
 	MeleeFx.stun(view.fx, uv.chest_world())
 	uv.flash(MeleeFx.SHOCK)
@@ -913,7 +932,18 @@ func _beat_gear(ev: Dictionary) -> Dictionary:
 	if ev.has("heal"):
 		_show_heal(uv, int(ev.heal), int(ev.get("hp", uv.hp)))
 		return {"dur": 0.4}
-	view.fx.floating_text(_head(uv), GearData.item_name(str(ev.get("item", "gear"))).to_upper(), Palette.AMBER, 32)
+	var item := str(ev.get("item", "gear"))
+	if item in ["mark", "suppress"]:
+		# Flare, tracer, concussion and the like: the tag goes on the enemy it landed on.
+		var tv := _uv(ev, "target")
+		if tv == null:
+			return {}
+		var marked := item == "mark"
+		tv.set_tag("marked" if marked else "suppressed", phase_now() + (3 if marked else 2))
+		if tv.visible:
+			view.fx.floating_text(_head(tv) + Vector3(0, 0.3, 0), "MARKED" if marked else "SUPPRESSED", Palette.DANGER if marked else Palette.AMBER, 36)
+		return {"dur": 0.15}
+	view.fx.floating_text(_head(uv), GearData.item_name(item).to_upper(), Palette.AMBER, 32)
 	return {"dur": 0.3}
 
 
@@ -978,7 +1008,9 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 		"tag":
 			_sfx("radio")
 			_sfx("ui_confirm", -4.0, 0.2)
-	return _power_beat(ev, str(ev.get("ability", "ability")), Palette.AMBER)
+	if ItemBeats.handles(ev):
+		return ItemBeats.beat(self, ev)
+	return _power_beat(ev, str(ev.get("name", str(ev.get("ability", "ability")).replace("_", " "))), Palette.AMBER)
 
 
 ## Melee strike: wind-up, lunge, impact. Runner claws and the like get a side-on camera;
@@ -1210,6 +1242,7 @@ func _suppress_beat(ev: Dictionary) -> Dictionary:
 	_focus(tv)
 	uv.face_towards(tv.position)
 	uv.set_aim(1.0)
+	tv.set_tag("suppressed", phase_now() + 2)
 	view.fx.floating_text(_head(uv), "SUPPRESS", Palette.AMBER, 44)
 	var st := {"n": 0}
 	var update := func(t: float) -> void:
@@ -1331,6 +1364,7 @@ func _beat_concealment_lost(ev: Dictionary) -> Dictionary:
 		if not in_cinematic:
 			view.camera_rig.focus(uv.position)
 	view.hud.banner("SQUAD DETECTED", Palette.DANGER)
+	view.hud.alarm()
 	view.hud.toast(Concealment.cause_text(str(ev.get("cause", "")), who))
 	if get_node_or_null("/root/Soundscape") == null:
 		_sfx("alert")
@@ -1361,7 +1395,7 @@ func _beat_hazard(ev: Dictionary) -> Dictionary:
 	var color: Color = Board.HAZARD_COLORS.get(kind, Color.WHITE)
 	view.fx.floating_text(mid + Vector3(0, 1.2, 0), str(Hazards.KINDS.get(kind, {}).get("name", kind)).to_upper(), color, 40)
 	view.fx.flash_light(mid + Vector3(0, 1, 0), color, 2.5, 0.5)
-	_sfx("spit" if kind != "fire" else "breach", -4.0)
+	_sfx({"fire": "breach", "smoke": "vent"}.get(kind, "spit"), -4.0)
 	return {"dur": 0.4}
 
 
@@ -1413,6 +1447,25 @@ func _beat_left_behind(ev: Dictionary) -> Dictionary:
 	_focus(uv)
 	view.fx.floating_text(_head(uv), "LEFT BEHIND", Palette.DANGER, 44)
 	return {"dur": 0.7}
+
+
+## A sentry turret (or decoy) unfolds on its tile.
+func _beat_deployed(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	_focus(uv)
+	view.fx.puff(uv.position + Vector3(0, 0.3, 0), Color(0.5, 0.48, 0.42), 0.9, 0.7, 0.4)
+	view.fx.pulse(uv.position, Palette.AMBER)
+	var title := "SENTRY ONLINE" if str(ev.get("kind", "")) == "turret" else str(ev.get("kind", "")).to_upper()
+	view.fx.floating_text(_head(uv), title, Palette.AMBER, 40)
+	_sfx("ui_confirm", -3.0)
+	return {"dur": 0.4}
+
+
+## Recon drone: the fog itself lifts (FogOverlay); the drone beat already showed the sweep.
+func _beat_revealed_area(_ev: Dictionary) -> Dictionary:
+	return {"dur": 0.2}
 
 
 func _beat_unknown(ev: Dictionary) -> Dictionary:

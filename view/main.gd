@@ -299,6 +299,8 @@ func _add_unit_view(u: Unit) -> UnitView:
 	if u.team != Types.Team.PLAYER and state != null and not Vision.sees_unit(state, Types.Team.PLAYER, u):
 		uv.visible = false
 	EnemyBeats.dress(uv, u)
+	if player != null:
+		uv.set_concealed(player.concealed)
 	uv.stepped.connect(_on_step)
 	_units_root.add_child(uv)
 	unit_views[u.id] = uv
