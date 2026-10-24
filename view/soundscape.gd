@@ -134,7 +134,11 @@ func is_muted() -> bool:
 	return AudioServer.is_bus_mute(0)
 
 
+## Opens the Settings screen on its Audio tab (the old Sound panel when SettingsHost is absent).
 func toggle_settings() -> void:
+	if get_node_or_null("/root/SettingsHost") != null:
+		GameSettings.open_menu("audio")
+		return
 	if _settings != null and is_instance_valid(_settings):
 		close_settings()
 		return
@@ -156,7 +160,7 @@ func close_settings() -> void:
 
 func _unhandled_key_input(e: InputEvent) -> void:
 	var k := e as InputEventKey
-	if k != null and k.pressed and not k.echo and k.keycode == KEY_F10:
+	if k != null and k.pressed and not k.echo and k.keycode == KEY_F10 and get_node_or_null("/root/SettingsHost") == null:
 		toggle_settings()
 		get_viewport().set_input_as_handled()
 

@@ -13,13 +13,9 @@ const ECHO_SECTION := "echoes"
 ## Echoes kept waiting at most; the oldest drop off.
 const MAX_POOL := 12
 
-## Overridable for tests. Same file as Profile.
-static var path := "user://profile.cfg"
-
-
 static func _load() -> ConfigFile:
 	var cf := ConfigFile.new()
-	cf.load(path)
+	cf.load(Profile.path)   # the same file as Profile (tests point Profile.path elsewhere)
 	return cf
 
 
@@ -97,7 +93,7 @@ static func record_run(run: RunState) -> void:
 		_trim_pool(cf)
 		changed = true
 	if changed:
-		cf.save(path)
+		cf.save(Profile.path)
 
 
 static func _trim_pool(cf: ConfigFile) -> void:
@@ -116,4 +112,4 @@ static func clear() -> void:
 	for s in [SECTION, ECHO_SECTION]:
 		if cf.has_section(s):
 			cf.erase_section(s)
-	cf.save(path)
+	cf.save(Profile.path)

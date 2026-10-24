@@ -67,6 +67,8 @@ var echoes: Array = []
 var story := {}
 ## Read-only copy of the player profile's meta flags (unlocks, Outbreak level) for this run.
 var meta := {}
+## Run tallies for Field Data, the run log and achievements, kept by MetaProgress.
+var tally := {}
 var log: Array[Dictionary] = []
 
 
@@ -158,6 +160,7 @@ func to_dict() -> Dictionary:
 		"fight_snapshot": fight_snapshot.duplicate(true), "node_state": node_state.duplicate(true),
 		"gear": gear.duplicate(true), "modifiers": modifiers.duplicate(true), "seen_events": seen_events.duplicate(),
 		"unknown_streak": unknown_streak, "echoes": echoes.duplicate(true), "meta": meta.duplicate(true),
+		"tally": tally.duplicate(true),
 		"story": story.duplicate(true),
 	}
 
@@ -171,10 +174,11 @@ static func from_dict(d: Dictionary) -> RunState:
 	r._next_sid = d.next_sid
 	for key in ["phase", "result", "host_player", "act", "row", "node", "supplies", "intel", "outbreak",
 			"fights_won", "unknown_streak", "benched", "map", "serum", "soldiers", "votes", "steps",
-			"fight_config", "fight_snapshot", "node_state", "gear", "modifiers", "seen_events", "echoes", "meta", "story"]:
+			"fight_config", "fight_snapshot", "node_state", "gear", "modifiers", "seen_events", "echoes", "meta", "tally", "story"]:
 		if d.has(key):
 			var v: Variant = d[key]
 			r.set(key, v.duplicate(true) if v is Dictionary or v is Array else v)
+	MetaUnlocks.bind(r.meta)
 	return r
 
 

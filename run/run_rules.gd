@@ -25,6 +25,11 @@ const INCOME := {
 	RunMap.NEST: {"supplies": 50, "serum": 1}, RunMap.BOSS: {"supplies": 60, "serum": 1},
 }
 const BONUS_SUPPLIES := 10
+## Doctrine pack effects (MetaUnlocks "doctrine_1"; the Doctrines themselves are in GearData).
+const SCAVENGERS_INTEL := 1
+const SUPPLY_DROP := 25
+const TRIAGE_DRILLS_HP := 2
+const SERUM_CACHE := 1
 
 
 # --- setup -------------------------------------------------------------------------
@@ -42,14 +47,17 @@ static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}, pick
 		run.players.append(p)
 		run.serum[p] = 0
 	run.meta = meta.duplicate(true)
+	run.meta["start_flags"] = meta.keys().filter(func(k): return meta[k] is bool and meta[k])
+	MetaUnlocks.bind(run.meta)
 	run.supplies = START_SUPPLIES
 	run.intel = START_INTEL
 	for e in MatchConfig.squad_plan(n, picks):
 		run.soldiers.append(RunSoldier.make(run, e.kind, e.player))
-		run.serum[e.player] += 1   # 1 sample per soldier you control
+		run.serum[e.player] += 2 if MetaUnlocks.owns(run.meta, "serum_reserve") else 1   # 1 sample per soldier you control (+1 Serum reserve)
 	for p in n:
 		for k in START_RESERVE:
 			run.soldiers.append(RunSoldier.make(run, random_class(run), p, RunSoldier.RESERVE))
+	Severity.apply_new_run(run)
 	RunHooks.call_static("Story", "init_run", [run])
 	return run
 
@@ -74,6 +82,11 @@ static func _start_act(run: RunState, act: int) -> void:
 	run.map = RunMap.generate(run.rng, act)
 	run.phase = RunState.Phase.MAP
 	run.emit({"type": "act_start", "act": act})
+	var docs: Array = run.modifiers.get("doctrines", [])
+	if act > 1 and docs.has("scavengers"):
+		add_intel(run, SCAVENGERS_INTEL, "Scavengers")
+	if act > 1 and docs.has("supply_drop"):
+		add_supplies(run, SUPPLY_DROP, "Supply drop")
 
 
 # --- actions -----------------------------------------------------------------------
@@ -349,6 +362,7 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 	run.fight_config = {}
 	run.fight_snapshot = {}
 	var fought := {}
+	var lost := {RunSoldier.DEAD: 0, RunSoldier.TURNED: 0}
 	for entry in outcome.soldiers:
 		var r := run.get_soldier(entry.sid)
 		if r.is_empty():
@@ -357,6 +371,8 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 		var what := RunSoldier.absorb(r, Unit.from_dict(entry.unit), run.fights_won + 1)
 		if what == RunSoldier.TURNED:
 			run.echoes.append({"sid": r.id, "kind": r.kind, "name": r.name, "act": run.act})
+		if lost.has(what):
+			lost[what] += 1
 		if what != RunSoldier.ACTIVE:
 			run.emit({"type": "soldier_lost", "sid": r.id, "how": what})
 			_deploy_recruit(run, r)
@@ -364,6 +380,8 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 		if not fought.has(r.id) and r.sit_out > 0:
 			r.sit_out -= 1
 	run.emit({"type": "fight_end", "result": outcome.result, "kind": kind})
+	MetaProgress.on_fight_end(run, kind, outcome.result == Types.Result.VICTORY and not run.squad().is_empty(),
+		bool(outcome.get("bonus", false)), lost[RunSoldier.DEAD], lost[RunSoldier.TURNED])
 	RunHooks.call_static("Progression", "on_fight_end", [run, outcome])
 	RunHooks.call_static("Story", "on_fight_end", [run, outcome, kind])
 	if outcome.result != Types.Result.VICTORY or run.squad().is_empty():
@@ -379,18 +397,23 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 			_end_run(run, Types.Result.VICTORY)
 		return
 	var heal: float = run.modifiers.get("heal_after_fight", HEAL_AFTER_FIGHT)
+	var docs: Array = run.modifiers.get("doctrines", [])
+	var extra_hp := TRIAGE_DRILLS_HP if docs.has("triage_drills") else 0
 	for r in run.squad():
 		if fought.has(r.id):
-			r.hp = mini(r.max_hp, r.hp + ceili(r.max_hp * heal))
+			r.hp = mini(r.max_hp, r.hp + ceili(r.max_hp * heal) + extra_hp)
 	var income: Dictionary = INCOME.get(kind, INCOME[RunMap.SKIRMISH])
-	add_supplies(run, income.supplies + (BONUS_SUPPLIES if outcome.bonus else 0), kind)
+	add_supplies(run, Severity.income(run, income.supplies) + (BONUS_SUPPLIES if outcome.bonus else 0), kind)
 	if outcome.bonus:
 		add_intel(run, 1, "bonus objective")
 	if income.serum > 0:
 		for p in run.players:
 			add_serum(run, p, income.serum * run.soldiers_of(p).size(), kind)
 	if kind == RunMap.BOSS:
-		add_outbreak(run, -BOSS_OUTBREAK_DROP, "boss")
+		add_outbreak(run, -Severity.boss_outbreak_drop(run, BOSS_OUTBREAK_DROP), "boss")
+		if docs.has("serum_cache"):
+			for p in run.players:
+				add_serum(run, p, SERUM_CACHE * run.soldiers_of(p).size(), "Serum cache")
 	RunHooks.call_static("GearRun", "on_fight_won", [run, RunMap.SKIRMISH if kind == RunMap.AMBUSH else kind])
 	_advance(run)
 
@@ -442,6 +465,7 @@ static func add_recruit(run: RunState, player: int, kind: String = "", infection
 	var r := RunSoldier.make(run, kind, player, RunSoldier.RESERVE)
 	r.infection = infection
 	run.soldiers.append(r)
+	RunHooks.call_static("GearRun", "on_recruit", [run, r])
 	run.emit({"type": "recruit", "sid": r.id, "player": player, "kind": kind})
 	# A player with an empty slot (everyone dead) deploys at once.
 	if run.squad().size() < 4 and run.soldiers_of(player).is_empty():

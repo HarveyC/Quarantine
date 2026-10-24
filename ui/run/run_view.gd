@@ -617,8 +617,23 @@ func _summary() -> Control:
 			lines.append("Echoes laid to rest: %d" % laid)
 		for id in run.story.get("lore", []):
 			lines.append("Intel recovered: %s" % StoryData.lore_entry(id).get("title", id))
+	if Severity.level(run) > 0:
+		lines.push_front("Severity %d" % Severity.level(run))
 	for l in lines:
 		box.add_child(Styles.label(l, 18, Styles.TEXT))
+	var fd := Styles.hbox(10)
+	fd.add_child(W.Icon.new("intel", Palette.AMBER, 26))
+	fd.add_child(Styles.mono("+%d" % MetaProgress.field_data(run), 30, Palette.AMBER))
+	fd.add_child(Styles.label("Field Data for every player", 16, Styles.DIM))
+	box.add_child(fd)
+	var earned := Achievements.earned_by(run)
+	if not earned.is_empty():
+		var chips := HFlowContainer.new()
+		chips.add_theme_constant_override("h_separation", 6)
+		chips.add_theme_constant_override("v_separation", 6)
+		for id in earned:
+			chips.add_child(W.chip(Achievements.DEFS[id].name, Palette.AMBER, false, 13))
+		box.add_child(chips)
 	var b := Button.new()
 	b.text = "MAIN MENU"
 	b.custom_minimum_size = Vector2(0, 48)

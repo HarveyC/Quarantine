@@ -1,5 +1,5 @@
 extends PanelContainer
-## One reward card (gear, Prototype, perk, mutation, consumable or cache). Shows the slot,
+## One reward card (gear, Prototype, alternate gun, perk, mutation, consumable or cache). Shows the slot,
 ## rarity and Mk, the tags, the effect, the threshold preview (a tag about to reach 3 glows
 ## gold with the bonus it switches on), and what it replaces. Hover lifts it; selected cards
 ## get an amber frame; Prototypes get a shifting multicolour frame.
@@ -35,6 +35,7 @@ func setup(c: Dictionary, rec: Dictionary, index: int) -> void:
 	add_child(v)
 	match str(c.get("kind", "gear")):
 		"gear": _build_gear(v)
+		"gun": _build_gun(v)
 		"perk", "mutation": _build_power(v)
 		"consumable": _build_consumable(v)
 		"cache": _build_cache(v)
@@ -161,6 +162,33 @@ func _build_gear(v: VBoxContainer) -> void:
 			v.add_child(UI.label("Fills the empty %s slot" % GearData.SLOT_NAMES[item.slot].to_lower(), 13, UI.FAINT))
 
 
+func _build_gun(v: VBoxContainer) -> void:
+	var g := Weapons.get_gun(card.id)
+	_row(v, UI.label("GUN", 12, UI.FAINT, "mono"), UI.caps(GearData.RARITY_NAMES[g.rarity], 13, UI.rarity_color(g.rarity)))
+	v.add_child(UI.wrap(UI.caps(g.name, 36), W - 40))
+	var tags := HBoxContainer.new()
+	tags.add_theme_constant_override("separation", 6)
+	tags.add_child(UI.tag_chip(g.tag))
+	v.add_child(tags)
+	v.add_child(UI.wrap(UI.label(g.desc, 15, Color("#cfccbd")), W - 40))
+	_art_at = v.get_child_count()
+	for p in GearTags.preview_gun(record, card.id):
+		if p.to <= p.from:
+			continue
+		var b := _boxed(v, UI.AMBER if p.unlocks else GearData.tag_color(p.tag).darkened(0.4))
+		var h := HBoxContainer.new()
+		h.add_child(UI.caps("%s %d → %d" % [p.tag, p.from, p.to], 16, GearData.tag_color(p.tag)))
+		var sp := Control.new()
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(sp)
+		h.add_child(UI.pips(p.tag, p.from, p.to))
+		b.add_child(h)
+		if p.unlocks:
+			b.add_child(UI.wrap(UI.label("Set bonus: " + GearData.TAG_INFO[p.tag].bonus, 14, UI.AMBER, "bold"), W - 70))
+	var now := Weapons.gun_name(Loadout.gun_id(record))
+	v.add_child(UI.wrap(UI.label("Replaces the %s in hand. You keep it, and can swap back from the loadout." % now, 13, UI.FAINT), W - 40))
+
+
 func _build_power(v: VBoxContainer) -> void:
 	var is_mut: bool = card.kind == "mutation"
 	var col := UI.TEAL if is_mut else UI.GOOD
@@ -221,6 +249,8 @@ func title() -> String:
 			return GearData.item_name(card.id)
 		"consumable":
 			return GearData.item_name(card.id)
+		"gun":
+			return Weapons.gun_name(card.id)
 		"cache":
 			return "+%d Supplies" % int(card.get("supplies", 25))
 	return str(card.get("name", card.get("id", "card")))
@@ -237,6 +267,8 @@ func _art_color() -> Color:
 	match str(card.get("kind", "gear")):
 		"gear":
 			return UI.rarity_color(GearData.rarity_of(card.id))
+		"gun":
+			return UI.rarity_color(Weapons.rarity_of(card.id))
 		"mutation":
 			return UI.TEAL
 		"perk":
@@ -303,6 +335,13 @@ class Art:
 				for i in 3:
 					var yy := c.y - s * 0.6 + i * s * 0.55
 					draw_polyline(PackedVector2Array([Vector2(c.x - s * 0.7, yy + s * 0.4), Vector2(c.x, yy), Vector2(c.x + s * 0.7, yy + s * 0.4)]), color, w, true)
+			"gun":
+				var u := s * 0.5
+				draw_polyline(PackedVector2Array([c + Vector2(-3.4, -0.3) * u, c + Vector2(2.6, -0.3) * u, c + Vector2(2.6, 0.15) * u,
+					c + Vector2(-0.2, 0.15) * u, c + Vector2(-0.6, 1.1) * u, c + Vector2(-1.1, 1.1) * u, c + Vector2(-0.9, 0.15) * u,
+					c + Vector2(-1.9, 0.15) * u, c + Vector2(-3.4, 0.7) * u, c + Vector2(-3.4, -0.3) * u]), color, w, true)
+				draw_line(c + Vector2(2.6, -0.1) * u, c + Vector2(3.6, -0.1) * u, color, w, true)
+				draw_rect(Rect2(c + Vector2(0.2, 0.15) * u, Vector2(0.45, 0.9) * u), color, false, w)
 			"cache":
 				draw_rect(Rect2(c - Vector2(s, s * 0.7), Vector2(s * 2, s * 1.4)), color, false, w)
 				draw_line(c + Vector2(-s, -s * 0.2), c + Vector2(s, -s * 0.2), color, w, true)

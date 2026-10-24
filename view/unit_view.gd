@@ -18,6 +18,7 @@ const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
 
 const ModelKit := preload("res://view/model_kit.gd")
+const GunModels := preload("res://view/gun_models.gd")
 const SkinnedBody := preload("res://view/skinned_body.gd")
 const TURN_SPEED := 9.0   # radians per second
 ## Units are drawn a little larger than life so they read from the tactical camera.
@@ -25,6 +26,7 @@ const MODEL_SCALE := 1.12
 
 var unit_id := 0
 var kind := ""
+var weapon := ""          # weapon id fired (Weapons.id_of), for the gun's look and feel
 var display_name := ""
 var owner_player := -1
 var is_soldier := true
@@ -88,6 +90,7 @@ var _death := 0.0
 func build(u: Unit) -> void:
 	unit_id = u.id
 	kind = u.kind
+	weapon = Weapons.id_of(u)
 	display_name = u.display_name
 	owner_player = u.owner_player
 	is_soldier = u.team == Types.Team.PLAYER
@@ -118,6 +121,8 @@ func build(u: Unit) -> void:
 
 func _build_model() -> void:
 	_model = ModelKit.instantiate(kind, soldier_body)
+	if is_soldier and Weapons.look_of(weapon) != GunModels.kind_look(kind):
+		GunModels.swap_look(_model, Weapons.look_of(weapon))
 	_rig.add_child(_model)
 	_mats = ModelKit.apply_materials(_model, owner_player, soldier_body)
 	_growths = ModelKit.growths(_model)

@@ -15,12 +15,15 @@ extends RefCounted
 ##   gear_doctrine    {"doctrine": id}  vote after an act boss                               REWARD
 ##   gear_stash_take  {"soldier", "index"}  equip a stash item (swapped-out item takes its place)  MAP/REWARD
 ##   gear_unequip     {"soldier", "slot"}   move an item to the stash                        MAP/REWARD
+##   gear_gun         {"soldier", "gun"}    carry an owned gun ("" = class signature)        MAP/REWARD
 ## `player` -1 acts for anyone (only reachable from tests; RunRules rejects it).
 
 const SKIP_SUPPLIES := 10
 const CACHE_SUPPLIES := 25
-const CARD_WEIGHTS := {"gear": 45, "perk": 15, "mutation": 15, "consumable": 15, "cache": 10}
-const ACTION_TYPES: Array[String] = ["gear_pick", "gear_doctrine", "gear_stash_take", "gear_unequip"]
+const CARD_WEIGHTS := {"gear": 37, "gun": 8, "perk": 15, "mutation": 15, "consumable": 15, "cache": 10}
+const ACTION_TYPES: Array[String] = ["gear_pick", "gear_doctrine", "gear_stash_take", "gear_unequip", "gear_gun"]
+## Odds (percent) that a gun card from act 2 on is Rare rather than Uncommon.
+const RARE_GUN_CHANCE := 35
 const HAZARD_PAY := 10
 const FIELD_RATIONS_HEAL := 0.4
 
@@ -100,11 +103,28 @@ static func _rng(run) -> RandomNumberGenerator:
 	return r
 
 
-## Sets up run.gear and an empty loadout for every soldier.
+## Sets up run.gear and a loadout for every soldier (squad and reserve), each with its
+## starting consumable.
 static func init_run(run) -> void:
 	state(run)
 	for r in soldiers(run):
 		Loadout.of(r)
+		give_starter(run, r)
+
+
+## A recruit joining mid-run (RunRules.add_recruit) gets its starting consumable too.
+static func on_recruit(run, record) -> void:
+	Loadout.of(record)
+	give_starter(run, record)
+
+
+## One charge of the soldier's class consumable in a pocket (random fallback for other classes).
+static func give_starter(run, record) -> void:
+	var id: String = GearData.STARTER_CONSUMABLES.get(record.get("kind", ""), "")
+	if id == "":
+		var pool := GearData.STARTER_FALLBACK.filter(func(c): return not GearFx.is_pending(c))
+		id = pool[_rng(run).randi_range(0, pool.size() - 1)]
+	Loadout.add_consumable(record, id, GearData.STARTER_CHARGES)
 
 
 # --- Offers ----------------------------------------------------------------------------
@@ -128,14 +148,15 @@ static func has_pending(run) -> bool:
 
 
 ## Before the first fight each soldier picks 1 of 3 Common items with different tags,
-## at least one in the class's natural lanes.
+## at least one in the class's natural lanes (1 of 4 with the Field kit unlock).
 static func starting_kit_offers(run) -> void:
 	var rng := _rng(run)
+	var choices := 4 if MetaUnlocks.owns(_rget(run, "meta", {}), "field_kit") else 3
 	for r in squad(run):
 		var lanes: Array = GearData.CLASS_LANES.get(r.kind, [])
 		var cards: Array = []
 		var used_tags: Array = []
-		for i in 3:
+		for i in choices:
 			var only: Array = []
 			if i == 0 and not lanes.is_empty():
 				only = lanes
@@ -172,7 +193,7 @@ static func doctrine_vote(run) -> Dictionary:
 
 static func _open_doctrine_vote(run) -> void:
 	var have := doctrines(run)
-	var pool := GearData.DOCTRINES.keys().filter(func(d): return not have.has(d))
+	var pool := GearData.DOCTRINES.keys().filter(func(d): return not have.has(d) and not MetaUnlocks.is_locked(d))
 	pool.sort()
 	if pool.is_empty():
 		return
@@ -257,6 +278,8 @@ static func roll_offer(run, record, fight_kind: String) -> Array:
 				card = {"kind": "consumable", "id": GearDraw.draw_consumable(rng), "charges": GearData.CONSUMABLE_CHARGES}
 			"cache":
 				card = {"kind": "cache", "supplies": CACHE_SUPPLIES}
+			"gun":
+				card = gun_card(rng, record, "rare" if act >= 2 and rng.randi_range(1, 100) <= RARE_GUN_CHANCE else "uncommon", _ids(cards))
 		if card.is_empty():
 			if rarity == "":
 				rarity = GearDraw.roll_rarity(rng, act, gs.pity.get(player, 0))
@@ -269,7 +292,24 @@ static func roll_offer(run, record, fight_kind: String) -> Array:
 		cards.append(card)
 	if gs.fights_won >= 2 and not ranked.is_empty() and fight_kind != "boss":
 		_ensure_on_and_off(rng, cards, counts, ranked, act, exclude)
+	if fight_kind == "boss" and not cards.any(func(c): return c.get("kind") == "gun"):
+		# Bosses always drop a gun: the last card becomes one, Rare when there is one left.
+		var gun := gun_card(rng, record, "rare", _ids(cards))
+		if not gun.is_empty():
+			cards[cards.size() - 1] = gun
 	return cards
+
+
+## A card for an alternate gun this soldier's class can carry and doesn't own yet, preferring
+## `rarity` (falls back to the other one). {} when every gun for the class is owned.
+static func gun_card(rng: RandomNumberGenerator, record, rarity: String, exclude: Array = []) -> Dictionary:
+	var pool := Loadout.gun_pool(record, rarity).filter(func(id): return not exclude.has(id))
+	if pool.is_empty():
+		pool = Loadout.gun_pool(record).filter(func(id): return not exclude.has(id))
+	if pool.is_empty():
+		return {}
+	var id: String = pool[rng.randi_range(0, pool.size() - 1)]
+	return {"kind": "gun", "id": id, "rarity": Weapons.rarity_of(id), "tags": [Weapons.tag_of(id)]}
 
 
 static func _draw_gear_card(rng: RandomNumberGenerator, counts: Dictionary, rarity: String, exclude: Array, only: Array = []) -> Dictionary:
@@ -375,8 +415,10 @@ static func validate(run, action: Dictionary) -> String:
 				return "Pockets are full"
 			if (card.kind == "perk" or card.kind == "mutation") and not GearTags.provides(GearTags.progression(), "apply_card"):
 				return "Can't take that card yet"
+			if card.kind == "gun" and not Weapons.can_carry(str(r.get("kind", "")), card.id):
+				return "Wrong class for that gun"
 			return ""
-		"gear_stash_take", "gear_unequip":
+		"gear_stash_take", "gear_unequip", "gear_gun":
 			if not _phase_is(run, ["MAP", "REWARD"]):
 				return "Change gear from the map"
 	match action.get("type"):
@@ -384,6 +426,10 @@ static func validate(run, action: Dictionary) -> String:
 			var i := int(action.get("index", -1))
 			if i < 0 or i >= Loadout.stash(run).size():
 				return "No such stash item"
+			return ""
+		"gear_gun":
+			if not Loadout.owns_gun(r, str(action.get("gun", ""))):
+				return "Not one of their guns"
 			return ""
 		"gear_unequip":
 			if Loadout.item_at(r, str(action.get("slot", ""))) == null:
@@ -411,6 +457,7 @@ static func apply(run, action: Dictionary) -> bool:
 		"gear_pick": _pick(run, r, action)
 		"gear_stash_take": Loadout.take_from_stash(run, r, int(action.index))
 		"gear_unequip": Loadout.unequip(run, r, str(action.slot))
+		"gear_gun": Loadout.set_gun(r, str(action.gun))
 	return true
 
 
@@ -433,6 +480,8 @@ static func _pick(run, r, action: Dictionary) -> void:
 			GearTags.progression().apply_card(r, card)
 		"consumable":
 			Loadout.add_consumable(r, card.id, int(card.get("charges", GearData.CONSUMABLE_CHARGES)))
+		"gun":
+			Loadout.add_gun(r, card.id)
 		"cache":
 			add_supplies(run, int(card.get("supplies", CACHE_SUPPLIES)), "Supply cache")
 
@@ -463,6 +512,7 @@ static func apply_to_unit(u: Unit, record) -> void:
 	var docs: Array = record.get("doctrines", [])
 	if not docs.is_empty():
 		u.status["doctrines"] = docs.duplicate()
+	Weapons.equip_unit(u, Loadout.gun(record))
 	u.status["gear"] = g
 	u.status["gear_tags"] = Loadout.gear_tags(record)
 	u.status["pockets"] = Loadout.pockets(record).duplicate(true)

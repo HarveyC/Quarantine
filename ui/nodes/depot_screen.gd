@@ -60,6 +60,11 @@ func _info(e: Dictionary) -> Dictionary:
 			var it := GearData.get_item(e.id)
 			return {"slot": SLOT_LABELS.get(it.slot, it.slot), "name": it.name, "desc": it.desc, "tag": it.tag,
 				"rarity": GearData.RARITY_NAMES[it.rarity], "rarity_color": GearData.RARITY_COLORS[it.rarity]}
+		"gun":
+			var g := Weapons.get_gun(e.id)
+			var who: Array = g.classes.map(func(k): return UnitData.SOLDIERS.get(k, {}).get("name", str(k).capitalize()))
+			return {"slot": "Gun · " + ", ".join(who), "name": g.name, "desc": g.desc, "tag": g.tag,
+				"rarity": GearData.RARITY_NAMES[g.rarity], "rarity_color": GearData.RARITY_COLORS[g.rarity]}
 		"consumable":
 			var c: Dictionary = GearData.CONSUMABLES[e.id]
 			return {"slot": "Pocket", "name": c.name, "desc": c.desc, "tag": "", "rarity": "Consumable", "rarity_color": NodeUi.DIM}

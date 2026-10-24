@@ -6,6 +6,9 @@ func _init() -> void:
 	# Tests run before the tree is live (Engine.get_main_loop() is still null here).
 	# Expose the tree so a test can add nodes to root; their _ready runs on the first frame.
 	Engine.set_meta("test_tree", self)
+	# Keep the player's real profile out of the tests.
+	Profile.path = "user://test_profile.cfg"
+	DirAccess.remove_absolute(Profile.path)
 	var total := 0
 	var failed := 0
 	var dir := DirAccess.open("res://tests")

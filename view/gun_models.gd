@@ -1,15 +1,67 @@
 extends RefCounted
-## Guns for classes that borrow another class's character model (Hazmat and Vector wear the
-## Trooper's body): builds the weapon in the "gun" bone's space (+Z out of the barrel, +Y up,
-## origin at the grip) and swaps it in for the baked rifle, moving the "muzzle" and "support"
-## sockets to match. Surfaces reuse the baked gun's role materials so ModelKit tints them.
+## Procedural guns, keyed by look (a signature weapon id, see Weapons.look_of): for classes that
+## borrow another class's character model (Hazmat and Vector wear the Trooper's body), and for
+## soldiers carrying an alternate gun whose look isn't their class's baked one. Builds the weapon
+## in the "gun" bone's space (+Z out of the barrel, +Y up, origin at the grip) and swaps it in
+## for the baked gun, moving the "muzzle" and "support" sockets to match. Surfaces reuse the
+## baked gun's role materials so ModelKit tints them.
 
 const Palette := preload("res://view/palette.gd")
 
-## kind -> {parts: [[role, "box"|"tube", a, b, size_or_radius]], muzzle, support}.
+## Classes whose body is borrowed, and the look of their own gun.
+const KIND_LOOK := {"hazmat": "lmg", "vector": "carbine"}
+
+## look -> {parts: [[role, "box"|"tube", a, b, size_or_radius]], muzzle, support}.
 ## "box": centre `a`, size `b`. "tube": from `a` to `b` along Z with radius `r`.
 const GUNS := {
-	"hazmat": {   # light machine gun: long shrouded barrel, box magazine, bipod
+	"rifle": {   # assault rifle: receiver, handguard, curved-ish box magazine, fixed stock
+		"parts": [
+			["metal", "box", Vector3(0, 0.05, 0.05), Vector3(0.07, 0.1, 0.34)],
+			["strap", "box", Vector3(0, 0.05, 0.3), Vector3(0.065, 0.08, 0.18)],
+			["metal", "tube", Vector3(0, 0.06, 0.38), Vector3(0, 0.06, 0.6), 0.013],
+			["strap", "box", Vector3(0, -0.05, 0.1), Vector3(0.04, 0.13, 0.06)],
+			["strap", "box", Vector3(0, 0.03, -0.22), Vector3(0.05, 0.1, 0.2)],
+			["strap", "box", Vector3(0, -0.05, -0.02), Vector3(0.04, 0.1, 0.05)],
+			["metal", "box", Vector3(0, 0.12, 0.05), Vector3(0.03, 0.03, 0.1)],
+			["amber", "box", Vector3(0.036, 0.05, 0.15), Vector3(0.004, 0.02, 0.06)],
+		],
+		"muzzle": Vector3(0, 0.06, 0.61), "support": Vector3(0, 0.0, 0.28),
+	},
+	"dmr": {   # long rifle: long barrel, big scope, heavy stock
+		"parts": [
+			["metal", "box", Vector3(0, 0.05, 0.05), Vector3(0.07, 0.1, 0.38)],
+			["metal", "tube", Vector3(0, 0.06, 0.25), Vector3(0, 0.06, 0.8), 0.014],
+			["metal", "tube", Vector3(0, 0.15, -0.05), Vector3(0, 0.15, 0.22), 0.028],
+			["lens", "box", Vector3(0, 0.15, 0.225), Vector3(0.03, 0.03, 0.004)],
+			["strap", "box", Vector3(0, 0.03, -0.26), Vector3(0.05, 0.11, 0.24)],
+			["strap", "box", Vector3(0, -0.04, 0.08), Vector3(0.04, 0.09, 0.06)],
+			["strap", "box", Vector3(0, -0.05, -0.03), Vector3(0.04, 0.1, 0.05)],
+		],
+		"muzzle": Vector3(0, 0.06, 0.81), "support": Vector3(0, 0.0, 0.32),
+	},
+	"pdw": {   # compact: short barrel, long stick magazine, stub stock
+		"parts": [
+			["metal", "box", Vector3(0, 0.05, 0.04), Vector3(0.065, 0.1, 0.26)],
+			["metal", "tube", Vector3(0, 0.06, 0.17), Vector3(0, 0.06, 0.32), 0.012],
+			["strap", "box", Vector3(0, -0.07, 0.06), Vector3(0.035, 0.16, 0.045)],
+			["strap", "box", Vector3(0, 0.04, -0.15), Vector3(0.04, 0.06, 0.12)],
+			["strap", "box", Vector3(0, -0.05, -0.03), Vector3(0.04, 0.1, 0.05)],
+			["metal", "box", Vector3(0, 0.115, 0.04), Vector3(0.03, 0.025, 0.07)],
+		],
+		"muzzle": Vector3(0, 0.06, 0.33), "support": Vector3(0, 0.0, 0.16),
+	},
+	"shotgun": {   # pump gun: fat barrel over a tube magazine, slide grip
+		"parts": [
+			["metal", "box", Vector3(0, 0.05, 0.03), Vector3(0.07, 0.1, 0.28)],
+			["metal", "tube", Vector3(0, 0.07, 0.15), Vector3(0, 0.07, 0.62), 0.02],
+			["metal", "tube", Vector3(0, 0.025, 0.18), Vector3(0, 0.025, 0.55), 0.016],
+			["strap", "box", Vector3(0, 0.03, 0.36), Vector3(0.06, 0.06, 0.14)],
+			["strap", "box", Vector3(0, 0.03, -0.22), Vector3(0.05, 0.11, 0.22)],
+			["strap", "box", Vector3(0, -0.05, -0.03), Vector3(0.04, 0.1, 0.05)],
+		],
+		"muzzle": Vector3(0, 0.07, 0.63), "support": Vector3(0, 0.03, 0.36),
+	},
+	"lmg": {   # light machine gun: long shrouded barrel, box magazine, bipod
 		"parts": [
 			["metal", "box", Vector3(0, 0.045, 0.04), Vector3(0.085, 0.12, 0.36)],
 			["strap", "tube", Vector3(0, 0.06, 0.2), Vector3(0, 0.06, 0.52), 0.034],
@@ -25,7 +77,7 @@ const GUNS := {
 		],
 		"muzzle": Vector3(0, 0.06, 0.77), "support": Vector3(0, 0.0, 0.3),
 	},
-	"vector": {   # bio-carbine: compact, a glowing culture vial along the receiver
+	"carbine": {   # bio-carbine: compact, a glowing culture vial along the receiver
 		"parts": [
 			["metal", "box", Vector3(0, 0.05, 0.02), Vector3(0.065, 0.1, 0.3)],
 			["strap", "box", Vector3(0, 0.05, 0.24), Vector3(0.06, 0.075, 0.16)],
@@ -44,13 +96,23 @@ const GUNS := {
 
 
 static func has_gun(kind: String) -> bool:
-	return GUNS.has(kind)
+	return KIND_LOOK.has(kind)
 
 
-## Replaces the baked gun under `model` with `kind`'s. No-op if either is missing.
+## Replaces the baked gun under `model` with `kind`'s own. No-op if either is missing.
 static func swap(model: Node, kind: String) -> void:
+	swap_look(model, KIND_LOOK.get(kind, ""))
+
+
+## The look a soldier of `kind` shows with no alternate gun.
+static func kind_look(kind: String) -> String:
+	return KIND_LOOK.get(kind, Weapons.look_of(Weapons.id_for(kind)))
+
+
+## Replaces the baked gun under `model` with the procedural gun for `look`. No-op if either is missing.
+static func swap_look(model: Node, look: String) -> void:
 	var att := model.find_child("gun", true, false)
-	if not GUNS.has(kind) or att == null or att.get_child_count() == 0 or not att.get_child(0) is MeshInstance3D:
+	if not GUNS.has(look) or att == null or att.get_child_count() == 0 or not att.get_child(0) is MeshInstance3D:
 		return
 	var old := att.get_child(0) as MeshInstance3D
 	var by_role := {}
@@ -58,7 +120,7 @@ static func swap(model: Node, kind: String) -> void:
 		var m := old.mesh.surface_get_material(i)
 		if m != null:
 			by_role[m.resource_name] = m
-	var def: Dictionary = GUNS[kind]
+	var def: Dictionary = GUNS[look]
 	var tools := {}
 	for p in def.parts:
 		var role: String = p[0]

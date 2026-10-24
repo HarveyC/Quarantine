@@ -167,8 +167,8 @@ func test_story_survives_save_and_resume() -> void:
 
 
 func test_profile_records_wave_echoes_and_lore_once() -> void:
-	var keep := StoryProfile.path
-	StoryProfile.path = TEST_PROFILE
+	var keep := Profile.path
+	Profile.path = TEST_PROFILE
 	StoryProfile.clear()
 	assert_eq(StoryProfile.wave(), StoryData.FIRST_WAVE, "fresh profile")
 	var run := RunRules.new_run(1, 41, {"story": StoryProfile.snapshot()})
@@ -198,7 +198,7 @@ func test_profile_records_wave_echoes_and_lore_once() -> void:
 	assert_eq(snap.endings, ["carry"], "ending seen")
 	assert_eq(snap.last_ending, "carry", "last ending")
 	StoryProfile.clear()
-	StoryProfile.path = keep
+	Profile.path = keep
 
 
 func test_scene_specs() -> void:
