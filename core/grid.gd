@@ -13,6 +13,11 @@ var height := 0
 var tiles := PackedByteArray()
 var player_spawns: Array[Vector2i] = []
 var enemy_spawns: Array[Vector2i] = []
+## Set by MapGen: the act's look ("wall", "port", "bore"); "" for handmade maps.
+var biome := ""
+## Set by MapGen: named cells for objectives and spawns, String -> Array of Vector2i
+## (see MapGen.MARKER_KEYS). Empty for handmade maps.
+var markers := {}
 
 
 static func from_rows(rows: PackedStringArray) -> Grid:
@@ -46,7 +51,8 @@ static func load_file(path: String) -> Grid:
 
 func to_dict() -> Dictionary:
 	return {"width": width, "height": height, "tiles": tiles,
-		"player_spawns": player_spawns.duplicate(), "enemy_spawns": enemy_spawns.duplicate()}
+		"player_spawns": player_spawns.duplicate(), "enemy_spawns": enemy_spawns.duplicate(),
+		"biome": biome, "markers": markers.duplicate(true)}
 
 
 static func from_dict(d: Dictionary) -> Grid:
@@ -56,7 +62,14 @@ static func from_dict(d: Dictionary) -> Grid:
 	g.tiles = d.tiles
 	g.player_spawns.assign(d.player_spawns)
 	g.enemy_spawns.assign(d.enemy_spawns)
+	g.biome = d.get("biome", "")
+	g.markers = d.get("markers", {}).duplicate(true)
 	return g
+
+
+## Cells under a marker name, empty if the map has none.
+func marker(key: String) -> Array:
+	return markers.get(key, [])
 
 
 func in_bounds(c: Vector2i) -> bool:
