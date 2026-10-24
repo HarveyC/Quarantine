@@ -217,3 +217,84 @@ func test_sentry_turret_deploys_a_turret() -> void:
 	u.actions_left = 2
 	a.cell = Vector2i(3, 3)
 	assert_eq(Rules.validate(s, a), "Used up this fight", "once per fight")
+
+
+func test_thermite_lays_a_fire_line() -> void:
+	var s := _state()
+	var u := _add(s, "medic", Types.Team.PLAYER, Vector2i(2, 2))
+	var e := _add(s, "runner", Types.Team.ENEMY, Vector2i(6, 2))
+	_gear(u, ["thermite_charge"])
+	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "gear:thermite_charge", "cell": Vector2i(5, 2)}), "thrown")
+	var cells := Hazards.cells_of(s, "fire")
+	assert_eq(cells.size(), 3, "3-tile line")
+	assert_true(cells.has(Vector2i(5, 2)) and cells.has(Vector2i(7, 2)), "runs away from the thrower: %s" % str(cells))
+	assert_true(GearFx.is_burning(s, e), "enemy in the line Burns")
+
+
+func test_igniter_barrel_sets_the_tile_alight() -> void:
+	var s := _state()
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	var t := _add(s, "spitter", Types.Team.ENEMY, Vector2i(6, 2))
+	_gear(u, [["igniter_barrel", 2]])
+	GearFx.after_shot(s, u, t, true, false, 2)
+	assert_eq(Hazards.at(s, t.pos).get("kind", ""), "fire", "fire under the target")
+	assert_eq(int(Hazards.at(s, t.pos).turns), 2, "Mk II: 2 turns")
+
+
+func test_coat_mask_and_scorched_earth_against_hazards() -> void:
+	var s := _state()
+	var hz := _add(s, "medic", Types.Team.PLAYER, Vector2i(1, 1))
+	var coat := _add(s, "trooper", Types.Team.PLAYER, Vector2i(3, 3))
+	var mask := _add(s, "medic", Types.Team.PLAYER, Vector2i(5, 3))
+	var bare := _add(s, "marksman", Types.Team.PLAYER, Vector2i(7, 3))
+	_gear(coat, ["flame_coat"])
+	_gear(mask, ["filter_mask"])
+	Hazards.add(s, [coat.pos, bare.pos], "fire", 2)
+	Hazards.add(s, [mask.pos], "spore", 2)
+	var hp := coat.hp
+	var bhp := bare.hp
+	Hazards.on_team_phase_end(s)
+	assert_eq(coat.hp, hp, "coat ignores fire")
+	assert_eq(bare.hp, bhp - 2, "no coat burns")
+	assert_eq(mask.infection, 0, "mask ignores spores")
+	var mob := coat.mobility
+	GearFx.on_team_phase_start(s)
+	assert_eq(coat.mobility, mob + 1, "coat: +1 move starting in fire")
+	Hazards.remove(s, [coat.pos])
+	GearFx.on_team_phase_start(s)
+	assert_eq(coat.mobility, mob, "bonus gone off the fire")
+	# Scorched earth: the Hazmat's fire spares the squad and purges them.
+	_gear(hz, ["scorched_earth"])
+	bare.infection = 30
+	bhp = bare.hp
+	Hazards.remove(s, [bare.pos])
+	GearFx.set_fire(s, hz, [bare.pos], 2)
+	Hazards.on_team_phase_end(s)
+	assert_eq(bare.hp, bhp, "own fire is harmless")
+	assert_eq(bare.infection, 20, "-10 Infection")
+
+
+func test_spotter_flare_doubles_fire_on_marked() -> void:
+	var s := _state()
+	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(1, 1))
+	var e := _add(s, "spitter", Types.Team.ENEMY, Vector2i(6, 2))
+	e.max_hp = 20
+	e.hp = 20
+	_gear(u, ["spotter_flare"])
+	GearFx._mark(s, e, 4)
+	GearFx.set_fire(s, u, [e.pos], 2)
+	Hazards.on_enemy_phase_end(s)
+	assert_eq(e.hp, 16, "4 fire damage on a Marked enemy")
+
+
+func test_burn_set_spreads_fire_on_death() -> void:
+	var s := _state()
+	var u := _add(s, "medic", Types.Team.PLAYER, Vector2i(1, 1))
+	var e := _add(s, "runner", Types.Team.ENEMY, Vector2i(6, 3))
+	_gear(u, ["incendiary_rounds", "igniter_barrel", "flame_coat"])
+	GearFx.ignite(s, u, e, 2)
+	e.hp = 1
+	s.turn = 2
+	GearFx.on_team_phase_start(s)
+	assert_true(not e.is_alive(), "burned to death")
+	assert_eq(Hazards.cells_of(s, "fire").size(), 9, "tiles around it catch fire")

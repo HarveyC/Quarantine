@@ -286,3 +286,20 @@ func test_autoplay_actions_settle_rewards() -> void:
 	for a in GearRun.autoplay_actions(run):
 		assert_true(RunRules.apply(run, a), "autoplay action %s" % str(a))
 	assert_true(not GearRun.has_pending(run), "nothing left pending")
+
+
+func test_max_hp_gear_moves_record_hp() -> void:
+	var run := make_run()
+	var r: Dictionary = run.soldiers[2]
+	r["max_hp"] = 6
+	r["hp"] = 5
+	Loadout.equip(run, r, "kevlar_vest")
+	assert_eq([r.max_hp, r.hp], [8, 7], "+2 max and current")
+	Loadout.equip(run, r, "kevlar_vest")
+	assert_eq([r.max_hp, r.hp], [9, 8], "Mk II adds one more")
+	Loadout.unequip(run, r, "armor")
+	assert_eq([r.max_hp, r.hp], [6, 5], "taking it off removes it")
+	r.hp = 1
+	Loadout.equip(run, r, "kevlar_vest", 2)
+	Loadout.unequip(run, r, "armor")
+	assert_eq(r.hp, 1, "never drops below 1")
