@@ -12,7 +12,8 @@ What it makes:
     Animation Library 1 and 2 (in place, UE-style humanoid skeleton).
   * One .glb per unit kind: a Universal Base Characters body on that same skeleton,
     with gear (helmets, vests, weapons, class kit) or infection growths parented to
-    bones. Gear and growths are built with the primitives from gen_models.py.
+    bones. Soldiers (Hazmat and Vector included) are Carriers: a trimmed body, sealed
+    mask with optics and a spinal regulator on every one, then a class silhouette. Gear and growths are built with the primitives from gen_models.py.
 Every character keeps its armature named "Armature" so the shared clips' track paths
 (Armature/Skeleton3D:<bone>) bind to any of them. Material names are the character
 shader roles (see view/model_kit.gd); the textured body material becomes "body".
@@ -266,72 +267,197 @@ def mirror(fn):
 
 
 # --- soldier kit ------------------------------------------------------------------------
+# Lantern Company are Carriers: half kept alive by machinery, so every soldier wears a
+# sealed mask with optics (the "visor" role, which the game shifts towards teal as
+# Infection climbs) and a spinal regulator whose lamp shows the player's colour.
 
-def fatigues(r, sleeve=0.56, boot=0.16):
-    """Combat shirt and trousers over the base body (sleeves to `sleeve` metres out)."""
-    # baggy through the thighs, bloused into the boots, snug at the shoulders
+def _smooth(a, b, x):
+    t = max(0.0, min(1.0, (x - a) / (b - a)))
+    return t * t * (3 - 2 * t)
+
+
+def slim(r):
+    """Trims the base body's superhero bulk (thighs, chest, arms) in rest pose so the gear
+    reads; vertices keep their bone weights."""
+    ob = r.body()
+    mw = ob.matrix_world
+    inv = mw.inverted()
+    for v in ob.data.vertices:
+        w = mw @ v.co
+        p = w.copy()
+        ax = abs(w.x)
+        if w.z < 1.0 and ax < 0.3:                      # legs, towards each leg's axis
+            k = 1.0 - _smooth(1.0, 0.85, w.z) * (0.09 * _smooth(0.35, 0.6, w.z) + 0.04)
+            cx = 0.105 if w.x >= 0 else -0.105
+            p.x = cx + (w.x - cx) * k
+            p.y = 0.01 + (w.y - 0.01) * k
+        if 0.95 < w.z < 1.55 and ax < 0.26:             # chest and lats
+            t = _smooth(0.95, 1.15, w.z) * (1 - _smooth(1.48, 1.55, w.z))
+            p.x = w.x * (1 - 0.10 * t)
+            p.y = 0.03 + (w.y - 0.03) * (1 - 0.12 * t)
+        if ax > 0.2 and w.z > 1.3:                      # arms, around the T-pose axis
+            t = _smooth(0.2, 0.28, ax) * (1 - _smooth(0.68, 0.72, ax))
+            p.y = 0.065 + (w.y - 0.065) * (1 - 0.14 * t)
+            p.z = 1.456 + (w.z - 1.456) * (1 - 0.14 * t)
+        v.co = inv @ p
+
+
+def fatigues(r, role="cloth_team", loose=0.0):
+    """Combat shirt and trousers, cuffs, gloves, boots, knee and elbow pads, cargo pockets."""
     def puff(p):
-        return 0.014 + 0.02 * max(0.0, 1.0 - abs(p.z - 0.72) / 0.32) + (0.01 if p.z < 0.3 else 0.0)
-    r.clothe("uniform", lambda p: boot < p.z < 1.5 and abs(p.x) < sleeve and not (p.z > 1.44 and abs(p.x) < 0.09 and p.y < 0),
-             puff, "cloth_team", wrinkle=0.008)
-    for s in (-1, 1):   # cuffs
-        side = "r" if s < 0 else "l"
-        r.add("lowerarm_" + side, G.tube(((sleeve - 0.03) * s, 0.065, 1.456), ((sleeve + 0.005) * s, 0.065, 1.456), 0.047), "strap")
+        return 0.02 + loose + 0.012 * max(0.0, 1.0 - abs(p.z - 0.75) / 0.3) + (0.012 if p.z < 0.32 else 0.0)
+    r.clothe("uniform", lambda p: 0.17 < p.z < 1.5 and abs(p.x) < 0.6 and not (p.z > 1.44 and abs(p.x) < 0.09 and p.y < 0),
+             puff, role, wrinkle=0.006)
+
+    def limbs(s, side):
+        r.add("lowerarm_" + side, G.tube((0.56 * s, 0.065, 1.456), (0.6 * s, 0.065, 1.456), 0.05 + loose, segs=12), role)
+        r.add("hand_" + side, G.box((0.11, 0.1, 0.052), (0.77 * s, 0.062, 1.452), 0.02), "strap")
+        r.add("hand_" + side, G.tube((0.69 * s, 0.065, 1.456), (0.73 * s, 0.065, 1.456), 0.044, segs=12), "strap")
+        x = 0.105 * s
+        r.add("calf_" + side, G.cyl(0.062, 0.068, 0.2, (x, 0.02, 0.2), segs=14, bevel=0.01), "leather")
+        r.add("foot_" + side, G.box((0.125, 0.25, 0.1), (x, -0.04, 0.065), 0.04), "leather")
+        r.add("foot_" + side, G.box((0.135, 0.28, 0.035), (x, -0.04, 0.018), 0.012), "strap")
+        r.add("calf_" + side, G.box((0.035, 0.012, 0.16), (x, -0.045, 0.2), 0.004), "strap")
+        r.add("calf_" + side, G.box((0.115, 0.06, 0.13), (x, -0.06, 0.545), 0.035), "armor_team")
+        r.add("calf_" + side, G.tube((x - 0.07, 0.01, 0.52), (x + 0.07, 0.01, 0.52), 0.06, segs=10), "strap")
+        r.add("lowerarm_" + side, G.box((0.07, 0.06, 0.08), (0.465 * s, 0.13, 1.456), 0.025), "armor_team")
+        r.add("thigh_" + side, G.box((0.035, 0.13, 0.15), (x + 0.1 * s, 0.01, 0.7), 0.015), role)
+        r.add("thigh_" + side, G.box((0.04, 0.135, 0.035), (x + 0.102 * s, 0.01, 0.77), 0.01), role)
+    mirror(limbs)
 
 
-def soldier_kit(r, kind):
-    heavy = kind == "breacher"
-    w = 1.12 if heavy else 1.0
-    fatigues(r)
-    # belt with pouches
-    r.add("pelvis", G.cyl(0.165 * w, 0.17 * w, 0.06, (0, 0.01, 0.99), segs=16), "strap")
+def belt(r, w=1.0):
+    r.add("pelvis", G.cyl(0.158 * w, 0.162 * w, 0.055, (0, 0.015, 0.995), segs=20, bevel=0.01), "strap")
+    r.add("pelvis", G.box((0.055, 0.02, 0.045), (0, -0.15 * w, 0.995), 0.008), "metal")
     for s in (-1, 1):
-        r.add("pelvis", G.box((0.07, 0.10, 0.09), (0.17 * s * w, 0.0, 0.97), 0.015), "strap")
-    r.add("pelvis", G.box((0.16, 0.07, 0.08), (0, 0.15, 0.97), 0.015), "strap")
-    r.add("pelvis", G.box((0.06, 0.03, 0.05), (0, -0.155, 0.99), 0.01), "metal")
-    # plate carrier
-    vest = (0.42 * w, 0.30 * w, 0.36 * w)
-    r.add("spine_03", G.box(vest, (0, 0.0, 1.31), 0.06), "armor_team")
-    r.add("spine_03", G.box((vest[0] * 0.72, 0.05, 0.22), (0, -vest[1] / 2 - 0.005, 1.33), 0.02), "plate")
-    for i in range(3):
-        r.add("spine_02", G.box((0.085, 0.06, 0.1), ((i - 1) * 0.1, -0.175 * w, 1.17), 0.015), "strap")
-    r.add("spine_03", G.cyl(0.105, 0.095, 0.06, (0, 0.03, 1.5), segs=14), "strap")          # collar
-    # shoulder pads ride the upper arm so they follow it
-    def pads(s, side):
-        rr = 0.13 if heavy else 0.1
-        bm = G.sphere(rr, (0, 0, 0), (1.1, 1.0, 0.5), segs=16, rings=10)
-        G.cut(bm, (0, 0, -rr * 0.18), (0, 0, 1))
-        r.add("upperarm_" + side, G._place(bm, (0.25 * s, 0.065, 1.49), rot=(0, 0.3 * s, 0)), "armor_team")
-        r.add("upperarm_" + side, G.box((0.08, 0.025, 0.03), (0.27 * s, -0.03, 1.5), 0.006, rot=(0, 0.3 * s, 0)), "mark_team")
-        if heavy:
-            r.add("upperarm_" + side, G.box((0.2, 0.2, 0.05), (0.3 * s, 0.065, 1.46), 0.02, rot=(0, 0.6 * s, 0)), "plate")
-        # elbow pad, forearm guard, glove
-        r.add("lowerarm_" + side, G.sphere(0.055, (ELBOW_X * s, 0.07, 1.456), (1, 1, 0.9)), "strap")
-        r.add("lowerarm_" + side, G.tube((0.52 * s, 0.065, 1.456), (0.68 * s, 0.065, 1.456), 0.05, 0.045),
-              "armor_team" if heavy else "strap")
-        r.add("hand_" + side, G.box((0.1, 0.095, 0.05), (0.77 * s, 0.06, 1.45), 0.02), "strap")
-        # knee pad, boot shell
-        x = 0.114 * s
-        r.add("calf_" + side, G.box((0.12, 0.08, 0.12), (x, -0.03, KNEE_Z), 0.035), "armor_team")
-        r.add("foot_" + side, G.box((0.13, 0.27, 0.12), (x, -0.025, 0.06), 0.04), "leather")
-        r.add("foot_" + side, G.box((0.14, 0.29, 0.035), (x, -0.03, 0.018), 0.012), "strap")
-        r.add("calf_" + side, G.cyl(0.065, 0.068, 0.07, (x, 0.07, 0.16), segs=12), "strap")
-        r.add("thigh_" + side, G.box((0.05, 0.12, 0.13), (x + 0.085 * s, 0.03, 0.72), 0.02), "cloth_team")
-        if heavy:
-            r.add("thigh_" + side, G.box((0.16, 0.06, 0.2), (x, -0.07, 0.75), 0.025), "armor_team")
-    mirror(pads)
+        r.add("pelvis", G.box((0.07, 0.09, 0.1), (0.165 * s * w, 0.05, 0.96), 0.02), "strap")
+        r.add("pelvis", G.box((0.075, 0.095, 0.03), (0.166 * s * w, 0.05, 1.005), 0.01), "strap")
+    r.add("pelvis", G.box((0.17, 0.08, 0.1), (0, 0.17 * w, 0.965), 0.03), "cloth_team")   # dump pouch
 
 
-def helmet(r, crest=False):
-    bm = G.sphere(0.138, (0, 0.0, HEAD_C.z + 0.02), (1.0, 1.1, 0.86), segs=18, rings=10)
-    G.cut(bm, (0, 0, HEAD_C.z - 0.0), (0, 0, 1))
+def carrier(r, w=1.0, pouches=3, depth=0.29, radio=True):
+    """Plate carrier: front and back plates, cummerbund, shoulder straps, MOLLE rows,
+    flapped magazine pouches, admin pouch, radio."""
+    zc = 1.29
+    front = -depth / 2 * w
+    r.add("spine_03", G.box((0.36 * w, 0.06, 0.34), (0, front + 0.02, zc), 0.025), "armor_team")
+    r.add("spine_03", G.box((0.36 * w, 0.06, 0.36), (0, -front - 0.01, zc + 0.01), 0.025), "armor_team")
+    r.add("spine_03", G.cyl(0.205 * w, 0.2 * w, 0.2, (0, 0.03, 1.21), segs=24, bevel=0.012), "armor_team")
+    for s in (-1, 1):
+        r.add("spine_03", G.box((0.07, depth * w + 0.02, 0.03), (0.12 * s, 0.0, 1.5), 0.012, rot=(0, 0.25 * s, 0)), "armor_team")
+        r.add("spine_03", G.box((0.05, 0.02, 0.18), (0.13 * s, front, 1.43), 0.006), "strap")
+    for i in range(4):
+        r.add("spine_03", G.box((0.33 * w, 0.008, 0.014), (0, front - 0.012, zc + 0.12 - i * 0.055), 0.003), "strap")
+    for i in range(pouches):
+        x = (i - (pouches - 1) / 2) * 0.095
+        r.add("spine_02", G.box((0.08, 0.055, 0.12), (x, front - 0.04, 1.17), 0.012), "cloth_team")
+        r.add("spine_02", G.box((0.084, 0.06, 0.03), (x, front - 0.042, 1.235), 0.008), "cloth_team")
+        r.add("spine_02", G.box((0.022, 0.006, 0.014), (x, front - 0.073, 1.226), 0.002), "metal")
+    r.add("spine_03", G.box((0.14, 0.04, 0.09), (0.0, front - 0.035, 1.4), 0.01), "cloth_team")
+    if radio:
+        r.add("spine_03", G.box((0.06, 0.07, 0.13), (-0.2 * w, 0.06, 1.3), 0.015), "strap")
+        r.add("spine_03", G.tube((-0.21 * w, 0.08, 1.36), (-0.24 * w, 0.14, 1.75), 0.006, 0.003, segs=6), "metal")
+    r.add("spine_03", G.cyl(0.1, 0.09, 0.05, (0, 0.03, 1.52), segs=16, bevel=0.008), "strap")   # collar
+
+
+def sealed_mask(r, optics="visor", filters=2):
+    """Full face plate with two optics and a rebreather snout: nobody in the squad breathes
+    Harrow's air, and nobody sees the face behind it."""
+    plate = G.sphere(0.104, (0, -0.05, 1.695), (1.05, 0.74, 1.12), segs=18, rings=12)
+    G.cut(plate, (0, -0.07, 0), (0, -1, 0))
+    r.add("Head", plate, "plate")
+    for s in (-1, 1):
+        r.add("Head", G.cyl(0.027, 0.029, 0.03, (0.043 * s, -0.124, 1.728), rot=(math.pi / 2, 0, 0), segs=16, bevel=0.005), "metal")
+        r.add("Head", G.cyl(0.021, 0.021, 0.006, (0.043 * s, -0.14, 1.728), rot=(math.pi / 2, 0, 0), segs=16), optics)
+    y = -0.115
+    r.add("Head", G.sphere(0.07, (0, y - 0.01, 1.655), (1.1, 0.8, 0.85), segs=16, rings=10), "plate")
+    r.add("Head", G.cyl(0.03, 0.034, 0.03, (0, y - 0.07, 1.648), rot=(math.pi / 2, 0, 0), segs=14, bevel=0.005), "metal")
+    for s in (-1, 1)[:filters]:
+        r.add("Head", G.cyl(0.033, 0.033, 0.05, (0.066 * s, y - 0.035, 1.635), rot=(math.pi / 2, 0, 0.5 * s), segs=14, bevel=0.006), "strap")
+        r.add("Head", G.cyl(0.026, 0.026, 0.008, (0.08 * s, y - 0.06, 1.635), rot=(math.pi / 2, 0, 0.5 * s), segs=14), "metal")
+    r.add("Head", G.tube((-0.115, 0.0, 1.69), (0.115, 0.0, 1.69), 0.012, segs=6), "strap")
+
+
+def regulator(r):
+    """Spinal regulator on the upper back, metering the Bloom dose; its lamp is the
+    player's colour, so a squad is readable from behind."""
+    r.add("spine_03", G.box((0.11, 0.07, 0.12), (0, 0.15, 1.53), 0.02), "metal")
+    r.add("spine_03", G.box((0.07, 0.012, 0.028), (0, 0.187, 1.545), 0.004), "mark_team")
+    for s in (-1, 1):
+        r.add("spine_03", G.tube((0.045 * s, 0.13, 1.57), (0.06 * s, 0.06, 1.6), 0.012, segs=8), "strap")
+        r.add("spine_03", G.cyl(0.012, 0.012, 0.025, (0.03 * s, 0.17, 1.47), segs=8), "metal")
+
+
+def helmet(r, nvg=True):
+    z = HEAD_C.z
+    bm = G.sphere(0.145, (0, 0.005, z + 0.025), (1.0, 1.08, 0.9), segs=22, rings=12)
+    G.cut(bm, (0, 0, z - 0.03), (0, 0, 1))
+    G.cut(bm, (0, -0.06, z), (0, 0.5, 1))       # high cut over the ears and brow
     r.add("Head", bm, "armor_team")
-    r.add("Head", G.cyl(0.148, 0.142, 0.025, (0, 0.0, HEAD_C.z + 0.005), segs=18), "plate")
+    for s in (-1, 1):
+        r.add("Head", G.box((0.016, 0.11, 0.025), (0.142 * s, 0.0, z + 0.02), 0.005), "metal")
+        r.add("Head", G.cyl(0.045, 0.045, 0.03, (0.13 * s, 0.01, z - 0.04), rot=(0, math.pi / 2, 0), segs=14, bevel=0.008), "strap")
+    r.add("Head", G.box((0.2, 0.04, 0.02), (0, 0.13, z + 0.02), 0.006), "strap")
+    r.add("Head", G.box((0.07, 0.05, 0.07), (0, 0.15, z), 0.015), "strap")
+    if nvg:
+        r.add("Head", G.box((0.055, 0.03, 0.035), (0, -0.14, z + 0.085), 0.008), "metal")
+        r.add("Head", G.box((0.03, 0.05, 0.03), (0, -0.165, z + 0.06), 0.006, rot=(0.6, 0, 0)), "metal")
 
 
-def goggles(r):
-    r.add("Head", G.box((0.2, 0.05, 0.055), (0, -0.11, 1.715), 0.02), "visor")
-    r.add("Head", G.box((0.25, 0.03, 0.02), (0, -0.095, 1.755), 0.006), "strap")
+def hood(r, role="cloak_team", r0=0.142):
+    """Open-faced hood (no cap over the face opening)."""
+    bm = G.sphere(r0, (0, 0.015, HEAD_C.z), (1.0, 1.1, 1.08), segs=20, rings=12)
+    for co, no in (((0, -0.08, HEAD_C.z), (0, 1, -0.4)), ((0, 0, 1.55), (0, 0, 1))):
+        bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces),
+                               plane_co=Vector(co), plane_no=Vector(no), clear_inner=True)
+    bmesh.ops.solidify(bm, geom=list(bm.faces), thickness=0.012)
+    G.bend_noise(bm, 0.02, seed=4)
+    r.add("Head", bm, role)
+
+
+def backpack(r, w=1.0, roll=True, role="cloth_team"):
+    r.add("spine_03", G.box((0.3 * w, 0.16, 0.34), (0, 0.24, 1.26), 0.05), role)
+    r.add("spine_03", G.box((0.26 * w, 0.03, 0.12), (0, 0.33, 1.19), 0.015), role)
+    for s in (-1, 1):
+        r.add("spine_03", G.box((0.06, 0.1, 0.18), (0.17 * s * w, 0.24, 1.21), 0.02), role)
+    if roll:
+        r.add("spine_03", G.capsule(0.05, 0.26, (0, 0.27, 1.12), rot=(0, math.pi / 2, 0)), "cloak_team")
+
+
+def ghillie(r, seed=5, n=110):
+    """Scrim strips hanging from the shoulders and back."""
+    rnd = random.Random(seed)
+    for i in range(n):
+        a = rnd.uniform(-math.pi * 0.95, math.pi * 0.95)
+        rad = rnd.uniform(0.1, 0.2)
+        x = math.sin(a) * rad
+        y = 0.04 + math.cos(a) * rad * 0.9
+        if y < -0.06 and abs(x) < 0.13:
+            continue                              # keep the chest clear
+        z = rnd.uniform(1.42, 1.5) - 0.3 * (rad - 0.11)
+        L = rnd.uniform(0.18, 0.42)
+        bm = G.box((rnd.uniform(0.025, 0.045), 0.006, L), (x, y, z - L / 2), 0.0, rot=(0, 0, a))
+        bmesh.ops.rotate(bm, verts=bm.verts, cent=Vector((x, y, z)),
+                         matrix=G.euler(rnd.uniform(-0.15, 0.15) + (0.04 if y > 0 else -0.04), rnd.uniform(-0.15, 0.15), 0))
+        r.add("spine_03", bm, rnd.choice(["cloak_team", "cloak_team", "rags", "cloth_team"]))
+
+
+def soldier_kit(r, kind, optics="visor"):
+    """Body, fatigues, belt, plate carrier, sealed mask and regulator: what every Carrier wears."""
+    w = {"breacher": 1.12, "marksman": 0.95}.get(kind, 1.0)
+    slim(r)
+    fatigues(r, "white" if kind == "hazmat" else "cloth_team", loose=0.008 if kind == "hazmat" else 0.0)
+    belt(r, w)
+    if kind == "marksman":
+        carrier(r, 0.93, pouches=2, depth=0.26, radio=False)
+    elif kind == "vector":
+        carrier(r, 0.95, pouches=2, depth=0.27, radio=False)
+    else:
+        carrier(r, w * (1.02 if kind == "breacher" else 1.0), pouches=2 if kind in ("medic", "hazmat") else 3,
+                depth=0.32 if kind == "breacher" else 0.29, radio=kind != "hazmat")
+    if kind != "breacher":
+        sealed_mask(r, optics)
+    regulator(r)
 
 
 # Where the weapon's grip sits when shouldered and aimed (the game poses it from there).
@@ -382,56 +508,99 @@ def growths(r, heavy=False):
 
 def build_soldier(kind):
     r = Rig(kind)
-    r.drop_meshes("Eyebrows")
+    r.drop_meshes("Eyebrows", "Hair")
     soldier_kit(r, kind)
     if kind == "trooper":
         helmet(r)
-        goggles(r)
-        r.add("spine_03", G.box((0.30, 0.15, 0.32), (0, 0.22, 1.3), 0.04), "strap")
-        r.add("spine_03", G.box((0.2, 0.05, 0.22), (0, 0.31, 1.3), 0.02), "metal")
-        r.add("spine_03", G.tube((0.1, 0.28, 1.42), (0.14, 0.34, 1.98), 0.008, 0.004, segs=6), "metal")
-        r.add("spine_03", G.capsule(0.05, 0.22, (0, 0.18, 1.5), rot=(0, math.pi / 2, 0)), "cloth_team")
+        backpack(r)
+        for s, side in ((-1, "r"), (1, "l")):      # shoulder patches
+            r.add("upperarm_" + side, G.box((0.07, 0.012, 0.05), (0.3 * s, -0.005, 1.5), 0.004), "mark_team")
     elif kind == "marksman":
-        r.add("Head", G.sphere(0.13, (0, 0.01, 1.76), (1.0, 1.05, 0.6)), "cloth_team")
-        hood = G.sphere(0.165, (0, 0.02, 1.71), (1.0, 1.1, 1.1), segs=18, rings=10)
-        G.cut(hood, (0, -0.05, 0), (0, 1, -0.25))
-        G.cut(hood, (0, 0, 1.56), (0, 0, 1))
-        r.add("Head", hood, "cloak_team")
-        r.add("Head", G.box((0.22, 0.09, 0.022), (0, -0.115, 1.81), 0.008, rot=(-0.25, 0, 0)), "cloak_team")
-        r.add("Head", G.tube((-0.05, -0.1, 1.715), (-0.05, -0.17, 1.715), 0.026, segs=12), "metal")
-        r.add("Head", G.tube((-0.05, -0.169, 1.715), (-0.05, -0.175, 1.715), 0.02, segs=12), "lens")
-        cape = G.cyl(0.3, 0.2, 0.6, (0, 0.06, 1.2), segs=16)
-        G.cut(cape, (0, 0.0, 0), (0, 1, 0))
-        G.bend_noise(cape, 0.03, seed=3)
-        r.add("spine_03", cape, "cloak_team")
+        hood(r)
+        ghillie(r)
+        r.add("Head", G.tube((-0.043, -0.13, 1.728), (-0.043, -0.175, 1.728), 0.024, segs=12), "metal")   # rangefinder
+        r.add("Head", G.tube((-0.043, -0.174, 1.728), (-0.043, -0.18, 1.728), 0.018, segs=12), "lens")
+        r.add("thigh_l", G.box((0.05, 0.08, 0.2), (0.21, 0.02, 0.72), 0.02), "leather")                    # holster
     elif kind == "medic":
-        helmet(r)
-        goggles(r)
-        r.add("Head", G.box((0.06, 0.035, 0.045), (0, -0.14, 1.79), 0.012), "metal")
+        helmet(r, nvg=False)
+        r.add("Head", G.box((0.06, 0.035, 0.045), (0, -0.14, 1.79), 0.012), "metal")                     # head lamp
         r.add("Head", G.box((0.045, 0.01, 0.03), (0, -0.16, 1.79), 0.006), "lamp")
         for s in (-1, 1):
-            r.add("Head", G.box((0.01, 0.07, 0.022), (0.14 * s, 0.0, 1.75), 0.004), "red")
-            r.add("Head", G.box((0.01, 0.022, 0.07), (0.14 * s, 0.0, 1.75), 0.004), "red")
-        r.add("spine_03", G.box((0.38, 0.2, 0.44), (0, 0.25, 1.3), 0.05), "white")
-        r.add("spine_03", G.box((0.16, 0.012, 0.05), (0, 0.355, 1.36), 0.005), "red")
-        r.add("spine_03", G.box((0.05, 0.012, 0.16), (0, 0.355, 1.36), 0.005), "red")
-        for s in (-1, 1):
-            r.add("upperarm_" + ("r" if s < 0 else "l"), G.tube((0.32 * s, 0.065, 1.456), (0.38 * s, 0.065, 1.456), 0.06), "white")
-        r.add("upperarm_l", G.box((0.05, 0.015, 0.02), (0.35, 0.0, 1.456), 0.003), "red")
-        r.add("upperarm_l", G.box((0.02, 0.015, 0.05), (0.35, 0.0, 1.456), 0.003), "red")
+            r.add("Head", G.box((0.01, 0.06, 0.02), (0.148 * s, 0.0, HEAD_C.z + 0.03), 0.003), "red")
+            r.add("Head", G.box((0.01, 0.02, 0.06), (0.148 * s, 0.0, HEAD_C.z + 0.03), 0.003), "red")
+        # trauma pack with a cross and an IV line, arm band, leg kit
+        r.add("spine_03", G.box((0.36, 0.2, 0.42), (0, 0.27, 1.25), 0.06), "white")
+        r.add("spine_03", G.box((0.16, 0.012, 0.05), (0, 0.375, 1.29), 0.004), "red")
+        r.add("spine_03", G.box((0.05, 0.012, 0.16), (0, 0.375, 1.29), 0.004), "red")
+        r.add("spine_03", G.box((0.3, 0.05, 0.08), (0, 0.27, 1.02), 0.02), "white")
+        r.add("spine_03", G.tube((0.15, 0.3, 1.42), (0.2, 0.18, 1.52), 0.008, segs=6), "lens")
+        r.add("upperarm_l", G.tube((0.31, 0.065, 1.456), (0.38, 0.065, 1.456), 0.062, segs=14), "white")
+        r.add("upperarm_l", G.box((0.045, 0.014, 0.015), (0.345, 0.0, 1.456), 0.003), "red")
+        r.add("upperarm_l", G.box((0.015, 0.014, 0.045), (0.345, 0.0, 1.456), 0.003), "red")
+        r.add("thigh_r", G.box((0.05, 0.13, 0.17), (-0.22, 0.0, 0.7), 0.02), "white")
+        r.add("thigh_r", G.box((0.012, 0.05, 0.015), (-0.247, 0.0, 0.7), 0.003), "red")
+        r.add("thigh_r", G.box((0.012, 0.015, 0.05), (-0.247, 0.0, 0.7), 0.003), "red")
     elif kind == "breacher":
         r.drop_meshes("Eyes")
-        r.add("Head", G.sphere(0.15, (0, 0.0, 1.725), (1.0, 1.08, 1.0), segs=18, rings=10), "armor_team")
-        r.add("Head", G.box((0.24, 0.07, 0.18), (0, -0.115, 1.69), 0.045), "plate")
-        r.add("Head", G.box((0.19, 0.03, 0.03), (0, -0.152, 1.72), 0.008), "visor")
-        r.add("Head", G.box((0.045, 0.22, 0.035), (0, 0.0, 1.88), 0.012), "plate")
-        for s in (-1, 1):
-            r.add("spine_03", G.box((0.08, 0.06, 0.12), (0.12 * s, -0.2, 1.36), 0.012), "amber")
-        r.add("spine_03", G.box((0.38, 0.13, 0.36), (0, 0.24, 1.3), 0.04), "plate")
+        z = HEAD_C.z
+        bm = G.sphere(0.155, (0, 0.0, z + 0.015), (1.0, 1.08, 1.0), segs=22, rings=12)
+        G.cut(bm, (0, 0, z - 0.1), (0, 0, 1))
+        r.add("Head", bm, "armor_team")
+        r.add("Head", G.box((0.25, 0.08, 0.2), (0, -0.12, z - 0.03), 0.05), "plate")                     # faceplate
+        r.add("Head", G.box((0.2, 0.02, 0.028), (0, -0.162, z + 0.005), 0.008), "visor")
+        for i in range(3):
+            r.add("Head", G.box((0.018, 0.012, 0.05), ((i - 1) * 0.04, -0.16, z - 0.08), 0.004), "metal")
+        r.add("spine_03", G.cyl(0.13, 0.11, 0.09, (0, 0.02, 1.52), segs=18, bevel=0.015), "plate")        # gorget
+        r.add("pelvis", G.box((0.2, 0.04, 0.18), (0, -0.17, 0.88), 0.03), "armor_team")                  # groin plate
+
+        def heavy(s, side):
+            x = 0.105 * s
+            r.add("thigh_" + side, G.box((0.15, 0.05, 0.22), (x, -0.085, 0.76), 0.03), "armor_team")
+            r.add("calf_" + side, G.box((0.11, 0.045, 0.28), (x, -0.075, 0.33), 0.03), "plate")
+            for k in range(3):                                                                        # layered pauldron
+                pb = G.sphere(0.14 - k * 0.018, (0, 0, 0), (1.1, 1.05, 0.45), segs=18, rings=10)
+                G.cut(pb, (0, 0, 0), (0, 0, 1))
+                r.add("upperarm_" + side, G._place(pb, ((0.24 + k * 0.035) * s, 0.065, 1.53 - k * 0.04), rot=(0, (0.35 + k * 0.12) * s, 0)),
+                      "armor_team" if k == 0 else "plate")
+            r.add("lowerarm_" + side, G.tube((0.52 * s, 0.065, 1.456), (0.68 * s, 0.065, 1.456), 0.06, 0.052, segs=14), "armor_team")
+        mirror(heavy)
+        for s in (-1, 1):                                                                             # breaching charges
+            r.add("spine_03", G.box((0.075, 0.05, 0.11), (0.1 * s, -0.215, 1.38), 0.01), "amber")
+        r.add("spine_03", G.box((0.38, 0.14, 0.34), (0, 0.26, 1.27), 0.04), "plate")
         # forearm shield along the outside of the left forearm
-        r.add("lowerarm_l", G.box((0.6, 0.4, 0.05), (0.6, 0.0, 1.53), 0.03), "plate")
-        r.add("lowerarm_l", G.box((0.58, 0.05, 0.055), (0.6, -0.17, 1.535), 0.01), "amber")
-        r.add("lowerarm_l", G.box((0.12, 0.11, 0.055), (0.66, -0.06, 1.536), 0.008), "visor")
+        r.add("lowerarm_l", G.box((0.6, 0.4, 0.05), (0.6, 0.0, 1.55), 0.03), "plate")
+        r.add("lowerarm_l", G.box((0.58, 0.05, 0.055), (0.6, -0.17, 1.555), 0.01), "amber")
+        r.add("lowerarm_l", G.box((0.12, 0.11, 0.055), (0.66, -0.06, 1.556), 0.008), "visor")
+    elif kind == "hazmat":
+        # sealed suit hood with a wide visor over the mask, twin fuel tanks, hazard bands
+        z = HEAD_C.z
+        bm = G.sphere(0.16, (0, 0.01, z + 0.0), (1.0, 1.05, 1.1), segs=22, rings=12)
+        G.cut(bm, (0, 0, 1.53), (0, 0, 1))
+        r.add("Head", bm, "white")
+        r.add("Head", G.box((0.2, 0.03, 0.09), (0, -0.155, z + 0.02), 0.03), "visor")
+        r.add("spine_03", G.cyl(0.15, 0.13, 0.1, (0, 0.02, 1.53), segs=18, bevel=0.015), "white")
+        for s in (-1, 1):
+            r.add("spine_03", G.cyl(0.075, 0.075, 0.5, (0.09 * s, 0.25, 1.24), segs=16, bevel=0.03), "metal")
+            r.add("spine_03", G.cyl(0.078, 0.078, 0.05, (0.09 * s, 0.25, 1.33), segs=16), "amber")
+            r.add("spine_03", G.cyl(0.03, 0.03, 0.04, (0.09 * s, 0.25, 1.51), segs=10), "red")
+            side = "r" if s < 0 else "l"
+            r.add("upperarm_" + side, G.tube((0.3 * s, 0.065, 1.456), (0.36 * s, 0.065, 1.456), 0.07, segs=14), "amber")
+            r.add("calf_" + side, G.cyl(0.075, 0.075, 0.05, (0.105 * s, 0.02, 0.36), segs=14), "amber")
+        r.add("spine_03", G.tube((-0.09, 0.2, 1.05), (-0.2, -0.05, 1.12), 0.018, segs=8), "strap")      # fuel hose
+    elif kind == "vector":
+        # Bloom-forward: long field coat, Strain vials on a bandolier, the Bloom already
+        # through the shoulder and the side of the mask
+        rnd = random.Random(7)
+        r.clothe("coat", lambda p: 0.5 < p.z < 1.5 and abs(p.x) < 0.42, lambda p: 0.035 + max(0.0, 1.0 - p.z) * 0.1,
+                 "cloak_team", wrinkle=0.01)
+        r.add("Head", G.cyl(0.118, 0.1, 0.05, (0, 0.01, HEAD_C.z + 0.09), segs=18, bevel=0.015), "cloak_team")   # watch cap
+        for i in range(6):
+            t = i / 5.0
+            p = (0.17 - 0.32 * t, -0.165 - 0.02 * math.sin(t * math.pi), 1.46 - 0.3 * t)
+            r.add("spine_03", G.capsule(0.024, 0.07, p, rot=(0, 0.6, 0)), "sac")
+        r.add("spine_03", G.tube((0.19, -0.15, 1.48), (-0.17, -0.17, 1.14), 0.014, segs=6), "leather")
+        crystals(r, "spine_03", (0.2, 0.08, 1.52), 5, 0.14, rnd, up=(0.6, 0.3, 1), name="bloom_shoulder")
+        crystals(r, "Head", (0.09, -0.06, 1.74), 3, 0.08, rnd, up=(0.8, -0.3, 0.6), name="bloom_mask")
     weapon(r, kind)
     growths(r, heavy=kind == "breacher")
     r.export()
@@ -560,7 +729,7 @@ def build_turned(kind):
     r = Rig(kind)
     rnd = random.Random(sum(map(ord, kind)))
     r.drop_meshes("Eyebrows", "Hair")
-    soldier_kit(r, "trooper")
+    soldier_kit(r, "trooper", optics="glow")   # the optics burn Bloom-teal
     if kind == "colonel_hale":
         # officer: peaked cap, greatcoat, rank tabs, sidearm-length carbine
         r.add("Head", G.cyl(0.125, 0.135, 0.07, (0, 0.0, 1.78), segs=18), "cloth_team")
@@ -678,6 +847,8 @@ NAMES = {
     "marksman": lambda: build_soldier("marksman"),
     "medic": lambda: build_soldier("medic"),
     "breacher": lambda: build_soldier("breacher"),
+    "hazmat": lambda: build_soldier("hazmat"),
+    "vector": lambda: build_soldier("vector"),
     "civilian": build_civilian,
 }
 for _k in ("runner", "spitter", "leaper", "shrieker", "broodling", "brute", "bloater", "brood_mother"):

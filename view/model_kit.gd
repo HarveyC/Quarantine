@@ -25,6 +25,8 @@ const CHARACTERS := {
 	"marksman": preload("res://assets/characters/marksman.glb"),
 	"medic": preload("res://assets/characters/medic.glb"),
 	"breacher": preload("res://assets/characters/breacher.glb"),
+	"hazmat": preload("res://assets/characters/hazmat.glb"),
+	"vector": preload("res://assets/characters/vector.glb"),
 	"civilian": preload("res://assets/characters/civilian.glb"),
 	"runner": preload("res://assets/characters/runner.glb"),
 	"spitter": preload("res://assets/characters/spitter.glb"),
@@ -60,7 +62,10 @@ const VEINABLE := ["body", "chitin", "cloth_team", "armor_team", "cloak_team", "
 ## Model for `kind`; kinds without one borrow the Trooper's (squad) or the Runner's.
 static func instantiate(kind: String, is_soldier: bool) -> Node3D:
 	if CHARACTERS.has(kind):
-		return CHARACTERS[kind].instantiate()
+		var c: Node3D = CHARACTERS[kind].instantiate()
+		if GunModels.has_gun(kind):   # own body, procedural gun (Hazmat LMG, Vector carbine)
+			GunModels.swap(c, kind)
+		return c
 	if MODELS.has(kind):
 		return MODELS[kind].instantiate()
 	if MeleeKit.is_melee(kind):   # borrowed body, melee props and a sidearm
