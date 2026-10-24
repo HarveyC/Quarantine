@@ -86,7 +86,7 @@ static func tier_color(t: int) -> Color:
 ## re-applied on every change, and reaching 100 Turns the soldier. Turning is permanent:
 ## a Turned unit's infection no longer changes.
 static func add(s: GameState, u: Unit, amount: int) -> void:
-	if u.status.get("turned", false):
+	if u.status.get("turned", false) or u.status.has("deployable"):
 		return
 	var before := tier(u.infection)
 	u.infection = clampi(u.infection + amount, 0, MAX)

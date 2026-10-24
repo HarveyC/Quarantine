@@ -5,7 +5,10 @@ extends Control
 signal host_requested(name: String, port: int)
 signal join_requested(name: String, address: String, port: int)
 signal local_requested(players: int)
+signal run_requested(players: int)
+signal continue_requested
 signal start_requested
+signal start_run_requested
 signal leave_requested
 
 const Styles := preload("res://ui/styles.gd")
@@ -21,6 +24,9 @@ var _lobby_title: Label
 var _lobby_list: VBoxContainer
 var _lobby_hint: Label
 var _start_btn: Button
+var _start_run_btn: Button
+var _continue_btn: Button
+var _lobby_continue: CheckBox
 
 
 func _ready() -> void:
@@ -41,7 +47,7 @@ func _ready() -> void:
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 12)
 	panel.add_child(root)
-	root.add_child(Styles.label("QUARANTINE", 40, Palette.TEAL))
+	root.add_child(Styles.label("CARRIERS", 40, Palette.TEAL))
 	root.add_child(Styles.label("Co-op tactics in the infected zone", 16, Styles.TEXT))
 	_build_menu(root)
 	_build_lobby(root)
@@ -56,6 +62,10 @@ func _build_menu(root: VBoxContainer) -> void:
 	_menu_box.add_theme_constant_override("separation", 10)
 	root.add_child(_menu_box)
 	_name = _field(_menu_box, "Your name", OS.get_environment("USER").capitalize() if OS.has_environment("USER") else "Player")
+	_continue_btn = _button(_menu_box, "Continue run")
+	_continue_btn.pressed.connect(func() -> void: continue_requested.emit())
+	var solo_btn := _button(_menu_box, "Solo run")
+	solo_btn.pressed.connect(func() -> void: run_requested.emit(1))
 	var host_btn := _button(_menu_box, "Host online game")
 	host_btn.pressed.connect(func() -> void: host_requested.emit(_name.text, _port_value()))
 	var join_row := HBoxContainer.new()
@@ -70,7 +80,9 @@ func _build_menu(root: VBoxContainer) -> void:
 	join_btn.custom_minimum_size.x = 100
 	join_btn.pressed.connect(_emit_join)
 	_port = _field(_menu_box, "Port", str(NetSession.DEFAULT_PORT))
-	var local_btn := _button(_menu_box, "Local hot-seat (2 players, one screen)")
+	var hot_run := _button(_menu_box, "Hot-seat run (2 players, one screen)")
+	hot_run.pressed.connect(func() -> void: run_requested.emit(2))
+	var local_btn := _button(_menu_box, "Quick mission (hot-seat, no run)")
 	local_btn.pressed.connect(func() -> void: local_requested.emit(2))
 
 
@@ -85,13 +97,23 @@ func _build_lobby(root: VBoxContainer) -> void:
 	_lobby_hint = Styles.label("", 14, Styles.MUTED)
 	_lobby_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_lobby_box.add_child(_lobby_hint)
-	_start_btn = _button(_lobby_box, "Start mission")
+	_lobby_continue = CheckBox.new()
+	_lobby_continue.text = "Continue the saved run"
+	_lobby_continue.focus_mode = Control.FOCUS_NONE
+	_lobby_box.add_child(_lobby_continue)
+	_start_run_btn = _button(_lobby_box, "Start run")
+	_start_run_btn.pressed.connect(func() -> void: start_run_requested.emit())
+	_start_btn = _button(_lobby_box, "Quick mission (no run)")
 	_start_btn.pressed.connect(func() -> void: start_requested.emit())
 	var leave := _button(_lobby_box, "Leave")
 	leave.pressed.connect(func() -> void: leave_requested.emit())
 
 
 func show_menu(message: String = "") -> void:
+	var saved := RunSave.read() if RunSave.exists() else null
+	_continue_btn.visible = saved != null
+	if saved != null:
+		_continue_btn.text = "Continue run  (%s)" % RunSave.summary(saved)
 	_menu_box.visible = true
 	_lobby_box.visible = false
 	_status.text = message
@@ -124,7 +146,14 @@ func show_lobby(net: NetSession) -> void:
 	else:
 		_lobby_hint.text = "Waiting for the host to start. Squad split: %s" % ", ".join(split)
 	_start_btn.visible = net.is_host
+	_start_run_btn.visible = net.is_host
+	_lobby_continue.visible = net.is_host and RunSave.exists()
 	_lobby_title.text = "LOBBY  (%d/%d)" % [net.lobby.size(), NetSession.MAX_PLAYERS]
+
+
+## Host: whether to continue the saved run instead of starting a new one.
+func continue_saved() -> bool:
+	return _lobby_continue.visible and _lobby_continue.button_pressed
 
 
 func _emit_join() -> void:

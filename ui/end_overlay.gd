@@ -46,12 +46,14 @@ func build() -> void:
 	box.add_child(leave)
 
 
-func show_result(result: int, turn: int, can_restart: bool = true) -> void:
+func show_result(result: int, turn: int, can_restart: bool = true, in_run: bool = false) -> void:
 	_restart.visible = can_restart
 	var win := result == Types.Result.VICTORY
 	_title.text = "VICTORY" if win else "DEFEAT"
 	_title.add_theme_color_override("font_color", Palette.TEAL if win else Palette.DANGER)
 	_sub.text = ("Zone cleared in %d turns." if win else "The squad was lost on turn %d.") % turn
-	if not can_restart:
+	if in_run:
+		_sub.text += "\nBack to the map..." if win else "\nThe run is over."
+	elif not can_restart:
 		_sub.text += "\nWaiting for the host to restart."
 	visible = true

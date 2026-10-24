@@ -63,6 +63,7 @@ static func start_team_phase(s: GameState) -> void:
 			u.cooldowns[k] = max(0, u.cooldowns[k] - 1)
 	s.emit({"type": "team_phase", "turn": s.turn})
 	GearFx.on_team_phase_start(s)
+	Deployables.on_team_phase_start(s)
 	Infection.on_team_phase_start(s)
 	# Soldiers that have Lapsed act on their own before the squad gets to move.
 	for u in s.living(Types.Team.PLAYER):
@@ -188,7 +189,7 @@ static func check_end(s: GameState) -> void:
 	var r := Types.Result.NONE
 	if s.living(Types.Team.ENEMY).is_empty():
 		r = Types.Result.VICTORY
-	elif s.living(Types.Team.PLAYER).is_empty():
+	elif Deployables.soldiers(s).is_empty():
 		# Turned soldiers have switched teams; Lapsed ones are still ours and will recover.
 		r = Types.Result.DEFEAT
 	if r != Types.Result.NONE:

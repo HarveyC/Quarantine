@@ -315,6 +315,8 @@ static func _advance(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary
 ## How attractive `t` is as a target for `u` standing at `from`. Low HP, flanked, close.
 static func _target_score(s: GameState, u: Unit, t: Unit, from: Vector2i) -> float:
 	var score := 10.0 - t.hp
+	if t.status.get("decoy", false):
+		score += 8.0   # Deployables: decoys draw fire
 	var odds := Combat.hit_chance(s, u, t, from)
 	if odds.get("flanked", false):
 		score += 3.0

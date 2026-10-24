@@ -15,16 +15,24 @@ signal match_started(state: GameState)
 signal resynced(state: GameState)
 signal rejected(reason: String)
 signal disconnected(reason: String)
+signal run_changed(run: RunState)
 
 const DEFAULT_PORT := 24680
 const MAX_PLAYERS := 4
 const READY := "ready"   # pseudo action type: {"type": READY, "player": int, "ready": bool}
+const RUN := "run"       # wrapper for run actions: {"type": RUN, "action": <RunRules action>}
+## Seconds after the first route vote before the host closes the vote (design doc: 20).
+const VOTE_SECONDS := 20.0
 ## How long the host waits on a silent peer before dropping it (ms). ENet's default is ~30s, which
 ## left crashed clients in the lobby long enough to push a rejoining player into the wrong slot.
 const PEER_TIMEOUT_MS := 5000
 const CLIENT_ID_PATH := "user://client_id.txt"
 
 var state: GameState
+## The roguelike run, when the match is a run (start_run) rather than a single mission.
+var run: RunState
+## Host: a saved run to continue instead of starting a new one (set from the menu).
+var resume: RunState
 var my_name := "Player"
 var is_host := false
 var my_player := -1
@@ -86,6 +94,7 @@ func leave() -> void:
 	in_match = false
 	is_host = false
 	my_player = -1
+	run = null
 	lobby = {}
 	absent = {}
 	player_names = {}
@@ -138,7 +147,7 @@ func is_local(player: int) -> bool:
 
 
 func can_restart() -> bool:
-	return is_host
+	return is_host and run == null
 
 
 func is_waiting() -> bool:
@@ -155,6 +164,16 @@ func submit(action: Dictionary) -> void:
 
 func set_ready(player: int, on: bool) -> void:
 	_send({"type": READY, "player": player, "ready": on})
+
+
+func submit_run(action: Dictionary) -> void:
+	if run == null:
+		return
+	var err := RunRules.validate(run, action)
+	if err != "":
+		rejected.emit(err)
+		return
+	_send({"type": RUN, "action": action})
 
 
 func restart() -> void:
@@ -194,6 +213,101 @@ func start_match() -> void:
 	_start(config)
 
 
+## Host: begin a roguelike run with everyone connected, or continue `resume`. The host builds the
+## run from a seed and sends the whole RunState once; after that only run actions travel.
+func start_run() -> void:
+	if not is_host:
+		return
+	absent.clear()
+	var ids := lobby.keys()
+	ids.sort()
+	for i in ids.size():
+		lobby[ids[i]].player = i
+	_broadcast_lobby()
+	if resume != null:
+		run = resume
+		resume = null
+		# Players from the save who aren't here are benched until they join.
+		var here := {}
+		for v in lobby.values():
+			here[v.player] = true
+		for p in run.players:
+			if p != run.host_player and not here.has(p):
+				RunRules.apply(run, {"type": RunRules.BENCH, "player": run.host_player, "target": p, "on": true})
+	else:
+		run = RunRules.new_run(lobby.size(), 0, Profile.meta())
+		RunRules.start_run(run)
+	var snap := run.fight_snapshot if run.phase == RunState.Phase.FIGHT else {}
+	if _live():
+		_run_start.rpc(run.to_dict(), snap)
+	_run_start(run.to_dict(), snap)
+	if is_inside_tree():
+		_watch_run()
+
+
+@rpc("authority", "reliable")
+func _run_start(run_dict: Dictionary, snapshot: Dictionary) -> void:
+	_seq = 0
+	_waiting = false
+	in_match = true
+	_config = {}
+	run = RunState.from_dict(run_dict)
+	state = null
+	print("[net] run started: I am player %d of %d" % [my_player + 1, run.players.size()])
+	_install_run(snapshot)
+
+
+## Builds the fight on this peer if the run is in one (every peer builds the same GameState from
+## run.fight_config), then tells the view.
+func _install_run(snapshot: Dictionary = {}) -> void:
+	if run.phase == RunState.Phase.FIGHT:
+		if not snapshot.is_empty():
+			state = GameState.from_dict(snapshot)
+			state.event.connect(_on_mission_event)
+			resynced.emit(state)
+		elif state == null or state.phase == Types.Phase.ENDED:
+			state = MatchConfig.build(run.fight_config)
+			state.event.connect(_on_mission_event)
+			match_started.emit(state)
+	if is_host:
+		RunSave.write(run)
+		Profile.record_run(run)
+	run_changed.emit(run)
+
+
+func _on_mission_event(ev: Dictionary) -> void:
+	if not is_host or run == null:
+		return
+	match ev.type:
+		"team_phase":
+			run.fight_snapshot = state.to_dict()
+			RunSave.write(run)
+		"mission_end":
+			# Deferred: we're inside the mission action's _apply, which commits after this returns.
+			_report_fight.call_deferred(RunRules.fight_outcome(state))
+
+
+func _report_fight(outcome: Dictionary) -> void:
+	if run != null and run.phase == RunState.Phase.FIGHT:
+		_commit_host({"type": RUN, "action": {"type": RunRules.FIGHT_END, "player": run.host_player, "outcome": outcome}})
+
+
+## Host: closes a route vote VOTE_SECONDS after its first pin, counting the votes cast.
+func _watch_run() -> void:
+	if not run.event.is_connected(_on_run_event):
+		run.event.connect(_on_run_event)
+
+
+func _on_run_event(ev: Dictionary) -> void:
+	if ev.type != "vote" or not is_host or not is_inside_tree() or run.votes.size() != 1:
+		return
+	var at := run.node
+	var act := run.act
+	get_tree().create_timer(VOTE_SECONDS).timeout.connect(func() -> void:
+		if run != null and run.phase == RunState.Phase.MAP and run.node == at and run.act == act and not run.votes.is_empty():
+			_commit_host({"type": RUN, "action": {"type": RunRules.CLOSE_VOTE, "player": run.host_player}}))
+
+
 @rpc("any_peer", "reliable")
 func _hello(name: String, cid: String = "") -> void:
 	if is_host:
@@ -221,6 +335,8 @@ func handle_hello(id: int, name: String, cid: String) -> int:
 	lobby[id] = {"name": name, "player": slot, "cid": cid}
 	absent.erase(slot)
 	_broadcast_lobby()
+	if in_match and run != null and run.benched.get(slot, false):
+		_commit_host({"type": RUN, "action": {"type": RunRules.BENCH, "player": run.host_player, "target": slot, "on": false}})
 	if in_match:
 		_send_sync(id)
 	return slot
@@ -245,7 +361,7 @@ func _broadcast_lobby() -> void:
 
 func _send_sync(id: int) -> void:
 	if _live():
-		_sync.rpc_id(id, _config, state.to_dict(), _seq)
+		_sync.rpc_id(id, _config, state.to_dict() if state else {}, _seq, run.to_dict() if run else {})
 
 
 func _send_kick(id: int, reason: String) -> void:
@@ -282,6 +398,8 @@ func _on_peer_disconnected(id: int) -> void:
 	if in_match:
 		absent[p] = true
 	_broadcast_lobby()
+	if in_match and run != null and p != run.host_player and run.players.has(p):
+		_commit_host({"type": RUN, "action": {"type": RunRules.BENCH, "player": run.host_player, "target": p, "on": true}})
 	_queue_absent_turns()
 
 
@@ -318,6 +436,7 @@ func _start(config: Dictionary) -> void:
 	_seq = 0
 	_waiting = false
 	in_match = true
+	run = null
 	state = MatchConfig.build(config)
 	print("[net] match started: I am player %d of %d" % [my_player + 1, state.players.size()])
 	match_started.emit(state)   # the view connects to events, then calls Rules.start_mission
@@ -345,11 +464,20 @@ func _handle_request(sender: int, action: Dictionary) -> void:
 
 
 func _check_request(sender: int, action: Dictionary) -> String:
-	if not in_match or state == null:
+	if not in_match or (state == null and run == null):
 		return "No match running"
 	if not lobby.has(sender):
 		return "Not in this game"
 	var player: int = lobby[sender].player
+	if action.get("type") == RUN:
+		if run == null:
+			return "No run going"
+		var inner: Dictionary = action.get("action", {})
+		if inner.get("player") != player:
+			return "You can only act for yourself"
+		return RunRules.validate(run, inner)
+	if state == null:
+		return "No fight running"
 	if action.get("type") == READY:
 		if action.get("player") != player:
 			return "That's not your READY button"
@@ -363,27 +491,36 @@ func _check_request(sender: int, action: Dictionary) -> String:
 func _commit_host(action: Dictionary) -> void:
 	_seq += 1
 	_apply(action)
-	_commit.rpc(_seq, action, state.checksum())
+	if _live():
+		_commit.rpc(_seq, action, _checksum())
 	_queue_absent_turns()
 
 
 @rpc("authority", "reliable")
 func _commit(seq: int, action: Dictionary, checksum: int) -> void:
-	if state == null or seq != _seq + 1:
+	if (state == null and run == null) or seq != _seq + 1:
 		_request_sync.rpc_id(1)
 		return
 	_seq = seq
 	_apply(action)
-	if state.checksum() != checksum:
+	if _checksum() != checksum:
 		push_warning("[net] state drifted from host at action %d; resyncing" % seq)
 		_request_sync.rpc_id(1)
 
 
 func _apply(action: Dictionary) -> void:
-	if action.type == READY:
+	if action.type == RUN:
+		RunRules.apply(run, action.action)
+		_install_run()
+	elif action.type == READY:
 		Rules.set_ready(state, action.player, action.ready)
 	else:
 		Rules.apply(state, action)
+
+
+## Run and mission together, so a drift in either triggers a resync.
+func _checksum() -> int:
+	return hash([run.checksum() if run else 0, state.checksum() if state else 0])
 
 
 @rpc("authority", "reliable")
@@ -404,15 +541,20 @@ func _on_rejected(reason: String) -> void:
 @rpc("any_peer", "reliable")
 func _request_sync() -> void:
 	if is_host and in_match:
-		_sync.rpc_id(multiplayer.get_remote_sender_id(), _config, state.to_dict(), _seq)
+		_sync.rpc_id(multiplayer.get_remote_sender_id(), _config, state.to_dict() if state else {}, _seq, run.to_dict() if run else {})
 
 
 @rpc("authority", "reliable")
-func _sync(config: Dictionary, snapshot: Dictionary, seq: int) -> void:
+func _sync(config: Dictionary, snapshot: Dictionary, seq: int, run_dict: Dictionary = {}) -> void:
 	_config = config
 	_seq = seq
 	_waiting = false
 	in_match = true
+	if not run_dict.is_empty():
+		run = RunState.from_dict(run_dict)
+		state = null
+		_install_run(snapshot if run.phase == RunState.Phase.FIGHT else {})
+		return
 	state = GameState.from_dict(snapshot)
 	resynced.emit(state)
 
@@ -428,7 +570,7 @@ func _queue_absent_turns() -> void:
 ## Disconnected players' soldiers hunker down and their READY is pressed for them.
 func _play_absent_turns() -> void:
 	_absent_pending = false
-	if not in_match or state.phase != Types.Phase.TEAM:
+	if not in_match or state == null or state.phase != Types.Phase.TEAM:
 		return
 	for p in absent.keys():
 		for u in state.controllable_units(p):
