@@ -547,6 +547,9 @@ func _refresh_screen() -> void:
 		RunState.Phase.REWARD:
 			key = "reward:%d" % run.fights_won
 			script = RunHooks.call_static("GearRun", "reward_screen", [])
+			if RunHooks.call_static("Story", "has_pending", [run], false):
+				key = "ending"
+				script = RunHooks.call_static("Story", "screen", [])
 		RunState.Phase.ENDED:
 			key = "end"
 	if key == _screen_key:
@@ -617,8 +620,8 @@ func _waiting_panel(text: String) -> Control:
 ## The headline for the run's end: [title, colour]. A story ending can change it here.
 func _summary_title() -> Array:
 	if run.result == Types.Result.VICTORY:
-		return ["The Source is burning", Styles.HP]
-	return ["Lantern Company is lost", Styles.DANGER]
+		return [StoryData.SUMMARY_TITLES.get(run.story.get("ending", ""), StoryData.SUMMARY_TITLES.burn), Styles.HP]
+	return [StoryData.SUMMARY_TITLES.lost, Styles.DANGER]
 
 
 ## Run end: a full-screen board with the headline, how far the squad got (act and row pips),
@@ -639,6 +642,8 @@ func _summary() -> Control:
 	var win := run.result == Types.Result.VICTORY
 	var top := Styles.vbox(6)
 	var kick := "Run complete" if win else "Run over"
+	if not run.story.is_empty():
+		kick += " · Wave %d" % run.story.get("wave", 0)
 	if Severity.level(run) > 0:
 		kick += " · Severity %d" % Severity.level(run)
 	top.add_child(Styles.caps(kick, 16, Styles.DIM))
@@ -655,7 +660,9 @@ func _summary() -> Control:
 	tiles.add_child(_stat_tile("intel", "+%d" % MetaProgress.field_data(run), "Field Data", Styles.AMBER, "For every player"))
 	v.add_child(tiles)
 	var earned := Achievements.earned_by(run)
-	if not earned.is_empty():
+	var laid: int = run.story.get("echoes", []).filter(func(e: Dictionary) -> bool: return e.laid).size()
+	var lore: Array = run.story.get("lore", [])
+	if not earned.is_empty() or laid > 0 or not lore.is_empty():
 		var chips := HFlowContainer.new()
 		chips.add_theme_constant_override("h_separation", 8)
 		chips.add_theme_constant_override("v_separation", 8)
@@ -667,6 +674,10 @@ func _summary() -> Control:
 			h.add_child(Styles.caps(Achievements.DEFS[id].name, 13, Styles.AMBER))
 			c.add_child(h)
 			chips.add_child(c)
+		if laid > 0:
+			chips.add_child(_story_chip("turned", "Echoes laid to rest: %d" % laid))
+		for id in lore:
+			chips.add_child(_story_chip("intel", StoryData.lore_entry(id).get("title", id)))
 		v.add_child(chips)
 	v.add_child(Styles.caps("Lantern Company", 15, Styles.DIM))
 	var fates := HFlowContainer.new()
@@ -687,6 +698,17 @@ func _summary() -> Control:
 	bar.add_child(b)
 	v.add_child(bar)
 	return root
+
+
+## A teal chip for story finds on the run board: Echoes laid to rest and intel recovered.
+func _story_chip(icon: String, text: String) -> Control:
+	var c := W.Frame.new(Vector4(10, 6, 12, 6))
+	c.set_look(Color(Styles.TEAL, 0.08), Color(Styles.TEAL, 0.45), Styles.TEAL, false)
+	var h := Styles.hbox(8)
+	h.add_child(W.Icon.new(icon, Styles.TEAL, 16, 1.7))
+	h.add_child(Styles.caps(text, 13, Styles.TEAL))
+	c.add_child(h)
+	return c
 
 
 ## Three acts of five rows as pips, lit up to where the run ended.
@@ -768,6 +790,8 @@ func _on_run_event(ev: Dictionary) -> void:
 			var r := run.get_soldier(ev.sid)
 			line = "%s %s joins the squad" % [UnitData.SOLDIERS[r.kind].name, r.name]
 		"recruit": line = "New recruit in reserve"
+		"echo_laid": line = "Echo %s laid to rest" % ev.name
+		"lore": line = "Intel recovered: %s" % StoryData.lore_entry(ev.id).get("title", ev.id)
 		"act_start": line = "Act %d begins" % ev.act
 		"bench": line = "P%d %s" % [ev.player + 1, "benched" if ev.on else "is back"]
 		"rejected": if session != null and session.is_local(ev.action.get("player", -1)): line = ev.reason

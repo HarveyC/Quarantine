@@ -359,24 +359,35 @@ generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --scre
 
 ## High ground (elevation/)
 
-One raised level. Data on the `Grid`: `level(c) -> int` (0 ground, 1 raised), `is_ladder(c)`,
-`has_levels()`, serialized in `to_dict`. Parcels mark it with `^` (raised floor), `%` (low cover on
-a roof) and `/` (ladder: a ground cell that climbs to the raised cell beside it).
+Three levels: ground (0), roof (1), upper roof (2). Data on the `Grid`: `level(c)`, `is_ladder(c)`,
+`is_stairs(c)`, `is_fragile(c)`, `has_levels()`, all serialized in `to_dict`. Glyphs are read by
+`Grid.read_glyph` (shared by handmade maps and MapGen): `^` roof, `%` half cover on a roof, `~`
+fragile roof (scaffold), `2` upper roof, `$` half cover on it, `/` ladder and `s` stairs on the
+ground, `|` ladder and `S` stairs on a roof; MapGen also reads `e` (enemy spawn on a roof).
 
-- **Movement** (`Grid._can_step`): a step between levels needs a ladder at one end and must be
-  straight, not diagonal; diagonals can't cut round a ledge corner. `reachable` and `find_path` take
-  `ignore_levels := true` for leapers and flyers.
+- **Movement** (`Grid.step_cost`, Dijkstra in `reachable`/`find_path`, which return/minimise move
+  cost): flat steps cost 1. Going up one level must be straight and needs stairs (cost 1) or a ladder
+  (`Grid.LADDER_COST` = 2) at either end. Going down works the same way, or by dropping off any ledge
+  (one way, 1 per level dropped, no damage). Diagonals never cut wall or ledge corners.
+  `ignore_levels := true` (leapers, flyers) changes level anywhere for 1. `Grid.path_cost` sums a path.
 - **Shooting** (`Combat.hit_chance` calls `Elevation`): from higher ground +10 aim ("High ground" in
-  the breakdown) and the target's cover counts one step lower (full to half, half to none). Shooting
-  up at a higher target, it has at least half cover. Height never makes a shot a flank (no flank
-  crit). Line of sight by height is in `Combat.can_see` (see Fog of war). `Elevation.height(s, u)` is the cell's level, or 1 for status `flying`.
+  the breakdown, same for 1 or 2 levels up) and the target's cover counts one step lower. Shooting up
+  at a higher target, it has at least half cover. Height never makes a shot a flank.
+  `Combat.cover_against`: a raised block beside the target is a building wall, full cover against
+  shooters below its roof.
+- **Sight** (`Combat.can_see`): a raised cell blocks the line when it is higher than both ends
+  (a flyer counts as at least level 1). Vision sight radius +2 per level.
 - **Changing levels** in a fight: `Elevation.set_level(s, cell, n)` only (emits `level_changed`,
-  drops ladders that join nothing; units on the cell stay and stand at the new level).
-  `Grid.set_level` is the raw write for map building. `Elevation.is_ledge(grid, c)`: a raised cell
-  beside lower walkable ground.
-- **View**: `Board.cell_to_world` lifts raised cells by `Board.RAISE`, so units, props and overlays
-  sit on roofs; roofs are steel decks with amber lips, ladders are drawn on their climb side, and
-  mouse picking tries the roof plane first.
+  drops ladders/stairs that join nothing, clears `fragile` at ground). `Elevation.blast(s, center,
+  radius, by)` collapses fragile cells in the area (frag grenade radius 1, airstrike cells) and units
+  on them fall (`fell`, 2 damage per level). The Burrower's collapse is `EnemyTerrain.collapse`.
+- **View**: `Board.cell_to_world` lifts cells by `Board.RAISE` per level. Roofs are grey steel decks,
+  upper roofs paler, scaffolds plank decks on poles with a tarp skirt; amber lips on ledges; ladders
+  and stairs drawn on their climb side. Mouse picking tries the highest level's plane first.
+- **MapGen**: 8x8 `@landmark` parcels fill a 2x2 block of `L` slots (lanes=0 plots). Validation: every
+  walkable cell must walk to and back from the drop zone (one-way pits are sealed), 6-35% raised
+  cells, at least 2 stairs/ladders. Dev aid: `-- --objective=hold --biome=wall --screenshot-action=map`
+  renders the whole map with fog and HUD off.
 
 ## Objectives (objectives/)
 
@@ -586,6 +597,7 @@ ready automatically (`Rules._auto_ready`) and watches until a recruit deploys af
 |---|---|---|
 | `run/` `RunState`, `RunRules`, `RunMap`, `RunSoldier`, `RunHooks` | **run framework** | Run state, map generation, route vote, node flow, fight setup and results, income, save/resume |
 | `core/match_config.gd` `MatchConfig.for_fight` / `build` | run framework | Turns a fight node into a mission config, builds the GameState |
+| `story/` `Story`, `StoryProfile`, `StoryData` (+ `ui/story/`) | **story** | Wave count, Echoes, intel logs, the ending vote; scenes and radio |
 | `gear/` `GearRun` (+ `ui/gear/` screens) | **gear, rewards and loadout** | Gear, stash, post-fight 1-of-3 rewards, Doctrines, loadout |
 | `progression/` `Progression` | **ranks, perks and mutations** | Soldier rank/perk/mutation record, rank-up picks, grafts |
 | `nodes/` `NodeRules` | **events, shop and hospital** | Event, Supply depot, Field hospital and Survivors nodes |
@@ -694,7 +706,7 @@ path, a nest and a depot every act); links never cross, 1-2 out per node.
 
 Prefixed types are routed to the owning module's `validate(run, action) -> String` and
 `apply(run, action)`: **`gear_*` -> `GearRun`**, **`prog_*` -> `Progression`**, **`node_*` ->
-`NodeRules`**. A module checks its own phase rules (e.g. `gear_equip` in MAP and REWARD, depot
+`NodeRules`**, **`story_*` -> `Story`**. A module checks its own phase rules (e.g. `gear_equip` in MAP and REWARD, depot
 buys only in NODE). Modules change shared values with the helpers `RunRules.add_supplies(run, n,
 reason)`, `add_intel`, `add_serum(run, player, samples, reason)`, `add_outbreak`, and
 `add_recruit(run, player, kind, infection)`, which emit the matching events. All randomness is
@@ -790,7 +802,9 @@ identical GameState, and a player who skips it only moves themselves on.
 `step` (`step`), `map`, `fight_start` (`kind`, `objective`), `fight_end` (`result`, `kind`),
 `soldier_lost` (`sid`, `how`), `recruit` / `recruit_deployed`, `supplies` / `intel` / `outbreak`
 (`amount`, `total`, `reason`), `serum` (+ `player`), `bench` (`player`, `on`), `rejected`, `run_end`
-(`result`). Modules may add their own; list them here.
+(`result`). Story adds `echo_met` (`key`, `name`), `echo_laid` (`key`, `name`), `lore` (`id`),
+`ending_vote`, `ending_voted` (`player`, `ending`) and `ending` (`ending`, `carrier`). Modules may
+add their own; list them here.
 
 ### Save / resume
 
@@ -873,3 +887,36 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
   weights its `EnemyRoster.SIGNATURE` enemies double.
 - **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
 - Dev aid: `-- --fight=<node>,<act>,<outbreak>` plays one built fight on the test map.
+
+## Story (story/, ui/story/)
+
+World, Echoes and endings from the design doc's "World and story". Rules live in `story/`, presentation in
+`ui/story/`; all text is data in `StoryData`.
+
+- **`run.story`** (owned by `Story`, saved and synced as-is): `wave`, `runs`, `last_result`, `last_ending`,
+  `last_wave`, `source_reached`, `known` (intel ids the host's profile had), `lore` (found this run),
+  `echoes` (`[{key, kind, name, wave, met, laid}]`), `open`/`votes`/`ending`/`carrier` (the ending vote).
+- **Profile.** `StoryProfile` keeps sections `story` and `echoes` in the profile file (`Profile.path`).
+  `Profile.meta()["story"]` is its `snapshot()`, so `Story.init_run` (called by `RunRules.new_run`, host side)
+  reads only run data. `Profile.record_run` calls `StoryProfile.record_run(run)`: idempotent, safe on every peer.
+  When a run ends, its Turned soldiers (`run.echoes`) join the Echo pool (max 12, oldest drop off).
+- **Echoes.** Up to 2 per run, oldest first. `MatchConfig.for_fight` asks `Story.fight_echo(run, st)`: the
+  first non-boss fight after 1 win (then after 4) gets one, replacing the last enemy. `MatchConfig.build`
+  calls `Story.setup_echo(state, echo)`: a soldier unit of the old class on the enemy team with
+  `status.turned`, `status.echo` (key), double health, named "Echo <surname>". `RunRules.fight_outcome`
+  lists dead ones in `echoes_down`; `Story.on_fight_end` pays 15 Supplies ("dog tags") and recovers intel,
+  and the profile drops a laid Echo from the pool. `UnitView.soldier_body` builds it from the soldier model.
+- **Intel logs.** `StoryData.LORE`, recovered in order (deterministic, no rng): one per boss win, one per
+  Echo laid to rest. The last (`contact`) unlocks Carry it. Main menu "Archive" reads them.
+- **Ending vote.** The act 3 boss win calls `Story.begin_ending`; the run waits in REWARD
+  (`Story.has_pending`) and RunView shows `Story.screen()`. Action `story_ending` (`ending`: `burn` /
+  `sample` / `carry`), majority with the host breaking ties. Burn is always open; Sample needs a Halden-Voss
+  event this run (`StoryData.HV_EVENTS`); Carry needs the `contact` log and a living Critical soldier, who
+  becomes `run.story.carrier`. Then the `victory` step ends the run.
+- **Presentation** (`ui/story/story_director.gd`, a CanvasLayer in `App`, local only): the briefing at run
+  start, act 2 and 3 transitions, boss intros at `fight_start`, the ending scene, radio barks on run and fight
+  events (act 2 garbled, act 3 a soldier speaks) and Source whispers when a local player's soldier reaches
+  Mutating or Critical. Scenes are `story_scene.gd` (letterbox, title card, captions; Space next, Esc skip)
+  over `story_stage.gd` (a 3D set from primitives plus the game's models, own SubViewport world).
+- Dev aid: `godot -s tools/shot_story.gd -- out.png <intro|act2|act3|brood_mother|colonel_hale|the_source|burn|sample|carry|ending_vote> [secs]`
+  (under xvfb, `--rendering-driver opengl3`) and `tools/shot_story_fight.gd` (an Echo, radio and a whisper in a fight).

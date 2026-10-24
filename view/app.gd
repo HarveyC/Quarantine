@@ -80,6 +80,10 @@ func _ready() -> void:
 		plat.lobby_join_requested.connect(_join_steam)
 		if plat.crash_report != "":
 			menu.show_status("Carriers closed unexpectedly last time. A crash report was saved to %s" % ProjectSettings.globalize_path(plat.crash_report))
+	var story := preload("res://ui/story/story_director.gd").new()
+	story.name = "Story"
+	story.app = self
+	add_child(story)
 	_handle_args()
 	var launch_lobby: int = plat.take_launch_lobby() if plat != null else 0
 	if launch_lobby != 0:

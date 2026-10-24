@@ -161,6 +161,8 @@ func _rewards(run: RunState) -> void:
 		if not vote.is_empty():
 			for p in run.present_players():
 				acted = RunRules.apply(run, {"type": "gear_doctrine", "player": p, "doctrine": vote.options[0]}) or acted
+		for a in Story.autoplay_actions(run):   # the ending vote after the act 3 boss
+			acted = RunRules.apply(run, a) or acted
 		if not acted:
 			return
 

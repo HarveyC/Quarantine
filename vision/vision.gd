@@ -54,15 +54,14 @@ static func height(s: GameState, u: Unit) -> int:
 	return Elevation.height(s, u)
 
 
-## Sight radius in tiles: kind base, +2 on high ground, plus `status["sight_bonus"]` (perks, gear).
+## Sight radius in tiles: kind base, +2 per level of high ground, plus `status["sight_bonus"]` (perks, gear).
 static func sight(s: GameState, u: Unit) -> int:
 	var r: int = KIND_SIGHT.get(u.kind, SOLDIER_SIGHT if u.team == Types.Team.PLAYER else ENEMY_SIGHT)
 	if u.status.has("deployable"):
 		r = KIND_SIGHT.get(str(u.status.deployable), r)
 	if r <= 0:
 		return 0
-	if height(s, u) > 0:
-		r += HIGH_GROUND_BONUS
+	r += HIGH_GROUND_BONUS * height(s, u)
 	return r + int(u.status.get("sight_bonus", 0))
 
 

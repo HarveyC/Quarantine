@@ -139,6 +139,8 @@ func _build_menu(body: Control) -> void:
 	col.add_child(_gap(10))
 	var hq := _menu_button(col, "Field HQ", "doctrine", open_field_hq, "ghost")
 	hq.tooltip_text = "Unlocks, Severity, run record and achievements."
+	var archive := _menu_button(col, "Archive", "intel", func() -> void: add_child(preload("res://ui/story/archive_screen.gd").new()), "ghost")
+	archive.tooltip_text = "Intel logs and endings you have found."
 	_menu_button(col, "Settings", "settings", _open_settings, "ghost")
 	_menu_button(col, "Quit", "leave", func() -> void: get_tree().quit(), "ghost")
 	# Join panel, beside the column.
