@@ -83,6 +83,7 @@ static func equip(run, record, id: String, mk: int = 1) -> Dictionary:
 		mk = 2
 	var p := preview_equip(record, id)
 	var g := of(record)
+	var hp_before := gear_max_hp(record)
 	var res := {"mode": p.mode, "slot": p.slot, "displaced": null, "scrapped": false}
 	match p.mode:
 		"equip":
@@ -96,6 +97,7 @@ static func equip(run, record, id: String, mk: int = 1) -> Dictionary:
 			res.scrapped = not stash_add(run, p.old.id, p.old.mk)
 			g.slots[p.slot] = {"id": id, "mk": mk}
 	_fit_pockets(run, record)
+	_sync_hp(record, hp_before)
 	return res
 
 
@@ -104,9 +106,11 @@ static func unequip(run, record, slot: String) -> bool:
 	var it = item_at(record, slot)
 	if it == null or stash_full(run):
 		return false
+	var hp_before := gear_max_hp(record)
 	stash_add(run, it.id, it.mk)
 	of(record).slots[slot] = null
 	_fit_pockets(run, record)
+	_sync_hp(record, hp_before)
 	return true
 
 
@@ -115,8 +119,28 @@ static func upgrade(record, slot: String) -> bool:
 	var it = item_at(record, slot)
 	if it == null or it.mk >= 2:
 		return false
+	var hp_before := gear_max_hp(record)
 	it.mk = 2
+	_sync_hp(record, hp_before)
 	return true
+
+
+## Max HP the soldier's equipped gear adds (Kevlar vest, Filter mask Mk II, ...).
+static func gear_max_hp(record) -> int:
+	var total := 0
+	for e in equipped(record):
+		total += int(GearData.stats(e.id, e.mk).get("max_hp", 0))
+	return total
+
+
+## Gear max HP changed outside a fight: the run record's max_hp and hp move with it, so new
+## armour arrives with its HP filled and dropping it can't leave hp above max (never below 1).
+static func _sync_hp(record, before: int) -> void:
+	var delta := gear_max_hp(record) - before
+	if delta == 0 or not record.has("max_hp"):
+		return
+	record.max_hp += delta
+	record.hp = clampi(int(record.hp) + delta, 1, record.max_hp) if int(record.hp) > 0 else record.hp
 
 
 # --- Stash -----------------------------------------------------------------------------

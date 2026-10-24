@@ -156,9 +156,14 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   (`on_move`) and `Infection.on_damaged` (`bite_infection`). Gadgets and pocket consumables are abilities
   with ids `gear:<item>` / `item:<consumable>` that Combat delegates to GearFx (they appear in
   `Combat.available_abilities` with `"gear": true`). Status keys: `burning` (ticks left), `suppress_extra`,
-  `smoked`, `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`.
-  `GearFx.PENDING` lists items whose systems don't exist yet (fire tiles, spore zones, turrets, fog);
-  they stay out of draws until they work.
+  `smoked`, `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`,
+  `burn_source`, `gear_fire_mobility`. Fire from gear (Thermite line, Igniter barrel, Burn set spread)
+  goes through `GearFx.set_fire` -> `Hazards.add(..., "fire", turns, unit.id)`, and `Hazards._hit` asks
+  `GearFx.hazard_hit` (Flame-retardant coat, Filter mask, Scorched earth, Spotter flare). Sentry turret
+  spawns a Deployables turret. `GearFx.PENDING` lists items whose systems don't exist yet (fog of war,
+  restraint, mutation costs); they stay out of draws until they work.
+- **Gear max HP** (Kevlar vest etc.): `Loadout.equip / unequip / upgrade` move the run record's
+  `max_hp` and `hp` by the change, so the record always holds HP including gear.
 - **Screens** (`ui/gear/`): `GearRun.reward_screen()` and `GearRun.loadout_screen()` return Control
   scripts with `setup(run, session)` (they send `session.submit_run`); the loadout screen emits `closed`.
   `scenes/gear_demo.tscn` previews them on a seeded run (`-- --screen=reward|loadout|doctrine|kit`).
