@@ -1,9 +1,4 @@
-[gd_resource type="AudioBusLayout" load_steps=3 format=3 uid="uid://cbci114050nyc"]
-
-[sub_resource type="AudioEffectLimiter" id="master_limit"]
-resource_name = "Limiter"
-ceiling_db = -0.5
-threshold_db = -2.0
+[gd_resource type="AudioBusLayout" load_steps=3 format=3]
 
 [sub_resource type="AudioEffectCompressor" id="duck_music"]
 resource_name = "DuckUnderWeapons"
@@ -12,6 +7,11 @@ ratio = 3.0
 attack_us = 2000.0
 release_ms = 350.0
 sidechain = &"Weapons"
+
+[sub_resource type="AudioEffectLimiter" id="master_limit"]
+resource_name = "Limiter"
+ceiling_db = -0.5
+threshold_db = -2.0
 
 [resource]
 bus/0/effect/0/effect = SubResource("master_limit")
