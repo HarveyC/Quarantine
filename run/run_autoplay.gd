@@ -9,10 +9,34 @@ static func actions(run: RunState) -> Array:
 		RunState.Phase.NODE:
 			return RunHooks.call_static("NodeRules", "autoplay_actions", [run], [])
 		RunState.Phase.REWARD:
+			var out: Array = []
 			if RunHooks.has("GearRun", "autoplay_actions"):
-				return RunHooks.call_static("GearRun", "autoplay_actions", [run], [])
-			return _gear_defaults(run)
+				out.append_array(RunHooks.call_static("GearRun", "autoplay_actions", [run], []))
+			else:
+				out.append_array(_gear_defaults(run))
+			if RunHooks.has("Progression", "autoplay_actions"):
+				out.append_array(RunHooks.call_static("Progression", "autoplay_actions", [run], []))
+			else:
+				out.append_array(_progression_defaults(run))
+			return out
 	return []
+
+
+## Rank-up picks take the first perk on offer; mutation offers are skipped.
+static func _progression_defaults(run: RunState) -> Array:
+	var out: Array = []
+	if not RunHooks.has("Progression", "pending_picks"):
+		return out
+	for r in run.squad():
+		var who := run.controller_of(r)
+		if RunHooks.call_static("Progression", "pending_picks", [r], 0) > 0:
+			var offer: Array = RunHooks.call_static("Progression", "perk_offer", [run, r], [])
+			if not offer.is_empty():
+				out.append({"type": "prog_perk_pick", "player": who, "sid": r.id, "perk": offer[0]})
+		var prog: Dictionary = r.get("prog", {})
+		if not prog.get("offers", []).is_empty():
+			out.append({"type": "prog_skip_offer", "player": who, "sid": r.id})
+	return out
 
 
 ## Takes each soldier's first card (or skips it), and votes for the first Doctrine.
@@ -43,5 +67,6 @@ static func settle(run: RunState, submit: Callable) -> void:
 			if RunRules.validate(run, a) == "":
 				submit.call(a)
 				acted = true
+				break   # one at a time: an action can change what the next one may do
 		if not acted:
 			return
