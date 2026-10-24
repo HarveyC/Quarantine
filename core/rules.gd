@@ -64,6 +64,8 @@ static func start_team_phase(s: GameState) -> void:
 		for k in u.cooldowns.keys():
 			u.cooldowns[k] = max(0, u.cooldowns[k] - 1)
 	s.emit({"type": "team_phase", "turn": s.turn})
+	GearFx.on_team_phase_start(s)
+	Deployables.on_team_phase_start(s)
 	Infection.on_team_phase_start(s)
 	Kit.on_team_phase_start(s)
 	# Soldiers that have Lapsed act on their own before the squad gets to move.
@@ -157,6 +159,7 @@ static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
 	var path := s.grid.find_path(u.pos, to, s.occupied(u.id))
 	u.actions_left -= 1
 	u.hunkered = false
+	GearFx.on_move(s, u)
 	var segment: Array[Vector2i] = []
 	var from := u.pos
 	for c in path:
@@ -186,6 +189,7 @@ static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
 static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = null) -> void:
 	if not target.is_alive():
 		return
+	amount = GearFx.damage_taken(s, target, amount, source)
 	amount = Kit.modify_incoming(s, target, amount, source)
 	target.hp = max(0, target.hp - amount)
 	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1})
@@ -204,7 +208,7 @@ static func check_end(s: GameState) -> void:
 	var r := Types.Result.NONE
 	if s.living(Types.Team.ENEMY).is_empty():
 		r = Types.Result.VICTORY
-	elif s.living(Types.Team.PLAYER).is_empty():
+	elif Deployables.soldiers(s).is_empty():
 		# Turned soldiers have switched teams; Lapsed ones are still ours and will recover.
 		r = Types.Result.DEFEAT
 	if r != Types.Result.NONE:

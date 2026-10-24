@@ -58,6 +58,7 @@ func test_map_generation_is_deterministic() -> void:
 func test_solo_run_squad_and_vote_resolves_instantly() -> void:
 	var run := RunRules.new_run(1, 42)
 	RunRules.start_run(run)
+	_rewards(run)
 	assert_eq(run.players, [0] as Array[int], "one player")
 	assert_eq(run.soldiers_of(0).size(), 4, "solo player commands all four")
 	assert_eq(run.serum[0], 4, "1 sample per soldier controlled")
@@ -74,6 +75,7 @@ func test_solo_run_squad_and_vote_resolves_instantly() -> void:
 func test_split_vote_waits_then_host_breaks_tie() -> void:
 	var run := RunRules.new_run(2, 5)
 	RunRules.start_run(run)
+	_rewards(run)
 	var opts := run.reachable_nodes()
 	RunRules.apply(run, {"type": RunRules.VOTE, "player": 1, "node": opts[0]})
 	assert_eq(run.node, -1, "waits for every present player")
@@ -84,6 +86,7 @@ func test_split_vote_waits_then_host_breaks_tie() -> void:
 func test_benched_player_does_not_block_vote() -> void:
 	var run := RunRules.new_run(3, 9)
 	RunRules.start_run(run)
+	_rewards(run)
 	RunRules.apply(run, {"type": RunRules.BENCH, "player": 0, "target": 2, "on": true})
 	var opt: int = run.reachable_nodes()[0]
 	assert_true(not RunRules.apply(run, {"type": RunRules.VOTE, "player": 2, "node": opt}), "benched can't vote")
@@ -96,6 +99,7 @@ func test_benched_player_does_not_block_vote() -> void:
 func test_reveal_spends_intel() -> void:
 	var run := RunRules.new_run(1, 3)
 	RunRules.start_run(run)
+	_rewards(run)
 	var hidden := run.map.filter(func(n): return n.hidden)
 	if hidden.is_empty():
 		return
@@ -139,6 +143,27 @@ func _take_rank_up_picks(run: RunState) -> void:
 			RunRules.apply(run, {"type": "prog_skip_offer", "player": run.controller_of(r), "sid": r.id})
 
 
+## Settles the REWARD step (the starting kit and post-fight picks once GearRun is in): takes the
+## first card when it's legal, otherwise skips, and votes for the first Doctrine.
+func _rewards(run: RunState) -> void:
+	var guard := 0
+	while run.phase == RunState.Phase.REWARD and guard < 50:
+		guard += 1
+		var acted := false
+		for sid in run.gear.get("offers", {}).keys():
+			var r := run.get_soldier(sid)
+			var pick := {"type": "gear_pick", "player": run.controller_of(r), "soldier": sid, "card": 0}
+			if RunRules.validate(run, pick) != "":
+				pick.card = -1
+			acted = RunRules.apply(run, pick) or acted
+		var vote: Dictionary = run.gear.get("doctrine_vote", {})
+		if not vote.is_empty():
+			for p in run.present_players():
+				acted = RunRules.apply(run, {"type": "gear_doctrine", "player": p, "doctrine": vote.options[0]}) or acted
+		if not acted:
+			return
+
+
 func _vote_first(run: RunState) -> void:
 	var opts := run.reachable_nodes()
 	# Prefer non-fight nodes to exercise the node flow.
@@ -153,6 +178,7 @@ func _vote_first(run: RunState) -> void:
 func test_full_run_to_victory_and_save_resume() -> void:
 	var run := RunRules.new_run(2, 2024)
 	RunRules.start_run(run)
+	_rewards(run)
 	var guard := 0
 	var saved_mid := ""
 	while run.phase != RunState.Phase.ENDED and guard < 100:
@@ -162,6 +188,7 @@ func test_full_run_to_victory_and_save_resume() -> void:
 			RunState.Phase.NODE:
 				for a in NodeRules.autoplay_actions(run):
 					RunRules.apply(run, a)
+			RunState.Phase.REWARD: _rewards(run)
 			RunState.Phase.FIGHT:
 				if saved_mid == "":
 					saved_mid = run.save_string()
@@ -181,11 +208,13 @@ func test_full_run_to_victory_and_save_resume() -> void:
 func test_fight_heals_pays_and_tracks_outbreak() -> void:
 	var run := RunRules.new_run(1, 11)
 	RunRules.start_run(run)
+	_rewards(run)
 	_vote_first(run)
 	var before := run.supplies
 	_win_fight(run, true)
 	assert_eq(run.supplies, before + 50, "skirmish pays 40 + 10 bonus")
 	assert_eq(run.intel, 2, "bonus objective gives Intel")
+	_rewards(run)
 	for r in run.squad():
 		assert_eq(r.hp, r.max_hp, "25% heal after the fight covers 1 damage")
 		assert_eq(r.fights, 1, "fight counted")
@@ -195,6 +224,7 @@ func test_fight_heals_pays_and_tracks_outbreak() -> void:
 func test_death_deploys_recruit_and_wipe_ends_run() -> void:
 	var run := RunRules.new_run(1, 12)
 	RunRules.start_run(run)
+	_rewards(run)
 	_vote_first(run)
 	var s := MatchConfig.build(run.fight_config)
 	Rules.start_mission(s)
@@ -222,6 +252,7 @@ func test_death_deploys_recruit_and_wipe_ends_run() -> void:
 func test_persistent_state_reaches_the_mission() -> void:
 	var run := RunRules.new_run(1, 13)
 	RunRules.start_run(run)
+	_rewards(run)
 	run.squad()[0].hp = 2
 	run.squad()[0].infection = 30
 	_vote_first(run)
@@ -230,3 +261,28 @@ func test_persistent_state_reaches_the_mission() -> void:
 	assert_eq(u.hp, 2, "HP carries over")
 	assert_eq(u.infection, 30, "Infection carries over")
 	assert_eq(Infection.tier(u.infection), Infection.Tier.EXPOSED, "tier applied")
+
+
+func test_bridge_removes_a_column_and_keeps_the_map_connected() -> void:
+	for seed in 30:
+		var run := RunRules.new_run(1, seed + 500)
+		RunRules.start_run(run)
+		var start := run.reachable_nodes()[0]
+		run.node = start
+		run.row = 1
+		var before := run.map.size()
+		RunMap.remove_column(run.map, 1)
+		assert_true(run.map.size() < before, "nodes removed")
+		var ids := {}
+		for n in run.map:
+			ids[n.id] = true
+		var incoming := {}
+		for n in run.map:
+			for id in n.links:
+				assert_true(ids.has(id), "no link to a removed node")
+				incoming[id] = true
+			if n.row < 5:
+				assert_true(not n.links.is_empty(), "every node leads on")
+		for n in run.map:
+			if n.row > 2:
+				assert_true(incoming.has(n.id), "every later node is reachable")

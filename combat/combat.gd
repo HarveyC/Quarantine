@@ -210,6 +210,7 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
 	if reaction:
 		breakdown.append(["Reaction shot", -REACTION_PENALTY])
+	GearFx.odds_terms(s, attacker, target, from, reaction, cover, breakdown)
 	var crit := Kit.modify_odds(s, attacker, target, from, reaction, breakdown)
 	return _finish_odds(breakdown, cover, flanked, los, mini(100, (FLANK_CRIT if flanked else 0) + crit))
 
@@ -275,6 +276,7 @@ static func available_abilities(s: GameState, u: Unit) -> Array[Dictionary]:
 		out.append({"id": id, "name": def.name, "targeting": def.targeting, "cost": def.cost,
 			"cooldown": cd, "desc": def.desc, "targets": targets,
 			"ready": cd <= 0 and u.actions_left > 0 and u.is_alive() and has_targets})
+	out.append_array(GearFx.available_abilities(s, u))
 	return out
 
 
@@ -335,6 +337,7 @@ static func _cheb(a: Vector2i, b: Vector2i) -> int:
 
 static func _validate_ability(s: GameState, u: Unit, action: Dictionary) -> String:
 	var id: String = action.get("ability", "")
+	if GearFx.owns(id): return GearFx.validate_ability(s, u, action)
 	if ClassAbilities.handles(id):
 		return ClassAbilities.validate(s, u, action)
 	if not ABILITIES.has(id) or not u.abilities.has(id):
@@ -362,6 +365,9 @@ static func _spend(u: Unit, id: String) -> void:
 
 static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 	var id: String = action.ability
+	if GearFx.owns(id):
+		GearFx.apply_ability(s, u, action)
+		return
 	if ClassAbilities.handles(id):
 		ClassAbilities.apply(s, u, action)
 		return
@@ -383,6 +389,7 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			t.status["suppressed"] = phase_index(s) + 2
 			t.overwatch = false
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
+			GearFx.on_suppress(s, u, t)
 		"tag":
 			t.status["tagged"] = phase_index(s) + (2 if s.phase != Types.Phase.ENEMY else 3)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
@@ -456,10 +463,12 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 	var dmg := 0
 	if r.hit or r.graze:
 		dmg = Kit.shot_damage(s, u, t, final_damage(s.rng.randi_range(u.damage.x, u.damage.y), r.graze, r.crit))
+		dmg = GearFx.shot_damage(s, u, t, dmg, reaction)
 	s.emit({"type": "shot", "unit": u.id, "target": t.id, "hit": r.hit or r.graze, "graze": r.graze,
 		"crit": r.crit, "damage": dmg, "chance": odds.hit, "reaction": reaction})
 	if dmg > 0:
 		Rules.deal_damage(s, t, dmg, u)
+	GearFx.after_shot(s, u, t, r.hit or r.graze, reaction, dmg)
 	Kit.after_shot(s, u, t, odds, dmg > 0)
 
 

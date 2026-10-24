@@ -52,10 +52,13 @@ func _ready() -> void:
 			screenshot_path = arg.trim_prefix("--screenshot=")
 	if auto_start:
 		var seed := 0
+		var objective := ""
 		for arg in OS.get_cmdline_user_args():
 			if arg.begins_with("--seed="):
 				seed = int(arg.trim_prefix("--seed="))
-		start(default_mission(seed))
+			elif arg.begins_with("--objective="):   # dev aid: a generated act 1 map of this fight type
+				objective = arg.trim_prefix("--objective=")
+		start(default_mission(seed, objective))
 
 
 func _exit_tree() -> void:
@@ -63,12 +66,15 @@ func _exit_tree() -> void:
 		session.free()
 
 
-static func default_mission(seed: int = 0) -> GameState:
+static func default_mission(seed: int = 0, objective: String = "") -> GameState:
 	var squad := [
 		{"kind": "trooper", "player": 0}, {"kind": "marksman", "player": 0},
 		{"kind": "medic", "player": 1}, {"kind": "breacher", "player": 1},
 	]
 	var enemies: Array[String] = ["runner", "runner", "spitter", "runner", "spitter"]
+	if objective != "":
+		var grid := MapGen.generate({"biome": "wall", "objective": objective, "seed": seed})
+		return Rules.new_mission_on_grid(grid, squad, enemies, seed)
 	return Rules.new_mission(MAP, squad, enemies, seed)
 
 
@@ -129,6 +135,7 @@ func start(s: GameState, begin := true) -> void:
 	player.drained.connect(_on_drained)
 	input.changed.connect(hud.refresh)
 	s.event.connect(player.enqueue)
+	face_threats(true)
 	if begin:
 		Rules.start_mission(s)
 
@@ -252,8 +259,33 @@ func unit_name(id: int) -> String:
 
 
 func _on_drained() -> void:
+	face_threats()
 	input.on_drained()
 	hud.refresh()
+
+
+## Idle facing: each unit turns toward its nearest hostile. Dormant enemies keep a
+## spread of their own headings until alerted. Worked out from the shared state, so
+## every peer shows the same facing.
+func face_threats(instant := false) -> void:
+	for u in state.living():
+		var uv := view_for(u.id)
+		if uv == null or uv.dead:
+			continue
+		if u.team == Types.Team.ENEMY and not EnemyAI.is_alerted(u) and not u.status.get("turned", false):
+			if instant:
+				uv.set_yaw(fposmod(u.id * 2.399, TAU))
+			continue
+		var best: Unit = null
+		var best_d := INF
+		for o in state.living():
+			if o != u and u.is_enemy_of(o):
+				var d := Vector2(o.pos - u.pos).length_squared()
+				if d < best_d:
+					best_d = d
+					best = o
+		if best != null:
+			uv.face_towards(Board.cell_to_world(best.pos), instant)
 
 
 # --- headless auto-play ------------------------------------------------------
@@ -265,7 +297,7 @@ func _process(_delta: float) -> void:
 		_screenshot_step()
 
 
-## Dev aid: `--screenshot-action=shoot|fire|ready` sets up a scene before the capture;
+## Dev aid: `--screenshot-action=shoot|fire|ready|overview` sets up a scene before the capture;
 ## `--screenshot-frame=N` picks the frame (default 150). With Godot's `--write-movie`
 ## and `--fixed-fps`, `fire` records a whole shot cinematic.
 func _screenshot_step() -> void:
@@ -275,7 +307,10 @@ func _screenshot_step() -> void:
 	for a in args:
 		if a.begins_with("--screenshot-frame="):
 			shot_frame = int(a.trim_prefix("--screenshot-frame="))
-	if _frames == 60:
+	if _frames == 60 and args.has("--screenshot-action=overview"):   # whole map from high up
+		camera_rig._target_dist = CameraRig.MAX_DIST
+		camera_rig.focus(board.center())
+	elif _frames == 60:
 		input.cycle()
 	elif _frames == 70 and (args.has("--screenshot-action=shoot") or args.has("--screenshot-action=fire")):
 		input.trigger("shoot")
@@ -297,6 +332,8 @@ func _autoplay_step() -> void:
 		_autoplay_done = true
 		var res: String = Types.Result.keys()[state.result]
 		print("[autoplay] finished: turn %d, result %s, %d events, checksum %d" % [state.turn, res, state.log.size(), state.checksum()])
+		if session.get("run") != null:
+			return   # in a run the run view carries on to the next node
 		# Online, give the last network messages a moment to go out before quitting.
 		get_tree().create_timer(0.1 if session is LocalSession else 1.5).timeout.connect(func() -> void: get_tree().quit(0))
 		return

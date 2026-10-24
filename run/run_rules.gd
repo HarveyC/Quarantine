@@ -50,7 +50,7 @@ static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}) -> R
 		run.serum[owner] += 1   # 1 sample per soldier you control
 	for p in n:
 		for k in START_RESERVE:
-			run.soldiers.append(RunSoldier.make(run, RESERVE_CLASSES[run.rng.randi() % RESERVE_CLASSES.size()], p, RunSoldier.RESERVE))
+			run.soldiers.append(RunSoldier.make(run, random_class(run), p, RunSoldier.RESERVE))
 	return run
 
 
@@ -303,6 +303,10 @@ static func _node_finished(run: RunState) -> void:
 	if run.phase == RunState.Phase.ENDED:
 		return
 	run.node_state = {}
+	if run.modifiers.get("remove_column", false):
+		run.modifiers.erase("remove_column")
+		RunMap.remove_column(run.map, run.row)
+		run.emit({"type": "map_changed", "reason": "remove_column"})
 	if run.current_node().get("type", "") == RunMap.BOSS:
 		_start_act(run, run.act + 1)
 		return
@@ -323,8 +327,11 @@ static func _start_fight(run: RunState, st: Dictionary) -> void:
 
 
 ## What the host sends in FIGHT_END once a mission is over. Built from the GameState, so every
-## peer could compute it, but only the host's copy is applied.
-static func fight_outcome(s: GameState, bonus: bool = false) -> Dictionary:
+## peer could compute it, but only the host's copy is applied. The bonus objective comes from
+## Objectives.bonus_met(state) once that module lands.
+static func fight_outcome(s: GameState, bonus: Variant = null) -> Dictionary:
+	if bonus == null:
+		bonus = RunHooks.call_static("Objectives", "bonus_met", [s], false)
 	var out := {"result": s.result, "bonus": bonus, "soldiers": []}
 	for u in s.units:
 		if u.status.has("sid"):
@@ -352,6 +359,7 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 		if not fought.has(r.id) and r.sit_out > 0:
 			r.sit_out -= 1
 	run.emit({"type": "fight_end", "result": outcome.result, "kind": kind})
+	RunHooks.call_static("Progression", "on_fight_end", [run, outcome])
 	if outcome.result != Types.Result.VICTORY or run.squad().is_empty():
 		_end_run(run, Types.Result.DEFEAT)
 		return
@@ -419,7 +427,7 @@ static func add_outbreak(run: RunState, amount: int, reason: String = "") -> voi
 ## A new recruit in `player`'s reserve (Survivors node, events, depot).
 static func add_recruit(run: RunState, player: int, kind: String = "", infection: int = 0) -> Dictionary:
 	if kind == "":
-		kind = RESERVE_CLASSES[run.rng.randi() % RESERVE_CLASSES.size()]
+		kind = random_class(run)
 	var r := RunSoldier.make(run, kind, player, RunSoldier.RESERVE)
 	r.infection = infection
 	run.soldiers.append(r)
@@ -428,6 +436,15 @@ static func add_recruit(run: RunState, player: int, kind: String = "", infection
 	if run.squad().size() < 4 and run.soldiers_of(player).is_empty():
 		r.status = RunSoldier.ACTIVE
 	return r
+
+
+## A random recruit class from those the profile has unlocked.
+static func random_class(run: RunState) -> String:
+	var pool: Array = RunHooks.call_static("Progression", "unlocked_classes", [run.meta], RESERVE_CLASSES)
+	pool = pool.filter(func(k: String) -> bool: return UnitData.SOLDIERS.has(k))
+	if pool.is_empty():
+		pool = RESERVE_CLASSES
+	return pool[run.rng.randi() % pool.size()]
 
 
 static func outbreak_stage(outbreak: int) -> int:

@@ -16,6 +16,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `combat/` | `Combat` | **combat** | LOS, cover, hit chance, shoot, overwatch, hunker, class abilities |
 | `infection/` | `Infection` | **infection** | Meter, tiers, mutation powers, Lapse rolls, Turning, cure |
 | `ai/` | `EnemyAI` | **ai** | Enemy and Lapsed-soldier decisions |
+| `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
 | `tests/` | `TestCase` | everyone | `tests/test_<module>.gd` per workstream |
@@ -71,6 +72,8 @@ Rules for parallel work:
 | `lapse` / `recover` / `turned` | `unit` |
 | `alerted` | `unit` (an Infected wakes up; emitted once per unit, see Enemy AI) |
 | `mission_end` | `result` (`Types.Result`) |
+| `gear` | `unit`, `item` (gear effect that isn't a shot: `choke` splash `target`/`damage`, `feral_grip` `heal`/`hp`, `close_set` `actions`, `mark_set` `target`, `suppress` `target`) |
+| `burning` / `burn` | `unit`, `turns` / `damage` (set Burning; the start-of-phase tick, before its `damage` event) |
 
 New event types are fine; add them to this table.
 
@@ -184,15 +187,29 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   preview for cards). Set bonus at 3, Prototype at two tags at 2.
 - **Draws** (`GearDraw`): tag weight = 1 + 2 per point (max +6); rarity odds per act with +2% Rare pity per
   Common seen; `draw_item(rng, counts, rarity, exclude, only_tags)`; `depot_items(rng, squad_counts, act)`.
-- **Run hooks** (`GearRun`), reading `run.supplies`, `run.act`, `run.rng`, `run.soldiers` (records with
-  `id`, `kind`, `player`) and owning `run.gear`: `init_run(run)`, `starting_kit_offers(run)`,
-  `on_fight_won(run, "skirmish"|"nest"|"boss")` (one 1-of-3 offer per living soldier: gear 45%, perk 15%,
-  mutation 15%, consumable 15%, cache 10%; from the second fight an on-build card and a pivot card),
-  `all_picked(run)`, `apply_to_unit(unit, record)` when spawning a mission soldier (flat stats; stamps
-  `status["gear"]`, `["gear_tags"]`, `["pockets"]`, `["armor"]`), `sync_from_unit` after the mission.
-- **Run actions** (replicated like mission actions; `GearRun.handles(action)`, `validate`, `apply`):
-  `gear_pick {player, soldier, card (-1 = skip for +10 Supplies), to_stash?}`,
-  `gear_stash_take {player, soldier, index}`, `gear_unequip {player, soldier, slot}`. `player` -1 = anyone.
+- **Run hooks** (`GearRun`, the run framework's contract): `init_run`, `starting_kit_offers` (1 of 3
+  Commons per soldier), `on_fight_won(run, "skirmish"|"nest"|"boss")` (one 1-of-3 offer per squad soldier:
+  gear 45%, perk 15%, mutation 15% (Progression cards), consumable 15%, cache 10%; from the second fight
+  an on-build card and a pivot card; nest card 1 Rare in the lead tag; boss all Rare plus the Doctrine
+  vote; Hazard pay), `has_pending`, `apply_to_unit(unit, entry)` (flat stats, Bio-mesh, stamps
+  `status["gear"]`, `["gear_tags"]`, `["pockets"]`, `["armor"]`, `["doctrines"]`), `absorb(record, unit)`
+  (spent pocket charges), `squad_counts(run)`. Doctrines live in `run.modifiers.doctrines`; Field rations
+  sets `run.modifiers.heal_after_fight`.
+- **Run actions** (`gear_*`, routed by RunRules): `gear_pick {soldier, card (-1 = skip, +10 Supplies),
+  to_stash?}` and `gear_doctrine {doctrine}` in REWARD; `gear_stash_take {soldier, index}` and
+  `gear_unequip {soldier, slot}` in MAP or REWARD. The soldier's controller (`run.controller_of`) acts.
+- **In a mission** (`GearFx`): one-line hooks in `Combat.hit_chance` (`odds_terms`), `Combat.fire`
+  (`shot_damage`, `after_shot`), Combat's Suppress (`on_suppress`), `Rules.deal_damage` (`damage_taken`:
+  armor), `Rules.start_team_phase` (`on_team_phase_start`: Burning ticks, Close set mobility), `Rules._do_move`
+  (`on_move`) and `Infection.on_damaged` (`bite_infection`). Gadgets and pocket consumables are abilities
+  with ids `gear:<item>` / `item:<consumable>` that Combat delegates to GearFx (they appear in
+  `Combat.available_abilities` with `"gear": true`). Status keys: `burning` (ticks left), `suppress_extra`,
+  `smoked`, `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`.
+  `GearFx.PENDING` lists items whose systems don't exist yet (fire tiles, spore zones, turrets, fog);
+  they stay out of draws until they work.
+- **Screens** (`ui/gear/`): `GearRun.reward_screen()` and `GearRun.loadout_screen()` return Control
+  scripts with `setup(run, session)` (they send `session.submit_run`); the loadout screen emits `closed`.
+  `scenes/gear_demo.tscn` previews them on a seeded run (`-- --screen=reward|loadout|doctrine|kit`).
 
 ## Non-combat nodes (nodes/)
 
@@ -253,6 +270,42 @@ Screens (`ui/nodes/`, look from the approved mockups via `NodeUi`) extend `node_
 rebuild from `run.node_state` after each run event and send input with `session.submit_run`. Every
 button's enabled state comes from `NodeRules.validate`, so the screen and the rules can't disagree.
 
+## Tactical map generator (mapgen/)
+
+`MapGen.generate(spec) -> Grid` builds a fight's map XCOM 2-style: a **plot** (a whole-map layout
+of slots) is filled with hand-made 4x4 **parcels**, each rotated or mirrored, then checked and
+rerolled until it passes. Design rules are in the design doc's "Tactical maps" section.
+
+- **Input**: `spec = {"biome", "objective", "seed"}` (other keys ignored). Biome "wall" (act 1) has
+  parcels; "port" and "bore" fall back to it until `maps/biome_port.txt` / `biome_bore.txt` exist.
+  Objective is skirmish / extract / hold / rescue / purge / elite / boss; unknown ones use skirmish.
+- **Determinism**: its own RNG seeded from the spec (never `state.rng`), so every peer generates the
+  same map from the `MatchConfig` the host broadcasts. A resync snapshot also carries the grid.
+- **Content**: `maps/biome_<name>.txt` holds the parcels and plots; its header documents the format.
+  Add parcels there to add variety, no code needed. Sizes: 12x12 (skirmish, elite), 14x14 with
+  1-tile lanes (hold, rescue, purge), 12x16 (extract), 16x16 (boss).
+- **Checks** (`_validate`, rerolled up to 30 times, then `maps/mission_01.txt`): every spawn and
+  marker reachable from the drop zone, sealed pockets walled in, each pod's nearest cell 6 to 16 steps
+  out, evac 9+ and other objectives 5+ steps out, nests 5+ apart, the cordon wall keeps 2+ gaps,
+  cover density in band. Fix-up passes add half cover to dead ground and full cover to long open
+  sightlines without ever sealing a path. `tests/test_mapgen.gd` asserts no fallback across seeds;
+  `godot --headless -s tests/dump_maps.gd -- all 300` prints maps and the fallback rate.
+- **Output** (`Grid`): `player_spawns` (4+ deploy cells, row-major), `enemy_spawns` (8+ cells,
+  round-robin across pods so the first N spread out), `biome`, and `markers` (`grid.marker(key)`):
+
+| marker | cells |
+|---|---|
+| `evac` | extract: 2x2 evac zone |
+| `beacon` | hold: 3x3 beacon zone |
+| `civilian` | rescue: 1-2 civilian start cells; `exit` = the deploy cells |
+| `nest` | purge: 3 nest cells |
+| `hive` | 1 cell: the elite parcel's Hive spot, else the open cell farthest from deploy (every map) |
+| `boss` | boss: the centre cell, with open ground 2 tiles around it |
+| `reinforce` | 4-6 edge cells 6+ steps from deploy: behind the squad (extract), side edges (hold), near civilians (rescue), far edge otherwise |
+
+The view paints `evac` and `beacon` zones on the floor (`Board._build_zones`). For a look at a
+generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --screenshot-action=overview --screenshot=x.png`.
+
 ## View presentation (cinematics, animation, sound)
 
 All of this is view-only and driven by event data, so it never touches `GameState` and every peer
@@ -264,9 +317,16 @@ in an online match plays the same thing.
   and hold through the following `damage` / `died` / `infection` / `turned` / `alerted` beats
   (`CINE_FOLLOW`). Any other event, or the queue draining, cuts back to the tactical camera.
   Skipped when `EventPlayer.cinematics` is false (C key) or playback is sped up (autoplay).
-- **Unit rigs** (`view/unit_view.gd`): primitive meshes on a jointed rig, posed procedurally in
-  `tick` (idle, walk, aim, recoil, hit, hunker, lunge, death). Calls: `set_moving`, `set_aim`,
-  `recoil`, `hit_react`, `set_lunge`, `muzzle_world`, `chest_world`.
+- **Unit rigs** (`view/unit_view.gd`): generated models (`assets/models/*.glb` from
+  `tools/gen_models.py`, loaded by `view/model_kit.gd`) on a jointed rig, posed procedurally in
+  `tick` (idle, walk, aim with two-bone arm IK onto the weapon, recoil, hit, hunker, lunge,
+  death). Two rigs so far: soldier (all classes, also Turned) and infected humanoid (Runner,
+  Spitter; new enemies of that build reuse it). `view/character.gdshader` adds grime, rim light,
+  spreading infection veins and hit flash; growth meshes `grow1..3_*` appear per infection tier.
+  Calls: `set_moving`, `set_aim`, `recoil`, `hit_react`, `set_lunge`, `muzzle_world`, `chest_world`.
+- **Facing**: `face_towards` turns units smoothly (`TURN_SPEED`) toward their path and targets;
+  after every playback drain `MissionView.face_threats` turns each unit to its nearest hostile
+  (dormant enemies keep their own headings). It reads only the shared state, so peers agree.
 - **Sound** (`view/sfx.gd`): `MissionView.sfx.play(name)`; files in `audio/` are synthesized by
   `tools/gen_sfx.py`. `Sfx.muted` is the M key toggle.
 - **Look**: environment and lights in `MissionView._build_environment`, set dressing in `Board`,
@@ -434,15 +494,19 @@ All static. Missing ones fall back to the stand-in in brackets.
 
 - **GearRun**: `init_run(run)`, `starting_kit_offers(run)`, `on_fight_won(run, kind)` (roll 1-of-3
   per soldier; after a boss also the Doctrine vote), `has_pending(run) -> bool` [false],
-  `apply_to_unit(unit, entry)` (entry is the squad entry, gear in `entry.gear`), `validate`/`apply`
-  for `gear_*`. Fight income is the framework's; a skipped pick's +10 Supplies is GearRun's (use
+  `apply_to_unit(unit, entry)` (entry is the squad entry, gear in `entry.gear`, Doctrine ids in
+  `entry.doctrines`), `absorb(record, unit)` (survivors after a fight: spend used pockets),
+  `validate`/`apply` for `gear_*`, `autoplay_actions(run)` (default picks, for autoplay and dropped players). Fight income is the framework's; a skipped pick's +10 Supplies is GearRun's (use
   `RunRules.add_supplies`).
 - **Progression**: `new_record(kind) -> Dictionary` [`{kind, rank: 1}`], `apply_record(unit, prog)`,
   `after_fight(prog, unit, fight_number)` (queue rank-up picks), `has_pending(run) -> bool` [false],
-  `on_recruit_deployed(new_prog, lost_prog)`, `validate`/`apply` for `prog_*` (perk picks, grafts,
-  Serum use).
+  `on_recruit_deployed(new_prog, lost_prog)`, `on_fight_end(run, outcome)` (every fight, after the
+  results are applied; may set unlock flags in `run.meta`), `unlocked_classes(meta) -> Array[String]`
+  (recruit pool), `validate`/`apply` for `prog_*` (perk picks, grafts, Serum use).
 - **NodeRules**: `enter(run, kind)`, `is_done(run) -> bool` [true: the node is skipped],
-  `validate`/`apply` for `node_*`. Events that fight set `modifiers.pending_fight`.
+  `validate`/`apply` for `node_*`, `screen(kind)`, `autoplay_actions(run)`. Events that fight set
+  `modifiers.pending_fight`.
+- **Objectives**: `bonus_met(state) -> bool` [false], read by `RunRules.fight_outcome`.
 - **FightBuilder**: `build(spec) -> {"enemies": Array[String], "encounter": Dictionary}`
   [`MatchConfig.default_enemies`]. `spec` = `{act, row, node, objective, outbreak, seed, players,
   modifiers}`; deterministic from it. Optional `preview(spec) -> {"title", "elite"}` for the map.
@@ -468,10 +532,21 @@ reward screen via `Progression.pick_screen()`. Visual target: the approved UI mo
 see-through panels with amber corner marks, amber only for actionable things, teal only for
 Infection, player-colour stripes on soldier cards).
 
-Sessions (`LocalSession`, `NetSession`) gain `run: RunState`, `submit_run(action)` and a
-`run_changed` signal. Online: the host creates the run from a seed and broadcasts it; run actions
-go host -> validate -> broadcast with a sequence number and `run.checksum()`, the same path as
-mission actions (a gap or mismatch resyncs with `run.to_dict()`).
+Sessions (`LocalSession`, `NetSession`) have `run: RunState`, `submit_run(action)` and a
+`run_changed` signal; `App` shows `RunView` (`ui/run/run_view.gd`) between fights and the mission
+view during one (held 3 s after the mission ends so the result plays).
+- **Solo / hot-seat** (`LocalSession.start_run(players)` / `resume_run(saved)`): no lobby, no
+  network. A map click votes for every local player, so solo moves on at once.
+- **Online** (`NetSession.start_run()`, host): the host builds the run from a seed (or `resume`, a
+  loaded save) and sends the whole RunState once (`_run_start`). After that run actions travel as
+  `{"type": "run", "action": ...}` through the same request -> validate -> commit path as mission
+  actions, with one sequence number and a checksum covering run and mission. When the run enters a
+  fight, every peer builds the same GameState from `run.fight_config`; at `mission_end` the host
+  commits `fight_end`. A dropped player is benched (host plays their soldiers from the next fight,
+  they don't vote) and unbenched when they rejoin. The host closes a route vote 20 s after its
+  first pin (`close_vote`).
+- Autoplay (`-- --run=1 --autoplay`, or `--host --autostart=2 --autostart-run --autoplay`) plays a
+  whole run headless; `tests/net_playtest.sh` scenario 3 checks host and client finish a run in sync.
 
 ### Run events
 
@@ -485,5 +560,28 @@ mission actions (a gap or mismatch resyncs with `run.to_dict()`).
 ### Save / resume
 
 `run.save_string()` / `RunState.from_save_string(text)` (Godot `var_to_str`, so ints and Vector2i
-survive). The host (or solo player) saves to `user://run_save.txt` after every run action and at
-mission end; a save made mid-fight carries `fight_snapshot` and resumes into that fight.
+survive). `RunSave` (one slot, `user://run_save.txt`): the host or solo player saves after every
+run action and at the start of every team phase in a fight (`fight_snapshot`, so a resume lands in
+that turn). Main menu: "Continue run" resumes locally; online, the host ticks "Continue the saved
+run" in the lobby and absent players are benched until they join. `Profile` (`user://profile.cfg`)
+keeps unlock flags between runs (`act1_boss_beaten`, anything a module sets true in `run.meta`) and
+run counts; runs get a copy as `run.meta`.
+
+## Deployables (turrets, decoys)
+
+Owned by the run framework (`deployables/`, `Deployables`). Tile hazards (fire, spore, acid) are
+the map thread's `Hazards` module.
+
+- `Deployables.spawn(s, kind, cell, owner_unit, turns = -1) -> Unit` places one; call it from inside
+  an action's apply (a gadget, ability or mutation) so it replicates with that action.
+  `can_place(s, kind, cell) -> String` checks first. Kinds and stats are in `Deployables.KINDS`
+  (`turret`: shoots, 3 team phases; `decoy`: draws enemy fire, 2 team phases); add new kinds there.
+- A deployable is a player-team `Unit` with `status["deployable"] = kind`, `ai_controlled`, mobility 0,
+  `status["owner_unit"]`, and `status["expires_turn"]`. It acts at team-phase start through
+  `EnemyAI` (generic brain: shoot the best visible hostile). Decoys have `status["decoy"]`, which
+  `EnemyAI._target_score` favours.
+- They are not squad: `Deployables.soldiers(s)` is the living squad without them (defeat uses it;
+  objectives and run results should too), `Infection.add` ignores them, and run outcomes only
+  carry units with a `sid`.
+- Events: `deployed` (`unit`, `kind`, `cell`, `owner`), `deployable_end` (`unit`, then `died`).
+  The view builds a unit view lazily; models fall back to the trooper model until a turret model exists.

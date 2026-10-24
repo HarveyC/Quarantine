@@ -3,22 +3,26 @@ extends RefCounted
 ## The equipment system's run-level entry points: post-fight reward offers, the starting kit,
 ## player choices as replicable actions, and stamping gear onto mission Units.
 ##
-## Reads from the run (object or Dictionary): `supplies`, `act`, `rng`, `soldiers` (records
-## with `id`, `kind`, `player`). Owns `run.gear`:
+## Works on a RunState (see "Run framework" in docs/ARCHITECTURE.md); tests may pass a plain
+## Dictionary with the same fields. Reads `supplies`, `act`, `rng`, `phase`, `soldiers` (records
+## with `id`, `kind`, `owner`, `status`). Owns `run.gear`:
 ##   {"stash": [{id, mk}], "offers": {soldier id: {"source", "cards": [...]}},
-##    "pity": {player: int}, "fights_won": int}
-## and `record.gear` on each soldier (see Loadout).
+##    "pity": {player: int}, "fights_won": int, "doctrine_vote": {"options", "votes"}}
+## and `record.gear` on each soldier (see Loadout). Doctrines go to `run.modifiers.doctrines`.
 ##
 ## Actions ({"type", "player", ...}; validate returns "" or a reason):
-##   gear_pick        {"soldier", "card": index or -1 to skip, optional "to_stash": true}
-##   gear_stash_take  {"soldier", "index"}  equip a stash item (the swapped-out item takes its place)
-##   gear_unequip     {"soldier", "slot"}   move an item to the stash
-## `player` -1 acts for anyone (host benching an absent player's soldiers).
+##   gear_pick        {"soldier", "card": index or -1 to skip, optional "to_stash": true}  REWARD
+##   gear_doctrine    {"doctrine": id}  vote after an act boss                               REWARD
+##   gear_stash_take  {"soldier", "index"}  equip a stash item (swapped-out item takes its place)  MAP/REWARD
+##   gear_unequip     {"soldier", "slot"}   move an item to the stash                        MAP/REWARD
+## `player` -1 acts for anyone (only reachable from tests; RunRules rejects it).
 
 const SKIP_SUPPLIES := 10
 const CACHE_SUPPLIES := 25
 const CARD_WEIGHTS := {"gear": 45, "perk": 15, "mutation": 15, "consumable": 15, "cache": 10}
-const ACTION_TYPES: Array[String] = ["gear_pick", "gear_stash_take", "gear_unequip"]
+const ACTION_TYPES: Array[String] = ["gear_pick", "gear_doctrine", "gear_stash_take", "gear_unequip"]
+const HAZARD_PAY := 10
+const FIELD_RATIONS_HEAL := 0.4
 
 
 # --- Run access (works on an object or a Dictionary) -------------------------------------
@@ -31,17 +35,56 @@ static func _rget(run, key: String, default: Variant = null) -> Variant:
 static func state(run) -> Dictionary:
 	var gs = _rget(run, "gear")
 	if not gs is Dictionary or gs.is_empty():
-		gs = {"stash": [], "offers": {}, "pity": {}, "fights_won": 0}
+		gs = {"stash": [], "offers": {}, "pity": {}, "fights_won": 0, "doctrine_vote": {}}
 		run["gear"] = gs
 	return gs
 
 
-static func add_supplies(run, n: int) -> void:
-	run["supplies"] = int(_rget(run, "supplies", 0)) + n
+static func add_supplies(run, n: int, reason: String = "gear") -> void:
+	if run is RunState:
+		RunRules.add_supplies(run, n, reason)
+	else:
+		run["supplies"] = int(_rget(run, "supplies", 0)) + n
 
 
 static func soldiers(run) -> Array:
 	return _rget(run, "soldiers", [])
+
+
+## Soldiers who deploy and get reward picks.
+static func squad(run) -> Array:
+	if run is RunState:
+		return run.squad()
+	return soldiers(run).filter(func(r): return r.get("status", "active") == "active")
+
+
+static func owner_of(record) -> int:
+	var o = record.get("owner")
+	if o == null:
+		o = record.get("player")
+	return int(o) if o != null else 0
+
+
+## Who may make this soldier's choices: the owner, or the host while the owner is benched.
+static func controller_of(run, record) -> int:
+	return run.controller_of(record) if run is RunState else owner_of(record)
+
+
+static func _phase_is(run, names: Array) -> bool:
+	if not run is RunState:
+		return true
+	for n in names:
+		if run.phase == RunState.Phase[n]:
+			return true
+	return false
+
+
+static func _modifiers(run) -> Dictionary:
+	var m = _rget(run, "modifiers")
+	if not m is Dictionary:
+		m = {}
+		run["modifiers"] = m
+	return m
 
 
 static func soldier(run, id: int):
@@ -79,11 +122,16 @@ static func all_picked(run) -> bool:
 	return offers(run).is_empty()
 
 
+## The run waits in REWARD while this is true (picks or a Doctrine vote open).
+static func has_pending(run) -> bool:
+	return not offers(run).is_empty() or not state(run).get("doctrine_vote", {}).is_empty()
+
+
 ## Before the first fight each soldier picks 1 of 3 Common items with different tags,
 ## at least one in the class's natural lanes.
 static func starting_kit_offers(run) -> void:
 	var rng := _rng(run)
-	for r in soldiers(run):
+	for r in squad(run):
 		var lanes: Array = GearData.CLASS_LANES.get(r.kind, [])
 		var cards: Array = []
 		var used_tags: Array = []
@@ -104,10 +152,69 @@ static func starting_kit_offers(run) -> void:
 static func on_fight_won(run, fight_kind: String = "skirmish") -> void:
 	var gs := state(run)
 	gs.fights_won += 1
-	for r in soldiers(run):
-		if r.get("dead") == true or r.get("alive") == false or r.get("turned") == true:
-			continue
+	for r in squad(run):
 		offers(run)[int(r.id)] = {"source": fight_kind, "cards": roll_offer(run, r, fight_kind)}
+	if doctrines(run).has("hazard_pay"):
+		add_supplies(run, HAZARD_PAY, "Hazard pay")
+	if fight_kind == "boss":
+		_open_doctrine_vote(run)
+
+
+# --- Doctrines -------------------------------------------------------------------------
+
+static func doctrines(run) -> Array:
+	return _modifiers(run).get("doctrines", [])
+
+
+static func doctrine_vote(run) -> Dictionary:
+	return state(run).get("doctrine_vote", {})
+
+
+static func _open_doctrine_vote(run) -> void:
+	var have := doctrines(run)
+	var pool := GearData.DOCTRINES.keys().filter(func(d): return not have.has(d))
+	pool.sort()
+	if pool.is_empty():
+		return
+	var rng := _rng(run)
+	var options: Array = []
+	while options.size() < 3 and not pool.is_empty():
+		options.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+	state(run)["doctrine_vote"] = {"options": options, "votes": {}}
+
+
+static func _voters(run) -> Array:
+	if run is RunState:
+		return run.present_players()
+	var ps := {}
+	for r in squad(run):
+		ps[owner_of(r)] = true
+	return ps.keys()
+
+
+static func _resolve_doctrine_vote(run) -> void:
+	var v := doctrine_vote(run)
+	var tally := {}
+	for p in v.votes:
+		tally[v.votes[p]] = tally.get(v.votes[p], 0) + 1
+	var best := ""
+	var host := int(_rget(run, "host_player", 0))
+	for d in v.options:
+		if not tally.has(d):
+			continue
+		if best == "" or tally[d] > tally[best] or (tally[d] == tally[best] and v.votes.get(host) == d):
+			best = d
+	if best == "":
+		best = v.options[0]
+	var m := _modifiers(run)
+	var list: Array = m.get("doctrines", [])
+	list.append(best)
+	m["doctrines"] = list
+	if best == "field_rations":
+		m["heal_after_fight"] = FIELD_RATIONS_HEAL
+	state(run)["doctrine_vote"] = {}
+	if run is RunState:
+		run.emit({"type": "doctrine", "doctrine": best, "votes": v.votes.duplicate()})
 
 
 ## Three cards for one soldier. Gear is weighted to their tags; from the second fight every
@@ -118,7 +225,7 @@ static func roll_offer(run, record, fight_kind: String) -> Array:
 	var act := int(_rget(run, "act", 1))
 	var counts := GearTags.counts(record)
 	var ranked := GearTags.ranked(counts)
-	var player := int(record.get("player")) if record.get("player") != null else 0
+	var player := owner_of(record)
 	var prog = GearTags.progression()
 	var vector: bool = GearTags.provides(prog, "is_vector") and prog.is_vector(record)
 	var exclude := _maxed_items(record)
@@ -234,14 +341,25 @@ static func handles(action: Dictionary) -> bool:
 
 
 static func validate(run, action: Dictionary) -> String:
+	var player := int(action.get("player", -1))
+	if action.get("type") == "gear_doctrine":
+		var v := doctrine_vote(run)
+		if v.is_empty() or not _phase_is(run, ["REWARD"]):
+			return "No Doctrine vote open"
+		if not v.options.has(action.get("doctrine", "")):
+			return "Not one of the options"
+		if player != -1 and not _voters(run).has(player):
+			return "Benched players don't vote"
+		return ""
 	var r = soldier(run, int(action.get("soldier", -1)))
 	if r == null:
 		return "No such soldier"
-	var player := int(action.get("player", -1))
-	if player != -1 and int(r.get("player")) != player:
+	if player != -1 and controller_of(run, r) != player:
 		return "Not your soldier"
 	match action.get("type"):
 		"gear_pick":
+			if not _phase_is(run, ["REWARD"]):
+				return "No rewards to pick now"
 			var offer := offer_for(run, int(r.id))
 			if offer.is_empty():
 				return "No reward to pick"
@@ -258,6 +376,10 @@ static func validate(run, action: Dictionary) -> String:
 			if (card.kind == "perk" or card.kind == "mutation") and not GearTags.provides(GearTags.progression(), "apply_card"):
 				return "Can't take that card yet"
 			return ""
+		"gear_stash_take", "gear_unequip":
+			if not _phase_is(run, ["MAP", "REWARD"]):
+				return "Change gear from the map"
+	match action.get("type"):
 		"gear_stash_take":
 			var i := int(action.get("index", -1))
 			if i < 0 or i >= Loadout.stash(run).size():
@@ -276,7 +398,15 @@ static func validate(run, action: Dictionary) -> String:
 static func apply(run, action: Dictionary) -> bool:
 	if validate(run, action) != "":
 		return false
+	if action.type == "gear_doctrine":
+		var v := doctrine_vote(run)
+		v.votes[int(action.get("player", 0))] = action.doctrine
+		if _voters(run).all(func(p): return v.votes.has(p)) or int(action.get("player", 0)) == -1:
+			_resolve_doctrine_vote(run)
+		return true
 	var r = soldier(run, int(action.soldier))
+	if run is RunState:
+		run.emit({"type": "gear", "action": action.type, "soldier": int(action.soldier), "player": int(action.get("player", -1))})
 	match action.type:
 		"gear_pick": _pick(run, r, action)
 		"gear_stash_take": Loadout.take_from_stash(run, r, int(action.index))
@@ -290,7 +420,7 @@ static func _pick(run, r, action: Dictionary) -> void:
 	var i := int(action.get("card", -1))
 	if i == -1:
 		if offer.source != "kit":
-			add_supplies(run, SKIP_SUPPLIES)
+			add_supplies(run, SKIP_SUPPLIES, "Skipped a reward")
 		return
 	var card: Dictionary = offer.cards[i]
 	match card.kind:
@@ -304,7 +434,7 @@ static func _pick(run, r, action: Dictionary) -> void:
 		"consumable":
 			Loadout.add_consumable(r, card.id, int(card.get("charges", GearData.CONSUMABLE_CHARGES)))
 		"cache":
-			add_supplies(run, int(card.get("supplies", CACHE_SUPPLIES)))
+			add_supplies(run, int(card.get("supplies", CACHE_SUPPLIES)), "Supply cache")
 
 
 # --- Missions --------------------------------------------------------------------------
@@ -325,6 +455,14 @@ static func apply_to_unit(u: Unit, record) -> void:
 	u.mobility = maxi(1, u.mobility + total.get("mobility", 0))
 	u.max_hp += total.get("max_hp", 0)
 	u.hp = clampi(u.hp + total.get("max_hp", 0), 1, u.max_hp)
+	if g.has("armor") and g.armor.id == "bio_mesh":
+		# Infection is applied after gear, so count awake mutations from the record's value.
+		var extra := clampi(Infection.tier(int(record.get("infection", u.infection))), 0, 3) * int(g.armor.mk)
+		u.max_hp += extra
+		u.hp += extra
+	var docs: Array = record.get("doctrines", [])
+	if not docs.is_empty():
+		u.status["doctrines"] = docs.duplicate()
 	u.status["gear"] = g
 	u.status["gear_tags"] = Loadout.gear_tags(record)
 	u.status["pockets"] = Loadout.pockets(record).duplicate(true)
@@ -332,7 +470,11 @@ static func apply_to_unit(u: Unit, record) -> void:
 		u.status["armor"] = total.armor
 
 
-## After a mission: write consumables used in the fight back to the record's pockets.
+## After a mission (RunSoldier.absorb): consumables used in the fight are spent on the record.
+static func absorb(record, u: Unit) -> void:
+	sync_from_unit(u, record)
+
+
 static func sync_from_unit(u: Unit, record) -> void:
 	if u.status.has("pockets"):
 		Loadout.of(record).pockets = u.status.pockets.duplicate(true)
@@ -345,4 +487,36 @@ static func squad_counts(run) -> Dictionary:
 		var c := GearTags.counts(r)
 		for t in c:
 			out[t] = out.get(t, 0) + c[t]
+	return out
+
+
+# --- Screens ---------------------------------------------------------------------------
+
+## Control script for the REWARD phase: `setup(run, session)`, sends gear_pick / gear_doctrine.
+static func reward_screen() -> Script:
+	return load("res://ui/gear/reward_screen.gd")
+
+
+## Control script for the map's loadout button: `setup(run, session)`, emits `closed`.
+static func loadout_screen() -> Script:
+	return load("res://ui/gear/loadout_screen.gd")
+
+
+## Actions that settle every open pick and vote, for headless autoplay: the first card when it's
+## legal (else a skip) for each pending offer, and the first Doctrine for each voter who hasn't voted.
+static func autoplay_actions(run) -> Array:
+	var out: Array = []
+	for sid in offers(run).keys():
+		var r = soldier(run, int(sid))
+		if r == null:
+			continue
+		var a := {"type": "gear_pick", "player": controller_of(run, r), "soldier": int(sid), "card": 0}
+		if validate(run, a) != "":
+			a.card = -1
+		out.append(a)
+	var v := doctrine_vote(run)
+	if not v.is_empty():
+		for p in _voters(run):
+			if not v.votes.has(p):
+				out.append({"type": "gear_doctrine", "player": p, "doctrine": v.options[0]})
 	return out

@@ -53,6 +53,7 @@ func build(g: Grid) -> void:
 	_m_full = Palette.overlay(Color(0.35, 0.7, 1.0, 0.9), true)
 	_build_ground()
 	_build_tiles()
+	_build_zones()
 	_build_perimeter()
 	_build_lights()
 	_hover = Palette.box(Vector3(0.96, 0.03, 0.96), Palette.overlay(Color(1, 1, 1, 0.22)))
@@ -166,6 +167,31 @@ func _build_tiles() -> void:
 			var dash := Palette.box(Vector3(0.55, 0.005, 0.08), paint)
 			dash.position = Vector3(x, 0.003, grid.height - 3.5)
 			_tiles.add_child(dash)
+
+
+## Objective zones from MapGen markers, painted on the floor: evac pad (green) and beacon (amber).
+func _build_zones() -> void:
+	var zones := {"evac": Color(0.35, 0.95, 0.45), "beacon": Palette.AMBER}
+	for key in zones:
+		var cells: Array = grid.marker(key)
+		if cells.is_empty():
+			continue
+		var fill := Palette.overlay(Color(zones[key], 0.16))
+		var edge := Palette.emissive(zones[key], 1.2)
+		var inside := {}
+		for c in cells:
+			inside[c] = true
+		for c in cells:
+			var plate := Palette.box(Vector3(0.98, 0.01, 0.98), fill)
+			plate.position = cell_to_world(c, 0.006)
+			_tiles.add_child(plate)
+			# A glowing line along the zone's outer edges.
+			for d in Grid.DIRS4:
+				if inside.has(c + d):
+					continue
+				var line := Palette.box(Vector3(0.98, 0.012, 0.05) if d.y != 0 else Vector3(0.05, 0.012, 0.98), edge)
+				line.position = cell_to_world(c, 0.01) + Vector3(d.x, 0, d.y) * 0.47
+				_tiles.add_child(line)
 
 
 func _add_wall(c: Vector2i, h: int, body: Material, trim: Material, rib: Material, hazard: Material) -> void:

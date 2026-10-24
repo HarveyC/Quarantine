@@ -68,7 +68,7 @@ static func tier_color(t: int) -> Color:
 ## re-applied on every change, and reaching 100 Turns the soldier. Turning is permanent:
 ## a Turned unit's infection no longer changes.
 static func add(s: GameState, u: Unit, amount: int) -> void:
-	if u.status.get("turned", false):
+	if u.status.get("turned", false) or u.status.has("deployable"):
 		return
 	if amount != 0:
 		amount = Kit.infection_change(s, u, amount)
@@ -182,7 +182,7 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 		return
 	if source.team != Types.Team.ENEMY or target.team != Types.Team.PLAYER or not target.is_alive():
 		return
-	add(s, target, damage_gain(amount))
+	add(s, target, GearFx.bite_infection(s, target, damage_gain(amount)))
 
 
 ## Infection gained from taking `amount` damage from an Infected.

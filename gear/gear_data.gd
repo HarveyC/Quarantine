@@ -17,7 +17,7 @@ const PROTOTYPE_THRESHOLD := 2  # a Prototype needs both of its tags at 2
 const RARITIES: Array[String] = ["common", "uncommon", "rare", "prototype"]
 const RARITY_NAMES := {"common": "Common", "uncommon": "Uncommon", "rare": "Rare", "prototype": "Prototype"}
 const RARITY_COLORS := {
-	"common": Color("#b8bfb3"), "uncommon": Color("#6fc3ff"), "rare": Color("#f2c14e"), "prototype": Color("#ff5c86"),
+	"common": Color("#a8aa98"), "uncommon": Color("#8fc46a"), "rare": Color("#c08cff"), "prototype": Color("#f2c14e"),
 }
 const PRICES := {"common": 35, "uncommon": 55, "rare": 90}
 const UPGRADE_PRICES := {"common": 30, "uncommon": 30, "rare": 50}
@@ -194,6 +194,16 @@ const CONSUMABLES := {
 	"containment_foam": {"name": "Containment foam", "price": 30, "desc": "Restrains a Lapsed or Turned soldier for 2 turns without killing them"},
 }
 const CONSUMABLE_CHARGES := 2  # a consumable reward card gives 2 charges
+
+## Squad-wide passives voted on after each act boss (stored in run.modifiers.doctrines).
+const DOCTRINES := {
+	"buddy_system": {"name": "Buddy system", "desc": "+10 aim while next to a teammate"},
+	"field_rations": {"name": "Field rations", "desc": "Heal 40% after fights instead of 25%"},
+	"quartermaster": {"name": "Quartermaster", "desc": "Depot prices -15%"},
+	"hazard_pay": {"name": "Hazard pay", "desc": "+10 Supplies per fight"},
+	"spore_filters": {"name": "Spore filters", "desc": "-25% Infection from spore zones"},
+	"steady_nerves": {"name": "Steady nerves", "desc": "Talking down a Lapse costs no action"},
+}
 
 ## Natural tag lanes per class (starting kit and the "on build" card before a soldier has tags).
 const CLASS_LANES := {
