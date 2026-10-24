@@ -17,7 +17,7 @@ func _init() -> void:
 			if seed <= 2:
 				print("%s seed %d (%dx%d)" % [o, seed, g.width, g.height])
 				print(render(g))
-		print("%s: %d/%d fell back\n" % [o, fallbacks, count])
+		print("%s: %d/%d fell back (last reject: %s)\n" % [o, fallbacks, count, MapGen.last_reject])
 	quit()
 
 
@@ -31,6 +31,9 @@ static func render(g: Grid) -> String:
 		for x in g.width:
 			var c := Vector2i(x, y)
 			var ch: String = [".", "#", "="][g.tile(c)]
+			if g.level(c) > 0 and g.tile(c) != Types.Tile.WALL:
+				ch = "^" if ch == "." else "%"
+			if g.is_ladder(c): ch = "/"
 			if g.player_spawns.has(c): ch = "P"
 			elif g.enemy_spawns.has(c): ch = "E"
 			elif marks.has(c) and marks[c] != "": ch = marks[c]

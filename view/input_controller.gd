@@ -201,7 +201,8 @@ func actions() -> Array[Dictionary]:
 		if m.has("cost"):
 			lbl += " (%s)" % str(m.cost)
 		out.append({"key": "mutation:%s" % m.id, "label": lbl, "targeting": str(m.get("targeting", "none")),
-			"type": Types.MUTATION, "id": m.id, "enabled": has_ap and m.get("ready", true), "mutation": true})
+			"type": Types.MUTATION, "id": m.id, "enabled": has_ap and m.get("ready", true), "mutation": true,
+			"name": str(m.get("name", m.id)), "cost": int(m.get("cost", 0)), "desc": str(m.get("desc", "")), "reason": str(m.get("reason", ""))})
 	for i in out.size():
 		out[i].hotkey = str(i + 1) if i < 9 else ""
 	return out

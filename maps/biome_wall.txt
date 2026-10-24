@@ -6,13 +6,17 @@
 ;   ?  50% low cover, else floor
 ;   P  soldier spawn (deploy parcels)    E  enemy spawn (pod parcels)
 ;   O  objective cell: evac / beacon / civilian / nest / hive, by the parcel's role
+;   ^  high ground (raised floor)    %  low cover on high ground    /  ladder (ground cell that
+;      climbs to the raised cell beside it; the only way between levels). Keep ladders and every
+;      raised cell joined inside the parcel: cut-off cells are sealed as walls.
 ; Roles: deploy, breach (the cordon wall, always on row 1, only mirrored left-right),
-;        pod, filler, evac, beacon, rescue, nest, hive.
+;        pod, filler, tower (high ground), evac, beacon, rescue, nest, hive.
 ;
 ; Plots lay parcels out for a whole map:  @plot <objectives> <name> lanes=<0|1>
 ; then one row of slot letters per parcel row, top to bottom. The drop zone is always at the bottom.
-;   D deploy   B breach   E pod   F filler   O objective parcel for the fight's objective
-; lanes=1 puts a 1-tile lane between parcels (3x3 parcels -> 14x14 tiles).
+;   D deploy   B breach   E pod   F filler   T tower   O objective parcel for the fight's objective
+; lanes=1 puts a 1-tile lane between parcels (4x4 parcels -> 19x19 tiles; 4x4 without lanes is
+; 16x16, 5x5 is 20x20).
 
 ; ---------------------------------------------------------------- deploy
 @deploy sandbag_ring
@@ -113,7 +117,68 @@ E...
 =...
 ..E=
 
+@pod loading_dock
+^^^/
+E..E
+.=..
+..E.
+
+@pod watch_post
+.E..
+%^/E
+^^..
+.E.=
+
+; ---------------------------------------------------------------- towers (high ground)
+@tower guard_tower
+.=..
+.%%.
+.^^/
+....
+
+@tower container_stack
+^^^/
+%^^.
+....
+..=.
+
+@tower sniper_nest
+....
+.%%.
+.^^.
+./..
+
+@tower rooftop
+^^^.
+^%^.
+^^/.
+....
+
+@tower water_tank
+.%%.
+.^^.
+./#.
+....
+
+@tower catwalk
+.=..
+^^^^
+/..=
+....
+
+@tower scaffold
+/^^.
+.^%.
+.^^.
+...=
+
 ; ---------------------------------------------------------------- filler
+@filler loading_ramp
+....
+/^^.
+.^%.
+....
+
 @filler tents_row
 ==..
 ....
@@ -248,75 +313,89 @@ OOO=
 ..=.
 
 ; ---------------------------------------------------------------- plots
-@plot skirmish wall_breach lanes=0
-EFE
-BBB
-FDF
+@plot skirmish wall_breach lanes=1
+ETFE
+FFEF
+BBBB
+FTDF
 
-@plot skirmish camp lanes=0
-FEE
-FFF
-DFF
+@plot skirmish camp lanes=1
+FETE
+EFFT
+TFFF
+FFDF
 
 @plot skirmish wall_corner lanes=0
-EFE
-BBF
-FFD
+ETFE
+FEFT
+BBBF
+TFFD
 
 @plot extract wall_run lanes=0
-FOF
-EFE
-BBB
-FDF
+FOTF
+EFFE
+BBBB
+FTFF
+FFDF
 
 @plot extract camp_run lanes=0
-OFF
-FEF
-EFF
-FFD
+OFFT
+FETF
+EFFE
+TFFF
+FFFD
 
 @plot hold beacon_yard lanes=1
-EFF
-FOF
-FDF
+EFTE
+FTOF
+FFFT
+FDFF
 
 @plot hold wall_hold lanes=1
-FEF
-BOB
-FDF
+EFFE
+TBOB
+FFTF
+FDFF
 
 @plot rescue clinic_beyond lanes=1
-FOE
-BBB
-FDF
+EFOE
+TFFT
+BBBB
+FFDF
 
 @plot rescue camp_rescue lanes=1
-EFO
-FFF
-DFF
+ETFO
+FFEF
+TFFF
+DFFT
 
 @plot purge nests lanes=1
-OEO
-FOF
-FDF
+OETO
+FFOF
+TFFT
+FFDF
 
 @plot purge wall_nests lanes=1
-OEO
-BOB
-FDF
+OETO
+BBOB
+FTFF
+FFDF
 
 @plot elite hive_beyond lanes=0
-EOE
-BBB
-FDF
+EOTE
+BBBB
+FTFF
+FFDF
 
 @plot elite hive_camp lanes=0
-FOE
-EFF
-FDF
+FOET
+ETFF
+FFFT
+FFDF
 
 @plot boss source lanes=0
-FEEF
-FFFF
-FFFF
-FDDF
+FEEEF
+TFFFT
+FFFFF
+TFFFT
+FFDFF

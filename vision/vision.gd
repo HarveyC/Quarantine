@@ -49,13 +49,9 @@ static func disable(s: GameState) -> void:
 
 # --- Sight ---------------------------------------------------------------------------------
 
-## Height of the ground under `u`: 0 on flat maps (Grid.level from the map workstream, or the
-## Elevation module's height, which counts flying units as 1).
+## Height of `u` (Elevation: the cell's Grid.level, 1 for flying units); 0 on flat maps.
 static func height(s: GameState, u: Unit) -> int:
-	var h: Variant = RunHooks.call_static("Elevation", "height", [s, u], null)
-	if h != null:
-		return int(h)
-	return EnemyTerrain.level(s, u.pos)
+	return Elevation.height(s, u)
 
 
 ## Sight radius in tiles: kind base, +2 on high ground, plus `status["sight_bonus"]` (perks, gear).
@@ -193,9 +189,11 @@ static func visible_enemies(s: GameState, team: int = Types.Team.PLAYER) -> Arra
 
 # --- Senses (Spore Sense, Motion tracker, last known positions) -----------------------------
 
-## Spore Sense radius of `u`: `status["sense_radius"]` (set by Progression while the mutation
-## is awake), 0 if it has none.
+## Spore Sense radius of `u`: SENSE_RADIUS while the mutation is awake (Kit), or
+## `status["sense_radius"]` for anything else that grants the sense; 0 if it has none.
 static func sense_radius(u: Unit) -> int:
+	if Kit.awake(u, "spore_sense"):
+		return maxi(SENSE_RADIUS, int(u.status.get("sense_radius", 0)))
 	return int(u.status.get("sense_radius", 0))
 
 

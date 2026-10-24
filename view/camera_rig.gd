@@ -6,6 +6,7 @@ extends Node3D
 ## drives the blend between them on its own clock with `cine_progress`, so slow
 ## motion and test stepping stay in sync. `end_cinematic` cuts back to tactical.
 
+const Board := preload("res://view/board.gd")
 const PITCH_DEG := 55.0
 const MIN_DIST := 6.0
 const MAX_DIST := 26.0
@@ -173,4 +174,8 @@ func _apply() -> void:
 func screen_to_world(screen: Vector2) -> Variant:
 	var origin := camera.project_ray_origin(screen)
 	var dir := camera.project_ray_normal(screen)
+	# High ground first: a roof hides the ground behind it.
+	var roof: Variant = Plane(Vector3.UP, Board.RAISE).intersects_ray(origin, dir)
+	if roof != null and Board.lift(Board.world_to_cell(roof)) > 0.0:
+		return roof
 	return Plane(Vector3.UP, 0.0).intersects_ray(origin, dir)

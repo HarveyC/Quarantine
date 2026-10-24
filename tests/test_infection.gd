@@ -106,94 +106,66 @@ func test_passives_apply_and_revert() -> void:
 	assert_true(not sol.status.has("tier_mobility") and not sol.status.has("tier_aim"), "status cleaned")
 
 
-func test_no_mutations_when_clean() -> void:
+func _graft(u: Unit, slots: Dictionary) -> void:
+	u.status["mutations"] = slots.duplicate()
+
+
+func test_no_mutations_when_ungrafted() -> void:
 	var d := _setup()
 	var s: GameState = d.s
 	var sol: Unit = d.sol
-	Infection.add(s, sol, 24)
-	assert_true(Infection.available_mutations(s, sol).is_empty(), "none listed while clean")
-	assert_true(not _mutate(s, sol, "surge"), "surge rejected while clean")
+	Infection.add(s, sol, 30)
+	assert_true(Infection.available_mutations(s, sol).is_empty(), "none listed without grafts")
+	assert_true(not _mutate(s, sol, "adrenal_surge"), "ungrafted rejected")
 	assert_true(not _mutate(s, sol, "bogus"), "unknown rejected")
 	assert_eq(sol.actions_left, 2, "nothing spent")
 
 
-func test_available_mutations_shape() -> void:
+func test_available_mutations_shape_and_dormancy() -> void:
 	var d := _setup()
 	var s: GameState = d.s
 	var sol: Unit = d.sol
+	_graft(sol, {"exposed": "adrenal_surge", "mutating": "acid_spit", "critical": "regenerator"})
 	Infection.add(s, sol, 30)
 	var list := Infection.available_mutations(s, sol)
-	assert_eq(list.size(), 3, "three mutations")
+	assert_eq(list.size(), 2, "passives are not listed")
 	var by_id := {}
 	for m in list:
 		by_id[m.id] = m
-		for k in ["id", "name", "desc", "cost", "targeting", "ready", "reason"]:
+		for k in ["id", "name", "desc", "cost", "actions", "targeting", "ready", "reason", "cooldown"]:
 			assert_true(m.has(k), "%s has %s" % [m.id, k])
-	assert_true(by_id.surge.ready, "surge ready")
-	assert_true(not by_id.sense.ready, "sense needs mutating")
-	assert_eq(by_id.sense.reason, "Requires Mutating infection", "sense reason")
-	assert_true(not by_id.regenerate.ready, "regenerate needs damage")
+	assert_true(by_id.adrenal_surge.ready, "surge ready")
+	assert_eq(by_id.adrenal_surge.cost, 5, "exposed actives cost 5")
+	assert_true(not by_id.acid_spit.ready, "acid spit dormant at Exposed")
+	assert_eq(by_id.acid_spit.reason, "Dormant until Mutating", "dormant reason")
+	assert_eq(by_id.acid_spit.cost, 10, "mutating actives cost 10")
 
 
-func test_surge_happy_and_once_per_turn() -> void:
+func test_surge_happy_once_per_turn_and_penalty() -> void:
 	var d := _setup()
 	var s: GameState = d.s
 	var sol: Unit = d.sol
+	_graft(sol, {"exposed": "adrenal_surge"})
 	Infection.add(s, sol, 25)
-	assert_true(_mutate(s, sol, "surge"), "surge ok")
+	assert_true(_mutate(s, sol, "adrenal_surge"), "surge ok")
 	assert_eq(sol.actions_left, 3, "+1 action, costs none")
-	assert_eq(sol.infection, 40, "+15 infection")
+	assert_eq(sol.infection, 30, "+5 infection")
 	assert_eq(_events(s, "mutation").size(), 1, "mutation event")
-	assert_true(not _mutate(s, sol, "surge"), "second surge rejected")
-	assert_eq(sol.infection, 40, "no extra infection")
-	s.turn = 2
-	assert_true(_mutate(s, sol, "surge"), "surge ok next turn")
-
-
-func test_regenerate_happy_and_cooldown() -> void:
-	var d := _setup()
-	var s: GameState = d.s
-	var sol: Unit = d.sol
-	Infection.add(s, sol, 30)
-	sol.hp = sol.max_hp - 5
-	assert_true(_mutate(s, sol, "regenerate"), "regenerate ok")
-	assert_eq(sol.hp, sol.max_hp - 2, "healed 3")
-	assert_eq(sol.actions_left, 1, "costs 1 action")
-	assert_eq(sol.infection, 40, "+10 infection")
-	assert_eq(sol.cooldowns.get("regenerate", 0), 2, "cooldown set")
-	assert_true(not _mutate(s, sol, "regenerate"), "on cooldown")
-	assert_eq(sol.infection, 40, "no infection when rejected")
-	sol.cooldowns["regenerate"] = 0
-	sol.hp = 1
-	assert_true(_mutate(s, sol, "regenerate"), "ok after cooldown")
-	assert_true(not _mutate(s, sol, "regenerate"), "no actions left (and cooldown)")
-	sol.cooldowns["regenerate"] = 0
-	assert_eq(Infection.validate_mutation(s, sol, {"mutation": "regenerate"}), "No actions left", "no actions reason")
-
-
-func test_sense_happy_and_requires_mutating() -> void:
-	var d := _setup()
-	var s: GameState = d.s
-	var sol: Unit = d.sol
-	Infection.add(s, sol, 40)
-	assert_true(not _mutate(s, sol, "sense"), "exposed too clean for sense")
-	Infection.add(s, sol, 10)
-	assert_true(_mutate(s, sol, "sense"), "sense ok")
-	assert_true(Infection.has_hive_sense(s, sol), "active this turn")
-	assert_eq(sol.status.hive_sense, 1, "expiry turn stored")
-	assert_eq(sol.infection, 60, "+10 infection")
-	assert_eq(sol.actions_left, 1, "costs 1 action")
-	assert_true(not _mutate(s, sol, "sense"), "already active")
-	s.turn = 2
-	assert_true(not Infection.has_hive_sense(s, sol), "expired next turn")
+	assert_true(not _mutate(s, sol, "adrenal_surge"), "second surge rejected")
+	assert_eq(sol.infection, 30, "no extra infection")
+	s.players.assign([0])
+	Rules.set_ready(s, 0, true)
+	assert_eq(s.turn, 2, "next turn")
+	assert_eq(sol.actions_left, 1, "drawback: only 1 action next turn")
 
 
 func test_mutation_can_turn() -> void:
 	var d := _setup()
 	var s: GameState = d.s
 	var sol: Unit = d.sol
-	Infection.add(s, sol, 90)
-	assert_true(_mutate(s, sol, "surge"), "surge ok")
+	_graft(sol, {"exposed": "adrenal_surge"})
+	Infection.add(s, sol, 97)
+	assert_true(_mutate(s, sol, "adrenal_surge"), "surge ok")
 	assert_eq(sol.team, Types.Team.ENEMY, "turned by mutation cost")
 	assert_eq(sol.actions_left, 0, "turned unit loses its team-phase actions")
 

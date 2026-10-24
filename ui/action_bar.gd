@@ -147,9 +147,8 @@ func _button(input: InputController, a: Dictionary, can_act: bool) -> Button:
 	var cost := "1"
 	if mutation:
 		fg = Styles.TEAL
-		var m: Dictionary = Infection.MUTATIONS.get(str(a.get("id", "")), {})
-		label = str(m.get("name", label))
-		cost = "+%d" % int(m.get("cost", 0))
+		label = str(a.get("name", label))
+		cost = "+%d" % int(a.get("cost", 0))
 		b.add_theme_stylebox_override("normal", Styles.panel_box(Color("0f1b18"), Color("2b7d70")))
 		b.add_theme_stylebox_override("hover", Styles.panel_box(Color("13241f"), Styles.TEAL))
 		b.add_theme_stylebox_override("disabled", Styles.panel_box(Color("0c1311"), Color("1d3a34")))

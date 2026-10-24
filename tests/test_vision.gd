@@ -261,3 +261,27 @@ func test_view_hides_unseen_enemies_and_draws_fog() -> void:
 		var ev := MissionView.FogOverlay.annotate(s, {"type": "overwatch", "unit": hidden[0].id})
 		assert_true(ev.get("_hidden", false), "its events play silently")
 	v.free()
+
+
+func test_raised_tiles_block_ground_sight() -> void:
+	var s := make_blank(_room(12, 3))
+	for y in 3:
+		s.grid.set_level(Vector2i(5, y), 1)
+	assert_true(not Combat.can_see(s, Vector2i(2, 1), Vector2i(8, 1)), "a raised block hides ground from ground")
+	assert_true(Combat.can_see(s, Vector2i(5, 1), Vector2i(9, 1)), "from the roof you see down")
+	assert_true(Combat.can_see(s, Vector2i(2, 1), Vector2i(5, 1)), "a unit on the roof edge is seen")
+	var flyer := _enemy(s, "runner", Vector2i(8, 1))
+	flyer.status["flying"] = true
+	assert_true(Combat.can_see(s, Vector2i(2, 1), Vector2i(8, 1)), "a flyer is seen over the roofs")
+
+
+func test_spore_sense_mutation_is_live() -> void:
+	var s := make_blank(_room(20, 5, 4))
+	var t := _soldier(s, "trooper", Vector2i(2, 3))
+	var e := _enemy(s, "runner", Vector2i(6, 3))
+	t.status["mutations"] = {"exposed": "spore_sense"}
+	t.infection = 30
+	assert_eq(Vision.sense_radius(t), Vision.SENSE_RADIUS, "awake at Exposed")
+	assert_true(Vision.sensed(s).has(e.id), "senses through the wall")
+	t.infection = 10
+	assert_eq(Vision.sense_radius(t), 0, "dormant below its tier")

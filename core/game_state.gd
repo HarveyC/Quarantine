@@ -15,11 +15,13 @@ var rng := RandomNumberGenerator.new()
 var players: Array[int] = [0, 1]   # participating player ids
 var ready := {}                     # player id -> bool, for the current team phase
 var log: Array[Dictionary] = []
+var objective := {}                 # fight objective progress, owned by Objectives
 ## Fight-level state owned by Encounter (enemies/): waves, spawners, spore zones, telegraphs, boss.
 var encounter := {}
 var hazards := {}                   # cell -> {"kind", "turns", "source", "spare"}, owned by Hazards
 ## Fog of war owned by Vision (vision/): explored cells, exposed attackers, last seen, blips, reveals.
 var vision := {}
+var zones: Array = []               # Spore Burst clouds and Overgrowth walls, see progression/zones.gd
 var _next_id := 1
 
 
@@ -83,7 +85,8 @@ func to_dict() -> Dictionary:
 		"phase": phase, "turn": turn, "result": result, "rng_seed": rng.seed, "rng_state": rng.state,
 		"players": players.duplicate(), "ready": ready.duplicate(), "next_id": _next_id,
 		"encounter": encounter.duplicate(true),
-		"hazards": hazards.duplicate(true),
+		"hazards": hazards.duplicate(true), "objective": objective.duplicate(true),
+		"zones": zones.duplicate(true),
 		"vision": vision.duplicate(true),
 	}
 
@@ -104,6 +107,8 @@ static func from_dict(d: Dictionary) -> GameState:
 	s.encounter = d.get("encounter", {}).duplicate(true)
 	s.hazards = d.get("hazards", {}).duplicate(true)
 	s.vision = d.get("vision", {}).duplicate(true)
+	s.objective = d.get("objective", {}).duplicate(true)
+	s.zones = d.get("zones", []).duplicate(true)
 	return s
 
 

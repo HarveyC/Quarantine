@@ -28,7 +28,7 @@ func test_every_objective_generates_valid_maps() -> void:
 			var g := MapGen.generate(_spec(o, seed))
 			var tag := "%s seed %d" % [o, seed]
 			assert_true(not g.markers.is_empty(), tag + " did not fall back to the handmade map")
-			assert_true(g.width >= 12 and g.width <= 16 and g.height >= 12 and g.height <= 16, tag + " size")
+			assert_true(g.width >= 16 and g.width <= 20 and g.height >= 16 and g.height <= 20, tag + " size")
 			assert_eq(g.biome, "wall", tag + " biome")
 			assert_true(g.player_spawns.size() >= 4, tag + " deploy cells")
 			assert_true(g.enemy_spawns.size() >= MapGen.MIN_ENEMY_SPAWNS, tag + " enemy spawns")
@@ -73,7 +73,7 @@ func test_pods_sit_inside_two_moves() -> void:
 func test_unknown_biome_and_objective_fall_back_to_act_1_skirmish() -> void:
 	var g := MapGen.generate({"biome": "port", "objective": "nonsense", "seed": 5})
 	assert_eq(g.biome, "wall", "port uses the wall parcels until it has its own")
-	assert_eq(g.width, 12, "skirmish size")
+	assert_true(g.width >= 16, "skirmish size")
 
 
 func test_grid_markers_survive_snapshot() -> void:
@@ -107,3 +107,19 @@ func test_mission_starts_on_generated_map() -> void:
 		assert_true(s.grid.is_walkable(u.pos), "%s on floor" % u.kind)
 	Rules.start_mission(s)
 	assert_eq(s.phase, Types.Phase.TEAM, "mission runs")
+
+
+func test_every_map_has_climbable_high_ground() -> void:
+	for o in ["skirmish", "extract", "hold", "rescue", "purge", "elite", "boss"]:
+		for seed in range(1, 11):
+			var g := MapGen.generate(_spec(o, seed))
+			var tag := "%s seed %d" % [o, seed]
+			var dist := g.reachable(g.player_spawns[0], 9999)
+			var roofs := 0
+			for y in g.height:
+				for x in g.width:
+					if g.level(Vector2i(x, y)) > 0 and dist.has(Vector2i(x, y)):
+						roofs += 1
+			assert_true(roofs >= 4, tag + " has reachable high ground (got %d)" % roofs)
+			for l in g.ladders:
+				assert_true(g.level(l) == 0 and g.is_walkable(l), tag + " ladder on open ground")

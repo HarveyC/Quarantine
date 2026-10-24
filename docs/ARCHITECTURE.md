@@ -16,8 +16,11 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `combat/` | `Combat` | **combat** | LOS, cover, hit chance, shoot, overwatch, hunker, class abilities |
 | `infection/` | `Infection` | **infection** | Meter, tiers, mutation powers, Lapse rolls, Turning, cure |
 | `ai/` | `EnemyAI` | **ai** | Enemy and Lapsed-soldier decisions |
+| `objectives/` | `Objectives` | **maps** | Fight objectives: win/lose rules, civilians, bonus objective, HUD line |
 | `hazards/` | `Hazards` | **maps** | Fire, spore and acid tiles: placement, hits, ageing |
+| `vision/` | `Vision` | **fog of war** | Squad vision, explored cells, hidden enemies, exposure, senses |
 | `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
+| `elevation/` | `Elevation` | **maps** | High ground: aim and cover from height, in-fight level changes |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
 | `tests/` | `TestCase` | everyone | `tests/test_<module>.gd` per workstream |
@@ -66,13 +69,20 @@ Rules for parallel work:
 | `hunker` | `unit` |
 | `ability` | `unit`, `ability`, plus `target`/`cell` and ability-specific fields: `stim` → `heal`, `hp`; `breach` → `hit`, `damage`; `claw` → `hit`, `graze`, `damage`, `chance`; `spit` → `cell`, `units` (affected ids), `damage`. Emitted before the resulting `damage` events |
 | `infection` | `unit`, `value`, `tier` |
-| `mutation` | `unit`, `mutation`, plus target fields (`regenerate` adds `healed`, `hp`) |
+| `mutation` | `unit`, `mutation`, plus `target`/`cell` and effect fields (`leech_bite`: `hit`, `damage`, `healed`; `acid_spit`: `damage`; `rally_musk`/`rampage`/`bloom`: `units`). Passives that trigger also emit one (`second_heart`, `bloom`, `host_body`, `martyr_strain`, `ride_the_wave`) |
+| `perk` | `unit`, `perk` (a perk that visibly triggered: `last_stand`, `double_tap`, `brink`) |
+| `heal` | `unit`, `amount`, `hp`, `source` (passive heals: `clotting_blood`, `regenerator`, `transfusion`, `feed`) |
+| `zone` / `zone_end` | `kind` (`spore_burst`, `growth`), `cells`, (`until`) |
 | `lapse` / `recover` / `turned` | `unit` |
 | `alerted` | `unit` (an Infected wakes up; emitted once per unit, see Enemy AI) |
 | `mission_end` | `result` (`Types.Result`) |
 | `hazard` | `kind`, `cells` (changed), `turns`, `source`, `spare` |
 | `hazard_tick` | `unit`, `kind`, `cell`, `damage`, `infection` (emitted before the resulting `damage` / `infection` events) |
 | `hazard_end` | `kind`, `cells` |
+| `level_changed` | `cell`, `level` (Elevation.set_level: a roof collapsed or rose) |
+| `objective` | `kind`, `progress`, `goal` (objective progress changed) |
+| `rescued` | `unit` (a civilian reached the exit) |
+| `left_behind` | `unit` (extract: the dropship left without them; a `died` follows) |
 | `gear` | `unit`, `item` (gear effect that isn't a shot: `choke` splash `target`/`damage`, `feral_grip` `heal`/`hp`, `close_set` `actions`, `mark_set` `target`, `suppress` `target`) |
 | `burning` / `burn` | `unit`, `turns` / `damage` (set Burning; the start-of-phase tick, before its `damage` event) |
 | `spawned` | `unit`, `kind`, `cell`, `from` (spawner unit id or -1) — a new enemy appeared (Hive node, egg sac, root, wave, split, brood spit) |
@@ -91,6 +101,7 @@ Rules for parallel work:
 | `burrowed` | `unit` (a Burrower goes underground: hidden until it erupts) |
 | `lock_lost` | `unit` (a Sharpshooter's target broke line of sight, or it was suppressed) |
 | `fell` | `unit`, `damage` — knocked off a ledge or its raised tile collapsed (before its `damage` event) |
+| `revealed_area` | `cell`, `radius` — a Recon drone shows an area from above for the rest of the fight |
 
 `move` may carry `knockback: true` (Brute slam/charge) and is also emitted for the Source's pull
 (the moved unit is the soldier). Enemy abilities (`slam`, `charge`, `burst`, `pounce`, `maul`,
@@ -112,11 +123,8 @@ New event types are fine; add them to this table.
   Tier passives (MUTATING +1 mobility; CRITICAL/TURNED +1 mobility, +10 aim) are applied directly to `unit.mobility`/`unit.aim`
   by `Infection.add`; the applied amounts are in `status["tier_mobility"]`/`status["tier_aim"]`, so a stat panel can show them.
 - **Cure**: lowering infection is `Infection.add(s, u, -amount)` (Medic stim: -15). Passives revert automatically.
-- **Hive Sense** (mutation): `unit.status["hive_sense"] = <turn>`; active while it equals `s.turn`.
-  Query with `Infection.has_hive_sense(s, u)`. **Combat must treat the target's cover as NONE** for shots by a unit
-  with Hive Sense active (hit chance and the HUD preview).
-- **Adrenal Surge** (mutation): costs 0 actions but, like every action, needs `actions_left >= 1`; gives +1 action.
-  Once per turn via `status["surge_turn"]`. Regenerate uses `unit.cooldowns["regenerate"]` (ticked by Rules).
+- **Hive Sense** (legacy MVP mutation, no longer grantable): `unit.status["hive_sense"] = <turn>` still makes
+  Combat treat the target's cover as NONE. Mutations are now grafted per soldier, see "Ranks, perks and mutations".
 - **Lapse**: rolled in `Infection.on_team_phase_start` (MUTATING 10%, CRITICAL 30%, `Infection.lapse_chance(value)`).
   A soldier lapsed at the previous phase start recovers (`recover` event) and does not roll again that phase.
 - **Infection from damage**: `Rules.deal_damage` calls `Infection.on_damaged(s, target, source, amount)`.
@@ -135,11 +143,64 @@ New event types are fine; add them to this table.
   Expired entries are swept at the start of every `Combat.apply`.
 - **Abilities / mutations for the HUD**: `Combat.available_abilities` and `Infection.available_mutations`
   return `{id, name, targeting: "none"|"unit"|"cell", ready, ...}`. Mutations also carry `desc`, `cost` (infection added),
-  `actions` (action cost), `cooldown` (turns left) and `reason` (why not ready, "" if ready). The list is empty below EXPOSED.
+  `actions` (action cost), `cooldown` (turns left), `reason` (why not ready, "" if ready), `source` (`own`, `dormant`,
+  `borrowed` via Hive Link, `mirror` via Mirror Graft) and `tier`. It lists the soldier's grafted active mutations; dormant
+  ones have `ready = false` and reason "Dormant until <tier>".
   Combat adds `cooldown`, `cost` (actions, -1 = ends turn), `desc` and `targets` (legal unit ids for unit-targeted abilities).
 - **Hit chance extras**: `hit_chance` also returns `los`, and takes an optional 5th arg `reaction` (overwatch −15).
   `graze` is the width of the graze band above `hit`; `crit` is the crit chance given a hit.
   `Combat.melee_chance` gives claw odds.
+
+## Ranks, perks and mutations (progression/)
+
+Owner: **ranks, perks and mutations**. Design: the doc's Classes and Mutations sections.
+
+| File / class | What it does |
+|---|---|
+| `perk_data.gd` `PerkData` | Class passives (one per class) and the 7-perk pool per class: `tag`, `rare`, stat grants, granted `ability` |
+| `mutation_data.gd` `MutationData` | Every mutation: `slot` (`exposed`/`mutating`/`critical`/`strain`), `awake_at` tier, active/passive, `tag`, graft and use cost, `bonded`, `vector`, `pending` |
+| `progression.gd` `Progression` | The run record (`soldier_record.prog`), ranks, perk offers, grafts, Serum, reward cards, tag counts, unlocks, `prog_*` run actions |
+| `kit.gd` `Kit` | In-mission hooks for passives, perks and mutation passives (one-line calls from Rules, Combat, Infection, EnemyAI) |
+| `mutations.gd` `Mutations` | Active mutations: list, validate, apply (Infection delegates its mutation API here) |
+| `class_abilities.gd` `ClassAbilities` | Incinerate, Siphon, Purge, Decon Shower, Squad Leader's order, Talk Down, Serum (Combat delegates ids it doesn't know) |
+| `zones.gd` `Zones` | Spore Burst clouds and Overgrowth walls in `GameState.zones` (Incinerate fire and Overgrowth spores are `Hazards`) |
+| `pick_screen.gd` | Rank-up perk picks and mutation offers (`Progression.pick_screen()`, hosted in the reward screen) |
+
+**Unit status keys** (stamped by `Progression.apply_record`): `perks` (Array), `mutations` ({slot: id}), `rank`,
+`bond` (`{"id", "partner"}` unit id or `"partner_sid"`), `inoculated` (half Infection gain), `cured` (a mid-fight Serum
+happened; `after_fight` wipes the record's mutations), `serum` (full cures this soldier can give mid-fight; whoever owns
+Serum stock sets it). Kit's own bookkeeping keys start with `k_`.
+
+**Rules of the system.**
+- Rank 1-5; `after_fight(prog, unit, fight_number)` ranks up after run fights 1, 3, 5, 7 and queues a pick. Each rank is
+  +1 max HP (`Progression.max_hp`). A perk offer is 3 from the class pool minus owned, rares from Rank 4, deterministic
+  from `run.seed`, the soldier id and `picks_taken` (`Progression.perk_offer(run, record)`), so no offer state is stored.
+- A mutation is awake while `Infection.tier(unit.infection) >= MutationData.awake_at(id)`; dormant ones do nothing and
+  count for no tags. Graft adds +10/+15/+20 Infection to the soldier record (capped at 99 between fights); actives cost
+  5/10/15 per use, modified by Sealed Suit (+5), Willing Host and Apex (-5 each, minimum 5) and Patient Zero (0).
+- Modifiers ignore Infection added before turn 1 (`s.turn == 0`), so restoring carried Infection is exact.
+- Serum: `Progression.full_cure(record)` between fights (or the `prog_serum` action for 4 of the player's samples);
+  the `serum` ability mid-fight (adjacent ally, 2 actions). Both wipe every mutation and leave the soldier Inoculated
+  (half Infection gain) for 2 fights.
+- Tag counts for GearTags: `Progression.tag_counts(record)` / `unit_tag_counts(unit)` (perk tags + awake mutation tags,
+  +1 Strain per awake mutation; only tags above 0; names are `Progression.TAGS`).
+- Reward cards for GearRun: `perk_card(rng, record)`, `mutation_card(rng, record)`, `apply_card(record, card)`;
+  nests: `queue_nest_offer(run, record)` (picked with `prog_graft`, may hold a Bonded card with a partner).
+- NodeRules hooks: `grant_random_mutation(run, record)`, `mutations_of(record)`, `remove_mutation(record, id)`,
+  `grant_perk_pick(run, record)`, `mutation_name(id)`, `full_cure(record)`.
+- Unlocks: `unlocked_classes(meta)` (base 4, `hazmat` with `act1_boss_beaten`, `vector` with `vector_unlocked`);
+  `on_fight_end(run, outcome)` sets `vector_unlocked` when a won fight ends with a Mutating+ soldier who didn't Turn.
+
+Run actions (`prog_*`, need `player` = the soldier's controller, not during a fight): `prog_perk_pick` {`sid`, `perk`},
+`prog_graft` {`sid`, `mutation`, `partner` for Bonded}, `prog_skip_offer` {`sid`}, `prog_serum` {`sid`}.
+Run events: `perk_pick` (`sid`, `perk`), `graft` (`sid`, `mutation`), `cured` (`sid`), `class_unlocked` (`kind`).
+
+**Simplifications vs the doc** (worth a later pass): Hive Hush
+only stops dormant Infected spotting you beyond 4 tiles; Lure Scent's aim bonus applies to reaction shots at enemies
+within 6 tiles of you; Hollow Voice makes the target attack its nearest ally now and skip its next turn; Rampage moves
+without triggering overwatch; Overgrowth turns empty cells into walls (the view doesn't draw zones yet); Firewall
+is just the line shape (the AI already avoids fire through Hazards). Spore Sense is live through `Vision.sense_radius`
+(and its double spore Infection in `Hazards`).
 
 ## Equipment (gear/)
 
@@ -181,7 +242,7 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   `burn_source`, `gear_fire_mobility`. Fire from gear (Thermite line, Igniter barrel, Burn set spread)
   goes through `GearFx.set_fire` -> `Hazards.add(..., "fire", turns, unit.id)`, and `Hazards._hit` asks
   `GearFx.hazard_hit` (Flame-retardant coat, Filter mask, Scorched earth, Spotter flare). Sentry turret
-  spawns a Deployables turret. `GearFx.PENDING` lists items whose systems don't exist yet (fog of war,
+  spawns a Deployables turret. `GearFx.PENDING` lists items whose systems don't exist yet (
   restraint, mutation costs); they stay out of draws until they work.
 - **Gear max HP** (Kevlar vest etc.): `Loadout.equip / unequip / upgrade` move the run record's
   `max_hp` and `hp` by the change, so the record always holds HP including gear.
@@ -260,11 +321,12 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 - **Determinism**: its own RNG seeded from the spec (never `state.rng`), so every peer generates the
   same map from the `MatchConfig` the host broadcasts. A resync snapshot also carries the grid.
 - **Content**: `maps/biome_<name>.txt` holds the parcels and plots; its header documents the format.
-  Add parcels there to add variety, no code needed. Sizes: 12x12 (skirmish, elite), 14x14 with
-  1-tile lanes (hold, rescue, purge), 12x16 (extract), 16x16 (boss).
+  Add parcels there to add variety, no code needed. Sizes: 16x16 or 19x19 (skirmish), 16x16 (elite),
+  19x19 with 1-tile lanes (hold, rescue, purge), 16x20 (extract), 20x20 (boss). Most plots have 2-3
+  `T` tower slots (high ground parcels).
 - **Checks** (`_validate`, rerolled up to 30 times, then `maps/mission_01.txt`): every spawn and
-  marker reachable from the drop zone, sealed pockets walled in, each pod's nearest cell 6 to 16 steps
-  out, evac 9+ and other objectives 5+ steps out, nests 5+ apart, the cordon wall keeps 2+ gaps,
+  marker reachable from the drop zone, sealed pockets walled in, each pod's nearest cell 6 to 20 steps
+  out, evac 12+ and other objectives 5+ steps out, nests 5+ apart, the cordon wall keeps 2+ gaps,
   cover density in band. Fix-up passes add half cover to dead ground and full cover to long open
   sightlines without ever sealing a path. `tests/test_mapgen.gd` asserts no fallback across seeds;
   `godot --headless -s tests/dump_maps.gd -- all 300` prints maps and the fallback rate.
@@ -283,6 +345,104 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 
 The view paints `evac` and `beacon` zones on the floor (`Board._build_zones`). For a look at a
 generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --screenshot-action=overview --screenshot=x.png`.
+
+## High ground (elevation/)
+
+One raised level. Data on the `Grid`: `level(c) -> int` (0 ground, 1 raised), `is_ladder(c)`,
+`has_levels()`, serialized in `to_dict`. Parcels mark it with `^` (raised floor), `%` (low cover on
+a roof) and `/` (ladder: a ground cell that climbs to the raised cell beside it).
+
+- **Movement** (`Grid._can_step`): a step between levels needs a ladder at one end and must be
+  straight, not diagonal; diagonals can't cut round a ledge corner. `reachable` and `find_path` take
+  `ignore_levels := true` for leapers and flyers.
+- **Shooting** (`Combat.hit_chance` calls `Elevation`): from higher ground +10 aim ("High ground" in
+  the breakdown) and the target's cover counts one step lower (full to half, half to none). Shooting
+  up at a higher target, it has at least half cover. Height never makes a shot a flank (no flank
+  crit). Line of sight by height is in `Combat.can_see` (see Fog of war). `Elevation.height(s, u)` is the cell's level, or 1 for status `flying`.
+- **Changing levels** in a fight: `Elevation.set_level(s, cell, n)` only (emits `level_changed`,
+  drops ladders that join nothing; units on the cell stay and stand at the new level).
+  `Grid.set_level` is the raw write for map building. `Elevation.is_ledge(grid, c)`: a raised cell
+  beside lower walkable ground.
+- **View**: `Board.cell_to_world` lifts raised cells by `Board.RAISE`, so units, props and overlays
+  sit on roofs; roofs are steel decks with amber lips, ladders are drawn on their climb side, and
+  mouse picking tries the roof plane first.
+
+## Objectives (objectives/)
+
+The objective comes with the map: `grid.objective` (set by MapGen, saved with the grid). Progress is
+`GameState.objective` (saved in `to_dict`). A fight ends the moment its objective is met.
+
+| objective | win | loss (besides a squad wipe) |
+|---|---|---|
+| skirmish, elite, boss | every enemy dead | |
+| extract | every living soldier on `evac` at the end of a squad turn | after turn 7 soldiers off the pad die (`left_behind`); defeat if none made it |
+| hold | 4 rounds survived (`held`) | end of a round with enemies and no soldier in `beacon` |
+| rescue | every living civilian on `exit` (kills win only once no civilian is alive) | |
+| purge | no living unit of kind `spore_nest` (or every enemy dead) | |
+
+- **Hooks**: `Objectives.setup(s)` at the end of `Rules.new_mission_on_grid`; `on_team_phase_end`
+  (after hazards, from `Rules.set_ready`) and `on_enemy_phase_end` (after hazards); `Rules.check_end`
+  uses `Objectives.check(s)` after the squad-wiped test. Squad = `Objectives.soldiers(s)` (no
+  deployables, no civilians). Tests fake a win with `s.objective.result = Types.Result.VICTORY`.
+- **Civilians** (rescue): player-team units with `status.civilian`, `owner_player = -1`, not
+  `ai_controlled`; at each squad turn's end they make one MOVE toward the nearest soldier (overwatch
+  and hazards apply), and step onto the exit when a soldier is within 3 tiles. Enemies target them.
+- **Bonus** (`Objectives.bonus_met(s)`, used by `RunRules.fight_outcome`): extract nobody left
+  behind; hold the beacon never contested; rescue every civilian saved; skirmish / elite / purge
+  won by the end of turn 5; boss none.
+- **HUD**: `Objectives.describe(s)` is the objective line under the turn banner.
+
+## Fog of war (vision/)
+
+Owned by the fog of war workstream. `Vision` is pure rules like `Combat`; the view only reads it.
+
+- **Shared squad vision**: a cell is visible when any living squad unit (soldiers and deployables, not
+  Lapsed soldiers) is within its sight radius and `Combat.can_see` it. Sight: soldiers 8, Marksman 10,
+  turret 6, enemies 8 (`Vision.KIND_SIGHT`), +2 on high ground (`Elevation.height` > 0), plus
+  `status["sight_bonus"]` for perks or gear. Queries: `sight(s, u)`, `cell_visible(s, team, c)` (cheap),
+  `sees_unit(s, team, t)`, `visible_cells(s)`, `fog_grid(s)` (per cell `UNEXPLORED`/`EXPLORED`/`VISIBLE`),
+  `is_explored`, `visible_enemies`. `Vision.disable(s)` turns fog off for a fight (other modules' tests).
+- **Line of sight by height** (`Combat.can_see`): between two ground-level cells a raised cell blocks
+  like a wall; if either end is high (raised cell, or a flying unit on it) roofs don't block.
+- **Shooting**: squad units can only target enemies the squad sees (`Combat.visible_targets` adds
+  `Combat.in_squad_sight`), still within their own line of sight and weapon range (14): spotting for
+  each other matters. Suppress, Tag and Breach need it too. `Combat.shot_targets(s, u)` adds Smart-link
+  shots; the HUD and input use it. **Enemy targeting and activation are unchanged** (fog is the
+  players' information problem; the AI keeps its own rules, which keeps the roster's balance).
+- **Hidden enemies** act exactly as before. Their intents and danger tiles are hidden
+  (`EnemyIntent` filters by `Vision`; telegraphed strikes and Burrower eruptions still show), and
+  hidden Lurkers only show their ripple inside vision (`EnemyIntent.ripples`). `status["hidden"]`
+  units (Lurker, burrowed Burrower) are never seen and never trigger overwatch.
+- **Firing gives you away**: an attacker (SHOOT or a unit ability at a hostile, the cell attacks in
+  `Rules.EXPOSING_CELL_ABILITIES`, or any damage through `Rules.deal_damage`) is exposed for 2
+  half-turns (`Vision.expose`): an enemy that shoots from the dark stays visible through the next
+  squad phase and can be shot back.
+- **Overwatch** covers the watcher's own sight radius (+ Rangefinder 2/3), not the squad's
+  (`Vision.overwatch_sees`); Twin Sight (`Kit.shared_sight`) adds the partner's vision.
+- **State** `GameState.vision` (saved, resynced, checksummed): `explored` (PackedByteArray),
+  `exposed` {id: phase index}, `last_seen` {id: cell}, `blips` {id: {cell, until}}, `reveals`
+  [{cell, radius, until}]. `Rules` calls `Vision.refresh` after every action, at team-phase start
+  (before the `team_phase` event, so run snapshots carry it) and after each enemy's turn, and
+  `Vision.on_step` for every step of a move (soldiers explore as they walk).
+- **Senses**: Spore Sense (awake mutation, or `status["sense_radius"]`) senses infected enemies within
+  6 tiles through walls: `Vision.sensed(s)`, drawn as see-through ghosts with intents, not targetable.
+  Motion tracker: an enemy moving within 8/12 tiles in the enemy phase leaves a blip until the end of
+  the next squad phase (`Vision.blips`). Recon drone (pocket, range 10, no line of sight needed):
+  `Vision.add_reveal(s, cell, 6)` shows that radius from above for the fight. `Vision.last_seen(s)`:
+  where enemies out of sight were last seen.
+- **Online: full state, fog drawn view-side.** Every peer runs the same `Rules.apply` on the same
+  actions (lockstep, checksums, snapshot resync), so every peer must hold the whole state, and vision is
+  computed from it identically. Filtering would mean replacing lockstep with host-sent state diffs. The
+  game is co-op, so nobody has an opponent to cheat against; a client reading memory only spoils
+  their own game.
+- **View** (`view/fog_overlay.gd`): a full-screen pass rebuilds world position from depth and darkens
+  by a one-texel-per-cell fog texture (visible clear, explored dim and desaturated, unexplored near
+  black with drifting haze), cross-fading as soldiers move. `MissionView._on_state_event` tags each
+  event with what the squad saw at that moment (`FogOverlay.annotate`: `_unseen`, `_sensed`, `_fog`,
+  `_seen` per path cell of an enemy move, `_hidden`); the event player applies it as the beat plays,
+  so enemies appear and vanish mid-walk, unseen enemies' beats and log lines are skipped, and hidden
+  views can't be hovered (`unit_view_at`). `IntentOverlay` draws last-seen "?" markers and blips.
+- Dev aid: `-- --screenshot-action=scout` (a soldier walks out, leaving explored fog behind).
 
 ## Tile hazards (hazards/)
 

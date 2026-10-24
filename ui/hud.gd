@@ -209,6 +209,7 @@ func refresh() -> void:
 	_set_chip(_phase_enemy, Styles.DANGER, enemy and not over)
 	var hostiles := s.living(Types.Team.ENEMY).size()
 	_hostiles.text = "%d hostile%s" % [hostiles, "" if hostiles == 1 else "s"]
+	_objective.text = Objectives.describe(s)
 	_session_label.text = view.session.status_text()
 	var sel := view.input.selected_id if view.input != null else -1
 	roster.refresh(view, sel, can_act)
