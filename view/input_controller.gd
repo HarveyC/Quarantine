@@ -359,7 +359,10 @@ func _action_input(e: InputEvent) -> void:
 		elif can_act():
 			cycle(dir)
 	elif e.is_action_pressed("cancel"):
-		cancel()
+		if mode == Mode.MOVE and selected_id < 0:
+			view.toggle_pause()
+		else:
+			cancel()
 	elif e.is_action_pressed("confirm"):
 		if mode == Mode.SHOOT:
 			confirm_shot()
