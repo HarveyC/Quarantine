@@ -16,6 +16,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `combat/` | `Combat` | **combat** | LOS, cover, hit chance, shoot, overwatch, hunker, class abilities |
 | `infection/` | `Infection` | **infection** | Meter, tiers, mutation powers, Lapse rolls, Turning, cure |
 | `ai/` | `EnemyAI` | **ai** | Enemy and Lapsed-soldier decisions |
+| `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
 | `tests/` | `TestCase` | everyone | `tests/test_<module>.gd` per workstream |
@@ -236,6 +237,42 @@ Node events (`run.event`): `event_start` (`event`, `subject`), `event_step` (`ev
 Screens (`ui/nodes/`, look from the approved mockups via `NodeUi`) extend `node_screen.gd`: they
 rebuild from `run.node_state` after each run event and send input with `session.submit_run`. Every
 button's enabled state comes from `NodeRules.validate`, so the screen and the rules can't disagree.
+
+## Tactical map generator (mapgen/)
+
+`MapGen.generate(spec) -> Grid` builds a fight's map XCOM 2-style: a **plot** (a whole-map layout
+of slots) is filled with hand-made 4x4 **parcels**, each rotated or mirrored, then checked and
+rerolled until it passes. Design rules are in the design doc's "Tactical maps" section.
+
+- **Input**: `spec = {"biome", "objective", "seed"}` (other keys ignored). Biome "wall" (act 1) has
+  parcels; "port" and "bore" fall back to it until `maps/biome_port.txt` / `biome_bore.txt` exist.
+  Objective is skirmish / extract / hold / rescue / purge / elite / boss; unknown ones use skirmish.
+- **Determinism**: its own RNG seeded from the spec (never `state.rng`), so every peer generates the
+  same map from the `MatchConfig` the host broadcasts. A resync snapshot also carries the grid.
+- **Content**: `maps/biome_<name>.txt` holds the parcels and plots; its header documents the format.
+  Add parcels there to add variety, no code needed. Sizes: 12x12 (skirmish, elite), 14x14 with
+  1-tile lanes (hold, rescue, purge), 12x16 (extract), 16x16 (boss).
+- **Checks** (`_validate`, rerolled up to 30 times, then `maps/mission_01.txt`): every spawn and
+  marker reachable from the drop zone, sealed pockets walled in, each pod's nearest cell 6 to 16 steps
+  out, evac 9+ and other objectives 5+ steps out, nests 5+ apart, the cordon wall keeps 2+ gaps,
+  cover density in band. Fix-up passes add half cover to dead ground and full cover to long open
+  sightlines without ever sealing a path. `tests/test_mapgen.gd` asserts no fallback across seeds;
+  `godot --headless -s tests/dump_maps.gd -- all 300` prints maps and the fallback rate.
+- **Output** (`Grid`): `player_spawns` (4+ deploy cells, row-major), `enemy_spawns` (8+ cells,
+  round-robin across pods so the first N spread out), `biome`, and `markers` (`grid.marker(key)`):
+
+| marker | cells |
+|---|---|
+| `evac` | extract: 2x2 evac zone |
+| `beacon` | hold: 3x3 beacon zone |
+| `civilian` | rescue: 1-2 civilian start cells; `exit` = the deploy cells |
+| `nest` | purge: 3 nest cells |
+| `hive` | 1 cell: the elite parcel's Hive spot, else the open cell farthest from deploy (every map) |
+| `boss` | boss: the centre cell, with open ground 2 tiles around it |
+| `reinforce` | 4-6 edge cells 6+ steps from deploy: behind the squad (extract), side edges (hold), near civilians (rescue), far edge otherwise |
+
+The view paints `evac` and `beacon` zones on the floor (`Board._build_zones`). For a look at a
+generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --screenshot-action=overview --screenshot=x.png`.
 
 ## View presentation (cinematics, animation, sound)
 

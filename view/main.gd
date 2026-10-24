@@ -55,14 +55,17 @@ func _ready() -> void:
 			screenshot_path = arg.trim_prefix("--screenshot=")
 	if auto_start:
 		var seed := 0
+		var objective := ""
 		for arg in OS.get_cmdline_user_args():
 			if arg.begins_with("--seed="):
 				seed = int(arg.trim_prefix("--seed="))
+			elif arg.begins_with("--objective="):   # dev aid: a generated act 1 map of this fight type
+				objective = arg.trim_prefix("--objective=")
 		var fight := ""
 		for arg in OS.get_cmdline_user_args():
 			if arg.begins_with("--fight="):
 				fight = arg.trim_prefix("--fight=")
-		start(fight_mission(fight, seed) if fight != "" else default_mission(seed))
+		start(fight_mission(fight, seed) if fight != "" else default_mission(seed, objective))
 
 
 func _exit_tree() -> void:
@@ -70,12 +73,15 @@ func _exit_tree() -> void:
 		session.free()
 
 
-static func default_mission(seed: int = 0) -> GameState:
+static func default_mission(seed: int = 0, objective: String = "") -> GameState:
 	var squad := [
 		{"kind": "trooper", "player": 0}, {"kind": "marksman", "player": 0},
 		{"kind": "medic", "player": 1}, {"kind": "breacher", "player": 1},
 	]
 	var enemies: Array[String] = ["runner", "runner", "spitter", "runner", "spitter"]
+	if objective != "":
+		var grid := MapGen.generate({"biome": "wall", "objective": objective, "seed": seed})
+		return Rules.new_mission_on_grid(grid, squad, enemies, seed)
 	return Rules.new_mission(MAP, squad, enemies, seed)
 
 
@@ -317,7 +323,7 @@ func _process(_delta: float) -> void:
 		_screenshot_step()
 
 
-## Dev aid: `--screenshot-action=shoot|fire|ready` sets up a scene before the capture;
+## Dev aid: `--screenshot-action=shoot|fire|ready|overview` sets up a scene before the capture;
 ## `--screenshot-frame=N` picks the frame (default 150). With Godot's `--write-movie`
 ## and `--fixed-fps`, `fire` records a whole shot cinematic.
 func _screenshot_step() -> void:
@@ -327,7 +333,10 @@ func _screenshot_step() -> void:
 	for a in args:
 		if a.begins_with("--screenshot-frame="):
 			shot_frame = int(a.trim_prefix("--screenshot-frame="))
-	if _frames == 60:
+	if _frames == 60 and args.has("--screenshot-action=overview"):   # whole map from high up
+		camera_rig._target_dist = CameraRig.MAX_DIST
+		camera_rig.focus(board.center())
+	elif _frames == 60:
 		input.cycle()
 	elif _frames == 70 and (args.has("--screenshot-action=shoot") or args.has("--screenshot-action=fire")):
 		input.trigger("shoot")

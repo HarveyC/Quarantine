@@ -19,7 +19,10 @@ static func make(num_players: int, seed: int = 0) -> Dictionary:
 	var squad: Array = []
 	for i in CLASSES.size():
 		squad.append({"kind": CLASSES[i], "player": i * n / CLASSES.size()})
-	return {"map": MAP, "squad": squad, "enemies": ENEMIES.duplicate(), "seed": seed if seed != 0 else randi() % 1000000 + 1}
+	var s := seed if seed != 0 else randi() % 1000000 + 1
+	# Quick matches outside a run roll an act 1 skirmish layout from their seed.
+	return {"map": MAP, "squad": squad, "enemies": ENEMIES.duplicate(), "seed": s,
+		"map_spec": {"biome": "wall", "objective": "skirmish", "seed": s}}
 
 
 ## The mission for a fight step of a run. `st` is {"kind", "objective", "seed"} from RunRules.

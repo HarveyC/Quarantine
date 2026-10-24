@@ -275,3 +275,14 @@ func test_field_rations_and_hazard_pay() -> void:
 	run.gear.doctrine_vote = {"options": ["field_rations"], "votes": {}}
 	GearRun.apply(run, {"type": "gear_doctrine", "player": -1, "doctrine": "field_rations"})
 	assert_eq(run.modifiers.heal_after_fight, GearRun.FIELD_RATIONS_HEAL, "rations")
+
+
+func test_autoplay_actions_settle_rewards() -> void:
+	GearTags.set_progression(null)
+	var run := RunRules.new_run(2, 99)
+	RunRules.start_run(run)
+	run.phase = RunState.Phase.REWARD
+	GearRun.on_fight_won(run, "boss")
+	for a in GearRun.autoplay_actions(run):
+		assert_true(RunRules.apply(run, a), "autoplay action %s" % str(a))
+	assert_true(not GearRun.has_pending(run), "nothing left pending")

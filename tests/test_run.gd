@@ -240,3 +240,28 @@ func test_persistent_state_reaches_the_mission() -> void:
 	assert_eq(u.hp, 2, "HP carries over")
 	assert_eq(u.infection, 30, "Infection carries over")
 	assert_eq(Infection.tier(u.infection), Infection.Tier.EXPOSED, "tier applied")
+
+
+func test_bridge_removes_a_column_and_keeps_the_map_connected() -> void:
+	for seed in 30:
+		var run := RunRules.new_run(1, seed + 500)
+		RunRules.start_run(run)
+		var start := run.reachable_nodes()[0]
+		run.node = start
+		run.row = 1
+		var before := run.map.size()
+		RunMap.remove_column(run.map, 1)
+		assert_true(run.map.size() < before, "nodes removed")
+		var ids := {}
+		for n in run.map:
+			ids[n.id] = true
+		var incoming := {}
+		for n in run.map:
+			for id in n.links:
+				assert_true(ids.has(id), "no link to a removed node")
+				incoming[id] = true
+			if n.row < 5:
+				assert_true(not n.links.is_empty(), "every node leads on")
+		for n in run.map:
+			if n.row > 2:
+				assert_true(incoming.has(n.id), "every later node is reachable")
