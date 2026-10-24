@@ -1,6 +1,6 @@
 extends Control
 ## Standalone preview of the gear screens on a seeded solo run, without playing the map:
-##   godot res://scenes/gear_demo.tscn -- [--screen=reward|guns|loadout|doctrine|kit] [--shot=out.png]
+##   godot res://scenes/gear_demo.tscn -- [--screen=reward|guns|loadout|doctrine|kit] [--tab=N] [--shot=out.png]
 
 const UI := preload("res://ui/gear/gear_ui.gd")
 
@@ -29,6 +29,13 @@ func _ready() -> void:
 	if screen == "loadout" and _preview != "":
 		ctl._held = Loadout.stash(run).find_custom(func(it): return it.id == _preview)
 		ctl._set_preview(_preview)
+	if screen == "kit":
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--tab="):   # open on another soldier's orders
+				ctl._sid = run.squad()[int(a.trim_prefix("--tab="))].id
+				ctl._refresh()
+		if _shot != "":
+			ctl.call_deferred("_select", 1)
 	if screen == "reward" or screen == "guns":
 		ctl._sid = run.squad()[1].id   # open on the Marksman, whose offer shows each card state
 		ctl._refresh()

@@ -1,5 +1,6 @@
 extends PanelContainer
-## One reward card (gear, Prototype, alternate gun, perk, mutation, consumable or cache). Shows the slot,
+## One reward card (gear, Prototype, alternate gun, perk, mutation, consumable, cache, or a
+## run-start deployment order bundling several of those). Shows the slot,
 ## rarity and Mk, the tags, the effect, the threshold preview (a tag about to reach 3 glows
 ## gold with the bonus it switches on), and what it replaces. Hover lifts it; selected cards
 ## get an amber frame; Prototypes get a shifting multicolour frame.
@@ -40,6 +41,7 @@ func setup(c: Dictionary, rec: Dictionary, index: int) -> void:
 		"perk", "mutation": _build_power(v)
 		"consumable": _build_consumable(v)
 		"cache": _build_cache(v)
+		"order": _build_order(v)
 	var art := Art.new()
 	art.kind = _art_kind()
 	art.color = _art_color()
@@ -242,6 +244,73 @@ func _build_cache(v: VBoxContainer) -> void:
 	v.add_child(Tips.term(UI.label("Supplies to the squad, for the depot and the hospital.", 15, UI.COPY), "supplies"))
 
 
+## Deployment order: insignia, what's in the bundle (one row per item), and the Infection the
+## soldier deploys at on a tier bar.
+func _build_order(v: VBoxContainer) -> void:
+	var inf := int(card.get("infection", 0))
+	var risk := UI.caps("+%d Infection" % inf if inf > 0 else "Deploys clean", 13, UI.TEAL if inf > 0 else UI.GOOD)
+	_row(v, UI.label("ORDER", 12, UI.FAINT, "mono"), risk)
+	v.add_child(UI.wrap(UI.caps(str(card.get("name", "")), 34), W - 40))
+	v.add_child(UI.wrap(UI.label(str(card.get("desc", "")), 15, UI.COPY), W - 40))
+	_art_at = v.get_child_count()
+	for c in card.get("contents", []):
+		v.add_child(_content_row(c))
+	v.add_child(InfectionBar.new(inf))
+
+
+## One line of an order's bundle: a rarity stripe, what it is and its tags.
+func _content_row(c: Dictionary) -> Control:
+	var kind := str(c.get("kind", "gear"))
+	var col := UI.TEAL if kind == "mutation" else UI.rarity_color(str(c.get("rarity", "common")))
+	var nm := ""
+	var what := ""
+	var desc := ""
+	var tags: Array = []
+	match kind:
+		"gear":
+			var item := GearData.get_item(c.id)
+			nm = item.name
+			what = "%s · %s" % [GearData.RARITY_NAMES[item.rarity], GearData.SLOT_NAMES[item.slot]]
+			desc = GearData.desc(c.id, 2 if item.rarity == "prototype" else 1)
+			tags = item.tags
+		"gun":
+			var g := Weapons.get_gun(c.id)
+			col = UI.rarity_color(g.rarity)
+			nm = g.name
+			what = "%s · Gun" % GearData.RARITY_NAMES[g.rarity]
+			desc = g.desc
+			tags = [g.tag]
+		"mutation":
+			nm = str(c.get("name", c.id))
+			what = "Mutation · %s" % Infection.tier_name(int(c.get("tier", 1)))
+			desc = str(c.get("desc", ""))
+			tags = [GearTags.normalize(str(c.get("tag", "")))]
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", UI.box(Color(col, 0.07), Color(col, 0.55), 1, 0, 8))
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	var stripe := ColorRect.new()
+	stripe.color = col
+	stripe.custom_minimum_size = Vector2(3, 0)
+	h.add_child(stripe)
+	var col_box := VBoxContainer.new()
+	col_box.add_theme_constant_override("separation", 3)
+	col_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col_box.add_child(UI.caps(what, 11, col))
+	col_box.add_child(UI.wrap(UI.caps(nm, 19), W - 80))
+	var chips := HBoxContainer.new()
+	chips.add_theme_constant_override("separation", 4)
+	for t in tags:
+		if str(t) != "":
+			chips.add_child(UI.tag_chip(str(t)))
+	if chips.get_child_count() > 0:
+		col_box.add_child(chips)
+	col_box.add_child(UI.wrap(UI.label(desc, 13, UI.COPY), W - 80))
+	h.add_child(col_box)
+	p.add_child(h)
+	return p
+
+
 func _boxed(v: VBoxContainer, col: Color) -> VBoxContainer:
 	var p := PanelContainer.new()
 	var sb := UI.box(Color(col, 0.07), col, 1, 0, 10)
@@ -264,6 +333,8 @@ func title() -> String:
 			return Weapons.gun_name(card.id)
 		"cache":
 			return "+%d Supplies" % int(card.get("supplies", 25))
+		"order":
+			return str(card.get("name", "order"))
 	return str(card.get("name", card.get("id", "card")))
 
 
@@ -286,6 +357,8 @@ func _art_color() -> Color:
 			return UI.GOOD
 		"cache":
 			return UI.AMBER
+		"order":
+			return UI.TEAL if int(card.get("infection", 0)) > 0 else UI.AMBER
 	return UI.DIM
 
 
@@ -353,7 +426,57 @@ class Art:
 					c + Vector2(-1.9, 0.15) * u, c + Vector2(-3.4, 0.7) * u, c + Vector2(-3.4, -0.3) * u]), color, w, true)
 				draw_line(c + Vector2(2.6, -0.1) * u, c + Vector2(3.6, -0.1) * u, color, w, true)
 				draw_rect(Rect2(c + Vector2(0.2, 0.15) * u, Vector2(0.45, 0.9) * u), color, false, w)
+			"order":
+				# Drop insignia: a ring with a descending chevron stack.
+				draw_arc(c, s, 0, TAU, 48, color, w, true)
+				for i in 3:
+					var yy := c.y - s * 0.5 + i * s * 0.38
+					draw_polyline(PackedVector2Array([Vector2(c.x - s * 0.55, yy), Vector2(c.x, yy + s * 0.32), Vector2(c.x + s * 0.55, yy)]), color, w, true)
 			"cache":
 				draw_rect(Rect2(c - Vector2(s, s * 0.7), Vector2(s * 2, s * 1.4)), color, false, w)
 				draw_line(c + Vector2(-s, -s * 0.2), c + Vector2(s, -s * 0.2), color, w, true)
 				draw_rect(Rect2(c + Vector2(-s * 0.2, -s * 0.35), Vector2(s * 0.4, s * 0.3)), color, false, w)
+
+
+## Where an order leaves the soldier's Infection: a 0-100 bar with the tier marks, teal fill to
+## the starting value, and a caption with the tier.
+class InfectionBar:
+	extends VBoxContainer
+
+	var value := 0
+
+	func _init(v: int) -> void:
+		value = v
+		add_theme_constant_override("separation", 4)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var head := HBoxContainer.new()
+		var lbl := UI.label("STARTING INFECTION", 11, UI.FAINT, "mono")
+		head.add_child(lbl)
+		var sp := Control.new()
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(sp)
+		var t := Infection.tier(value)
+		var txt := "%d · %s" % [value, Infection.tier_name(t)]
+		head.add_child(UI.mono(txt, 13, UI.TEAL if value > 0 else UI.DIM))
+		Tips.term(head, "infection")
+		add_child(head)
+		var bar := Bar.new()
+		bar.value = value
+		bar.custom_minimum_size = Vector2(0, 10)
+		add_child(bar)
+
+
+	class Bar:
+		extends Control
+
+		var value := 0
+
+		func _draw() -> void:
+			var r := Rect2(Vector2.ZERO, size)
+			draw_rect(r, Color(1, 1, 1, 0.04))
+			if value > 0:
+				draw_rect(Rect2(Vector2.ZERO, Vector2(size.x * value / float(Infection.MAX), size.y)), UI.TEAL)
+			for th in [Infection.EXPOSED_AT, Infection.MUTATING_AT, Infection.CRITICAL_AT]:
+				var x: float = size.x * th / float(Infection.MAX)
+				draw_line(Vector2(x, -2), Vector2(x, size.y + 2), UI.BORDER_HI, 1.0)
+			draw_rect(r, UI.BORDER, false, 1.0)

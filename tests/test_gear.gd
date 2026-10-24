@@ -105,17 +105,53 @@ func test_progression_tags_add_on_top() -> void:
 	GearTags.set_progression(null)
 
 
-func test_starting_kit_has_three_tags_and_a_class_lane() -> void:
+func test_starting_kit_offers_deployment_orders() -> void:
 	var run := make_run()
 	GearRun.starting_kit_offers(run)
+	assert_eq(GearRun.reward_source(run), "kit", "source is the kit")
 	for r in run.soldiers:
 		var cards: Array = GearRun.offer_for(run, r.id).cards
-		assert_eq(cards.size(), 3, "three cards")
-		var tags := cards.map(func(c): return c.tags[0])
-		assert_eq(tags.size(), 3, "tags")
-		assert_true(tags[0] != tags[1] and tags[1] != tags[2] and tags[0] != tags[2], "different tags")
-		assert_true(cards.all(func(c): return c.rarity == "common"), "commons")
-		assert_true(tags.any(func(t): return GearData.CLASS_LANES[r.kind].has(t)), "a class lane")
+		assert_eq(cards.size(), 3, "three orders")
+		assert_true(cards.all(func(c): return c.kind == "order" and not c.contents.is_empty()), "filled orders")
+		var ids := cards.map(func(c): return c.id)
+		assert_eq(ids.size(), 3, "ids")
+		assert_true(ids[0] != ids[1] and ids[1] != ids[2] and ids[0] != ids[2], "different orders")
+		assert_true(not DeployOrders.is_risky(ids[0]), "first is clean")
+		assert_true(DeployOrders.is_risky(ids[1]), "second deploys infected")
+		for c in cards:
+			for item in c.contents:
+				if item.kind == "gear" and c.id != "prototype_trial":
+					assert_true(item.rarity != "common" or c.id == "quartermaster", "kit beats a post-fight Common")
+
+
+func test_deployment_orders_grant_bundle_and_infection() -> void:
+	var run := make_run()
+	var r: Dictionary = run.soldiers[0]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var qm := DeployOrders.build(rng, r, "quartermaster")
+	assert_eq(qm.contents.size(), 2, "two items")
+	assert_true(GearData.slot_of(qm.contents[0].id) != GearData.slot_of(qm.contents[1].id), "different slots")
+	assert_true(GearData.CLASS_LANES[r.kind].has(qm.contents[0].tags[0]), "first in a class lane")
+	var cache := DeployOrders.build(rng, r, "bloom_cache")
+	assert_eq(cache.contents[0].rarity, "rare", "a Rare")
+	GearRun.offers(run)[int(r.id)] = {"source": "kit", "cards": [qm, cache]}
+	assert_eq(GearRun.validate(run, {"type": "gear_pick", "player": 0, "soldier": r.id, "card": -1}), "Pick a deployment order", "no skipping orders")
+	assert_true(GearRun.apply(run, {"type": "gear_pick", "player": 0, "soldier": r.id, "card": 1}), "take the cache")
+	assert_true(Loadout.has_item(r, cache.contents[0].id), "Rare equipped")
+	assert_eq(int(r.infection), DeployOrders.ORDERS.bloom_cache.infection, "deploys infected")
+	var r2: Dictionary = run.soldiers[1]
+	GearRun.offers(run)[int(r2.id)] = {"source": "kit", "cards": [DeployOrders.build(rng, r2, "quartermaster")]}
+	assert_true(GearRun.apply(run, {"type": "gear_pick", "player": 0, "soldier": r2.id, "card": 0}), "take the pair")
+	assert_eq(Loadout.equipped(r2).size(), 2, "both items equipped")
+	assert_eq(int(r2.get("infection", 0)), 0, "clean")
+
+
+func test_field_kit_adds_a_fourth_order() -> void:
+	var run := make_run()
+	run.meta = {"packs": ["field_kit"]}
+	GearRun.starting_kit_offers(run)
+	assert_eq(GearRun.offer_for(run, run.soldiers[0].id).cards.size(), 4, "four orders")
 
 
 func test_reward_pick_skip_and_ownership() -> void:
@@ -253,7 +289,8 @@ func test_run_state_kit_rewards_and_doctrine_vote() -> void:
 		var rec := run.get_soldier(sid)
 		assert_true(RunRules.apply(run, {"type": "gear_pick", "player": rec.owner, "soldier": sid, "card": 0}), "kit pick")
 	assert_eq(run.phase, RunState.Phase.MAP, "run moves on once all picked")
-	assert_true(run.squad().all(func(x): return Loadout.equipped(x).size() == 1), "everyone has a starting item")
+	assert_true(run.squad().all(func(x): return Loadout.equipped(x).size() >= 1 or not Loadout.guns(x).is_empty()), "everyone deployed with their order")
+	assert_eq(GearRun.reward_source(run), "kit", "the kit is still the last source")
 	assert_eq(RunRules.validate(run, {"type": "gear_pick", "player": 0, "soldier": r.id, "card": 0}).is_empty(), false, "no picks on the map")
 	# A boss opens a Doctrine vote; a split goes to the host.
 	run.phase = RunState.Phase.REWARD
