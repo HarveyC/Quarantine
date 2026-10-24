@@ -23,8 +23,8 @@ const OBJECTIVE_ROLE := {"extract": "evac", "hold": "beacon", "rescue": "rescue"
 const ROLE_MARKER := {"evac": "evac", "beacon": "beacon", "rescue": "civilian", "nest": "nest", "hive": "hive"}
 
 # Validation bands (see the design doc, Tactical maps).
-const POD_STEPS := Vector2i(6, 16)        # walking distance from the drop zone: every pod cell >= x, each pod's nearest cell <= y
-const EVAC_MIN_STEPS := 9
+const POD_STEPS := Vector2i(6, 20)        # walking distance from the drop zone: every pod cell >= x, each pod's nearest cell <= y
+const EVAC_MIN_STEPS := 12
 const OBJECTIVE_MIN_STEPS := 5            # civilians, nests, hive
 const FULL_COVER := Vector2(0.04, 0.24)   # share of all tiles
 const HALF_COVER := Vector2(0.05, 0.22)
@@ -168,7 +168,8 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 	g.tiles.fill(Types.Tile.FLOOR)
 
 	var pools := {}
-	var slot_role := {"D": "deploy", "B": "breach", "E": "pod", "F": "filler", "O": OBJECTIVE_ROLE.get(objective, "filler")}
+	var slot_role := {"D": "deploy", "B": "breach", "E": "pod", "F": "filler", "T": "tower",
+		"O": OBJECTIVE_ROLE.get(objective, "filler")}
 	var deploy: Array[Vector2i] = []
 	var pods: Array = []                  # one Array[Vector2i] per pod parcel
 	var markers := {}
@@ -195,6 +196,13 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 						"#": t = Types.Tile.WALL
 						"=": t = Types.Tile.LOW
 						"?": t = Types.Tile.LOW if rng.randf() < 0.5 else Types.Tile.FLOOR
+						"^": g.set_level(c, 1)
+						"%":
+							t = Types.Tile.LOW
+							g.set_level(c, 1)
+						"/":
+							g.ladders[c] = true
+							reserved[c] = true
 						"P":
 							deploy.append(c)
 							reserved[c] = true
@@ -225,9 +233,19 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 			for x in range(centre.x - 2, centre.x + 3):
 				if g.in_bounds(Vector2i(x, y)):
 					g.tiles[y * g.width + x] = Types.Tile.FLOOR
+					g.set_level(Vector2i(x, y), 0)
+					g.ladders.erase(Vector2i(x, y))
 					reserved[Vector2i(x, y)] = true
 		markers.boss.append(centre)
 
+	# Roofs are laid out by hand and every ladder needs both ends clear: the fix-up passes leave them be.
+	for l in g.ladders:
+		for d in Grid.DIRS4:
+			reserved[l + d] = true
+	for y in g.height:
+		for x in g.width:
+			if g.level(Vector2i(x, y)) > 0:
+				reserved[Vector2i(x, y)] = true
 	deploy.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
 	if deploy.size() < 4 or pods.is_empty():
 		last_reject = "plot has no deploy or pods"
@@ -339,7 +357,7 @@ static func _fix_sightlines(g: Grid, reserved: Dictionary, rng: RandomNumberGene
 static func _block_sightline(g: Grid, run: Array[Vector2i], horizontal: bool, reserved: Dictionary, rng: RandomNumberGenerator) -> void:
 	var middle := run.slice(run.size() / 3, run.size() * 2 / 3 + 1)
 	var across: Vector2i = Vector2i(0, 1) if horizontal else Vector2i(1, 0)
-	var lows := middle.filter(func(c: Vector2i) -> bool: return g.tile(c) == Types.Tile.LOW)
+	var lows := middle.filter(func(c: Vector2i) -> bool: return g.tile(c) == Types.Tile.LOW and not reserved.has(c))
 	var floors := middle.filter(func(c: Vector2i) -> bool:
 		return g.tile(c) == Types.Tile.FLOOR and not reserved.has(c) \
 			and g.tile(c + across) != Types.Tile.WALL and g.tile(c - across) != Types.Tile.WALL)

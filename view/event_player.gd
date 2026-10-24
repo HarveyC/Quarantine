@@ -724,6 +724,17 @@ func _beat_hazard_tick(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.3}
 
 
+## A tile rose or collapsed (Elevation.set_level): redraw the props and re-seat anyone on it.
+func _beat_level_changed(ev: Dictionary) -> Dictionary:
+	view.board.rebuild_tiles()
+	for id in view.unit_views:
+		var uv: UnitView = view.unit_views[id]
+		if uv.cell == ev.get("cell"):
+			uv.set_cell(uv.cell)
+	view.fx.puff(Board.cell_to_world(ev.cell) + Vector3(0, 0.3, 0), Color(0.5, 0.48, 0.42), 0.8, 0.8, 0.5)
+	return {"dur": 0.3}
+
+
 func _beat_hazard_end(ev: Dictionary) -> Dictionary:
 	view.board.clear_hazard(ev.get("cells", []))
 	return {"dur": 0.0}

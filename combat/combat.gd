@@ -187,9 +187,13 @@ static func cover_against(g: Grid, target: Vector2i, from: Vector2i) -> int:
 ## chance that a hit is critical. `reaction` applies the overwatch penalty.
 static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2i = attacker.pos, reaction: bool = false) -> Dictionary:
 	var los := can_see(s, from, target.pos) or Kit.shared_sight(s, attacker, target.pos)
-	var cover := Kit.cover_against(s, attacker, target, cover_against(s.grid, target.pos, from))
-	var flanked := cover == Types.Cover.NONE
+	var flat_cover := Kit.cover_against(s, attacker, target, cover_against(s.grid, target.pos, from))
+	var cover := Elevation.adjust_cover(s, attacker, target, from, flat_cover)
+	var flanked := flat_cover == Types.Cover.NONE and cover == Types.Cover.NONE
 	var breakdown: Array = [["Aim", attacker.aim]]
+	var height_aim := Elevation.aim_mod(s, attacker, target, from)
+	if height_aim != 0:
+		breakdown.append(["High ground", height_aim])
 	if cover != Types.Cover.NONE and Infection.has_hive_sense(s, attacker):
 		breakdown.append(["Hive Sense (ignores cover)", 0])
 	elif cover != Types.Cover.NONE:
