@@ -101,7 +101,7 @@ func test_mission_starts_on_generated_map() -> void:
 	assert_true(config.has("map_spec"), "matches roll a layout")
 	var s := MatchConfig.build(config)
 	assert_eq(s.grid.to_dict(), MatchConfig.build(config).grid.to_dict(), "every peer builds the same map")
-	assert_eq(s.living(Types.Team.PLAYER).size(), 4, "squad deployed")
+	assert_eq(s.living(Types.Team.PLAYER).size(), 2, "one soldier per player deployed")
 	assert_eq(s.living(Types.Team.ENEMY).size(), config.enemies.size(), "enemies placed")
 	for u in s.units:
 		assert_true(s.grid.is_walkable(u.pos), "%s on floor" % u.kind)
