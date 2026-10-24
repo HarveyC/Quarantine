@@ -238,3 +238,40 @@ class FakeProgression:
 
 	func unit_tag_counts(_u) -> Dictionary:
 		return {}
+
+
+func test_run_state_kit_rewards_and_doctrine_vote() -> void:
+	GearTags.set_progression(null)
+	var run := RunRules.new_run(2, 321)
+	RunRules.start_run(run)
+	assert_eq(run.phase, RunState.Phase.REWARD, "starting kit waits in REWARD")
+	assert_true(GearRun.has_pending(run), "pending")
+	var r: Dictionary = run.soldiers_of(1)[0]
+	assert_eq(RunRules.validate(run, {"type": "gear_pick", "player": 0, "soldier": r.id, "card": 0}), "Not your soldier", "owner key")
+	for sid in run.gear.offers.keys():
+		var rec := run.get_soldier(sid)
+		assert_true(RunRules.apply(run, {"type": "gear_pick", "player": rec.owner, "soldier": sid, "card": 0}), "kit pick")
+	assert_eq(run.phase, RunState.Phase.MAP, "run moves on once all picked")
+	assert_true(run.squad().all(func(x): return Loadout.equipped(x).size() == 1), "everyone has a starting item")
+	assert_eq(RunRules.validate(run, {"type": "gear_pick", "player": 0, "soldier": r.id, "card": 0}).is_empty(), false, "no picks on the map")
+	# A boss opens a Doctrine vote; a split goes to the host.
+	run.phase = RunState.Phase.REWARD
+	GearRun.on_fight_won(run, "boss")
+	var v: Dictionary = GearRun.doctrine_vote(run)
+	assert_eq(v.options.size(), 3, "three Doctrines")
+	RunRules.apply(run, {"type": "gear_doctrine", "player": 1, "doctrine": v.options[1]})
+	assert_true(GearRun.has_pending(run), "waits for everyone")
+	RunRules.apply(run, {"type": "gear_doctrine", "player": 0, "doctrine": v.options[0]})
+	assert_eq(run.modifiers.doctrines, [v.options[0]], "host breaks the split")
+
+
+func test_field_rations_and_hazard_pay() -> void:
+	var run := make_run()
+	run["modifiers"] = {"doctrines": ["hazard_pay"]}
+	var before: int = run.supplies
+	GearRun.on_fight_won(run, "skirmish")
+	assert_eq(run.supplies, before + GearRun.HAZARD_PAY, "hazard pay")
+	run.gear.offers.clear()
+	run.gear.doctrine_vote = {"options": ["field_rations"], "votes": {}}
+	GearRun.apply(run, {"type": "gear_doctrine", "player": -1, "doctrine": "field_rations"})
+	assert_eq(run.modifiers.heal_after_fight, GearRun.FIELD_RATIONS_HEAL, "rations")

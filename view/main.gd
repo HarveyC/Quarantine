@@ -135,6 +135,7 @@ func start(s: GameState, begin := true) -> void:
 	player.drained.connect(_on_drained)
 	input.changed.connect(hud.refresh)
 	s.event.connect(player.enqueue)
+	face_threats(true)
 	if begin:
 		Rules.start_mission(s)
 
@@ -258,8 +259,33 @@ func unit_name(id: int) -> String:
 
 
 func _on_drained() -> void:
+	face_threats()
 	input.on_drained()
 	hud.refresh()
+
+
+## Idle facing: each unit turns toward its nearest hostile. Dormant enemies keep a
+## spread of their own headings until alerted. Worked out from the shared state, so
+## every peer shows the same facing.
+func face_threats(instant := false) -> void:
+	for u in state.living():
+		var uv := view_for(u.id)
+		if uv == null or uv.dead:
+			continue
+		if u.team == Types.Team.ENEMY and not EnemyAI.is_alerted(u) and not u.status.get("turned", false):
+			if instant:
+				uv.set_yaw(fposmod(u.id * 2.399, TAU))
+			continue
+		var best: Unit = null
+		var best_d := INF
+		for o in state.living():
+			if o != u and u.is_enemy_of(o):
+				var d := Vector2(o.pos - u.pos).length_squared()
+				if d < best_d:
+					best_d = d
+					best = o
+		if best != null:
+			uv.face_towards(Board.cell_to_world(best.pos), instant)
 
 
 # --- headless auto-play ------------------------------------------------------

@@ -188,3 +188,65 @@ func test_sound_files_exist() -> void:
 	for s in Sfx.SOUNDS:
 		assert_true(ResourceLoader.exists("res://audio/%s.wav" % s), "sound %s" % s)
 	assert_true(ResourceLoader.exists("res://audio/ambience.wav"), "ambience")
+
+
+func test_models_have_rig_joints() -> void:
+	var ModelKit := preload("res://view/model_kit.gd")
+	for kind in ModelKit.MODELS:
+		var m := ModelKit.instantiate(kind, kind not in ["runner", "spitter"])
+		for j in ["hips", "torso", "head", "leg_l", "leg_r", "knee_l", "knee_r", "arm_l", "arm_r", "elbow_l", "elbow_r", "muzzle"]:
+			assert_true(ModelKit.find(m, j) != null, "%s has joint %s" % [kind, j])
+		if kind not in ["runner", "spitter"]:
+			assert_true(ModelKit.find(m, "gun") != null and ModelKit.find(m, "support") != null, "%s has a weapon" % kind)
+			assert_eq(ModelKit.growths(m).size() >= 3, true, "%s has infection growths" % kind)
+		m.free()
+
+
+func test_infection_growths_follow_tier() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var uv := v.view_for(v.state.controllable_units(0)[0].id)
+	var shown := func() -> int:
+		var n := 0
+		for g in uv._growths:
+			if g[1].visible:
+				n = maxi(n, g[0])
+		return n
+	assert_eq(shown.call(), 0, "clean soldier shows no growths")
+	uv.set_infection(60, Infection.Tier.MUTATING)
+	assert_eq(shown.call(), 2, "mutating shows stage 2 growths")
+	uv.set_turned()
+	assert_eq(shown.call(), 3, "turned shows every growth")
+	v.free()
+
+
+func test_units_face_nearest_threat() -> void:
+	var v := _make_view()
+	v.player.flush()
+	for u in v.state.living(Types.Team.PLAYER):
+		var best: Unit = null
+		for e in v.state.living(Types.Team.ENEMY):
+			if best == null or Vector2(e.pos - u.pos).length_squared() < Vector2(best.pos - u.pos).length_squared():
+				best = e
+		var uv := v.view_for(u.id)
+		var to := Vector3(best.pos.x - u.pos.x, 0, best.pos.y - u.pos.y).normalized()
+		assert_true(uv.facing().dot(to) > 0.95, "%s faces the nearest enemy" % u.display_name)
+	var yaws := {}
+	for e in v.state.living(Types.Team.ENEMY):
+		yaws[snappedf(v.view_for(e.id)._yaw, 0.01)] = true
+	assert_true(yaws.size() > 1, "dormant enemies don't all face the same way")
+	v.free()
+
+
+func test_turning_is_smooth() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var uv := v.view_for(v.state.controllable_units(0)[0].id)
+	uv.set_yaw(0.0)
+	uv.face_towards(uv.position + Vector3(-1, 0, 0))
+	uv.tick(0.05)
+	assert_true(absf(uv._yaw) > 0.1 and absf(uv._yaw) < PI / 2 - 0.1, "mid-turn after one frame")
+	for i in 30:
+		uv.tick(0.05)
+	assert_true(uv.facing().dot(Vector3(-1, 0, 0)) > 0.99, "turn completes")
+	v.free()
