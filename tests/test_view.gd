@@ -571,3 +571,66 @@ func test_unit_ability_highlights_its_targets() -> void:
 	for id in ["lunge", "bash", "guard", "shield_charge"]:
 		assert_eq(Icons.for_action({"id": id}), id, "%s icon" % id)
 	v.free()
+
+
+## Floating texts on screen right now (Label3D children of the fx layer).
+func _fx_texts(v: MissionView) -> Array[String]:
+	var out: Array[String] = []
+	for it in v.fx._items:
+		if it.kind == "text":
+			out.append((it.node as Label3D).text)
+	return out
+
+
+## Plays the queue to the end, collecting every floating text shown along the way.
+func _play_collecting_texts(v: MissionView) -> Array[String]:
+	var seen: Array[String] = []
+	var steps := 0
+	while v.player.is_busy() and steps < 2000:
+		v.player.advance(1.0 / 30.0)
+		v.fx.advance(1.0 / 30.0)
+		for t in _fx_texts(v):
+			if not seen.has(t):
+				seen.append(t)
+		steps += 1
+	return seen
+
+
+func test_stim_heal_refills_the_hp_bar_and_shows_the_number() -> void:
+	# Playtest bug: Stim healed in the rules but the HP pips, nameplate and HUD (which read the
+	# UnitView) never moved, and nothing said how much it healed.
+	var v := _make_view()
+	v.player.flush()
+	var med := v.state.controllable_units(0)[0]
+	var uv := v.view_for(med.id)
+	if not med.abilities.has("stim"):
+		med.abilities.append("stim")
+	med.hp = 2
+	uv.set_hp(2)
+	med.infection = 30
+	uv.set_infection(30, Infection.tier(30))
+	assert_true(Rules.apply(v.state, {"type": Types.ABILITY, "unit": med.id, "ability": "stim"}), "stim self")
+	assert_eq(med.hp, 5, "rules healed 3")
+	var texts := _play_collecting_texts(v)
+	assert_eq(uv.hp, 5, "HP pips refilled to match the rules")
+	assert_true(texts.has("+3 HP"), "heal number shown: %s" % [texts])
+	assert_true(texts.has("-15 INF"), "cure number shown: %s" % [texts])
+	v.free()
+
+
+func test_heal_events_update_the_hp_bar() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var u := v.state.controllable_units(0)[0]
+	var uv := v.view_for(u.id)
+	uv.set_hp(1)
+	v.player.enqueue({"type": "ability", "unit": u.id, "ability": "item:medkit", "target": u.id, "heal": 4, "hp": 5})
+	var texts := _play_collecting_texts(v)
+	assert_eq(uv.hp, 5, "medkit refills HP")
+	assert_true(texts.has("+4 HP"), "medkit heal number")
+	v.player.enqueue({"type": "heal", "unit": u.id, "amount": 2, "hp": 7, "source": "field_surgeon"})
+	v.player.enqueue({"type": "gear", "unit": u.id, "item": "leech_rounds", "heal": 1, "hp": 8})
+	texts = _play_collecting_texts(v)
+	assert_eq(uv.hp, 8, "perk and gear heals refill HP")
+	assert_true(texts.has("+2 HP") and texts.has("+1 HP"), "perk and gear heal numbers: %s" % [texts])
+	v.free()

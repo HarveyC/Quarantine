@@ -6,6 +6,7 @@ const TEAL := Color("2ef2c8")
 const TEAL_DIM := Color("1b8f78")
 const DANGER := Color("e2533a")
 const AMBER := Color("e8b04a")
+const HEAL := Color("8fd16a")   # matches the soldier HP pips
 
 const FLOOR_SHADES: Array[Color] = [Color("3b3d39"), Color("363834"), Color("41423d"), Color("33352f")]
 const WALL := Color("24272a")
