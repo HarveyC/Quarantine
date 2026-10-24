@@ -638,7 +638,10 @@ func _summary() -> Control:
 	var head: Array = _summary_title()
 	var win := run.result == Types.Result.VICTORY
 	var top := Styles.vbox(6)
-	top.add_child(Styles.caps("Run complete" if win else "Run over", 16, Styles.DIM))
+	var kick := "Run complete" if win else "Run over"
+	if Severity.level(run) > 0:
+		kick += " · Severity %d" % Severity.level(run)
+	top.add_child(Styles.caps(kick, 16, Styles.DIM))
 	top.add_child(Styles.caps(head[0], 76, head[1]))
 	v.add_child(top)
 	v.add_child(_progress_track())
@@ -649,7 +652,22 @@ func _summary() -> Control:
 	tiles.add_child(_stat_tile("skull", str(lost), "Soldiers lost", Styles.DANGER_TEXT, "%d Turned" % run.echoes.size() if run.echoes.size() > 0 else ""))
 	tiles.add_child(_stat_tile("outbreak", str(run.outbreak), "Outbreak", Styles.TEAL, RunRules.OUTBREAK_NAMES[stage]))
 	tiles.add_child(_stat_tile("supplies", str(run.supplies), "Supplies left", NodeInfo.DEPOT_GOLD))
+	tiles.add_child(_stat_tile("intel", "+%d" % MetaProgress.field_data(run), "Field Data", Styles.AMBER, "For every player"))
 	v.add_child(tiles)
+	var earned := Achievements.earned_by(run)
+	if not earned.is_empty():
+		var chips := HFlowContainer.new()
+		chips.add_theme_constant_override("h_separation", 8)
+		chips.add_theme_constant_override("v_separation", 8)
+		for id in earned:
+			var c := W.Frame.new(Vector4(10, 6, 12, 6))
+			c.set_look(Color(Styles.AMBER, 0.08), Color(Styles.AMBER, 0.5), Styles.AMBER, false)
+			var h := Styles.hbox(8)
+			h.add_child(W.Icon.new("trophy", Styles.AMBER, 16, 1.7))
+			h.add_child(Styles.caps(Achievements.DEFS[id].name, 13, Styles.AMBER))
+			c.add_child(h)
+			chips.add_child(c)
+		v.add_child(chips)
 	v.add_child(Styles.caps("Lantern Company", 15, Styles.DIM))
 	var fates := HFlowContainer.new()
 	fates.add_theme_constant_override("h_separation", 12)

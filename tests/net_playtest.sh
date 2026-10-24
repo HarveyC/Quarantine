@@ -6,6 +6,8 @@
 #   Scenario 2: the client crashes in the lobby and rejoins; it must come back as player 2 of 2
 #               (the v0.1.0 playtest bug made it player 3, with a ghost holding player 2's soldiers).
 #   Scenario 3: host + client play a whole roguelike run (route votes, nodes, fights) to the end.
+#   Scenario 4: the host cuts the client off mid-match; the client must reconnect by itself, get
+#               its slot back and finish in step with the host.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
@@ -48,6 +50,16 @@ sleep 2
 wait $H; wait $C
 check "play a run" "$LOG/h3.txt" "$LOG/c3.txt"
 grep -q "run finished" "$LOG/h3.txt" || { echo "FAIL [play a run]: the run did not finish"; tail -5 "$LOG/h3.txt"; fail=1; }
+
+# Scenario 4
+PORT4=$((PORT + 3))
+"$GODOT" --headless -- --host=$PORT4 --name=Host --autostart=2 --autoplay --drop-client-at=6 >"$LOG/h4.txt" 2>&1 & H=$!
+sleep 2
+"$GODOT" --headless -- --join=127.0.0.1:$PORT4 --name=Client --autoplay >"$LOG/c4.txt" 2>&1 & C=$!
+wait $H; wait $C
+check "drop and reconnect mid-match" "$LOG/h4.txt" "$LOG/c4.txt"
+grep -q "cutting off player 2" "$LOG/h4.txt" || { echo "FAIL [drop and reconnect mid-match]: the host never cut the client off"; fail=1; }
+grep -q "reconnected at action" "$LOG/c4.txt" || { echo "FAIL [drop and reconnect mid-match]: the client did not reconnect"; grep "\[net\]" "$LOG/c4.txt" | tail -5; fail=1; }
 
 rm -rf "$LOG"
 exit $fail

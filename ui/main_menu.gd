@@ -14,11 +14,16 @@ signal start_requested
 signal start_run_requested
 signal leave_requested
 signal class_picked(kind: String)
+## Host a friends-only Steam lobby (only offered when Steam is running).
+signal steam_host_requested(name: String)
+## Open the Steam overlay to invite friends to our lobby.
+signal steam_invite_requested
 
 const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 const Icons := preload("res://ui/icons.gd")
 const Feel := preload("res://ui/ui_feel.gd")
+const FieldHQ := preload("res://ui/meta/field_hq.gd")
 const SETTINGS_SCRIPT := "res://view/game_settings.gd"
 const COLUMN_W := 400.0
 
@@ -43,6 +48,8 @@ var _start_run_btn: Button
 var _continue_btn: Button
 var _continue_sub: Label
 var _lobby_continue: CheckBox
+var _steam_host_btn: Button
+var _invite_btn: Button
 
 
 func _ready() -> void:
@@ -118,7 +125,10 @@ func _build_menu(body: Control) -> void:
 	col.add_child(_continue_sub)
 	_solo_btn = _menu_button(col, "Solo run", "solo", func() -> void: run_requested.emit(1))
 	_solo_btn.tooltip_text = "One soldier, one player. A full three-act run."
-	var host := _menu_button(col, "Host online", "online", func() -> void: host_requested.emit(_name.text, _port_value()))
+	_steam_host_btn = _menu_button(col, "Host on Steam", "coop", func() -> void: steam_host_requested.emit(_name.text))
+	_steam_host_btn.tooltip_text = "A friends-only lobby. Invite friends through Steam."
+	_steam_host_btn.visible = _platform() != null and _platform().steam_ready()
+	var host := _menu_button(col, "Host by address", "online", func() -> void: host_requested.emit(_name.text, _port_value()))
 	host.tooltip_text = "Open a lobby for up to 4 players. Friends join with your address."
 	var join := _menu_button(col, "Join game", "join", _toggle_join)
 	join.tooltip_text = "Connect to a friend's lobby by address."
@@ -127,6 +137,8 @@ func _build_menu(body: Control) -> void:
 	var quick := _menu_button(col, "Quick mission", "quick", func() -> void: local_requested.emit(2))
 	quick.tooltip_text = "A single hot-seat fight, no run."
 	col.add_child(_gap(10))
+	var hq := _menu_button(col, "Field HQ", "doctrine", open_field_hq, "ghost")
+	hq.tooltip_text = "Unlocks, Severity, run record and achievements."
 	_menu_button(col, "Settings", "settings", _open_settings, "ghost")
 	_menu_button(col, "Quit", "leave", func() -> void: get_tree().quit(), "ghost")
 	# Join panel, beside the column.
@@ -178,7 +190,8 @@ func _build_menu(body: Control) -> void:
 	ch.add_child(Styles.caps("Callsign", 12, Styles.MUTED))
 	cv.add_child(ch)
 	_name = LineEdit.new()
-	_name.text = OS.get_environment("USER").capitalize() if OS.has_environment("USER") else "Player"
+	var steam_name: String = _platform().player_name() if _platform() != null else ""
+	_name.text = steam_name if steam_name != "" else (OS.get_environment("USER").capitalize() if OS.has_environment("USER") else "Player")
 	_name.max_length = 16
 	_name.mouse_filter = Control.MOUSE_FILTER_STOP
 	_name.tooltip_text = "Shown to the other players online."
@@ -266,6 +279,9 @@ func _build_lobby(body: Control) -> void:
 	_lobby_continue.focus_mode = Control.FOCUS_NONE
 	bar.add_child(_lobby_continue)
 	bar.add_child(Styles.spacer())
+	_invite_btn = Styles.icon_button("Invite Steam friends", "coop", "secondary", 17, 54)
+	_invite_btn.pressed.connect(func() -> void: steam_invite_requested.emit())
+	bar.add_child(_invite_btn)
 	var leave := Styles.icon_button("Leave", "leave", "ghost", 17, 50)
 	leave.pressed.connect(func() -> void: leave_requested.emit())
 	bar.add_child(leave)
@@ -286,12 +302,29 @@ func show_menu(message: String = "") -> void:
 	_continue_sub.visible = saved != null
 	if saved != null:
 		_continue_sub.text = RunSave.summary(saved).to_upper()
+	_solo_btn.text = "SOLO RUN" + _severity_tag()
 	_menu_box.visible = true
 	_lobby_box.visible = false
 	_join_panel.visible = false
 	show_status(message)
 	if is_inside_tree():
 		Feel.deal(_menu_box.get_child(0).get_children(), 0.035)
+
+
+## Field HQ over the menu: Field Data unlocks, Severity, run record, achievements.
+func open_field_hq() -> void:
+	var hq := FieldHQ.new()
+	hq.closed.connect(func() -> void: if _menu_box.visible: show_menu(_status_label.text))
+	add_child(hq)
+
+
+func _severity_tag() -> String:
+	var n := Profile.severity()
+	return "  ·  SEVERITY %d" % n if n > 0 else ""
+
+
+func _platform() -> Node:
+	return get_node_or_null("/root/Platform")
 
 
 func show_status(message: String) -> void:
@@ -348,11 +381,20 @@ func show_lobby(net: NetSession) -> void:
 			DisplayServer.clipboard_set("%s:%d" % [addr, port])
 			copy.text = "COPIED")
 		_address_row.add_child(copy)
-		_lobby_hint.text = "Solo lobbies field one soldier. Each player brings one soldier."
+		_lobby_hint.text = "Each player brings one soldier."
 	else:
 		_lobby_hint.text = "Waiting for the host to start."
+	_invite_btn.visible = net.via_steam()
+	_invite_btn.disabled = net.steam_lobby() == 0
+	if net.via_steam():
+		NodeUi.clear(_address_row)
+		_address_row.add_child(W.Icon.new("coop", Styles.DIM, 18, 1.8))
+		_address_row.add_child(Styles.caps("Steam lobby", 15, Styles.TEXT))
+		if net.is_host:
+			_lobby_hint.text = "Invite friends, or they can pick Join game on you in their Steam friends list."
 	_start_btn.visible = net.is_host
 	_start_run_btn.visible = net.is_host
+	_start_run_btn.text = "START RUN" + _severity_tag()
 	_lobby_continue.visible = net.is_host and RunSave.exists()
 	if first and is_inside_tree():
 		Feel.deal(_slots.get_children(), 0.06)

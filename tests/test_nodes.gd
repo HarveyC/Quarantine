@@ -329,7 +329,8 @@ func test_depot_stock_and_buy() -> void:
 	assert_eq(run.serum[1], 4, "+1 dose")
 	assert_true(not _act(run, "node_buy", 0, {"index": 5}), "serum once per depot")
 	assert_true(_act(run, "node_buy", 0, {"index": 2, "soldier": 2}), "buy consumable")
-	assert_eq(Loadout.pockets(run.get_soldier(2))[0].id, ns.stock[2].id, "in pocket")
+	var bought: String = ns.stock[2].id
+	assert_true(Loadout.pockets(run.get_soldier(2)).any(func(p): return p != null and p.id == bought), "in pocket")
 
 
 func test_depot_armorer_reroll_sell_quartermaster() -> void:

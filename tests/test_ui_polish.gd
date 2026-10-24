@@ -103,7 +103,7 @@ func test_run_end_board_builds() -> void:
 	view.session = s
 	view.run = run
 	var board: Control = view._summary()
-	assert_eq(view.end_cards.size(), 4 + run.soldiers.size(), "stat tiles and fate cards")
+	assert_eq(view.end_cards.size(), 5 + run.soldiers.size(), "stat tiles and fate cards")
 	board.free()
 	view.free()
 	s.free()
