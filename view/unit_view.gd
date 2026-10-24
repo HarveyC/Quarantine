@@ -19,6 +19,7 @@ const Board := preload("res://view/board.gd")
 
 const ModelKit := preload("res://view/model_kit.gd")
 const SkinnedBody := preload("res://view/skinned_body.gd")
+const MeleeKit := preload("res://view/melee_kit.gd")
 const TURN_SPEED := 9.0   # radians per second
 ## Units are drawn a little larger than life so they read from the tactical camera.
 const MODEL_SCALE := 1.12
@@ -35,6 +36,7 @@ var infection := 0
 var tier := 0
 var overwatch := false
 var hunkered := false
+var guard := false        # Warden's Guard stance (shield up until the next squad phase)
 var lapsed := false
 var turned := false
 var dead := false
@@ -61,6 +63,8 @@ var _infection_ring: MeshInstance3D
 var _infection_mat: StandardMaterial3D
 var _select_ring: MeshInstance3D
 var _target_ring: MeshInstance3D
+var _guard_ring: MeshInstance3D
+var _drawn := false      # melee classes: sidearm out (aiming) instead of the melee weapon
 ## False when the HUD draws its own nameplates, which hides the floating 3D labels.
 static var world_labels := true
 
@@ -115,6 +119,7 @@ func _build_model() -> void:
 	_model = ModelKit.instantiate(kind, is_soldier)
 	_rig.add_child(_model)
 	_mats = ModelKit.apply_materials(_model, owner_player, is_soldier)
+	MeleeKit.tint(kind, _mats)
 	_growths = ModelKit.growths(_model)
 	_sac = ModelKit.find(_model, "sac")
 	if ModelKit.is_skinned(_model):
@@ -184,6 +189,11 @@ func _build_rings() -> void:
 	_target_ring.scale.y = 0.2
 	_target_ring.visible = false
 	add_child(_target_ring)
+	_guard_ring = Palette.ring(0.5, 0.56, Palette.emissive(Palette.AMBER, 1.6))
+	_guard_ring.position.y = 0.035
+	_guard_ring.scale.y = 0.2
+	_guard_ring.visible = false
+	add_child(_guard_ring)
 
 
 func _build_labels() -> void:
@@ -257,6 +267,17 @@ func set_statuses(ow: bool, hk: bool) -> void:
 	_refresh_status()
 
 
+## Warden's Guard stance: shield-up pose, an amber ring and the GUARD tag.
+func set_guard(on: bool) -> void:
+	guard = on
+	_guard_ring.visible = on and not dead
+	_refresh_status()
+
+
+func is_melee_class() -> bool:
+	return _skin != null and _skin.melee != ""
+
+
 func set_lapsed(on: bool) -> void:
 	lapsed = on
 	_refresh_status()
@@ -291,6 +312,7 @@ func set_overlays_visible(on: bool) -> void:
 	_overlays_on = on
 	for n in [_hp_sprite, _class_label, _status_label]:
 		n.visible = on and not dead and world_labels
+	_guard_ring.visible = on and guard and not dead
 	if not on:
 		_select_ring.visible = false
 		_target_ring.visible = false
@@ -342,6 +364,8 @@ func set_lunge(k: float) -> void:
 
 
 func muzzle_world() -> Vector3:
+	if _skin != null and MeleeKit.MUZZLE.has(_skin.melee):   # the sidearm in the weapon hand
+		return _to_world(_skin.skel, _skin.bone_pose("hand_r") * MeleeKit.MUZZLE[_skin.melee])
 	if _skin != null:
 		var sock := "muzzle" if _skin.skel.find_bone("muzzle") >= 0 else "Head"
 		return _to_world(_skin.skel, _skin.bone_pose(sock).origin)
@@ -427,6 +451,11 @@ func _animate_skinned(delta: float) -> void:
 		pose = "crouch"
 	elif _aim > 0.4:
 		pose = "aim"
+	elif guard:
+		pose = "guard"
+	if _skin.melee != "" and (_aim > 0.3) != _drawn:
+		_drawn = _aim > 0.3   # sidearm out to shoot, the melee weapon back in hand after
+		MeleeKit.set_drawn(_model, _drawn)
 	_skin.play_base(pose)
 	_skin.advance(delta, _aim, _recoil)
 	var local_hit := _body.basis.inverse() * _hit_dir if _hit > 0.0 else Vector3.ZERO
@@ -454,7 +483,7 @@ func set_death_progress(t: float) -> void:
 	_rig.position.y = -sink * (0.9 if not is_soldier or turned else 0.0)
 	if _glow != null:
 		_glow.light_energy *= 1.0 - t * 0.5
-	for n in [_hp_sprite, _class_label, _status_label, _infection_ring, _select_ring, _target_ring]:
+	for n in [_hp_sprite, _class_label, _status_label, _infection_ring, _select_ring, _target_ring, _guard_ring]:
 		n.visible = n.visible and t < 0.3
 	if t >= 1.0:
 		visible = false
@@ -531,6 +560,8 @@ func _refresh_status() -> void:
 		parts.append("TURNED")
 	if overwatch:
 		parts.append("OVERWATCH")
+	if guard:
+		parts.append("GUARD")
 	if hunkered:
 		parts.append("HUNKERED")
 	_status_label.text = " ".join(parts)

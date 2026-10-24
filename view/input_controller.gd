@@ -8,6 +8,9 @@ signal changed   # selection, mode or target changed; HUD should refresh
 enum Mode { MOVE, SHOOT, TARGET_UNIT, TARGET_CELL }
 
 const NO_CELL := Vector2i(-999, -999)
+## Abilities that close in on their target before striking -> default reach in tiles of path
+## (the ability's own "reach" / "range", e.g. raised by a perk, wins).
+const LANDING_REACH := {"lunge": 4, "shield_charge": 3}
 const Board := preload("res://view/board.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const EventPlayer := preload("res://view/event_player.gd")
@@ -18,6 +21,8 @@ var selected_id := -1
 var mode := Mode.MOVE
 var pending: Dictionary = {}       # action template while targeting an ability/mutation
 var targets: Array[int] = []       # shoot candidates
+var unit_targets: Array = []       # legal targets of the pending unit-targeted ability ([] = not listed)
+var pending_reach := 0             # the pending ability's reach, if it states one
 var target_idx := 0
 var hover_cell := NO_CELL
 var _reach: Dictionary = {}
@@ -107,6 +112,8 @@ func _set_mode(m: Mode) -> void:
 		targets.clear()
 	if m == Mode.MOVE:
 		pending = {}
+	if m != Mode.TARGET_UNIT:
+		unit_targets = []
 	refresh()
 
 
@@ -136,10 +143,13 @@ func refresh() -> void:
 					view.view_for(t.id).set_targeted(true)
 					view.board.mark_cells([t.pos], Color(0.9, 0.3, 0.2, 0.3))
 			Mode.TARGET_UNIT:
+				# The ability's own target list when it gives one (Combat "targets"), else anyone.
 				var cells: Array = []
 				for o in view.state.living():
-					if o.id != u.id:
+					if o.id != u.id and (unit_targets.is_empty() or unit_targets.has(o.id)):
 						cells.append(o.pos)
+						if not unit_targets.is_empty():
+							view.view_for(o.id).set_targeted(true)
 				view.board.mark_cells(cells, Color(0.9, 0.7, 0.3, 0.25))
 	_update_hover(true)
 	changed.emit()
@@ -174,11 +184,32 @@ func _update_hover(force: bool) -> void:
 			view.board.show_cover(c, view.state.grid.cover_sides(c))
 		elif mode == Mode.TARGET_CELL:
 			view.board.mark_cells([c], Color(0.18, 0.95, 0.78, 0.35))
+		elif mode == Mode.TARGET_UNIT:
+			_show_landing(u, c)
 	var other: UnitView = view.unit_view_at(c) if c != NO_CELL else null
 	if other != null:
 		view.hud.show_tooltip(other)
 	else:
 		view.hud.hide_tooltip()
+
+
+## Lunge / Shield Charge: hovering a target shows the path to the cell the soldier will
+## strike from (ClassAbilities.lunge_landing, looked up late so the view builds without it).
+func _show_landing(u: Unit, c: Vector2i) -> void:
+	var id := str(pending.get("ability", ""))
+	if not LANDING_REACH.has(id):
+		return
+	var t := view.state.unit_at(c)
+	if t == null or (not unit_targets.is_empty() and not unit_targets.has(t.id)):
+		return
+	var reach: int = pending_reach if pending_reach > 0 else LANDING_REACH[id]
+	var land: Variant = RunHooks.call_static("ClassAbilities", "lunge_landing", [view.state, u, t, reach], Vector2i(-1, -1))
+	if not (land is Vector2i) or land.x < 0:
+		return
+	var path: Array[Vector2i] = [u.pos]
+	if land != u.pos:
+		path = view.state.grid.find_path(u.pos, land, view.state.occupied(u.id))
+	view.board.show_path(path)
 
 
 # --- actions -----------------------------------------------------------------
@@ -197,7 +228,8 @@ func actions() -> Array[Dictionary]:
 	out.append({"key": "hunker", "label": "Hunker", "targeting": "none", "type": Types.HUNKER, "enabled": has_ap})
 	for a in Combat.available_abilities(view.state, u):
 		out.append({"key": "ability:%s" % a.id, "label": str(a.get("name", a.id)), "targeting": str(a.get("targeting", "none")),
-			"type": Types.ABILITY, "id": a.id, "enabled": has_ap and a.get("ready", true)})
+			"type": Types.ABILITY, "id": a.id, "enabled": has_ap and a.get("ready", true), "desc": str(a.get("desc", "")),
+			"targets": a.get("targets", []), "reach": int(a.get("reach", a.get("range", 0)))})
 	for m in Infection.available_mutations(view.state, u):
 		var lbl := str(m.get("name", m.id))
 		if m.has("cost"):
@@ -241,6 +273,8 @@ func _trigger(u: Unit, a: Dictionary) -> void:
 			_set_mode(Mode.SHOOT)
 		"unit", "cell":
 			pending = _template(u, a)
+			unit_targets = Array(a.get("targets", []))
+			pending_reach = int(a.get("reach", 0))
 			_set_mode(Mode.TARGET_UNIT if a.targeting == "unit" else Mode.TARGET_CELL)
 		_:
 			submit(_template(u, a))
