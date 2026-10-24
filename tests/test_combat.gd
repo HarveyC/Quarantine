@@ -314,4 +314,4 @@ func test_spit() -> void:
 	var ev: Dictionary = events.filter(func(e): return e.type == "ability")[0]
 	assert_eq(ev.units, [a.id, b.id], "affected ids")
 	assert_eq(sp.actions_left, 0, "ends turn")
-	assert_eq(sp.cooldowns.get("spit"), 2, "cooldown")
+	assert_eq(sp.cooldowns.get("spit"), Combat.ABILITIES.spit.cooldown, "cooldown")

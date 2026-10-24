@@ -5,24 +5,24 @@ extends RefCounted
 const SOLDIERS := {
 	"trooper": {"name": "Trooper", "max_hp": 7, "aim": 65, "mobility": 5, "damage": [3, 5], "abilities": ["suppress"]},
 	"marksman": {"name": "Marksman", "max_hp": 5, "aim": 75, "mobility": 4, "damage": [4, 6], "abilities": ["tag"]},
-	"medic": {"name": "Medic", "max_hp": 6, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["stim"]},
+	"medic": {"name": "Medic", "max_hp": 7, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["stim"]},
 	"breacher": {"name": "Breacher", "max_hp": 8, "aim": 60, "mobility": 6, "damage": [4, 7], "abilities": ["breach"]},
-	"hazmat": {"name": "Hazmat", "max_hp": 8, "aim": 55, "mobility": 4, "damage": [2, 4], "abilities": ["incinerate"]},
+	"hazmat": {"name": "Hazmat", "max_hp": 8, "aim": 60, "mobility": 4, "damage": [2, 4], "abilities": ["incinerate"]},
 	"vector": {"name": "Vector", "max_hp": 6, "aim": 65, "mobility": 6, "damage": [3, 5], "abilities": ["siphon"]},
 }
 
 const ENEMIES := {
-	"runner": {"name": "Runner", "max_hp": 4, "aim": 70, "mobility": 7, "damage": [2, 4], "abilities": ["claw"], "melee_only": true},
-	"spitter": {"name": "Spitter", "max_hp": 5, "aim": 60, "mobility": 4, "damage": [2, 3], "abilities": ["spit"]},
+	"runner": {"name": "Runner", "max_hp": 5, "aim": 70, "mobility": 7, "damage": [3, 4], "abilities": ["claw"], "melee_only": true},
+	"spitter": {"name": "Spitter", "max_hp": 4, "aim": 60, "mobility": 4, "damage": [2, 3], "abilities": ["spit"]},
 	# Enemy roster (enemies/ module). Extra keys: "infects" (false = hits deal damage only),
 	# "armour" (damage taken per hit is reduced by this), "static" (never moves or acts on its own).
-	"fallen": {"name": "Fallen", "max_hp": 6, "aim": 65, "mobility": 5, "damage": [3, 5], "abilities": [], "infects": false},
+	"fallen": {"name": "Fallen", "max_hp": 6, "aim": 60, "mobility": 5, "damage": [3, 5], "abilities": [], "infects": false},
 	"bloater": {"name": "Bloater", "max_hp": 6, "aim": 0, "mobility": 3, "damage": [0, 0], "abilities": ["burst"], "melee_only": true},
-	"brute": {"name": "Brute", "max_hp": 10, "aim": 70, "mobility": 4, "damage": [4, 6], "abilities": ["slam", "charge"], "melee_only": true, "armour": 1},
+	"brute": {"name": "Brute", "max_hp": 10, "aim": 70, "mobility": 5, "damage": [4, 6], "abilities": ["slam", "charge"], "melee_only": true, "armour": 1},
 	"lurker": {"name": "Lurker", "max_hp": 5, "aim": 75, "mobility": 6, "damage": [2, 2], "abilities": ["pounce", "maul", "claw"], "melee_only": true},
 	"shrieker": {"name": "Shrieker", "max_hp": 4, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["scream"], "melee_only": true},
-	"leaper": {"name": "Leaper", "max_hp": 5, "aim": 70, "mobility": 4, "damage": [2, 3], "abilities": ["leap", "claw"], "melee_only": true},
-	"drifter": {"name": "Drifter", "max_hp": 4, "aim": 0, "mobility": 5, "damage": [2, 2], "abilities": ["drift", "spore_drop"], "melee_only": true, "flying": true},
+	"leaper": {"name": "Leaper", "max_hp": 6, "aim": 70, "mobility": 4, "damage": [2, 3], "abilities": ["leap", "claw"], "melee_only": true},
+	"drifter": {"name": "Drifter", "max_hp": 5, "aim": 0, "mobility": 5, "damage": [2, 3], "abilities": ["drift", "spore_drop"], "melee_only": true, "flying": true},
 	"sharpshooter": {"name": "Sharpshooter", "max_hp": 6, "aim": 80, "mobility": 4, "damage": [5, 7], "abilities": ["sight", "snipe"], "infects": false},
 	"burrower": {"name": "Burrower", "max_hp": 6, "aim": 70, "mobility": 5, "damage": [3, 4], "abilities": ["burrow", "erupt", "claw"], "melee_only": true},
 	"broodling": {"name": "Broodling", "max_hp": 3, "aim": 0, "mobility": 3, "damage": [0, 0], "abilities": ["burst"], "melee_only": true},

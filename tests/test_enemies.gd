@@ -46,7 +46,7 @@ func test_specs_make_elites_and_affixes() -> void:
 	assert_true(e.status.get("elite", false), "elite flag")
 	assert_eq(e.status.affixes, ["armoured", "hasted"], "affixes")
 	var r := EnemyRoster.make("runner+splitting")
-	assert_eq(r.max_hp, 4, "affix-only regular keeps hp")
+	assert_eq(r.max_hp, UnitData.ENEMIES.runner.max_hp, "affix-only regular keeps hp")
 	assert_true(EnemyRoster.has_affix(r, "splitting"), "has splitting")
 	assert_true(EnemyRoster.make("lurker").status.get("hidden", false), "lurker starts hidden")
 	assert_eq(EnemyRoster.make("the_source").status.get("tether", ""), "source_root", "source tethered to roots")
@@ -336,11 +336,11 @@ func test_nest_and_boss_fights() -> void:
 func test_leaper_marks_a_landing_then_lands_and_knocks_back() -> void:
 	var s := make_blank(_open(12, 5))
 	var a := _soldier(s, "trooper", Vector2i(3, 2))
-	var le := _enemy(s, "leaper", Vector2i(7, 2))
+	var le := _enemy(s, "leaper", Vector2i(9, 2))   # one move short of reaching the soldier
 	s.turn = 1
 	_enemy_turn(s, le)
 	assert_true(le.status.has("leap_cell"), "marks a landing spot")
-	assert_eq(le.pos, Vector2i(7, 2), "waits instead of running in")
+	assert_eq(le.pos, Vector2i(9, 2), "waits instead of running in")
 	var landing: Vector2i = le.status.leap_cell
 	a.overwatch = true
 	a.status["ow_until"] = 99
@@ -352,10 +352,20 @@ func test_leaper_marks_a_landing_then_lands_and_knocks_back() -> void:
 	assert_true(EnemyAI._cheb(a.pos, landing) >= 1, "knocked away")
 
 
+func test_leaper_runs_in_to_claw_a_soldier_within_one_move() -> void:
+	var s := make_blank(_open(12, 5))
+	var a := _soldier(s, "trooper", Vector2i(3, 2))
+	var le := _enemy(s, "leaper", Vector2i(7, 2))
+	s.turn = 1
+	_enemy_turn(s, le)
+	assert_true(not le.status.has("leap_cell"), "no telegraph when it can just run in")
+	assert_eq(EnemyAI._cheb(le.pos, a.pos), 1, "ran in next to the soldier")
+
+
 func test_leaper_misses_when_soldier_steps_out_of_the_zone() -> void:
 	var s := make_blank(_open(14, 5))
 	var a := _soldier(s, "trooper", Vector2i(3, 2))
-	var le := _enemy(s, "leaper", Vector2i(7, 2))
+	var le := _enemy(s, "leaper", Vector2i(9, 2))
 	s.turn = 1
 	_enemy_turn(s, le)
 	a.pos = Vector2i(0, 4)
@@ -460,7 +470,7 @@ func test_leaper_goes_for_the_soldier_on_the_watchtower() -> void:
 	var low := _soldier(s, "trooper", Vector2i(6, 1))
 	var high := _soldier(s, "marksman", Vector2i(6, 5))
 	s.grid.set_level(high.pos, 1)
-	var le := _enemy(s, "leaper", Vector2i(9, 3))
+	var le := _enemy(s, "leaper", Vector2i(12, 3))   # out of running reach, in leaping range
 	s.turn = 1
 	_enemy_turn(s, le)
 	assert_true(le.status.has("leap_cell"), "marks a landing")
