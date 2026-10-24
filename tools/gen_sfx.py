@@ -129,6 +129,69 @@ def shotgun():
     return gunshot(1500, 48, 0.12, 0.5, 5.0, 0.8)
 
 
+def smg():
+    # Light, snappy and high: a small calibre with a short room tail.
+    return gunshot(3800, 95, 0.03, 0.22, 2.5, 0.32)
+
+
+def lmg():
+    # Heavier body and a grittier crack than the rifle; rounds overlap into a chug.
+    x = gunshot(2600, 60, 0.07, 0.3, 4.0, 0.45)
+    clank = sine(1400, 0.45) * env(int(0.45 * SR), 0.0005, 0.012) * 0.25
+    return mix(x, clank)
+
+
+def carbine():
+    # Rifle-like with a wet, chemical hiss on top (Vector's bio-rounds).
+    x = gunshot(3200, 80, 0.045, 0.28, 3.0, 0.42)
+    hiss = bandpass(noise(0.42), 3000, 9000) * env(int(0.42 * SR), 0.004, 0.07) * 0.35
+    return mix(x, hiss)
+
+
+def gun_tail(cutoff, dur, gain):
+    # The shot echoing back off the colony's buildings: a dark, slapback rumble.
+    n = lowpass(noise(dur), cutoff) * env(int(dur * SR), 0.02, dur * 0.35) * gain
+    slap = np.concatenate([np.zeros(int(0.09 * SR)), lowpass(noise(0.12), cutoff * 1.6) * env(int(0.12 * SR), 0.002, 0.04)])
+    return echo(mix(n, slap * 0.8), 0.17, 0.45, 4)
+
+
+def tail_rifle():
+    return gun_tail(900, 0.9, 1.0)
+
+
+def tail_heavy():
+    return gun_tail(600, 1.4, 1.2)
+
+
+def mech_click(f, dec):
+    n = int(0.04 * SR)
+    return highpass(noise(0.04), 2500) * env(n, 0.0003, dec) + sine(f, 0.04) * env(n, 0.0003, dec * 1.5) * 0.6
+
+
+def pump():
+    # Shotgun slide back and forward.
+    back = mix(bandpass(noise(0.08), 400, 2500) * env(int(0.08 * SR), 0.005, 0.03) * 0.6, mech_click(900, 0.01))
+    fwd = mix(bandpass(noise(0.08), 500, 3000) * env(int(0.08 * SR), 0.003, 0.025) * 0.7, mech_click(1300, 0.012))
+    out = np.zeros(int(0.32 * SR))
+    out[:len(back)] += back
+    i = int(0.16 * SR)
+    out[i:i + len(fwd)] += fwd
+    return reverb(out, 0.15, 0.15)
+
+
+def bolt():
+    # Bolt lifted, drawn, the casing pings off, bolt home.
+    out = np.zeros(int(0.6 * SR))
+    for st, f, d in [(0.0, 1100, 0.01), (0.09, 800, 0.02), (0.3, 1500, 0.012), (0.36, 1000, 0.01)]:
+        c = mech_click(f, d)
+        i = int(st * SR)
+        out[i:i + len(c)] += c
+    ping = sine(4200, 0.25) * env(int(0.25 * SR), 0.001, 0.06) * 0.15
+    i = int(0.18 * SR)
+    out[i:i + len(ping)] += ping
+    return reverb(out, 0.15, 0.15)
+
+
 def enemy_spit():
     n = noise(0.6)
     sweep = np.linspace(1800, 300, len(n))
@@ -399,10 +462,21 @@ SOUNDS = {
     "ui_confirm": ui_confirm, "ui_deny": ui_deny, "radio": radio_beep, "sting_squad": sting_squad,
     "sting_enemy": sting_enemy, "cinematic": cinematic_in, "victory": victory, "defeat": defeat,
     "step1": lambda: footstep(1), "step2": lambda: footstep(2), "step3": lambda: footstep(3),
+    "smg": smg, "lmg": lmg, "carbine": carbine, "tail_rifle": tail_rifle, "tail_heavy": tail_heavy,
+    "pump": pump, "bolt": bolt,
 }
 
 if __name__ == "__main__":
+    # `python3 tools/gen_sfx.py smg pump` regenerates just those (each sound reseeds the
+    # noise from its name, so a partial run matches a full one).
+    import sys
+    import zlib
     os.makedirs(OUT, exist_ok=True)
+    only = set(sys.argv[1:])
     for name, fn in SOUNDS.items():
-        save(name, fn())
-    save("ambience", ambience(), 0.5)
+        if not only or name in only:
+            rng = np.random.default_rng(zlib.crc32(name.encode()))
+            save(name, fn())
+    if not only or "ambience" in only:
+        rng = np.random.default_rng(zlib.crc32(b"ambience"))
+        save("ambience", ambience(), 0.5)

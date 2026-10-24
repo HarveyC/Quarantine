@@ -84,3 +84,16 @@ func test_enemies_use_matching_weapons() -> void:
 	assert_eq(Weapons.id_for("sharpshooter"), "dmr", "sharpshooter has a DMR")
 	assert_eq(Weapons.id_for("fallen"), "rifle", "fallen have rifles")
 	assert_eq(Weapons.id_for("brute"), Weapons.DEFAULT, "unknown kinds use the default")
+
+
+func test_every_gun_sound_exists() -> void:
+	var GunFeel := load("res://view/gun_feel.gd")
+	var Sfx := load("res://view/sfx.gd")
+	for id in Weapons.TABLE:
+		assert_true(GunFeel.FEEL.has(id), "%s has a gun feel" % id)
+	for id in GunFeel.FEEL:
+		var feel: Dictionary = GunFeel.FEEL[id]
+		for key in ["sound", "tail", "mech"]:
+			if feel.has(key):
+				assert_true(Sfx.SOUNDS.has(feel[key]), "%s %s listed" % [id, feel[key]])
+				assert_true(ResourceLoader.exists("res://audio/%s.wav" % feel[key]), "%s %s file" % [id, feel[key]])
