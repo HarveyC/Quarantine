@@ -10,6 +10,7 @@ config/features=PackedStringArray("4.4", "Forward Plus")
 
 [autoload]
 
+SettingsHost="*res://view/settings_host.gd"
 Soundscape="*res://view/soundscape.gd"
 UiFeel="*res://ui/ui_feel.gd"
 Platform="*res://platform/platform.gd"
