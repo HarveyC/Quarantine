@@ -1,0 +1,322 @@
+; Act 1 biome "The Wall": the cordon wall and the refugee camps behind it.
+; Read by MapGen (mapgen/map_gen.gd). See docs/ARCHITECTURE.md, "Tactical map generator".
+;
+; Parcels are 4x4 blocks:  @<role> <name>  followed by 4 rows.
+;   .  floor    #  wall (full cover, blocks LOS)    =  low cover (half cover)
+;   ?  50% low cover, else floor
+;   P  soldier spawn (deploy parcels)    E  enemy spawn (pod parcels)
+;   O  objective cell: evac / beacon / civilian / nest / hive, by the parcel's role
+; Roles: deploy, breach (the cordon wall, always on row 1, only mirrored left-right),
+;        pod, filler, evac, beacon, rescue, nest, hive.
+;
+; Plots lay parcels out for a whole map:  @plot <objectives> <name> lanes=<0|1>
+; then one row of slot letters per parcel row, top to bottom. The drop zone is always at the bottom.
+;   D deploy   B breach   E pod   F filler   O objective parcel for the fight's objective
+; lanes=1 puts a 1-tile lane between parcels (3x3 parcels -> 14x14 tiles).
+
+; ---------------------------------------------------------------- deploy
+@deploy sandbag_ring
+.==.
+=PP=
+.PP.
+....
+
+@deploy truck_line
+=##=
+P..P
+.PP.
+....
+
+@deploy barrier_row
+=.=.
+P.P.
+.P.P
+...=
+
+@deploy checkpoint_booth
+.#=.
+P#.P
+.P.P
+....
+
+; ---------------------------------------------------------------- breach (the cordon wall)
+@breach solid
+=..=
+####
+.=..
+....
+
+@breach gap_centre
+....
+#..#
+=..=
+....
+
+@breach gap_side
+.=..
+..##
+=...
+...=
+
+@breach gate_post
+....
+#.##
+..=.
+=...
+
+@breach solid_bags
+.==.
+####
+..=.
+=...
+
+@breach collapsed
+..=.
+##=.
+....
+.=..
+
+; ---------------------------------------------------------------- enemy pods
+@pod crates
+.=..
+E.E=
+.=..
+..E.
+
+@pod tents
+==..
+E..E
+..==
+.E..
+
+@pod container_stack
+##..
+#E.E
+..=.
+.E..
+
+@pod barricade
+....
+=E=E
+....
+.=..
+
+@pod wreck
+.##.
+E..E
+.=..
+E...
+
+@pod med_tent
+=.=.
+.E.E
+=...
+..E=
+
+; ---------------------------------------------------------------- filler
+@filler tents_row
+==..
+....
+..==
+....
+
+@filler containers
+##..
+##..
+...=
+=...
+
+@filler open_square
+....
+.=..
+....
+..?.
+
+@filler jersey
+=.=.
+....
+.=.=
+....
+
+@filler guard_tower
+....
+.#=.
+.#..
+....
+
+@filler supply_crates
+.=..
+.==.
+....
+?..=
+
+@filler burnt_truck
+....
+.##=
+....
+=...
+
+@filler sandbag_nest
+.==.
+=..=
+....
+..?.
+
+@filler fence_line
+#.#.
+....
+.?..
+=..=
+
+@filler cots
+=.=.
+....
+=.=.
+....
+
+@filler checkpoint
+.#..
+.#..
+.=..
+...=
+
+@filler debris
+?..?
+.#..
+..?.
+?...
+
+; ---------------------------------------------------------------- objectives
+@evac pad
+=..=
+.OO.
+.OO.
+=..=
+
+@evac lz_bags
+.==.
+.OO.
+.OO.
+....
+
+@beacon relay
+OOO=
+OOO.
+OOO=
+=.=.
+
+@beacon radio_mast
+=...
+.OOO
+.OOO
+=OOO
+
+@rescue clinic
+#.##
+#O.#
+#..#
+##.#
+
+@rescue shelter
+.##.
+#OO.
+#..=
+..=.
+
+@nest spore_pit
+.?..
+.O..
+..=.
+=...
+
+@nest burst_tent
+=..=
+.O..
+...?
+..=.
+
+@hive mound
+.=.=
+....
+.O..
+=..?
+
+@hive wreckage
+##..
+..O.
+=...
+..=.
+
+; ---------------------------------------------------------------- plots
+@plot skirmish wall_breach lanes=0
+EFE
+BBB
+FDF
+
+@plot skirmish camp lanes=0
+FEE
+FFF
+DFF
+
+@plot skirmish wall_corner lanes=0
+EFE
+BBF
+FFD
+
+@plot extract wall_run lanes=0
+FOF
+EFE
+BBB
+FDF
+
+@plot extract camp_run lanes=0
+OFF
+FEF
+EFF
+FFD
+
+@plot hold beacon_yard lanes=1
+EFF
+FOF
+FDF
+
+@plot hold wall_hold lanes=1
+FEF
+BOB
+FDF
+
+@plot rescue clinic_beyond lanes=1
+FOE
+BBB
+FDF
+
+@plot rescue camp_rescue lanes=1
+EFO
+FFF
+DFF
+
+@plot purge nests lanes=1
+OEO
+FOF
+FDF
+
+@plot purge wall_nests lanes=1
+OEO
+BOB
+FDF
+
+@plot elite hive_beyond lanes=0
+EOE
+BBB
+FDF
+
+@plot elite hive_camp lanes=0
+FOE
+EFF
+FDF
+
+@plot boss source lanes=0
+FEEF
+FFFF
+FFFF
+FDDF

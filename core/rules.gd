@@ -6,9 +6,14 @@ extends RefCounted
 
 ## Builds a mission from a map file. `squad` is an Array of {"kind": String, "player": int}.
 static func new_mission(map_path: String, squad: Array, enemies: Array[String], seed: int = 0) -> GameState:
+	return new_mission_on_grid(Grid.load_file(map_path), squad, enemies, seed)
+
+
+## Same as new_mission, on a grid that is already built (e.g. by MapGen).
+static func new_mission_on_grid(grid: Grid, squad: Array, enemies: Array[String], seed: int = 0) -> GameState:
 	var s := GameState.new()
 	s.rng.seed = seed if seed != 0 else randi()
-	s.grid = Grid.load_file(map_path)
+	s.grid = grid
 	var players := {}
 	for i in squad.size():
 		var u := UnitData.make(squad[i].kind, Types.Team.PLAYER)

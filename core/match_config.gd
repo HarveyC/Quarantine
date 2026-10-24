@@ -14,10 +14,16 @@ static func make(num_players: int, seed: int = 0) -> Dictionary:
 	var squad: Array = []
 	for i in CLASSES.size():
 		squad.append({"kind": CLASSES[i], "player": i * n / CLASSES.size()})
-	return {"map": MAP, "squad": squad, "enemies": ENEMIES.duplicate(), "seed": seed if seed != 0 else randi() % 1000000 + 1}
+	var s := seed if seed != 0 else randi() % 1000000 + 1
+	# Until fight nodes supply their own, every match rolls an act 1 skirmish layout from its seed.
+	return {"map": MAP, "squad": squad, "enemies": ENEMIES.duplicate(), "seed": s,
+		"map_spec": {"biome": "wall", "objective": "skirmish", "seed": s}}
 
 
 static func build(config: Dictionary) -> GameState:
 	var enemies: Array[String] = []
 	enemies.assign(config.enemies)
+	# "map_spec" generates the layout (MapGen); without it the handmade "map" file is loaded.
+	if config.has("map_spec"):
+		return Rules.new_mission_on_grid(MapGen.generate(config.map_spec), config.squad, enemies, config.seed)
 	return Rules.new_mission(config.map, config.squad, enemies, config.seed)
