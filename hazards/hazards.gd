@@ -1,6 +1,6 @@
 class_name Hazards
 extends RefCounted
-## Tile hazards: fire, spore and acid on map cells. Pure rules code; state lives in `s.hazards`
+## Tile hazards: fire, spore, acid and smoke on map cells. Pure rules code; state lives in `s.hazards`
 ## (cell -> {"kind", "turns", "source"}), serialized with GameState so it survives resyncs.
 ##
 ## Effects hit a unit once per move that crosses or ends on a hazard (once per kind), and at the
@@ -14,9 +14,12 @@ extends RefCounted
 ## Per kind: damage and infection per hit, which teams it ignores, which kinds it replaces on its
 ## cell, and how strongly the AI should avoid it (added to a cell's score, higher = worse).
 const KINDS := {
-	"fire": {"name": "Fire", "damage": 2, "infection": 0, "ignores": [], "replaces": ["spore", "acid"], "avoid": 6.0},
+	"fire": {"name": "Fire", "damage": 2, "infection": 0, "ignores": [], "replaces": ["spore", "acid", "smoke"], "avoid": 6.0},
 	"spore": {"name": "Spores", "damage": 0, "infection": 10, "ignores": [Types.Team.ENEMY], "replaces": [], "avoid": 4.0},
 	"acid": {"name": "Acid", "damage": 1, "infection": 0, "ignores": [], "replaces": ["spore"], "avoid": 3.0},
+	# Smoke grenade: harmless. Anyone standing in it gets SMOKE_DEFENSE (GearFx) and can't be
+	# spotted by a dormant Infected (Concealment.detects).
+	"smoke": {"name": "Smoke", "damage": 0, "infection": 0, "ignores": [Types.Team.PLAYER, Types.Team.ENEMY], "replaces": [], "avoid": 0.0},
 }
 const PERMANENT := -1
 

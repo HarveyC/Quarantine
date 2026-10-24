@@ -104,6 +104,7 @@ func on_drained() -> void:
 func on_beat(_ev: Dictionary) -> void:
 	if not can_act():
 		view.board.clear_overlays()
+		view.board.clear_sight()
 		view.hud.hide_tooltip()
 		hover_cell = NO_CELL
 
@@ -126,14 +127,47 @@ func _set_mode(m: Mode) -> void:
 ## While the squad is shown Concealed: cells where a dormant enemy the squad can see would spot
 ## a soldier (never enemies under the fog).
 func spotted_cells() -> Dictionary:
+	var out := {}
+	var fields := sight_fields()
+	for id in fields:
+		out.merge(fields[id].cells)
+	return out
+
+
+## Each visible dormant enemy's detection area (Concealment.sight_fields), while Concealed.
+func sight_fields() -> Dictionary:
 	if view.player == null or not view.player.concealed or not Concealment.active(view.state):
 		return {}
 	var watchers: Array = []
 	for e in view.state.living(Types.Team.ENEMY):
 		var uv = view.view_for(e.id)
-		if uv != null and uv.visible:
+		if uv != null and uv.visible and not uv.get_meta("ghost", false):
 			watchers.append(e)
-	return Concealment.danger_cells(view.state, watchers)
+	return Concealment.sight_fields(view.state, watchers)
+
+
+## Draws the enemy sight areas (Board.show_sight), lifting the hovered enemy's own area.
+func _show_sight() -> void:
+	if not can_act():
+		view.board.clear_sight()
+		return
+	var fields := sight_fields()
+	var focus := -1
+	var uv: UnitView = view.unit_view_at(hover_cell) if hover_cell != NO_CELL else null
+	if uv != null and fields.has(uv.unit_id):
+		focus = uv.unit_id
+	view.board.show_sight(fields, focus)
+
+
+## Index of the first step of `path` a dormant enemy would see, or -1.
+func spotted_step(path: Array[Vector2i]) -> int:
+	var cells := spotted_cells()
+	if cells.is_empty():
+		return -1
+	for i in path.size():
+		if cells.has(path[i]):
+			return i
+	return -1
 
 func refresh() -> void:
 	if view.board == null:
@@ -202,18 +236,38 @@ func _update_hover(force: bool) -> void:
 	var u := selected_unit()
 	if u != null and can_act() and c != NO_CELL:
 		if mode == Mode.MOVE and _reach.has(c):
-			view.board.show_path(view.state.grid.find_path(u.pos, c, view.state.occupied(u.id)))
+			var path := view.state.grid.find_path(u.pos, c, view.state.occupied(u.id))
+			view.board.show_path(path, spotted_step(path))
 			view.board.show_cover(c, view.state.grid.cover_sides(c))
 		elif mode == Mode.TARGET_CELL:
-			view.board.mark_cells([c] + cell_targets, Color(0.18, 0.95, 0.78, 0.35))
+			view.board.mark_cells([c] + cell_targets + _item_area(c), Color(0.18, 0.95, 0.78, 0.35))
 			_show_blast(c)
 		elif mode == Mode.TARGET_UNIT:
 			_show_landing(u, c)
+	_show_sight()
 	var other: UnitView = view.unit_view_at(c) if c != NO_CELL else null
 	if other != null:
 		view.hud.show_tooltip(other)
 	else:
 		view.hud.hide_tooltip()
+
+
+## Area items (smoke, flashbang, flare, concussion): the square they cover around the aimed tile.
+func _item_area(c: Vector2i) -> Array:
+	var r := 0
+	match str(pending.get("ability", "")):
+		"item:smoke_grenade": r = GearFx.SMOKE_RADIUS
+		"item:flashbang", "gear:flare_launcher": r = 1
+		"gear:concussion_launcher":
+			var u := selected_unit()
+			r = 2 if u != null and GearFx.mk(u, "concussion_launcher") >= 2 else 1
+	var out: Array = []
+	for y in range(c.y - r, c.y + r + 1):
+		for x in range(c.x - r, c.x + r + 1):
+			var cc := Vector2i(x, y)
+			if cc != c and view.state.grid.in_bounds(cc) and view.state.grid.is_walkable(cc):
+				out.append(cc)
+	return out
 
 
 ## Grenades, demo charges and barrel shots: what the blast would cover and break (Destruction.preview).

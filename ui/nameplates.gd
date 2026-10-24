@@ -11,6 +11,9 @@ const InputController := preload("res://view/input_controller.gd")
 
 const HEAD := Vector3(0, 2.0, 0)
 const HEAD_ENEMY := Vector3(0, 1.6, 0)   # infected models are shorter
+## Timed tags from gear and abilities (UnitView.tags): icon and colour on the plate.
+const TAG_ICONS := {"stunned": ["stun", Color("9fd0ff")], "suppressed": ["suppress", Styles.AMBER],
+	"marked": ["tag", Styles.DANGER], "contained": ["cure", Styles.TEAL]}
 
 var view: MissionView
 var _plates: Dictionary = {}   # unit id -> Control
@@ -89,8 +92,18 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 			row.add_child(W.Icon.new("overwatch", Styles.AMBER, 14.0, 2.0))
 		if uv.hunkered:
 			row.add_child(W.Icon.new("hunker", Styles.AMBER, 14.0, 2.0))
+		if uv.concealed and not uv.turned:
+			row.add_child(W.Icon.new("concealed", Styles.STEALTH, 14.0, 2.0))
 	else:
 		row.add_child(Styles.caps(uv.display_name, 11, Styles.DANGER_TEXT))
+		# While the squad is Concealed, the ones still watching wear an open eye.
+		var e := view.state.get_unit(uv.unit_id)
+		if view.player != null and view.player.concealed and e != null and not EnemyAI.is_alerted(e) \
+				and not EnemyRoster.is_static(e):
+			row.add_child(W.Icon.new("detected", Styles.DANGER, 14.0, 2.0))
+	for k in TAG_ICONS:
+		if uv.tags.has(k):
+			row.add_child(W.Icon.new(TAG_ICONS[k][0], TAG_ICONS[k][1], 14.0, 2.0))
 	var hp := W.Pips.new(Vector2(7, 4))
 	var lose := 0
 	if targeted and shooter != null:

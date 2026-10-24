@@ -716,3 +716,109 @@ func test_heal_events_update_the_hp_bar() -> void:
 	assert_eq(uv.hp, 8, "perk and gear heals refill HP")
 	assert_true(texts.has("+2 HP") and texts.has("+1 HP"), "perk and gear heal numbers: %s" % [texts])
 	v.free()
+
+
+## Playtest bug: smoke grenades (and a bunch of other items) "do nothing". Every gadget and
+## pocket item use plays its own beat: a readable title (never the raw "item:..." id) and
+## something on screen.
+func test_every_item_use_plays_a_visible_beat() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var u := v.state.controllable_units(0)[0]
+	var foe := v.state.living(Types.Team.ENEMY)[0]
+	var ids: Array[String] = []
+	for k in GearFx.CONSUMABLE_USE:
+		ids.append("item:" + k)
+	for k in GearFx.GADGETS:
+		ids.append("gear:" + k)
+	for id in ids:
+		var key := id.substr(5)
+		var ev := {"type": "ability", "unit": u.id, "ability": id, "name": GearData.item_name(key)}
+		var targeting: String = GearFx.CONSUMABLE_USE.get(key, GearFx.GADGETS.get(key, {})).get("targeting", "none")
+		if targeting == "cell":
+			ev["cell"] = u.pos + Vector2i(0, -2)
+			ev["units"] = [foe.id]
+		elif targeting == "unit":
+			ev["target"] = u.id
+		v.player.enqueue(ev)
+		var texts := _play_collecting_texts(v)
+		assert_true(not texts.is_empty(), "%s shows a title" % id)
+		for t in texts:
+			assert_true(not t.contains(":") and not t.contains("_"), "%s shows a raw id: %s" % [id, t])
+	v.free()
+
+
+func test_item_effects_tag_units_and_draw_smoke() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var u := v.state.controllable_units(0)[0]
+	var foe := v.state.living(Types.Team.ENEMY)[0]
+	var fv := v.view_for(foe.id)
+	fv.visible = true
+	var t := v.player.turn
+	v.player.enqueue({"type": "gear", "unit": u.id, "item": "mark", "target": foe.id})
+	v.player.enqueue({"type": "stunned", "unit": foe.id, "by": u.id})
+	var texts := _play_collecting_texts(v)
+	assert_true(fv.tags.has("marked") and fv.tags.has("stunned"), "tags on the enemy: %s" % [fv.tags])
+	assert_true(texts.has("MARKED") and texts.has("STUNNED"), "named over the enemy: %s" % [texts])
+	v.player.enqueue({"type": "enemy_phase", "turn": t})
+	v.player.enqueue({"type": "team_phase", "turn": t + 1})
+	_play_collecting_texts(v)
+	assert_true(not fv.tags.has("stunned"), "the stun wears off by the next squad phase")
+	var cells: Array[Vector2i] = [u.pos + Vector2i(0, -1), u.pos + Vector2i(1, -1)]
+	v.player.enqueue({"type": "hazard", "kind": "smoke", "cells": cells, "turns": 2})
+	_play_collecting_texts(v)
+	assert_true(v.board._hazard_nodes.has(cells[0]) and v.board._hazard_nodes.has(cells[1]), "the cloud is drawn")
+	v.free()
+
+
+func test_concealment_shows_on_the_squad_and_the_screen_edge() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldiers := v.state.living(Types.Team.PLAYER)
+	v.state.encounter["concealment"] = {"on": true, "lost_turn": -1, "cause": ""}
+	v.player.concealed = true
+	for s in soldiers:
+		assert_true(v.view_for(s.id).concealed, "every soldier wears the concealed ring")
+	for i in 60:
+		v.hud._process(1.0 / 30.0)
+	assert_true(v.hud.stealth_edge_alpha() > 0.3, "the screen edge glows cold blue")
+	v.player.enqueue({"type": "concealment_lost", "cause": "spotted", "unit": -1, "by": -1})
+	_play_collecting_texts(v)
+	assert_true(not v.view_for(soldiers[0].id).concealed, "rings drop when the squad is seen")
+	v.free()
+
+
+func test_enemy_sight_areas_and_spotted_path_while_concealed() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var u := v.state.controllable_units(0)[0]
+	var foe: Unit = null
+	for e in v.state.living(Types.Team.ENEMY):
+		if v.view_for(e.id).visible:
+			foe = e
+			break
+	if foe == null:
+		foe = v.state.living(Types.Team.ENEMY)[0]
+		v.view_for(foe.id).visible = true
+	for e in v.state.living(Types.Team.ENEMY):
+		e.status.erase("alerted")
+	v.state.encounter["concealment"] = {"on": true, "lost_turn": -1, "cause": ""}
+	v.player.concealed = true
+	var fields := v.input.sight_fields()
+	assert_true(fields.has(foe.id), "a seen dormant enemy has a sight area")
+	v.input.refresh()
+	assert_true(v.board._sight_layer.get_child_count() > 0, "the sight area is drawn")
+	var path: Array[Vector2i] = [u.pos]
+	var red: Vector2i = fields[foe.id].cells.keys()[0]
+	path.append(red)
+	assert_eq(v.input.spotted_step(path), 1, "the step into red ground is where you're seen")
+	v.board.show_path(path, 1)
+	var eye := false
+	for c in v.board._path_layer.get_children():
+		eye = eye or c is Sprite3D
+	assert_true(eye, "an eye hangs over the spotted step")
+	v.player.concealed = false
+	v.input.refresh()
+	assert_eq(v.board._sight_layer.get_child_count(), 0, "no sight areas once detected")
+	v.free()

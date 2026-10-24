@@ -219,3 +219,36 @@ func test_danger_cells_mark_where_you_would_be_seen() -> void:
 	assert_true(cells.has(Vector2i(9, 2)), "3 tiles off is red")
 	assert_true(not cells.has(Vector2i(6, 2)), "6 tiles off is safe")
 	assert_true(Concealment.danger_cells(s, []).is_empty(), "nothing in sight, nothing marked")
+
+
+func test_smoke_hides_you_from_dormant_enemies() -> void:
+	var s := _concealed()
+	var sol := _soldier(s, Vector2i(9, 2))
+	var e := _enemy(s, Vector2i(12, 2))
+	_arm(s)
+	assert_true(Concealment.detects(s, e, sol), "3 tiles off in the open: spotted")
+	Hazards.add(s, [sol.pos], "smoke", 2)
+	assert_true(not Concealment.detects(s, e, sol), "in smoke: unseen")
+	assert_true(not Concealment.danger_cells(s, [e]).has(sol.pos), "smoke tiles are not red")
+
+
+func test_sight_fields_follow_line_of_sight_per_enemy() -> void:
+	var s := make_blank(PackedStringArray([
+		"..............",
+		"......#.......",
+		"..............",
+	]))
+	s.phase = Types.Phase.TEAM
+	s.turn = 1
+	_soldier(s, Vector2i(0, 0))
+	var e := _enemy(s, Vector2i(9, 1))
+	var awake := _enemy(s, Vector2i(2, 2))
+	_arm(s)
+	EnemyAI.alert(s, awake)
+	var f := Concealment.sight_fields(s, [e, awake])
+	assert_true(f.has(e.id) and not f.has(awake.id), "only dormant enemies watch")
+	var cells: Dictionary = f[e.id].cells
+	assert_true(cells.has(Vector2i(7, 1)), "open tile in range")
+	assert_true(not cells.has(Vector2i(5, 1)), "the wall shadows the tile behind it")
+	assert_true(not cells.has(Vector2i(6, 1)), "walls themselves are not ground")
+	assert_eq(f[e.id].at, e.pos, "field remembers its watcher")

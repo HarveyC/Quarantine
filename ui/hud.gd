@@ -61,6 +61,11 @@ var _toast_t := 0.0
 var _banner_t := 0.0
 ## The Bloom creeping in from the screen's right edge, further as the squad's Infection climbs.
 var _veins: W.Veins
+## Concealed: a cold-blue edge round the whole screen; it flares red the moment the squad is seen.
+var _stealth_edge: TextureRect
+var _stealth_edge_mat: GradientTexture2D
+var _alarm_t := 0.0
+var _stealth_hint: Label
 
 
 func setup(v: MissionView) -> void:
@@ -78,6 +83,7 @@ func setup(v: MissionView) -> void:
 	_veins.branching = 0.12
 	_veins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_veins)
+	_build_stealth_edge()
 	nameplates = Nameplates.new()
 	nameplates.build(view)
 	add_child(nameplates)
@@ -95,6 +101,40 @@ func setup(v: MissionView) -> void:
 	move_child(end_overlay, get_child_count() - 1)
 	move_child(debrief, get_child_count() - 1)
 	refresh()
+
+
+func _build_stealth_edge() -> void:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.58, 0.84, 1.0])
+	g.colors = PackedColorArray([Color(1, 1, 1, 0), Color(1, 1, 1, 0), Color(1, 1, 1, 0.3), Color(1, 1, 1, 0.75)])
+	_stealth_edge_mat = GradientTexture2D.new()
+	_stealth_edge_mat.gradient = g
+	_stealth_edge_mat.fill = GradientTexture2D.FILL_RADIAL
+	_stealth_edge_mat.fill_from = Vector2(0.5, 0.5)
+	_stealth_edge_mat.fill_to = Vector2(1.0, 1.0)
+	_stealth_edge_mat.width = 256
+	_stealth_edge_mat.height = 256
+	_stealth_edge = TextureRect.new()
+	_stealth_edge.name = "StealthEdge"
+	_stealth_edge.texture = _stealth_edge_mat
+	_stealth_edge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_stealth_edge.stretch_mode = TextureRect.STRETCH_SCALE
+	_stealth_edge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_stealth_edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var add := CanvasItemMaterial.new()   # a glow on the edge, not a darker frame
+	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_stealth_edge.material = add
+	_stealth_edge.modulate = Color(Styles.STEALTH, 0.0)
+	add_child(_stealth_edge)
+
+
+## The red flare on the screen edge when concealment breaks (EventPlayer).
+func alarm() -> void:
+	_alarm_t = 1.6
+
+
+func stealth_edge_alpha() -> float:
+	return _stealth_edge.modulate.a
 
 
 func _corner(preset: Control.LayoutPreset, c: Control, gh: Control.GrowDirection, gv: Control.GrowDirection) -> void:
@@ -137,6 +177,8 @@ func _build_turn_banner() -> void:
 	stealth.add_child(_stealth_icon)
 	_stealth_chip = W.chip("Concealed", Styles.STEALTH)
 	stealth.add_child(_stealth_chip)
+	_stealth_hint = Styles.caps("Red ground: where they can see you", 11, Styles.STEALTH, false)
+	stealth.add_child(_stealth_hint)
 	box.add_child(stealth)
 	_session_label = Styles.label("", 12, Styles.MUTED)
 	box.add_child(_session_label)
@@ -293,6 +335,7 @@ func _refresh_stealth() -> void:
 	sb.border_color = col if on else Color(col, 0.4)
 	sb.shadow_size = 6 if on else 0
 	sb.shadow_color = Color(col, 0.3)
+	_stealth_hint.visible = on
 	var l := _stealth_chip.get_child(0) as Label
 	l.text = "CONCEALED" if on else "DETECTED"
 	l.add_theme_color_override("font_color", Styles.GROUND if on else Styles.DANGER_TEXT)
@@ -505,6 +548,17 @@ func _process(delta: float) -> void:
 	_toast.modulate.a = clampf(_toast_t / 0.4, 0.0, 1.0)
 	_banner.modulate.a = clampf(_banner_t / 0.4, 0.0, 1.0)
 	_tactical_a = move_toward(_tactical_a, 0.0 if _cinematic or _debriefing else 1.0, delta * 6.0)
+	_alarm_t = maxf(0.0, _alarm_t - delta)
+	var hidden := view.player != null and view.player.concealed and not view.player.ended
+	var want := 0.0
+	var col := Styles.STEALTH
+	if _alarm_t > 0.0:
+		col = Styles.DANGER
+		want = 0.9 * clampf(_alarm_t / 1.0, 0.0, 1.0)
+	elif hidden:
+		want = (0.7 + 0.1 * sin(Time.get_ticks_msec() * 0.0021)) * _tactical_a
+	var a := move_toward(_stealth_edge.modulate.a, want, delta * (6.0 if _alarm_t > 0.0 else 1.5))
+	_stealth_edge.modulate = Color(col, a)
 	for c in _tactical:
 		c.modulate.a = _tactical_a
 		c.visible = _tactical_a > 0.01

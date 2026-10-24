@@ -74,6 +74,13 @@ func clear() -> void:
 	_bits.clear()
 
 
+## Keeps `node` (already added under this Fx, with an alpha StandardMaterial3D override) for
+## `life` seconds while it fades out, then frees it. For area outlines and other shapes.
+func fade_out(node: MeshInstance3D, life := 0.9) -> void:
+	var m := node.material_override as StandardMaterial3D
+	_items.append({"node": node, "life": life, "max": life, "kind": "fade", "mat": m, "a0": m.albedo_color.a})
+
+
 func floating_text(at: Vector3, text: String, color: Color, size := 64, life := 1.1) -> void:
 	var l := Palette.label3d(text, size, color)
 	l.position = at

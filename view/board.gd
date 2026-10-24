@@ -20,6 +20,8 @@ var _cover_layer: Node3D
 var _mark_layer: Node3D
 var _blast_layer: Node3D
 var _hazard_layer: Node3D
+var _sight_layer: Node3D   # enemy sight while Concealed; kept until show_sight / clear_sight
+var _sight_key := ""
 var _hazard_nodes := {}   # cell -> Node3D
 var _hover: MeshInstance3D
 
@@ -66,6 +68,7 @@ func build(g: Grid) -> void:
 	_mark_layer = _layer("Marks")
 	_blast_layer = _layer("Blast")
 	_hazard_layer = _layer("Hazards")
+	_sight_layer = _layer("Sight")
 	_m_range = Palette.overlay(Color(0.55, 0.75, 0.95, 0.09))
 	_m_path = Palette.overlay(Color(Palette.AMBER, 0.9))
 	_m_dest = Palette.overlay(Color(Palette.AMBER, 0.45))
@@ -345,7 +348,7 @@ func _build_edges(look: Dictionary, trim: Material, hazard: Material, crack_mat:
 		_tiles.add_child(post)
 
 
-const HAZARD_COLORS := {"fire": Color("ff7a2a"), "spore": Color("2ef2c8"), "acid": Color("b8e03a")}
+const HAZARD_COLORS := {"fire": Color("ff7a2a"), "spore": Color("2ef2c8"), "acid": Color("b8e03a"), "smoke": Color("b9bdb8")}
 
 
 ## Draws (or redraws) hazard `kind` on `cells`. Fire also gets a few flickering embers and a light.
@@ -360,6 +363,9 @@ func set_hazard(cells: Array, kind: String) -> void:
 		n.position = cell_to_world(c, 0.0)
 		_hazard_layer.add_child(n)
 		_hazard_nodes[c] = n
+		if kind == "smoke":
+			_add_smoke(n, c, color)
+			continue
 		var plate := Palette.box(Vector3(0.94, 0.015, 0.94), plate_mat)
 		plate.position.y = 0.012
 		n.add_child(plate)
@@ -378,6 +384,49 @@ func set_hazard(cells: Array, kind: String) -> void:
 			l.omni_range = 2.4
 			l.position.y = 0.5
 			n.add_child(l)
+
+
+## A smoke grenade's cloud on one tile: a pale ground haze and a few soft billboard puffs
+## stacked to head height, so a soldier inside reads as hidden in it.
+func _add_smoke(n: Node3D, c: Vector2i, color: Color) -> void:
+	n.set_meta("smoke", true)
+	var plate := Palette.box(Vector3(1.0, 0.015, 1.0), Palette.overlay(Color(color, 0.2)))
+	plate.position.y = 0.012
+	n.add_child(plate)
+	var h := _hash(c)
+	for i in 4:
+		var m := Palette.overlay(Color(color, 0.34 - i * 0.04))
+		m.albedo_texture = _soft_puff()
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+		var q := QuadMesh.new()
+		q.size = Vector2.ONE * (1.7 - i * 0.15)
+		var mi := MeshInstance3D.new()
+		mi.mesh = q
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = Vector3(float((h >> (i * 3)) % 5) / 10.0 - 0.2, 0.35 + i * 0.42, float((h >> (i * 3 + 7)) % 5) / 10.0 - 0.2)
+		mi.set_meta("base", mi.position)
+		n.add_child(mi)
+
+
+static var _puff_tex: Texture2D
+
+
+static func _soft_puff() -> Texture2D:
+	if _puff_tex == null:
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+		g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.55), Color(1, 1, 1, 0)])
+		var tex := GradientTexture2D.new()
+		tex.gradient = g
+		tex.fill = GradientTexture2D.FILL_RADIAL
+		tex.fill_from = Vector2(0.5, 0.5)
+		tex.fill_to = Vector2(0.5, 0.0)
+		tex.width = 64
+		tex.height = 64
+		_puff_tex = tex
+	return _puff_tex
 
 
 func clear_hazard(cells: Array) -> void:
@@ -404,6 +453,13 @@ func sync_hazards(hazards: Dictionary) -> void:
 func tick_hazards(t: float) -> void:
 	for c in _hazard_nodes:
 		var n: Node3D = _hazard_nodes[c]
+		if n.has_meta("smoke"):   # the cloud drifts slowly instead of flickering
+			for child in n.get_children():
+				if child.has_meta("base"):
+					var b: Vector3 = child.get_meta("base")
+					var ph := float(_hash(c) % 13) + b.y * 3.0
+					child.position = b + Vector3(sin(t * 0.5 + ph) * 0.12, sin(t * 0.7 + ph) * 0.05, cos(t * 0.4 + ph) * 0.12)
+			continue
 		for child in n.get_children():
 			if child is MeshInstance3D and child.position.y > 0.05:
 				child.position.y = 0.08 + 0.06 * sin(t * 7.0 + float(_hash(c) % 17))
@@ -907,7 +963,7 @@ func show_range(cells: Dictionary, spotted: Dictionary = {}) -> void:
 	var red: StandardMaterial3D = null
 	var edge: StandardMaterial3D = null
 	if not spotted.is_empty():
-		red = Palette.overlay(Color(Palette.DANGER, 0.3))
+		red = Palette.overlay(Color(Palette.DANGER, 0.12))   # the sight wash (show_sight) is under it too
 		edge = Palette.overlay(Color(Palette.DANGER, 0.85), true)
 	for c in cells:
 		var alarm := spotted.has(c)
@@ -924,13 +980,118 @@ func show_range(cells: Dictionary, spotted: Dictionary = {}) -> void:
 					_range_layer.add_child(b)
 
 
-func show_path(path: Array[Vector2i]) -> void:
+## Move path preview. `spotted_at` (index into `path`, -1 for none) is the first step a dormant
+## enemy would see: from there the dots turn red and an open eye hangs over that tile.
+func show_path(path: Array[Vector2i], spotted_at := -1) -> void:
 	_clear(_path_layer)
+	var red_dot: StandardMaterial3D = null
+	var red_dest: StandardMaterial3D = null
+	if spotted_at >= 0:
+		red_dot = Palette.overlay(Color(Palette.DANGER, 0.95))
+		red_dest = Palette.overlay(Color(Palette.DANGER, 0.5))
 	for i in path.size():
 		var last := i == path.size() - 1
-		var dot := Palette.box(Vector3(0.6, 0.02, 0.6) if last else Vector3(0.14, 0.03, 0.14), _m_dest if last else _m_path)
+		var seen := spotted_at >= 0 and i >= spotted_at
+		var m := (red_dest if seen else _m_dest) if last else (red_dot if seen else _m_path)
+		var dot := Palette.box(Vector3(0.6, 0.02, 0.6) if last else Vector3(0.14, 0.03, 0.14), m)
 		dot.position = cell_to_world(path[i], 0.03)
 		_path_layer.add_child(dot)
+	if spotted_at >= 0 and spotted_at < path.size():
+		var at := cell_to_world(path[spotted_at])
+		var ring := Palette.ring(0.36, 0.44, Palette.overlay(Color(Palette.DANGER, 0.95), true))
+		ring.position = at + Vector3(0, 0.05, 0)
+		ring.scale.y = 0.2
+		_path_layer.add_child(ring)
+		var eye := eye_marker()
+		eye.position = at + Vector3(0, 1.25, 0)
+		_path_layer.add_child(eye)
+
+
+## A billboarded open eye in the danger red: "you are seen here".
+static func eye_marker(px := 0.011) -> Sprite3D:
+	var sp := Sprite3D.new()
+	sp.texture = _eye_texture()
+	sp.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sp.no_depth_test = true
+	sp.pixel_size = px
+	sp.modulate = Palette.DANGER.lightened(0.15)
+	sp.render_priority = 10
+	return sp
+
+
+static var _eye_tex: Texture2D
+
+
+## The "detected" eye from the HUD icon set, rasterised once: almond outline, iris ring, pupil,
+## on a dark halo so it reads over any floor.
+static func _eye_texture() -> Texture2D:
+	if _eye_tex != null:
+		return _eye_tex
+	var w := 72
+	var h := 44
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var cx := (w - 1) * 0.5
+	var cy := (h - 1) * 0.5
+	var half := 32.0
+	for y in h:
+		for x in w:
+			var dx := (x - cx) / half
+			var dy := y - cy
+			var lid := 15.0 * maxf(0.0, 1.0 - dx * dx)   # lid height at this x
+			var r := Vector2(x - cx, y - cy).length()
+			var ink := (absf(dx) <= 1.0 and absf(absf(dy) - lid) < 2.2) or (r > 6.0 and r < 9.5 and absf(dy) < lid) or r < 3.6
+			var halo := absf(dx) <= 1.12 and absf(dy) < lid + 5.0
+			if ink:
+				img.set_pixel(x, y, Color(1, 1, 1, 1))
+			elif halo:
+				img.set_pixel(x, y, Color(0, 0, 0, 0.55))
+	_eye_tex = ImageTexture.create_from_image(img)
+	return _eye_tex
+
+
+## Where the dormant enemies the squad can see would spot a soldier (Concealed only).
+## `fields` = {enemy id: {"cells": {cell: true}, "at": Vector2i}}. The union is a faint red wash
+## with a crisp red outline, walls, edges and high ground carving it the way line of sight does;
+## `focus` (an enemy id, -1 for none) lifts that enemy's own area and dims the rest.
+func show_sight(fields: Dictionary, focus := -1) -> void:
+	var key := str(focus) + ":" + str(fields.hash())
+	if key == _sight_key:
+		return
+	_sight_key = key
+	_clear(_sight_layer)
+	if fields.is_empty():
+		return
+	var all := {}
+	for id in fields:
+		for c in fields[id].cells:
+			all[c] = true
+	var mine: Dictionary = fields[focus].cells if fields.has(focus) else {}
+	var dim := not mine.is_empty()
+	var wash := Palette.overlay(Color(Palette.DANGER, 0.025 if dim else 0.05))
+	var hot := Palette.overlay(Color(Palette.DANGER, 0.14))
+	for c in all:
+		var q := Palette.box(Vector3(0.98, 0.01, 0.98), hot if mine.has(c) else wash)
+		q.position = cell_to_world(c, 0.012)
+		_sight_layer.add_child(q)
+	_outline(all, Palette.overlay(Color(Palette.DANGER, 0.35 if dim else 0.75)), 0.05)
+	if dim:
+		_outline(mine, Palette.overlay(Color(Palette.DANGER.lightened(0.2), 1.0)), 0.08)
+
+
+func clear_sight() -> void:
+	_sight_key = ""
+	_clear(_sight_layer)
+
+
+## Bars along every edge of `cells` that borders a cell outside it.
+func _outline(cells: Dictionary, m: StandardMaterial3D, width: float) -> void:
+	for c in cells:
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			if cells.has(c + d):
+				continue
+			var bar := Palette.box(Vector3(width, 0.02, 1.0) if d.x != 0 else Vector3(1.0, 0.02, width), m)
+			bar.position = cell_to_world(c, 0.03) + Vector3(d.x * (0.5 - width * 0.5), 0, d.y * (0.5 - width * 0.5))
+			_sight_layer.add_child(bar)
 
 
 ## Shield plates on each side of `c` that offers cover. `sides` is Grid.cover_sides(c).

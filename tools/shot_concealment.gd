@@ -1,7 +1,9 @@
 extends SceneTree
-## Concealment showcase (dev check and PR screenshots): the squad starts Concealed, the move
-## range shows the red tiles a sleeping pod would spot, a Trooper walks into them and the squad
-## is Detected.
+## Concealment showcase (dev check and PR screenshots): the squad starts Concealed (blue screen
+## edge, rings at their feet), the red ground shows where each sleeping enemy would spot them,
+## hovering an enemy lifts its own area, a move path into the red shows the eye where you'd be
+## seen, a smoke grenade carves a safe pocket, a Trooper walks into sight and the squad is
+## Detected, then a flashbang stuns the pod.
 ## godot -s tools/shot_concealment.gd -- OUT_DIR            (PNG stills: OUT_DIR/concealment-*.png)
 
 const MAIN := preload("res://scenes/main.tscn")
@@ -30,10 +32,15 @@ var _frames := 0
 var _wait := 0
 var _sol := {}
 var _steps: Array = [
-	["wait", 20], ["save", "1-start"], ["idle"], ["wait", 30],
-	["select", "trooper"], ["wait", 20], ["save", "2-red-tiles"],
-	["move", "trooper", Vector2i(10, 6)], ["until", "concealment_lost"], ["wait", 12], ["save", "3-spotted"],
-	["idle"], ["wait", 20], ["save", "4-detected"],
+	["wait", 20], ["idle"], ["wait", 40], ["save", "1-start"],
+	["select", "trooper"], ["hover", Vector2i(9, 7)], ["wait", 20], ["save", "2-path-spotted"],
+	["hover", Vector2i(12, 6)], ["wait", 20], ["save", "3-enemy-sight"],
+	["use", "marksman", "item:smoke_grenade", Vector2i(9, 7)], ["wait", 24], ["save", "4-smoke-throw"],
+	["idle"], ["select", "trooper"], ["hover", Vector2i(9, 7)], ["wait", 40], ["save", "5-smoke-pocket"],
+	["move", "trooper", Vector2i(10, 5)], ["until", "concealment_lost"], ["wait", 10], ["save", "6-spotted"],
+	["idle"], ["wait", 20], ["save", "7-detected"],
+	["use", "trooper", "item:flashbang", Vector2i(12, 6)], ["wait", 40], ["save", "8-flashbang"],
+	["idle"], ["wait", 20], ["save", "9-stunned"],
 ]
 
 
@@ -53,6 +60,11 @@ func _init() -> void:
 	for k in [["runner", Vector2i(12, 6)], ["spitter", Vector2i(14, 3)], ["runner", Vector2i(14, 9)]]:
 		_s.add_unit(EnemyRoster.make(k[0]), k[1])
 	Encounter.setup(_s, {"concealed": true})
+	GearTags.set_progression(null)
+	for k in [["marksman", "smoke_grenade"], ["trooper", "flashbang"]]:
+		var rec := {"id": _sol[k[0]].id, "kind": k[0]}
+		Loadout.add_consumable(rec, k[1], 1)
+		GearRun.apply_to_unit(_sol[k[0]], rec)
 	var l := LocalSession.new()
 	l.save_enabled = false
 	root.add_child(l)
@@ -69,8 +81,8 @@ func _process(_delta: float) -> bool:
 	if _frames < 10:
 		return false
 	if _frames == 10:
-		_view.camera_rig._target_dist = 14.0
-		_view.camera_rig.focus(Board.cell_to_world(Vector2i(9, 6)))
+		_view.camera_rig._target_dist = 15.0
+		_view.camera_rig.focus(Board.cell_to_world(Vector2i(10, 9)))
 	if _wait > 0:
 		_wait -= 1
 		return false
@@ -97,8 +109,22 @@ func _process(_delta: float) -> bool:
 			_view.input.selected_id = _sol[st[1]].id
 			_view.input.mode = InputController.Mode.MOVE
 			_view.input.refresh()
+		"hover":
+			if _view.player.is_busy():
+				return false
+			_view.input._forced_cell = st[1]
+			_view.input._forced_at = _view.get_viewport().get_mouse_position()
+			_view.input._update_hover(true)
 		"move":
 			_view.board.clear_overlays()
 			_view.session.submit({"type": Types.MOVE, "unit": _sol[st[1]].id, "to": st[2]})
+		"use":
+			if _view.player.is_busy():
+				return false
+			_view.input._forced_cell = InputController.NO_CELL
+			_view.board.clear_overlays()
+			var u: Unit = _sol[st[1]]
+			u.actions_left = maxi(u.actions_left, 1)
+			_view.session.submit({"type": Types.ABILITY, "unit": u.id, "ability": st[2], "cell": st[3]})
 	_steps.pop_front()
 	return false

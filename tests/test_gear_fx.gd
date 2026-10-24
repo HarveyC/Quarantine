@@ -298,3 +298,91 @@ func test_burn_set_spreads_fire_on_death() -> void:
 	GearFx.on_team_phase_start(s)
 	assert_true(not e.is_alive(), "burned to death")
 	assert_eq(Hazards.cells_of(s, "fire").size(), 9, "tiles around it catch fire")
+
+
+## Playtest bug: "used a smoke grenade and it does nothing". Every pocket item and gadget must
+## change something a player can see: state, and an event the view plays.
+func test_every_item_and_gadget_does_something() -> void:
+	var ids: Array[String] = []
+	for k in GearFx.CONSUMABLE_USE:
+		ids.append("item:" + k)
+	for k in GearFx.GADGETS:
+		ids.append("gear:" + k)
+	for id in ids:
+		var s := _state()
+		var u := _add(s, "medic", Types.Team.PLAYER, Vector2i(2, 2))
+		var ally := _add(s, "trooper", Types.Team.PLAYER, Vector2i(3, 2))
+		ally.hp = 2
+		ally.infection = 30
+		var e := _add(s, "runner", Types.Team.ENEMY, Vector2i(6, 2))
+		e.max_hp = 20
+		e.hp = 20
+		var key := id.substr(5)
+		if id.begins_with("gear:"):
+			_gear(u, [key])
+		else:
+			_gear(u, [], [key])
+		var a := {"type": Types.ABILITY, "unit": u.id, "ability": id}
+		match str(GearFx.CONSUMABLE_USE.get(key, GearFx.GADGETS.get(key, {})).get("targeting", "none")):
+			"unit":
+				a["target"] = ally.id
+			"cell":
+				a["cell"] = e.pos
+				if key in ["deployable_cover", "demo_charge"]:
+					a["cell"] = Vector2i(2, 3)
+				elif key == "grapple":
+					a["cell"] = Vector2i(2, 5)
+				elif key == "sentry_turret":
+					a["cell"] = Vector2i(4, 3)
+		var before: String = var_to_str([s.to_dict(), u.actions_left])
+		s.log.clear()
+		assert_true(Rules.apply(s, a), "%s applies: %s" % [id, Rules.validate(s, a)])
+		var events := s.log.filter(func(ev): return ev.type != "ability")
+		assert_true(var_to_str([s.to_dict(), u.actions_left]) != before, "%s changed nothing" % id)
+		var shows := not events.is_empty() or key in ["medkit", "deployable_cover", "containment_emitter"]
+		assert_true(shows, "%s emits nothing for the view beyond its own use" % id)
+
+
+func test_smoke_grenade_lays_a_cloud_that_hides_and_covers() -> void:
+	var s := _state()
+	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(2, 2))
+	var buddy := _add(s, "trooper", Types.Team.PLAYER, Vector2i(5, 2))
+	var e := _add(s, "spitter", Types.Team.ENEMY, Vector2i(9, 2))
+	_gear(u, [], ["smoke_grenade"])
+	var before: int = Combat.hit_chance(s, e, buddy).hit
+	# Thrown at an empty tile next to the buddy: it still makes a cloud there.
+	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:smoke_grenade", "cell": Vector2i(5, 3)}), "thrown")
+	assert_eq(Hazards.cells_of(s, "smoke").size(), 9, "3x3 cloud")
+	assert_true(GearFx.in_smoke(s, buddy), "buddy stands in it")
+	assert_eq(_term(Combat.hit_chance(s, e, buddy), "Smoke"), -GearFx.SMOKE_DEFENSE, "defense term")
+	assert_true(Combat.hit_chance(s, e, buddy).hit < before, "harder to hit")
+	assert_true(not GearFx.in_smoke(s, u), "thrower outside")
+	var types := s.log.map(func(ev): return ev.type)
+	assert_true(types.has("hazard"), "the view gets a hazard event to draw the cloud")
+	# Harmless: nobody takes a hit standing in it.
+	var hp := buddy.hp
+	Hazards.on_team_phase_end(s)
+	assert_eq(buddy.hp, hp, "smoke does no damage")
+	# Lasts SMOKE_TURNS rounds.
+	for i in GearFx.SMOKE_TURNS:
+		Hazards.on_enemy_phase_end(s)
+	assert_true(Hazards.cells_of(s, "smoke").is_empty(), "clears after %d rounds" % GearFx.SMOKE_TURNS)
+
+
+func test_flashbang_stuns_and_gives_concealment_away() -> void:
+	var s := _state()
+	s.phase = Types.Phase.TEAM
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	var a := s.add_unit(EnemyRoster.make("runner"), Vector2i(8, 2))
+	var b := s.add_unit(EnemyRoster.make("runner"), Vector2i(8, 3))
+	var far := s.add_unit(EnemyRoster.make("runner"), Vector2i(11, 5))
+	Encounter.setup(s, {"concealed": true})
+	_gear(u, [], ["flashbang"])
+	assert_true(Concealment.active(s), "starts concealed")
+	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:flashbang", "cell": Vector2i(8, 2)}), "thrown")
+	assert_true(a.status.get("k_skip_turn", false) and b.status.get("k_skip_turn", false), "both stunned")
+	assert_true(not far.status.get("k_skip_turn", false), "out of radius")
+	var types := s.log.map(func(ev): return ev.type)
+	assert_eq(types.count("stunned"), 2, "a stunned event per enemy")
+	assert_true(types.find("ability") < types.find("stunned"), "the throw plays before the stuns")
+	assert_true(not Concealment.active(s), "a flashbang gives the squad away")

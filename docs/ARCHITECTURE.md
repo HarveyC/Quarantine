@@ -256,13 +256,16 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   `gun_pool`); its tag counts toward set bonuses like gear. `apply_to_unit` stamps
   `status["weapon"]` (`Weapons.equip_unit`), which `Weapons.of(unit)` and the view (feel in
   `view/gun_feel.gd` VARIANTS, model in `view/gun_models.gd` by look) read.
+- **View** (`view/item_beats.gd`): every gadget and pocket item use gets its own beat (throw arc and
+  landing for cell items, a readable title, never the raw id); mark / suppress / stun / contain land
+  as `UnitView.tags` shown on the status line and nameplate icons until their phase ends.
 - **In a mission** (`GearFx`): one-line hooks in `Combat.hit_chance` (`odds_terms`), `Combat.fire`
   (`shot_damage`, `after_shot`), Combat's Suppress (`on_suppress`), `Rules.deal_damage` (`damage_taken`:
   armor), `Rules.start_team_phase` (`on_team_phase_start`: Burning ticks, Close set mobility), `Rules._do_move`
   (`on_move`) and `Infection.on_damaged` (`bite_infection`). Gadgets and pocket consumables are abilities
   with ids `gear:<item>` / `item:<consumable>` that Combat delegates to GearFx (they appear in
   `Combat.available_abilities` with `"gear": true`). Status keys: `burning` (ticks left), `suppress_extra`,
-  `smoked`, `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`,
+  `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`,
   `burn_source`, `gear_fire_mobility`. Fire from gear (Thermite line, Igniter barrel, Burn set spread)
   goes through `GearFx.set_fire` -> `Hazards.add(..., "fire", turns, unit.id)`, and `Hazards._hit` asks
   `GearFx.hazard_hit` (Flame-retardant coat, Cauterizer, Filter mask, Scorched earth, Spotter flare).
@@ -482,7 +485,7 @@ XCOM-style squad stealth, `Concealment` in stealth/concealment.gd. Pure rules co
   fights and quick play; off for Ambush nodes, Hold the beacon, bosses, an event's
   `modifiers.detected`, and Echo fights (`Story.setup_echo` calls `Concealment.disable`).
 - While concealed a dormant Infected only spots a unit within `DETECT_RADIUS` (4, Hive Hush 2)
-  with line of sight, instead of its full sight. `Rules.move_along` checks every step either
+  with line of sight, instead of its full sight, and never one standing in smoke. `Rules.move_along` checks every step either
   side takes (`Concealment.spotter`), flushes the walk so far as a `move` event, then breaks it,
   so the alarm plays at the right moment. `EnemyAI` checks again at each dormant enemy's turn.
 - Any squad attack (hit or miss), any damage between the sides, an explosion
@@ -492,7 +495,10 @@ XCOM-style squad stealth, `Concealment` in stealth/concealment.gd. Pure rules co
   spawns arrive dormant. Attacks on unaware targets get `Unaware` +15 aim; reaction shots in the
   enemy phase of the reveal turn get `Ambush shot` +15.
 - View: `EventPlayer.concealed` is the displayed state (lags the rules like the rest). It drives
-  the HUD chip, the red move tiles (`Concealment.danger_cells`, only enemies the squad can see),
+  the HUD chip and a cold-blue screen edge (flares red on the reveal), a dashed ring at every
+  soldier's feet and an eye on watching enemies' nameplates, the red sight areas
+  (`Concealment.sight_fields` -> `Board.show_sight`: a faint wash with an outline, the hovered
+  enemy's own area lifted) and the eye on a move path's first spotted step, the red move tiles (`Concealment.danger_cells`, only enemies the squad can see),
   the SQUAD CONCEALED / DETECTED banners and the Soundscape `stealth` loop, which hands over to
   the combat stems with the `st_reveal` stinger and full pulse and danger for 30 seconds.
 - Dev aid: `godot -s tools/shot_concealment.gd -- OUT_DIR` renders the sequence.
@@ -581,7 +587,8 @@ One shared system for ground effects; gear, class abilities, mutations, enemies 
 - **State**: `GameState.hazards` = `{cell: {"kind", "turns", "source", "spare"}}`, one hazard per cell,
   saved in `to_dict` (so it is in the checksum and resyncs). No RNG.
 - **Kinds** (`Hazards.KINDS`): `fire` 2 damage, `spore` +10 Infection to soldiers (enemies immune),
-  `acid` 1 damage. Each lists the kinds it `replaces` on its cell (fire burns spores and acid away) and
+  `acid` 1 damage, `smoke` harmless (smoke grenade: `GearFx.in_smoke` gives +20 defense and
+  `Concealment.detects` can't spot anyone standing in it). Each lists the kinds it `replaces` on its cell (fire burns spores and acid away) and
   an AI `avoid` weight. Deployables (`status.deployable`) and Turned units take no Infection.
 - **Add / remove**: `Hazards.add(s, cells, kind, turns, source_id := -1, spare_team := -1) -> Array[Vector2i]`
   (walls skipped; `turns` in rounds, `Hazards.PERMANENT` = -1; `spare_team` makes it harmless to that

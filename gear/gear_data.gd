@@ -220,8 +220,8 @@ const PROTOTYPES := {
 ## Pocket consumables, used up. Charges stack per pocket.
 const CONSUMABLES := {
 	"medkit": {"name": "Medkit", "price": 12, "desc": "Heal 4 HP"},
-	"flashbang": {"name": "Flashbang", "price": 15, "desc": "Enemies in radius 1 lose their next action"},
-	"smoke_grenade": {"name": "Smoke grenade", "price": 15, "desc": "+20 defense in radius 1 for 2 turns"},
+	"flashbang": {"name": "Flashbang", "price": 15, "desc": "Stuns enemies in radius 1: they lose their next turn"},
+	"smoke_grenade": {"name": "Smoke grenade", "price": 15, "desc": "A 3x3 smoke cloud for 2 turns: +20 defense inside, and you can't be spotted in it"},
 	"recon_drone": {"name": "Recon drone", "price": 15, "desc": "Reveals a 6-tile radius for the fight"},
 	"suppressant_shot": {"name": "Suppressant shot", "price": 20, "desc": "-15 Infection"},
 	"frag_grenade": {"name": "Frag grenade", "price": 20, "desc": "3 damage in radius 1. Strips half cover, cracks walls and roofs, brings down scaffolds"},
