@@ -185,10 +185,10 @@ func test_shot_cinematic_takes_and_returns_camera() -> void:
 	var soldier := v.state.controllable_units(0)[0]
 	var enemy := v.state.living(Types.Team.ENEMY)[0]
 	v.player.enqueue({"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": true, "graze": false,
-		"crit": false, "damage": 3, "chance": 70, "reaction": false})
+		"crit": true, "damage": 3, "chance": 70, "reaction": false})
 	v.player.enqueue({"type": "damage", "unit": enemy.id, "amount": 3, "hp": 1, "source": soldier.id})
 	v.player.advance(0.3)
-	assert_true(v.camera_rig.cinematic, "shot camera engaged")
+	assert_true(v.camera_rig.cinematic, "a crit cuts to the shot camera")
 	assert_true(v.player.in_cinematic, "cinematic flagged")
 	var steps := 0
 	var slowed := false
@@ -252,23 +252,105 @@ func test_teammate_shots_skip_the_shot_camera() -> void:
 	var enemy := v.state.living(Types.Team.ENEMY)[0]
 	var mine := v.state.controllable_units(0)[0]
 	var theirs := v.state.controllable_units(1)[0]
-	v.player.enqueue({"type": "shot", "unit": theirs.id, "target": enemy.id, "hit": false, "graze": false,
-		"crit": false, "damage": 0, "chance": 40, "reaction": false})
+	v.player.enqueue({"type": "shot", "unit": theirs.id, "target": enemy.id, "hit": true, "graze": false,
+		"crit": true, "damage": 2, "chance": 40, "reaction": false})
 	v.player.advance(0.1)
 	assert_true(not v.camera_rig.cinematic, "teammate's shot keeps my camera")
 	v.player.flush()
-	v.player.enqueue({"type": "shot", "unit": mine.id, "target": enemy.id, "hit": false, "graze": false,
-		"crit": false, "damage": 0, "chance": 40, "reaction": false})
+	v.player.enqueue({"type": "shot", "unit": mine.id, "target": enemy.id, "hit": true, "graze": false,
+		"crit": true, "damage": 2, "chance": 40, "reaction": false})
 	v.player.advance(0.3)
 	assert_true(v.camera_rig.cinematic, "my own shot cuts to the shot camera")
 	v.player.flush()
-	v.player.enqueue({"type": "shot", "unit": enemy.id, "target": theirs.id, "hit": false, "graze": false,
-		"crit": false, "damage": 0, "chance": 40, "reaction": false})
+	v.player.enqueue({"type": "shot", "unit": enemy.id, "target": theirs.id, "hit": true, "graze": false,
+		"crit": true, "damage": 2, "chance": 40, "reaction": false})
 	v.player.advance(0.3)
 	assert_true(v.camera_rig.cinematic, "enemy shots still cut")
 	v.player.flush()
 	v.session = local
 	net.free()
+	v.free()
+
+
+## Puts `target`'s view a few tiles from `shooter`'s on the same level, so a shot is routine.
+func _close_range(v: MissionView, shooter: Unit, target: Unit) -> void:
+	v.view_for(target.id).position = v.view_for(shooter.id).position + Vector3(4, 0, 0)
+
+
+func test_routine_shots_stay_on_the_tactical_camera() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldier := v.state.controllable_units(0)[0]
+	var enemy := v.state.living(Types.Team.ENEMY)[0]
+	_close_range(v, soldier, enemy)
+	for outcome in [[true, 70], [false, 70], [false, 20]]:
+		v.player.enqueue({"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": outcome[0], "graze": false,
+			"crit": false, "damage": 2, "chance": outcome[1], "reaction": false})
+		v.player.enqueue({"type": "damage", "unit": enemy.id, "amount": 2, "hp": 4, "source": soldier.id})
+		v.player.advance(0.3)
+		assert_true(not v.camera_rig.cinematic, "routine shot stays tactical %s" % [outcome])
+		v.player.flush()
+	# Shots into the soldier: a graze from an ordinary enemy is no moment either.
+	v.player.enqueue({"type": "shot", "unit": enemy.id, "target": soldier.id, "hit": true, "graze": true,
+		"crit": false, "damage": 1, "chance": 60, "reaction": false})
+	v.player.advance(0.3)
+	assert_true(not v.camera_rig.cinematic, "enemy graze stays tactical")
+	v.player.flush()
+	v.free()
+
+
+func test_epic_moments_cut_to_the_shot_camera() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldier := v.state.controllable_units(0)[0]
+	var enemy := v.state.living(Types.Team.ENEMY)[0]
+	_close_range(v, soldier, enemy)
+	var shot := {"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": true, "graze": false,
+		"crit": false, "damage": 3, "chance": 70, "reaction": false}
+	var dies := {"type": "died", "unit": enemy.id}
+	var hurt := {"type": "damage", "unit": enemy.id, "amount": 3, "hp": 0, "source": soldier.id}
+	v.player._queue.append_array([hurt, dies])
+	assert_eq(v.player.shot_moment(shot), "kill", "a kill is a moment")
+	for uv in v.unit_views.values():
+		if not uv.is_soldier and uv.unit_id != enemy.id:
+			uv.dead = true
+	assert_eq(v.player.shot_moment(shot), "last_enemy", "the last kill of the fight")
+	v.player._queue.clear()
+	assert_eq(v.player.shot_moment(shot), "", "the same hit without a kill is routine")
+	v.view_for(enemy.id).position = v.view_for(soldier.id).position + Vector3(11, 0, 0)
+	assert_eq(v.player.shot_moment(shot), "long_shot", "a hit from 11 tiles")
+	v.view_for(enemy.id).position = v.view_for(soldier.id).position + Vector3(7, -preload("res://view/board.gd").RAISE, 0)
+	assert_eq(v.player.shot_moment(shot), "high_ground", "shooting down from a roof")
+	var later := {"type": "move", "unit": soldier.id, "from": soldier.pos, "path": [soldier.pos]}
+	v.player._queue.append_array([hurt, later, dies])
+	_close_range(v, soldier, enemy)
+	assert_eq(v.player.shot_moment(shot), "", "a death after the next action is not this shot's kill")
+	v.player._queue.clear()
+	v.free()
+
+
+func test_epic_shots_play_at_raised_game_speed() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldier := v.state.controllable_units(0)[0]
+	var enemy := v.state.living(Types.Team.ENEMY)[0]
+	v.player.speed = 3.0
+	v.player.enqueue({"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": true, "graze": false,
+		"crit": false, "damage": 6, "chance": 70, "reaction": false})
+	v.player.enqueue({"type": "damage", "unit": enemy.id, "amount": 6, "hp": 0, "source": soldier.id})
+	v.player.enqueue({"type": "died", "unit": enemy.id})
+	v.player.advance(0.1)
+	assert_true(v.camera_rig.cinematic, "a kill cuts at 3x game speed")
+	assert_true(v.player.clock_speed() > 1.0 and v.player.clock_speed() < 3.0, "sped up, but less than the game")
+	v.player.flush()
+	assert_eq(v.player.clock_speed(), 3.0, "full game speed after the shot")
+	v.player.speed = 12.0   # autoplay
+	var other := v.state.living(Types.Team.ENEMY)[1]
+	v.player.enqueue({"type": "shot", "unit": soldier.id, "target": other.id, "hit": true, "graze": false,
+		"crit": true, "damage": 6, "chance": 70, "reaction": false})
+	v.player.advance(0.05)
+	assert_true(not v.camera_rig.cinematic, "autoplay never cuts")
+	v.player.flush()
 	v.free()
 
 
