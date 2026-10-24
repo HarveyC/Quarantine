@@ -15,8 +15,8 @@ func make_run(seed: int = 7) -> Dictionary:
 
 
 func test_item_tables_are_consistent() -> void:
-	assert_eq(GearData.ITEMS.size(), 37, "items")
-	assert_eq(GearData.PROTOTYPES.size(), 9, "prototypes")
+	assert_eq(GearData.ITEMS.size(), 48, "items")
+	assert_eq(GearData.PROTOTYPES.size(), 13, "prototypes")
 	for id in GearData.ITEMS:
 		var d: Dictionary = GearData.ITEMS[id]
 		assert_true(GearData.TAGS.has(d.tag), "%s tag" % id)

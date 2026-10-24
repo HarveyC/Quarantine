@@ -220,8 +220,8 @@ is just the line shape (the AI already avoids fire through Hazards). Spore Sense
 
 Run-level and pure data, like the rules core. Design: "Equipment and builds" in the design doc.
 
-- **Data** (`GearData`): `ITEMS` (37: name, tag, slot `weapon|ammo|armor|gadget`, rarity
-  `common|uncommon|rare`, desc, desc_mk2, optional flat `stats`/`stats_mk2`), `PROTOTYPES` (9: two `tags`,
+- **Data** (`GearData`): `ITEMS` (48: name, tag, slot `weapon|ammo|armor|gadget`, rarity
+  `common|uncommon|rare`, desc, desc_mk2, optional flat `stats`/`stats_mk2`), `PROTOTYPES` (13: two `tags`,
   rarity "prototype", start at Mk II, not sold), `CONSUMABLES` (with `price`), `TAGS` (the 8 capitalised
   tag names) and `TAG_INFO` (colour, set bonus text). `price(id)`, `upgrade_price(id)` (Armorer).
 - **Loadout** (`Loadout`, on the run soldier record as `record.gear`):
@@ -264,7 +264,8 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   `smoked`, `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`,
   `burn_source`, `gear_fire_mobility`. Fire from gear (Thermite line, Igniter barrel, Burn set spread)
   goes through `GearFx.set_fire` -> `Hazards.add(..., "fire", turns, unit.id)`, and `Hazards._hit` asks
-  `GearFx.hazard_hit` (Flame-retardant coat, Filter mask, Scorched earth, Spotter flare). Sentry turret
+  `GearFx.hazard_hit` (Flame-retardant coat, Cauterizer, Filter mask, Scorched earth, Spotter flare).
+  Ember plating ignites attackers from `damage_taken`; Pinpoint marks from both `_suppress` and `on_suppress`. Sentry turret
   spawns a Deployables turret. `GearFx.PENDING` lists items whose systems don't exist yet (
   restraint, mutation costs); they stay out of draws until they work.
 - **Gear max HP** (Kevlar vest etc.): `Loadout.equip / unequip / upgrade` move the run record's
@@ -289,7 +290,8 @@ rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind i
   only: the 20 s choice timer ran out, missing picks take the default), `node_leave`;
   depot `node_buy {index, soldier?, slot?}`, `node_sell {soldier, slot}`, `node_reroll`;
   hospital `node_treat {soldier, treatment: patch|purge|train|cure}`; survivors `node_claim`.
-- **Events** are data in `EventData.EVENTS` (15, written in the world's voice), run by
+- **Events** are data in `EventData.EVENTS` (28, written in the world's voice; 8 lean on Port Ardent
+  and 5 on the Bore), run by
   `EventRules`. An event is a graph of steps; each step is decided one of five ways: `vote`
   (majority, the host breaks a tie, re-voting allowed until the last vote is in), `secret` (picks
   revealed together, with an optional `unanimous` bonus), `per_player` (each player for their own
@@ -297,7 +299,8 @@ rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind i
   (only the owner of the event's subject soldier). Options carry requirements, an optional own-soldier
   target and a list of effects (format at the top of `event_data.gd`). Events never repeat in a run,
   are filtered by act and squad state (Whispers needs a soldier at 50+, Last seat a wounded one,
-  The Source's signal is act 3 only) and act 1 weights the low-stakes ones x3. A solo player answers
+  The Source's signal is act 3 only; Recovery team needs a soldier at 25+), act 1 weights the low-stakes
+  ones x3, and acts 2 and 3 weight their own-biome events x2. A solo player answers
   every kind of step alone and votes resolve at once.
 - **What nodes write**: shared values only through `RunRules.add_supplies` / `add_intel` /
   `add_serum` / `add_outbreak` / `add_recruit`; soldier `hp`, `infection` (capped at 99 outside a
