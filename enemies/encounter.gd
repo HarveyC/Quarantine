@@ -239,7 +239,7 @@ static func after_action(s: GameState, u: Unit, action: Dictionary) -> void:
 
 static func _reveal_near(s: GameState) -> void:
 	for e in s.living(Types.Team.ENEMY):
-		if not e.status.get("hidden", false):
+		if not e.status.get("hidden", false) or e.status.has("burrowed"):
 			continue
 		for t in s.living(Types.Team.PLAYER):
 			if e.pos.distance_to(t.pos) <= HIDDEN_REVEAL_RANGE:
@@ -475,8 +475,15 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 			if int(target.status.boss_phase) == 1 and target.hp * 2 <= target.max_hp:
 				target.status.boss_phase = 2
 				target.mobility = 3
+				target.status.erase("tether")
 				s.emit({"type": "boss_phase", "unit": target.id, "phase": 2, "boss": target.kind,
 					"text": "The Brood Mother tears free!"})
+				# She lays two fresh sacs where she was rooted as she tears free.
+				for d in [Vector2i(-1, 1), Vector2i(1, 1)]:
+					var sac := _place(s, "egg_sac", target.pos + d * 2)
+					sac.status["alerted"] = true
+					sac.status["spawner"] = {"kinds": ["runner"], "every": 2, "next": s.turn + 1, "i": 0}
+					s.emit({"type": "spawned", "unit": sac.id, "kind": sac.kind, "cell": sac.pos, "from": target.id})
 		"colonel_hale":
 			if int(target.status.boss_phase) == 1 and target.hp * 2 <= target.max_hp:
 				target.status.boss_phase = 2
@@ -510,7 +517,7 @@ static func on_died(s: GameState, u: Unit) -> void:
 		for o in s.living(Types.Team.ENEMY):
 			kill(s, o)
 		return
-	if u.kind in ["hive_node", "source_root"] and not _any_alive(s, u.kind):
+	if u.kind in ["hive_node", "source_root", "egg_sac"] and not _any_alive(s, u.kind):
 		for o in s.living(Types.Team.ENEMY):
 			if o.status.get("tether", "") == u.kind:
 				o.status.erase("tether")

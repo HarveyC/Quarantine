@@ -331,6 +331,114 @@ func test_nest_and_boss_fights() -> void:
 		assert_eq(boss.encounter.boss, EnemyRoster.BOSS_OF_ACT[act], "boss of act %d" % act)
 
 
+# --- vertical enemies ----------------------------------------------------------------------
+
+func test_leaper_marks_a_landing_then_lands_and_knocks_back() -> void:
+	var s := make_blank(_open(12, 5))
+	var a := _soldier(s, "trooper", Vector2i(3, 2))
+	var le := _enemy(s, "leaper", Vector2i(7, 2))
+	s.turn = 1
+	_enemy_turn(s, le)
+	assert_true(le.status.has("leap_cell"), "marks a landing spot")
+	assert_eq(le.pos, Vector2i(7, 2), "waits instead of running in")
+	var landing: Vector2i = le.status.leap_cell
+	a.overwatch = true
+	a.status["ow_until"] = 99
+	s.turn = 2
+	_enemy_turn(s, le)
+	assert_eq(le.pos, landing, "lands on the marked spot")
+	assert_eq(_events(s, "shot").size(), 0, "overwatch can't catch a leap")
+	assert_true(a.hp < a.max_hp, "impact damage")
+	assert_true(EnemyAI._cheb(a.pos, landing) >= 1, "knocked away")
+
+
+func test_leaper_misses_when_soldier_steps_out_of_the_zone() -> void:
+	var s := make_blank(_open(14, 5))
+	var a := _soldier(s, "trooper", Vector2i(3, 2))
+	var le := _enemy(s, "leaper", Vector2i(7, 2))
+	s.turn = 1
+	_enemy_turn(s, le)
+	a.pos = Vector2i(0, 4)
+	s.turn = 2
+	_enemy_turn(s, le)
+	assert_eq(a.hp, a.max_hp, "dodged")
+
+
+func test_drifter_flies_over_walls_and_drops() -> void:
+	var rows := PackedStringArray([
+		"..........",
+		"....#.....",
+		"....#.....",
+		"....#.....",
+		"..........",
+	])
+	var s := make_blank(rows)
+	var a := _soldier(s, "trooper", Vector2i(1, 2))
+	var d := _enemy(s, "drifter", Vector2i(7, 2))
+	assert_true(EnemyRoster.is_flying(d), "flying")
+	s.turn = 1
+	_enemy_turn(s, d)
+	assert_true(EnemyAI._cheb(d.pos, a.pos) <= 2, "drifted over the wall (at %s)" % str(d.pos))
+	assert_true(a.hp < a.max_hp, "dropped on the soldier")
+	assert_true(Encounter.is_spore(s, a.pos), "spore puddle under them")
+
+
+func test_sharpshooter_locks_on_and_fires_unless_line_is_broken() -> void:
+	var s := make_blank(_open(14, 5))
+	var a := _soldier(s, "trooper", Vector2i(1, 2))
+	var sh := _enemy(s, "sharpshooter", Vector2i(10, 2))
+	s.turn = 1
+	_enemy_turn(s, sh)
+	assert_eq(int(sh.status.get("sighted", -1)), a.id, "locks on")
+	assert_eq(_events(s, "telegraph").filter(func(e): return e.kind == "snipe").size(), 1, "laser telegraphed")
+	assert_eq(EnemyIntent.dangers(s).filter(func(d): return d.kind == "snipe").size(), 1, "shown as danger")
+	s.turn = 2
+	_enemy_turn(s, sh)
+	assert_true(_events(s, "shot").filter(func(e): return e.get("snipe", false)).size() == 1, "fires")
+	assert_true(a.hp < a.max_hp, "never misses")
+	# Suppression breaks the lock.
+	var b := make_blank(_open(14, 5))
+	var t := _soldier(b, "trooper", Vector2i(1, 2))
+	var sh2 := _enemy(b, "sharpshooter", Vector2i(10, 2))
+	b.turn = 1
+	_enemy_turn(b, sh2)
+	sh2.status["suppressed"] = 99
+	b.turn = 2
+	_enemy_turn(b, sh2)
+	assert_eq(t.hp, t.max_hp, "suppressed sharpshooter can't take the shot")
+	assert_eq(_events(b, "lock_lost").size(), 1, "loses the lock")
+
+
+func test_burrower_tunnels_hidden_and_erupts() -> void:
+	var s := make_blank(_open(14, 5))
+	var a := _soldier(s, "trooper", Vector2i(2, 2))
+	var bu := _enemy(s, "burrower", Vector2i(9, 2))
+	s.turn = 1
+	_enemy_turn(s, bu)
+	assert_true(bu.status.get("burrowed", false) and bu.status.get("hidden", false), "underground")
+	assert_true(not Combat.visible_targets(s, a).has(bu), "can't be shot while burrowed")
+	Rules.start_team_phase(s)
+	assert_true(bu.status.get("hidden", false), "proximity doesn't reveal a burrower")
+	EnemyAbilities.set_tile(s.grid, a.pos + Vector2i(0, 1), Types.Tile.LOW)
+	s.turn = 2
+	_enemy_turn(s, bu)
+	assert_true(not bu.status.get("hidden", false), "surfaced")
+	assert_true(EnemyAI._cheb(bu.pos, a.pos) == 1, "erupts next to the target")
+	assert_true(a.hp < a.max_hp, "eruption damage")
+
+
+func test_act_signature_enemies_show_up_more() -> void:
+	var counts := {1: {}, 2: {}, 3: {}}
+	for act in [1, 2, 3]:
+		for seed in range(1, 120):
+			for e in FightBuilder.build({"act": act, "node": "skirmish", "outbreak": 4, "seed": seed}).enemies:
+				var k: String = EnemyRoster.parse(e).kind
+				counts[act][k] = counts[act].get(k, 0) + 1
+	assert_true(counts[1].get("leaper", 0) > 0, "leapers in act 1")
+	assert_true(counts[2].get("drifter", 0) > counts[3].get("drifter", 0), "drifters lean act 2")
+	assert_true(counts[3].get("burrower", 0) > 0 and counts[2].get("burrower", 0) == 0, "burrowers only from act 3")
+
+
 # --- bosses -------------------------------------------------------------------------------
 
 func _boss_state(boss: String, rows: PackedStringArray = PackedStringArray()) -> GameState:
@@ -353,12 +461,17 @@ func test_brood_mother_phases_and_death_ends_fight() -> void:
 	var bm := _boss(s, "brood_mother")
 	assert_eq(s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "egg_sac").size(), 4, "4 egg sacs")
 	var t := s.living(Types.Team.PLAYER)[0]
-	Rules.deal_damage(s, bm, 40, t)
+	Rules.deal_damage(s, bm, 10, t)
+	assert_eq(bm.hp, bm.max_hp, "shielded by her egg sacs")
+	for sac in s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "egg_sac"):
+		Rules.deal_damage(s, sac, 99, t)
+	Rules.deal_damage(s, bm, 99, t)
 	assert_true(bm.is_alive(), "survives into phase 2")
 	assert_eq(int(bm.status.boss_phase), 2, "phase 2")
 	assert_eq(bm.mobility, 3, "tears free")
+	assert_eq(s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "egg_sac").size(), 2, "lays 2 new sacs")
 	Rules.start_mission(s)
-	Rules.deal_damage(s, bm, 40, t)
+	Rules.deal_damage(s, bm, 99, t)
 	Rules.check_end(s)
 	assert_eq(_events(s, "boss_defeated").size(), 1, "defeated")
 	assert_eq(s.result, Types.Result.VICTORY, "adds die with her")

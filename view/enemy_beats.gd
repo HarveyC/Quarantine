@@ -11,14 +11,15 @@ const SCALE := {
 	"fallen": [1.0, 1.05], "bloater": [1.45, 1.05], "broodling": [0.9, 0.7], "brute": [1.45, 1.35],
 	"lurker": [1.25, 0.6], "shrieker": [0.85, 1.25], "hive_node": [1.3, 0.7], "egg_sac": [0.9, 0.55],
 	"spore_nest": [1.1, 0.6], "source_root": [1.2, 0.9], "brood_mother": [2.0, 1.8],
-	"colonel_hale": [1.05, 1.1], "the_source": [2.6, 2.2],
+	"colonel_hale": [1.05, 1.1], "the_source": [2.6, 2.2], "leaper": [0.95, 0.85],
+	"drifter": [1.1, 0.7], "sharpshooter": [0.95, 1.1], "burrower": [1.3, 0.75],
 }
 const ELITE_SCALE := 1.2
 
 
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released",
-	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated"]
+	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -32,6 +33,8 @@ static func dress(uv: Node3D, u: Unit) -> void:
 	uv.scale = Vector3(sc[0] * k, sc[1] * k, sc[0] * k)
 	if u.status.get("hidden", false):
 		uv.visible = false
+	if u.status.get("flying", false) and uv.get_child_count() > 0:
+		(uv.get_child(0) as Node3D).position.y += 1.1   # placeholder: hover above the tile
 
 
 ## A beat for an enemy-module event, or {} if the event isn't one of ours.
@@ -50,7 +53,8 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			ep._sfx("sting_enemy", -8.0)
 			return {"dur": 0.45}
 		"telegraph":
-			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES"}
+			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
+				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING"}
 			if uv != null:
 				fx.floating_text(head.call(uv), text.get(ev.get("kind", ""), "DANGER"), Palette.DANGER, 44)
 			_flash_cells(fx, ev.get("cells", []), Palette.DANGER)
@@ -96,6 +100,21 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				ep._focus(uv)
 			ep._sfx("alert")
 			return {"dur": 0.6}
+		"burrowed":
+			if uv != null:
+				fx.puff(uv.position + Vector3(0, 0.2, 0), Color(0.45, 0.4, 0.33), 1.0, 0.8, 0.3)
+				uv.visible = false
+			ep._sfx("concrete")
+			return {"dur": 0.5}
+		"lock_lost":
+			if uv != null:
+				fx.floating_text(head.call(uv), "LOST THE SHOT", Color(0.8, 0.82, 0.8), 40)
+			return {"dur": 0.3}
+		"fell":
+			if uv != null:
+				fx.floating_text(head.call(uv), "FELL", Palette.DANGER, 48)
+				uv.hit_react(uv.position + Vector3(0, 1, 0), 1.0)
+			return {"dur": 0.4}
 		"pinned", "released":
 			if uv != null:
 				fx.floating_text(head.call(uv), "PINNED" if ev.type == "pinned" else "FREED", Palette.DANGER if ev.type == "pinned" else Palette.AMBER, 48)
@@ -153,6 +172,9 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"immune": return "%s is immune (tethered)" % who.call("unit")
 		"untethered": return "%s is no longer tethered" % who.call("unit")
 		"boss_phase": return "[color=#%s]%s[/color]" % [red, str(ev.get("text", "The boss changes"))]
+		"burrowed": return "%s burrows underground" % who.call("unit")
+		"lock_lost": return "%s loses its target" % who.call("unit")
+		"fell": return "[color=#%s]%s falls off the ledge (%d)[/color]" % [red, who.call("unit"), int(ev.get("damage", 0))]
 		"boss_defeated": return "[b]%s is defeated[/b]" % name_of.call(int(ev.get("unit", -1)))
 	return ""
 

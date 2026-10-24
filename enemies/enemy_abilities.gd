@@ -27,6 +27,20 @@ const DEFS := {
 		"desc": "Calls a 3x3 airstrike that lands next enemy phase: 4 damage and destroys half cover."},
 	"flashbang": {"name": "Flashbang", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
 		"desc": "Removes overwatch and hunker from soldiers in a 3x3."},
+	"leap": {"name": "Leap", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Lands on the marked spot, ignoring terrain, height and overwatch: 3 damage in a 3x3 and knocks soldiers away (off ledges too)."},
+	"drift": {"name": "Drift", "targeting": "cell", "cost": 1, "cooldown": 0,
+		"desc": "Floats to a cell in range over walls, cover and height."},
+	"spore_drop": {"name": "Spore drop", "targeting": "unit", "cost": -1, "cooldown": 0,
+		"desc": "Drops on a soldier within 2 tiles from above: 2 damage that ignores cover, and a spore puddle."},
+	"sight": {"name": "Laser sight", "targeting": "unit", "cost": -1, "cooldown": 0,
+		"desc": "Locks onto a soldier it can see. Next turn it fires unless the soldier breaks line of sight or it is suppressed."},
+	"snipe": {"name": "Snipe", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Fires at the locked soldier: never misses, ignores half cover, full cover halves the damage."},
+	"burrow": {"name": "Burrow", "targeting": "unit", "cost": -1, "cooldown": 0,
+		"desc": "Tunnels toward a soldier and marks where it will erupt next turn."},
+	"erupt": {"name": "Erupt", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Bursts out: 3 damage in a 3x3, destroys half cover and collapses high ground there."},
 	"pull": {"name": "Pull", "targeting": "none", "cost": 1, "cooldown": 0, "phase": 2,
 		"desc": "Drags the soldier with the most Infection 2 tiles toward the Source."},
 	"core_slam": {"name": "Core slam", "targeting": "cell", "cost": -1, "cooldown": 0, "phase": 2,
@@ -46,6 +60,11 @@ const BROOD_SPIT_RANGE := 6.0
 const FLASH_RANGE := 7.0
 const STRIKE_DAMAGE := 4
 const PULL_STEPS := 2
+const LEAP_RANGE := 5
+const LEAP_DAMAGE := 3
+const DROP_RANGE := 2
+const BURROW_RANGE := 8
+const ERUPT_DAMAGE := 3
 
 
 static func handles(id: String) -> bool:
@@ -89,6 +108,17 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			"slam":
 				if _cheb(u.pos, t.pos) != 1:
 					return "Not adjacent"
+			"spore_drop":
+				if _cheb(u.pos, t.pos) > DROP_RANGE:
+					return "Out of range"
+			"sight":
+				if t.status.get("hidden", false) or not Combat.can_see(s, u.pos, t.pos):
+					return "No line of sight"
+			"burrow":
+				if u.status.has("burrowed"):
+					return "Already burrowed"
+				if u.pos.distance_to(t.pos) > BURROW_RANGE:
+					return "Out of range"
 			"pounce":
 				if u.status.has("pinning"):
 					return "Already pinning"
@@ -111,6 +141,12 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			"core_slam":
 				if not action.get("axis", "") in ["row", "col"]:
 					return "No axis"
+			"drift":
+				var c: Vector2i = cell
+				if s.grid.tile(c) == Types.Tile.WALL or s.unit_at(c) != null or c == u.pos:
+					return "Blocked"
+				if _cheb(u.pos, c) > u.mobility:
+					return "Out of range"
 		return ""
 	match id:
 		"charge":
@@ -119,6 +155,18 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		"burst":
 			if not u.status.has("swelling"):
 				return "Not swelling"
+		"leap":
+			if not u.status.has("leap_cell"):
+				return "No landing marked"
+		"snipe":
+			var t := s.get_unit(int(u.status.get("sighted", -1)))
+			if t == null or not t.is_alive() or not Combat.can_see(s, u.pos, t.pos):
+				return "Lost the target"
+			if Combat.has_status(s, u, "suppressed"):
+				return "Suppressed"
+		"erupt":
+			if not u.status.has("emerge_cell"):
+				return "Not burrowed"
 		"maul":
 			var p := s.get_unit(u.status.get("pinning", -1))
 			if p == null or not p.is_alive():
@@ -140,6 +188,20 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 		u.cooldowns[id] = def.cooldown
 	match id:
 		"slam": _slam(s, u, s.get_unit(action.target))
+		"leap": _leap(s, u)
+		"drift":
+			var from := u.pos
+			u.pos = action.cell
+			s.emit({"type": "move", "unit": u.id, "from": from, "path": [action.cell] as Array[Vector2i], "flying": true})
+		"spore_drop": _spore_drop(s, u, s.get_unit(action.target))
+		"sight":
+			var t := s.get_unit(action.target)
+			u.status["sighted"] = t.id
+			s.emit({"type": "ability", "unit": u.id, "ability": "sight", "target": t.id})
+			s.emit({"type": "telegraph", "unit": u.id, "kind": "snipe", "cells": [t.pos] as Array[Vector2i], "turn": s.turn + 1, "target": t.id})
+		"snipe": _snipe(s, u)
+		"burrow": _burrow(s, u, s.get_unit(action.target))
+		"erupt": _erupt(s, u)
 		"charge": _charge(s, u)
 		"burst": burst(s, u)
 		"pounce": _pounce(s, u, s.get_unit(action.target))
@@ -228,6 +290,106 @@ static func _charge(s: GameState, u: Unit) -> void:
 		Rules.deal_damage(s, hit, dmg, u)
 		if hit.is_alive():
 			knockback(s, hit, dir, 1)
+
+
+## Leaper: lands on the cell it marked last turn. Ignores terrain, height and overwatch.
+static func _leap(s: GameState, u: Unit) -> void:
+	var cell: Vector2i = u.status.leap_cell
+	u.status.erase("leap_cell")
+	if s.unit_at(cell) != null or not s.grid.is_walkable(cell):
+		cell = Encounter.free_cell(s, cell)
+	var cells := square(s.grid, cell, 1)
+	var from := u.pos
+	u.pos = cell
+	s.emit({"type": "move", "unit": u.id, "from": from, "path": [cell] as Array[Vector2i], "leap": true})
+	var victims: Array[Unit] = []
+	for t in s.living():
+		if t != u and cells.has(t.pos) and u.is_enemy_of(t):
+			victims.append(t)
+	s.emit({"type": "ability", "unit": u.id, "ability": "leap", "cell": cell, "cells": cells,
+		"units": victims.map(func(x: Unit) -> int: return x.id), "damage": LEAP_DAMAGE})
+	for t in victims:
+		Rules.deal_damage(s, t, LEAP_DAMAGE, u)
+		if t.is_alive():
+			knockback(s, t, _step_dir(cell, t.pos), 1)
+
+
+## Cells a Leaper could land on next turn: free, walkable, within range, next to a hostile.
+static func landing_cells(s: GameState, u: Unit) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var occ := s.occupied(u.id)
+	for t in s.living():
+		if not u.is_enemy_of(t) or t.status.get("hidden", false):
+			continue
+		for d in Grid.DIRS8:
+			var c: Vector2i = t.pos + d
+			if not out.has(c) and s.grid.is_walkable(c) and not occ.has(c) and _cheb(u.pos, c) <= LEAP_RANGE:
+				out.append(c)
+	return out
+
+
+static func _spore_drop(s: GameState, u: Unit, t: Unit) -> void:
+	var dmg := s.rng.randi_range(u.damage.x, u.damage.y)
+	s.emit({"type": "ability", "unit": u.id, "ability": "spore_drop", "target": t.id, "hit": true, "damage": dmg})
+	Rules.deal_damage(s, t, dmg, u)
+	Encounter.add_spores(s, [t.pos], SPORE_TURNS, u)
+
+
+static func _snipe(s: GameState, u: Unit) -> void:
+	var t := s.get_unit(int(u.status.sighted))
+	u.status.erase("sighted")
+	var dmg := s.rng.randi_range(u.damage.x, u.damage.y)
+	var cover := Combat.cover_against(s.grid, t.pos, u.pos)
+	if cover == Types.Cover.FULL:
+		dmg = maxi(1, dmg / 2)
+	s.emit({"type": "shot", "unit": u.id, "target": t.id, "hit": true, "graze": cover == Types.Cover.FULL,
+		"crit": false, "damage": dmg, "chance": 100, "reaction": false, "snipe": true})
+	Rules.deal_damage(s, t, dmg, u)
+
+
+static func _burrow(s: GameState, u: Unit, t: Unit) -> void:
+	var best := Encounter.free_cell(s, t.pos)
+	for d in Grid.DIRS8:
+		var c: Vector2i = t.pos + d
+		if s.grid.is_walkable(c) and s.unit_at(c) == null:
+			best = c
+			break
+	u.status["burrowed"] = true
+	u.status["hidden"] = true
+	u.status["emerge_cell"] = best
+	u.overwatch = false
+	s.emit({"type": "ability", "unit": u.id, "ability": "burrow", "target": t.id})
+	s.emit({"type": "burrowed", "unit": u.id})
+	s.emit({"type": "telegraph", "unit": u.id, "kind": "erupt", "cells": square(s.grid, best, 1), "turn": s.turn + 1})
+
+
+static func _erupt(s: GameState, u: Unit) -> void:
+	var cell: Vector2i = u.status.emerge_cell
+	u.status.erase("emerge_cell")
+	u.status.erase("burrowed")
+	if s.unit_at(cell) != null and s.unit_at(cell) != u or not s.grid.is_walkable(cell):
+		cell = Encounter.free_cell(s, cell)
+	var from := u.pos
+	u.pos = cell
+	s.emit({"type": "move", "unit": u.id, "from": from, "path": [cell] as Array[Vector2i], "tunnel": true})
+	Encounter.reveal(s, u)
+	var cells := square(s.grid, cell, 1)
+	var victims: Array[Unit] = []
+	for t in s.living():
+		if t != u and cells.has(t.pos):
+			victims.append(t)
+	s.emit({"type": "ability", "unit": u.id, "ability": "erupt", "cell": cell, "cells": cells,
+		"units": victims.map(func(x: Unit) -> int: return x.id), "damage": ERUPT_DAMAGE})
+	var smashed: Array[Vector2i] = []
+	for c in cells:
+		if s.grid.tile(c) == Types.Tile.LOW:
+			set_tile(s.grid, c, Types.Tile.FLOOR)
+			smashed.append(c)
+	if not smashed.is_empty():
+		s.emit({"type": "cover_destroyed", "cells": smashed, "unit": u.id})
+	for t in victims:
+		Rules.deal_damage(s, t, ERUPT_DAMAGE, u)
+	EnemyTerrain.collapse(s, cells, u)
 
 
 ## Bloater / Broodling burst. Kills the burster. Also used for the death burst.
@@ -390,6 +552,10 @@ static func knockback(s: GameState, t: Unit, dir: Vector2i, steps: int) -> void:
 	t.pos = c
 	t.hunkered = false
 	s.emit({"type": "move", "unit": t.id, "from": from, "path": path, "knockback": true})
+	var fall := EnemyTerrain.fall_damage(s, from, c)
+	if fall > 0:
+		s.emit({"type": "fell", "unit": t.id, "damage": fall})
+		Rules.deal_damage(s, t, fall, null)
 
 
 ## In-bounds, non-wall cells within `r` (Chebyshev) of `c`.

@@ -63,12 +63,11 @@ static func build(spec: Dictionary) -> Dictionary:
 	if node == "boss":
 		enc["boss"] = EnemyRoster.BOSS_OF_ACT[act]
 		if act == 2:
-			for i in 3:
-				enemies.append("fallen")
+			enemies.append_array(["fallen", "fallen", "sharpshooter"])
 		if mods.has("boss_health_mult"):
 			enc["boss_health_mult"] = float(mods.boss_health_mult)
 	var pool := EnemyRoster.pool(act)
-	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else MIN_START)
+	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else MIN_START, act)
 	# Spare budget past the cap: an affix on a regular, or an earlier reinforcement wave.
 	if st >= 2 and node != "boss":
 		enc.waves.append({"turn": 3 if st >= 4 else 4, "every": 3 if st >= 4 else 0, "kinds": _wave(rng, pool, 2)})
@@ -116,7 +115,7 @@ static func preview(spec: Dictionary) -> Dictionary:
 
 
 ## Buys regulars until the budget or the cap runs out. Returns the budget left.
-static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, enemies: Array[String], min_start: int) -> int:
+static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, enemies: Array[String], min_start: int, act: int = 1) -> int:
 	while budget > 0 and enemies.size() < ENEMY_CAP:
 		var slots := ENEMY_CAP - enemies.size()
 		var still_needed := maxi(0, min_start - enemies.size() - 1)
@@ -135,7 +134,7 @@ static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, e
 		for k in affordable:
 			if EnemyRoster.COST[k] >= mini(target, top):
 				preferred.append(k)
-		var kind := _pick(rng, preferred)
+		var kind := _pick_weighted(rng, preferred, act)
 		enemies.append(kind)
 		budget -= EnemyRoster.COST[kind]
 	return budget
@@ -190,6 +189,16 @@ static func _affixes(rng: RandomNumberGenerator, n: int, allow_tether: bool) -> 
 		options.erase(a)
 		out.append(a)
 	return out
+
+
+## Like _pick, with the act's signature enemies counted twice.
+static func _pick_weighted(rng: RandomNumberGenerator, from: Array[String], act: int) -> String:
+	var bag: Array[String] = []
+	for k in from:
+		bag.append(k)
+		if EnemyRoster.SIGNATURE.get(act, []).has(k):
+			bag.append(k)
+	return _pick(rng, bag)
 
 
 static func _pick(rng: RandomNumberGenerator, from: Array[String]) -> String:

@@ -4,7 +4,7 @@ extends RefCounted
 ## during the team phase. Pure reads of GameState. OWNER: enemies workstream.
 ##
 ## intents(s) -> Array of {unit, icon, label, target (unit id or -1), affixes: Array[String]}
-##   icon: "claw" | "shoot" | "spit" | "burst" | "charge" | "scream" | "spawn" | "strike" |
+##   icon: "claw" | "shoot" | "spit" | "burst" | "charge" | "scream" | "spawn" | "strike" | "leap" | "snipe" | "drop" |
 ##         "pull" | "pulse" | "hide" | "seek" | "dormant" | "pinning"
 ## dangers(s) -> Array of {kind, cells: Array[Vector2i], unit, turn}: tiles that get hit next
 ##   enemy phase (bursts, charges, airstrikes, core slams). Paint them red.
@@ -46,6 +46,10 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		return {"icon": "pinning", "label": "MAULING", "target": int(u.status.pinning)}
 	if u.status.has("swelling"):
 		return {"icon": "burst", "label": "BURSTING", "target": -1}
+	if u.status.has("leap_cell"):
+		return {"icon": "leap", "label": "LEAPING", "target": -1}
+	if u.status.has("sighted"):
+		return {"icon": "snipe", "label": "AIMING", "target": int(u.status.sighted)}
 	if u.status.has("charge_dir"):
 		var lane := EnemyAbilities.charge_lane(s, u, u.pos, u.status.charge_dir)
 		var hit: Unit = lane.hit
@@ -60,6 +64,10 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			return {"icon": "hide", "label": "HIDING", "target": -1}
 		"spitter":
 			return {"icon": "spit", "label": "SPIT", "target": _best_visible(s, u)}
+		"drifter":
+			return {"icon": "drop", "label": "DROP", "target": _most_exposed(s, u, hostiles)}
+		"burrower":
+			return {"icon": "claw", "label": "BURROW", "target": -1}
 		"colonel_hale":
 			if phase == 1 and int(u.cooldowns.get("airstrike", 0)) <= 1:
 				return {"icon": "strike", "label": "AIRSTRIKE", "target": -1}
@@ -75,6 +83,14 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 	for u in s.living(Types.Team.ENEMY):
 		if u.status.has("swelling"):
 			out.append({"kind": "burst", "cells": EnemyAbilities.square(s.grid, u.pos, 1), "unit": u.id, "turn": s.turn})
+		if u.status.has("leap_cell"):
+			out.append({"kind": "leap", "cells": EnemyAbilities.square(s.grid, u.status.leap_cell, 1), "unit": u.id, "turn": s.turn})
+		if u.status.has("emerge_cell"):
+			out.append({"kind": "erupt", "cells": EnemyAbilities.square(s.grid, u.status.emerge_cell, 1), "unit": u.id, "turn": s.turn})
+		if u.status.has("sighted"):
+			var t := s.get_unit(int(u.status.sighted))
+			if t != null and t.is_alive():
+				out.append({"kind": "snipe", "cells": [t.pos], "unit": u.id, "turn": s.turn})
 		if u.status.has("charge_dir"):
 			var lane := EnemyAbilities.charge_lane(s, u, u.pos, u.status.charge_dir)
 			out.append({"kind": "charge", "cells": lane.cells, "unit": u.id, "turn": s.turn})
