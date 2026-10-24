@@ -19,6 +19,10 @@ signal disconnected(reason: String)
 const DEFAULT_PORT := 24680
 const MAX_PLAYERS := 4
 const READY := "ready"   # pseudo action type: {"type": READY, "player": int, "ready": bool}
+## How long the host waits on a silent peer before dropping it (ms). ENet's default is ~30s, which
+## left crashed clients in the lobby long enough to push a rejoining player into the wrong slot.
+const PEER_TIMEOUT_MS := 5000
+const CLIENT_ID_PATH := "user://client_id.txt"
 
 var state: GameState
 var my_name := "Player"
@@ -27,6 +31,8 @@ var my_player := -1
 var in_match := false
 ## peer id -> {"name": String, "player": int}. Owned by the host, mirrored to clients.
 var lobby := {}
+## Stable per-install id sent on join, so the host can tell a reconnect from a new player.
+var client_id := ""
 ## Host only: players whose peer dropped mid-match. Their soldiers hunker and they auto-ready.
 var absent := {}
 var player_names := {}
@@ -49,6 +55,8 @@ func host(port: int, name: String) -> String:
 	is_host = true
 	my_player = 0
 	lobby = {1: {"name": my_name, "player": 0}}
+	lobby[1]["cid"] = client_id
+	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	_refresh_names()
 	lobby_changed.emit()
@@ -61,7 +69,7 @@ func join(address: String, port: int, name: String) -> String:
 	if err != OK:
 		return "Could not connect to %s:%d (%s)" % [address, port, error_string(err)]
 	_attach(peer, name)
-	multiplayer.connected_to_server.connect(func() -> void: _hello.rpc_id(1, my_name))
+	multiplayer.connected_to_server.connect(func() -> void: _hello.rpc_id(1, my_name, client_id))
 	multiplayer.connection_failed.connect(func() -> void: _drop("Could not reach the host at %s:%d" % [address, port]))
 	multiplayer.server_disconnected.connect(func() -> void: _drop("The host left the game"))
 	return ""
@@ -71,12 +79,38 @@ func leave() -> void:
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = null
+	for sig in [multiplayer.peer_connected, multiplayer.peer_disconnected, multiplayer.connected_to_server,
+			multiplayer.connection_failed, multiplayer.server_disconnected]:
+		for c in sig.get_connections():
+			sig.disconnect(c.callable)
 	in_match = false
+	is_host = false
+	my_player = -1
+	lobby = {}
+	absent = {}
+	player_names = {}
+	_waiting = false
 
 
 func _attach(peer: ENetMultiplayerPeer, name: String) -> void:
+	# A second Host/Join while already connected would leave a stray connection on the host.
+	if multiplayer.multiplayer_peer != null:
+		leave()
 	my_name = name.strip_edges() if name.strip_edges() != "" else "Player"
+	if client_id == "":
+		client_id = load_client_id(my_name if Array(OS.get_cmdline_user_args()).any(func(a: String) -> bool: return a.begins_with("--name=")) else "")
 	multiplayer.multiplayer_peer = peer
+
+
+## A random id saved once per install. `suffix` keeps several dev copies on one machine distinct.
+static func load_client_id(suffix: String = "") -> String:
+	var id := FileAccess.get_file_as_string(CLIENT_ID_PATH).strip_edges()
+	if id == "":
+		id = "%x%x" % [randi(), randi()]
+		var f := FileAccess.open(CLIENT_ID_PATH, FileAccess.WRITE)
+		if f:
+			f.store_string(id)
+	return id + ("/" + suffix if suffix != "" else "")
 
 
 func _drop(reason: String) -> void:
@@ -153,28 +187,75 @@ func start_match() -> void:
 	ids.sort()
 	for i in ids.size():
 		lobby[ids[i]].player = i
-	_lobby.rpc(lobby)
-	_set_lobby(lobby)
+	_broadcast_lobby()
 	var config := MatchConfig.make(lobby.size())
-	_start.rpc(config)
+	if _live():
+		_start.rpc(config)
 	_start(config)
 
 
 @rpc("any_peer", "reliable")
-func _hello(name: String) -> void:
-	if not is_host:
-		return
-	var id := multiplayer.get_remote_sender_id()
-	var slot := _free_slot(name)
+func _hello(name: String, cid: String = "") -> void:
+	if is_host:
+		handle_hello(multiplayer.get_remote_sender_id(), name, cid)
+
+
+## Host: a peer introduced itself. Returns the player slot it got, or -1 if it was turned away.
+func handle_hello(id: int, name: String, cid: String) -> int:
+	if lobby.has(id):
+		return lobby[id].player   # duplicate hello from the same connection
+	var slot := -1
+	# Same install reconnecting (crash, restart, Wi-Fi drop): take over its old slot and drop
+	# the dead connection now instead of waiting for it to time out.
+	for old_id in lobby.keys():
+		if cid != "" and old_id != id and lobby[old_id].get("cid", "") == cid:
+			slot = lobby[old_id].player
+			lobby.erase(old_id)
+			_drop_peer(old_id)
+			break
 	if slot < 0:
-		_kick.rpc_id(id, "That game is full" if not in_match else "That match is full or already running")
-		return
-	lobby[id] = {"name": name, "player": slot}
+		slot = _free_slot(name)
+	if slot < 0:
+		_send_kick(id, "That game is full" if not in_match else "That match is full or already running")
+		return -1
+	lobby[id] = {"name": name, "player": slot, "cid": cid}
 	absent.erase(slot)
-	_lobby.rpc(lobby)
-	_set_lobby(lobby)
+	_broadcast_lobby()
 	if in_match:
+		_send_sync(id)
+	return slot
+
+
+func _on_peer_connected(id: int) -> void:
+	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet != null and enet.get_peer(id) != null:
+		enet.get_peer(id).set_timeout(PEER_TIMEOUT_MS / 2, PEER_TIMEOUT_MS / 2, PEER_TIMEOUT_MS)
+
+
+# Network sends, skipped when the session isn't live (unit tests drive the host logic directly).
+func _live() -> bool:
+	return is_inside_tree() and multiplayer.multiplayer_peer != null
+
+
+func _broadcast_lobby() -> void:
+	if _live():
+		_lobby.rpc(lobby)
+	_set_lobby(lobby)
+
+
+func _send_sync(id: int) -> void:
+	if _live():
 		_sync.rpc_id(id, _config, state.to_dict(), _seq)
+
+
+func _send_kick(id: int, reason: String) -> void:
+	if _live():
+		_kick.rpc_id(id, reason)
+
+
+func _drop_peer(id: int) -> void:
+	if _live() and multiplayer.multiplayer_peer is ENetMultiplayerPeer:
+		(multiplayer.multiplayer_peer as ENetMultiplayerPeer).disconnect_peer(id)
 
 
 ## Lobby: next unused player number. Mid-match: an absent player's slot, preferring the same name.
@@ -200,8 +281,7 @@ func _on_peer_disconnected(id: int) -> void:
 	lobby.erase(id)
 	if in_match:
 		absent[p] = true
-	_lobby.rpc(lobby)
-	_set_lobby(lobby)
+	_broadcast_lobby()
 	_queue_absent_turns()
 
 
@@ -212,7 +292,7 @@ func _lobby(l: Dictionary) -> void:
 
 func _set_lobby(l: Dictionary) -> void:
 	lobby = l
-	var me := multiplayer.get_unique_id()
+	var me := multiplayer.get_unique_id() if _live() else 1
 	if lobby.has(me):
 		my_player = lobby[me].player
 	_refresh_names()
@@ -239,6 +319,7 @@ func _start(config: Dictionary) -> void:
 	_waiting = false
 	in_match = true
 	state = MatchConfig.build(config)
+	print("[net] match started: I am player %d of %d" % [my_player + 1, state.players.size()])
 	match_started.emit(state)   # the view connects to events, then calls Rules.start_mission
 
 

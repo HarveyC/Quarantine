@@ -14,6 +14,7 @@ var session: Node      # LocalSession or NetSession
 var view: MissionView
 var menu: MainMenu
 var _autostart := 0
+var _autostart_armed := false
 var _menu_layer: CanvasLayer
 
 
@@ -70,7 +71,10 @@ func _handle_args() -> void:
 		_host(nm, int(args.host) if args.host.is_valid_int() else NetSession.DEFAULT_PORT)
 	elif args.has("join"):
 		var parts: PackedStringArray = args.join.split(":")
-		_join(nm, parts[0], int(parts[1]) if parts.size() > 1 else NetSession.DEFAULT_PORT)
+		var port := int(parts[1]) if parts.size() > 1 else NetSession.DEFAULT_PORT
+		_join(nm, parts[0], port)
+		if args.has("double-join"):   # test aid: an impatient second click on Join
+			_join(nm, parts[0], port)
 	elif args.has("autoplay") or args.has("screenshot"):
 		_local(2)
 
@@ -107,8 +111,10 @@ func _on_lobby_changed() -> void:
 		menu.show_lobby(net)
 	elif view != null:
 		view.hud.refresh()
-	if net.is_host and not net.in_match and _autostart > 0 and net.lobby.size() >= _autostart:
-		net.start_match.call_deferred()
+	if net.is_host and not net.in_match and _autostart > 0 and net.lobby.size() >= _autostart and not _autostart_armed:
+		# Short grace period so late or duplicate connections land before the squad is split.
+		_autostart_armed = true
+		get_tree().create_timer(2.0).timeout.connect(func() -> void: if not net.in_match: net.start_match())
 
 
 func _show_mission(s: Node, state: GameState, begin: bool) -> void:
