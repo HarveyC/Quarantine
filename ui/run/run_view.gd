@@ -29,7 +29,11 @@ var _squad_box: VBoxContainer
 var _info: RichTextLabel
 var _log: Label
 var _reveal_btn: Button
+var _loadout_btn: Button
+var _loadout: Control
 var _screen_holder: Control
+## Full-screen module screens (node, reward, loadout) go here, over a dark backdrop.
+var _full_holder: Control
 var _screen: Control
 var _screen_key := ""
 var _node_buttons := {}   # node id -> Button
@@ -84,6 +88,11 @@ func _build() -> void:
 	_reveal_btn.focus_mode = Control.FOCUS_NONE
 	_reveal_btn.toggled.connect(func(on: bool) -> void: _reveal_mode = on)
 	row.add_child(_reveal_btn)
+	_loadout_btn = Button.new()
+	_loadout_btn.text = "Loadout"
+	_loadout_btn.focus_mode = Control.FOCUS_NONE
+	_loadout_btn.pressed.connect(_open_loadout)
+	row.add_child(_loadout_btn)
 	var menu := Button.new()
 	menu.text = "Main menu"
 	menu.focus_mode = Control.FOCUS_NONE
@@ -133,6 +142,11 @@ func _build() -> void:
 	_screen_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_screen_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_screen_holder)
+	_full_holder = ColorRect.new()
+	_full_holder.color = Color(0.02, 0.025, 0.025, 0.92)
+	_full_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_full_holder.visible = false
+	add_child(_full_holder)
 
 
 ## A dark see-through panel with amber corner marks (the approved UI look).
@@ -171,6 +185,9 @@ func refresh() -> void:
 		serum.append("%s%.1f" % ["" if p_count == 1 else "P%d " % (p + 1), run.serum.get(p, 0) / 2.0])
 	_serum.text = "Serum doses: " + "  ".join(serum)
 	_reveal_btn.visible = run.phase == RunState.Phase.MAP
+	_loadout_btn.visible = run.phase == RunState.Phase.MAP and RunHooks.has("GearRun", "loadout_screen")
+	if _loadout != null and run.phase != RunState.Phase.MAP:
+		_close_loadout()
 	_reveal_btn.disabled = run.intel < 1 or not run.map.any(func(n: Dictionary) -> bool: return n.hidden)
 	if _reveal_btn.disabled:
 		_reveal_btn.button_pressed = false
@@ -379,17 +396,46 @@ func _refresh_screen() -> void:
 	if _screen != null:
 		_screen.queue_free()
 		_screen = null
+	_full_holder.visible = _loadout != null
 	if key == "":
 		return
 	if key == "end":
 		_screen = _summary()
 	elif script is Script:
 		_screen = (script as Script).new()
+		_add_full(_screen)
 		if _screen.has_method("setup"):
 			_screen.setup(run, session)
+		return
 	else:
 		_screen = _waiting_panel("Waiting for the squad..." if run.phase == RunState.Phase.REWARD else RunMap.NAMES.get(RunMap.shown_type(run.current_node()), ""))
 	_screen_holder.add_child(_screen)
+
+
+func _add_full(c: Control) -> void:
+	_full_holder.add_child(c)
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_full_holder.visible = true
+
+
+func _open_loadout() -> void:
+	if _loadout != null:
+		return
+	var script: Variant = RunHooks.call_static("GearRun", "loadout_screen", [])
+	if not script is Script:
+		return
+	_loadout = (script as Script).new()
+	if _loadout.has_signal("closed"):
+		_loadout.connect("closed", _close_loadout)
+	_add_full(_loadout)
+	_loadout.setup(run, session)
+
+
+func _close_loadout() -> void:
+	if _loadout != null:
+		_loadout.queue_free()
+		_loadout = null
+		_full_holder.visible = _screen != null and _screen.get_parent() == _full_holder
 
 
 func _waiting_panel(text: String) -> Control:
@@ -475,8 +521,7 @@ func _process(delta: float) -> void:
 				session.submit_run({"type": RunRules.VOTE, "player": p, "node": opts[0]})
 				return
 	elif run.phase == RunState.Phase.NODE or run.phase == RunState.Phase.REWARD:
-		var cls := "NodeRules" if run.phase == RunState.Phase.NODE else "GearRun"
-		for a in RunHooks.call_static(cls, "autoplay_actions", [run], []):
+		for a in RunAutoplay.actions(run):
 			if session.is_local(a.get("player", -1)) and RunRules.validate(run, a) == "":
 				session.submit_run(a)
 				return

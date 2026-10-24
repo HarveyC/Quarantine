@@ -13,6 +13,7 @@ func test_solo_run_needs_no_lobby_and_builds_fights() -> void:
 	var started := []
 	l.match_started.connect(func(s: GameState) -> void: started.append(s))
 	l.start_run(1, 31)
+	RunAutoplay.settle(l.run, l.submit_run)
 	assert_eq(l.local_players(), [0] as Array[int], "solo player is local")
 	var node: int = l.run.reachable_nodes()[0]
 	l.submit_run({"type": RunRules.VOTE, "player": 0, "node": node})
@@ -31,6 +32,7 @@ func test_solo_run_needs_no_lobby_and_builds_fights() -> void:
 func test_resume_mid_fight_restores_the_mission() -> void:
 	var l := _local()
 	l.start_run(1, 32)
+	RunAutoplay.settle(l.run, l.submit_run)
 	l.submit_run({"type": RunRules.VOTE, "player": 0, "node": l.run.reachable_nodes()[0]})
 	Rules.start_mission(l.state)
 	var text := l.run.save_string()
@@ -52,6 +54,7 @@ func test_host_benches_a_dropped_player_and_checks_run_actions() -> void:
 	n.handle_hello(2, "Ana", "a")
 	n.start_run()
 	assert_true(n.in_match and n.run != null, "run started")
+	RunAutoplay.settle(n.run, func(a: Dictionary) -> void: RunRules.apply(n.run, a))
 	assert_eq(n.run.players.size(), 2, "two players")
 	var opt: int = n.run.reachable_nodes()[0]
 	assert_eq(n._check_request(2, {"type": NetSession.RUN, "action": {"type": RunRules.VOTE, "player": 0, "node": opt}}), "You can only act for yourself", "can't vote for the host")
