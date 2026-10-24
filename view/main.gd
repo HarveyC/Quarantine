@@ -15,6 +15,8 @@ const InputController := preload("res://view/input_controller.gd")
 const Hud := preload("res://ui/hud.gd")
 const Sfx := preload("res://view/sfx.gd")
 const PostFx := preload("res://view/post_fx.gd")
+const EnemyBeats := preload("res://view/enemy_beats.gd")
+const IntentOverlay := preload("res://view/intent_overlay.gd")
 
 signal left_match
 
@@ -35,6 +37,7 @@ var player: EventPlayer
 var input: InputController
 var hud: Hud
 var unit_views: Dictionary = {}   # unit id -> UnitView
+var intents: IntentOverlay
 var autoplay := false
 var screenshot_path := ""
 var _frames := 0
@@ -58,7 +61,11 @@ func _ready() -> void:
 				seed = int(arg.trim_prefix("--seed="))
 			elif arg.begins_with("--objective="):   # dev aid: a generated act 1 map of this fight type
 				objective = arg.trim_prefix("--objective=")
-		start(default_mission(seed, objective))
+		var fight := ""
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--fight="):
+				fight = arg.trim_prefix("--fight=")
+		start(fight_mission(fight, seed) if fight != "" else default_mission(seed, objective))
 
 
 func _exit_tree() -> void:
@@ -76,6 +83,20 @@ static func default_mission(seed: int = 0, objective: String = "") -> GameState:
 		var grid := MapGen.generate({"biome": "wall", "objective": objective, "seed": seed})
 		return Rules.new_mission_on_grid(grid, squad, enemies, seed)
 	return Rules.new_mission(MAP, squad, enemies, seed)
+
+
+## Dev aid: `-- --fight=<node>,<act>,<outbreak>` (e.g. boss,3,9 or nest,2,10) plays one
+## FightBuilder fight on the test map.
+static func fight_mission(arg: String, seed: int = 0) -> GameState:
+	var parts := arg.split(",")
+	var spec := {"node": parts[0], "act": int(parts[1]) if parts.size() > 1 else 1,
+		"outbreak": int(parts[2]) if parts.size() > 2 else 0, "seed": seed if seed != 0 else 1,
+		"objective": "boss" if parts[0] == "boss" else ""}
+	var fight := FightBuilder.build(spec)
+	var config := MatchConfig.make(2, spec.seed)
+	config["enemies"] = fight.enemies
+	config["encounter"] = fight.encounter
+	return MatchConfig.build(config)
 
 
 ## Builds the whole view for `s` and starts the mission. Works out of the tree too (tests).
@@ -134,6 +155,9 @@ func start(s: GameState, begin := true) -> void:
 	player.beat_started.connect(input.on_beat)
 	player.beat_started.connect(hud.on_beat)
 	player.drained.connect(_on_drained)
+	intents = IntentOverlay.new()
+	intents.view = self
+	_world.add_child(intents)
 	input.changed.connect(hud.refresh)
 	s.event.connect(player.enqueue)
 	face_threats(true)
@@ -224,6 +248,7 @@ func _build_environment() -> void:
 func _add_unit_view(u: Unit) -> UnitView:
 	var uv := UnitView.new()
 	uv.build(u)
+	EnemyBeats.dress(uv, u)
 	uv.stepped.connect(_on_step)
 	_units_root.add_child(uv)
 	unit_views[u.id] = uv
@@ -261,6 +286,7 @@ func unit_name(id: int) -> String:
 
 func _on_drained() -> void:
 	face_threats()
+	intents.refresh()
 	input.on_drained()
 	hud.refresh()
 
