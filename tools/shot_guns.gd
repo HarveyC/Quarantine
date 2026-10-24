@@ -1,6 +1,7 @@
 extends SceneTree
 ## Renders each class's weapon firing on the shot camera to PNGs (dev check for gun feel):
 ## godot -s tools/shot_guns.gd -- out_dir [kinds,comma,separated] [hit|miss] [frames,comma,separated] [tactical]
+## A kind may name a gun too, "breacher:slug_gun", to fire an alternate.
 ## Needs a real renderer (xvfb-run ... --rendering-driver opengl3). Frames are 60 fps steps
 ## of the beat clock from the start of the shot (defaults catch the burst and the impacts).
 
@@ -14,12 +15,15 @@ func _init() -> void:
 	var outcome: String = args[2] if args.size() > 2 else "miss"
 	var frames: Array = Array((args[3] if args.size() > 3 else "48,62,80").split(",")).map(func(x: String) -> int: return int(x))
 	root.size = Vector2i(1280, 720)
-	for kind in kinds:
+	for entry in kinds:
+		var kind := entry.get_slice(":", 0)
+		var gun := entry.get_slice(":", 1) if entry.contains(":") else ""
 		var s := MissionView.default_mission(1234)
 		Vision.disable(s)
 		var a: Unit = s.living(Types.Team.PLAYER)[0]
 		a.kind = kind
 		a.display_name = UnitData.SOLDIERS[kind].name
+		Weapons.equip_unit(a, gun)
 		var t := _place_target(s, a, outcome == "miss")
 		var v: MissionView = MAIN.instantiate()
 		v.auto_start = false
@@ -47,7 +51,7 @@ func _init() -> void:
 			v.player.advance(1.0 / 60.0)
 			await process_frame
 			if frames.has(f):
-				var path := "%s/%s_%s_%d.png" % [out, kind, outcome, f]
+				var path := "%s/%s_%s_%d.png" % [out, gun if gun != "" else kind, outcome, f]
 				root.get_texture().get_image().save_png(path)
 				print("[shot_guns] ", path)
 			f += 1

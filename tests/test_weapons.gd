@@ -96,10 +96,29 @@ func test_every_gun_sound_exists() -> void:
 			assert_true(GunFeel.FEEL.has(id), "%s has a gun feel" % id)
 	for id in Weapons.TABLE:
 		var feel: Dictionary = GunFeel.for_weapon(id)
-		for key in ["sound", "tail", "mech"]:
+		for key in ["sound", "tail", "mech", "whiz"]:
 			if feel.has(key):
 				assert_true(Sfx.SOUNDS.has(feel[key]), "%s %s listed" % [id, feel[key]])
 				assert_true(ResourceLoader.exists("res://audio/%s.wav" % feel[key]), "%s %s file" % [id, feel[key]])
+
+
+func test_every_gun_feels_its_own() -> void:
+	var GunFeel := load("res://view/gun_feel.gd")
+	var reports := {}
+	for id in Weapons.TABLE:
+		var feel: Dictionary = GunFeel.for_weapon(id)
+		assert_true(not reports.has(feel.sound), "%s has its own report (shared with %s)" % [id, reports.get(feel.sound, "")])
+		reports[feel.sound] = id
+		assert_true(str(feel.get("proj", "tracer")) in ["tracer", "heavy", "pellet", "slug", "flechette", "bio", "spore", "dart", "bolt"],
+			"%s projectile style" % id)
+		assert_true(str(feel.get("impact", "spark")) in ["spark", "heavy", "slug", "pellet", "needle", "bio", "dart", "shock"],
+			"%s impact style" % id)
+		assert_true(GunFeel.casing_of(feel) in ["", "brass", "big", "shell", "link", "cell"], "%s casing" % id)
+		assert_true(str(feel.get("flash_style", "star")) in ["star", "cone", "brake", "bio", "quiet", "gas"], "%s flash style" % id)
+	var lmg: Dictionary = GunFeel.for_weapon("lmg")
+	assert_eq(GunFeel.proj_of(lmg, 1, 6), "ball", "LMG fires ball rounds between tracers")
+	assert_eq(GunFeel.proj_of(lmg, 5, 6), "tracer", "the deciding round is always a tracer")
+	assert_true(GunFeel.round_offset(lmg, 2, 0.1) > 0.2, "the LMG's rhythm stretches its burst")
 
 
 func test_alternate_guns_are_well_formed() -> void:

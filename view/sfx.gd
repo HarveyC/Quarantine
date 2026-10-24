@@ -6,7 +6,7 @@ extends Node
 ## `play(name)` picks a free voice from a small pool; pitch is jittered a little so
 ## repeated shots do not sound identical. Voices play on the SFX bus, ui_* sounds on UI.
 
-const VOICES := 20
+const VOICES := 28
 const SOUNDS := [
 	"rifle", "sniper", "shotgun", "spit", "claw", "whiz", "impact_flesh", "impact_armor",
 	"ricochet", "concrete", "alert", "enemy_death", "soldier_death", "turned", "infect",
@@ -14,12 +14,22 @@ const SOUNDS := [
 	"radio", "sting_squad", "sting_enemy", "cinematic", "victory", "defeat", "step1", "step2", "step3",
 	"smg", "lmg", "carbine", "tail_rifle", "tail_heavy", "pump", "bolt",
 	"pistol", "revolver", "blade", "bash",
+	"battle_rifle", "burst_carbine", "anti_materiel", "scout_carbine", "flechette_smg", "dart_rifle",
+	"slug_gun", "auto_shotgun", "pump_shotgun", "heavy_mg", "spore_rifle",
+	"belt", "vent", "cylinder", "bolt_heavy", "whiz_pellets", "whiz_heavy", "whiz_bio", "whiz_dart", "whiz_needle",
+	"impact_bio", "impact_slug", "impact_pellets", "impact_dart", "brass", "shell_drop",
+	"machine_pistol", "bloom_pistol", "hand_cannon", "stun_pistol", "longslide", "whiz_zap", "impact_shock",
 ]
 ## Gunfire, bullet impacts and melee strikes play on the Weapons bus (the music ducks under it).
 const WEAPON := [
 	"rifle", "sniper", "shotgun", "smg", "lmg", "carbine", "tail_rifle", "tail_heavy", "pump", "bolt",
 	"whiz", "impact_flesh", "impact_armor", "ricochet", "concrete", "breach",
 	"pistol", "revolver", "blade", "bash",
+	"battle_rifle", "burst_carbine", "anti_materiel", "scout_carbine", "flechette_smg", "dart_rifle",
+	"slug_gun", "auto_shotgun", "pump_shotgun", "heavy_mg", "spore_rifle",
+	"belt", "vent", "cylinder", "bolt_heavy", "whiz_pellets", "whiz_heavy", "whiz_bio", "whiz_dart", "whiz_needle",
+	"impact_bio", "impact_slug", "impact_pellets", "impact_dart", "brass", "shell_drop",
+	"machine_pistol", "bloom_pistol", "hand_cannon", "stun_pistol", "longslide", "whiz_zap", "impact_shock",
 ]
 ## Mix levels in dB per sound (default 0).
 const LEVELS := {
@@ -27,6 +37,10 @@ const LEVELS := {
 	"step2": -12.0, "step3": -12.0, "whiz": -6.0, "cinematic": -5.0, "radio": -8.0,
 	"sting_squad": -6.0, "sting_enemy": -4.0, "infect": -4.0, "concrete": -4.0,
 	"smg": -2.0, "tail_rifle": -5.0, "tail_heavy": -4.0, "pump": -3.0, "bolt": -4.0,
+	"scout_carbine": -2.0, "flechette_smg": -3.0, "dart_rifle": -2.0, "belt": -6.0, "vent": -7.0, "cylinder": -5.0,
+	"bolt_heavy": -3.0, "whiz_pellets": -5.0, "whiz_heavy": -4.0, "whiz_bio": -6.0, "whiz_dart": -7.0,
+	"whiz_needle": -7.0, "impact_pellets": -2.0, "impact_dart": -3.0, "brass": -15.0, "shell_drop": -13.0,
+	"machine_pistol": -2.0, "stun_pistol": -2.0, "whiz_zap": -6.0, "impact_shock": -2.0,
 }
 
 static var muted := false
