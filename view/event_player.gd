@@ -132,7 +132,7 @@ func _uv(ev: Dictionary, key := "unit") -> UnitView:
 
 
 func _head(uv: UnitView) -> Vector3:
-	return uv.position + Vector3(0, 1.5, 0)
+	return uv.head_world()
 
 
 func _focus(uv: UnitView) -> void:
