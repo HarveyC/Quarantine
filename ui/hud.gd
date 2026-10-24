@@ -10,6 +10,7 @@ const PlayerPanel := preload("res://ui/player_panel.gd")
 const ActionBar := preload("res://ui/action_bar.gd")
 const CombatLog := preload("res://ui/combat_log.gd")
 const EndOverlay := preload("res://ui/end_overlay.gd")
+const CinematicOverlay := preload("res://ui/cinematic_overlay.gd")
 const UnitView := preload("res://view/unit_view.gd")
 
 var view: MissionView
@@ -17,6 +18,11 @@ var panels: Dictionary = {}   # player id -> PlayerPanel
 var action_bar: ActionBar
 var combat_log: CombatLog
 var end_overlay: EndOverlay
+var cine_overlay: CinematicOverlay
+## HUD pieces hidden while a shot cinematic plays.
+var _tactical: Array[Control] = []
+var _tactical_a := 1.0
+var _cinematic := false
 var _phase_label: Label
 var _ready_label: Label
 var _toast: Label
@@ -37,6 +43,13 @@ func setup(v: MissionView) -> void:
 	_build_player_panels()
 	_build_bottom()
 	_build_overlays()
+	for c in get_children():
+		if c is Control and c != _banner and c != _toast and c != _tooltip and c != end_overlay:
+			_tactical.append(c)
+	cine_overlay = CinematicOverlay.new()
+	cine_overlay.build()
+	add_child(cine_overlay)
+	move_child(end_overlay, get_child_count() - 1)
 	refresh()
 
 
@@ -91,7 +104,7 @@ func _build_bottom() -> void:
 	combat_log.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	combat_log.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(combat_log)
-	var help := Styles.label("LMB select/move   1-9 actions   Tab next soldier   RMB/Esc cancel\nWASD pan   Q/E rotate   wheel zoom   F focus", 12, Styles.MUTED)
+	var help := Styles.label("LMB select/move   1-9 actions   Tab next soldier   RMB/Esc cancel\nWASD pan   Q/E rotate   wheel zoom   F focus   C shot cameras   M mute", 12, Styles.MUTED)
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 12)
 	help.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(help)
@@ -205,6 +218,21 @@ func show_end(result: int) -> void:
 	end_overlay.show_result(result, view.state.turn, view.session.can_restart())
 
 
+func set_cinematic(on: bool) -> void:
+	_cinematic = on
+	cine_overlay.set_active(on)
+	if on:
+		hide_tooltip()
+
+
+func cine_caption(text: String, sub: String) -> void:
+	cine_overlay.caption(text, sub)
+
+
+func cine_result(word: String, color: Color) -> void:
+	cine_overlay.result(word, color)
+
+
 func toast_text() -> String:
 	return _toast.text if _toast_t > 0.0 else ""
 
@@ -214,6 +242,10 @@ func _process(delta: float) -> void:
 	_banner_t = maxf(0.0, _banner_t - delta)
 	_toast.modulate.a = clampf(_toast_t / 0.4, 0.0, 1.0)
 	_banner.modulate.a = clampf(_banner_t / 0.4, 0.0, 1.0)
+	_tactical_a = move_toward(_tactical_a, 0.0 if _cinematic else 1.0, delta * 6.0)
+	for c in _tactical:
+		c.modulate.a = _tactical_a
+		c.visible = _tactical_a > 0.01
 
 
 func _on_unit_clicked(id: int) -> void:
@@ -223,6 +255,8 @@ func _on_unit_clicked(id: int) -> void:
 
 func _on_ready_toggled(player: int, on: bool) -> void:
 	if view.input.can_act():
+		if view.sfx != null:
+			view.sfx.play("ui_confirm" if on else "ui_click")
 		view.session.set_ready(player, on)
 	else:
 		refresh()

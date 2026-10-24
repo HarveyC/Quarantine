@@ -13,6 +13,8 @@ const CameraRig := preload("res://view/camera_rig.gd")
 const EventPlayer := preload("res://view/event_player.gd")
 const InputController := preload("res://view/input_controller.gd")
 const Hud := preload("res://ui/hud.gd")
+const Sfx := preload("res://view/sfx.gd")
+const PostFx := preload("res://view/post_fx.gd")
 
 signal left_match
 
@@ -27,6 +29,7 @@ var session: Node
 var auto_start := true
 var board: Board
 var fx: Fx
+var sfx: Sfx
 var camera_rig: CameraRig
 var player: EventPlayer
 var input: InputController
@@ -48,7 +51,11 @@ func _ready() -> void:
 		elif arg.begins_with("--screenshot="):
 			screenshot_path = arg.trim_prefix("--screenshot=")
 	if auto_start:
-		start(default_mission())
+		var seed := 0
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--seed="):
+				seed = int(arg.trim_prefix("--seed="))
+		start(default_mission(seed))
 
 
 func _exit_tree() -> void:
@@ -89,6 +96,8 @@ func start(s: GameState, begin := true) -> void:
 	fx = Fx.new()
 	fx.name = "Fx"
 	_world.add_child(fx)
+	sfx = Sfx.new()
+	add_child(sfx)
 	camera_rig = CameraRig.new()
 	camera_rig.name = "CameraRig"
 	_world.add_child(camera_rig)
@@ -103,8 +112,14 @@ func start(s: GameState, begin := true) -> void:
 	input.name = "Input"
 	input.view = self
 	add_child(input)
+	var post := CanvasLayer.new()
+	post.name = "PostFx"
+	post.layer = 0
+	add_child(post)
+	post.add_child(PostFx.make())
 	_ui_layer = CanvasLayer.new()
 	_ui_layer.name = "UI"
+	_ui_layer.layer = 1
 	add_child(_ui_layer)
 	hud = Hud.new()
 	_ui_layer.add_child(hud)
@@ -139,43 +154,69 @@ func _teardown() -> void:
 	state = null
 
 
+## Night-time quarantine checkpoint: dim moonlight, warm sodium floodlights pooling
+## on the ground, teal infection glow carried by bloom, fog and a muted grade.
 func _build_environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("0b0d0c")
+	env.background_color = Color("07090a")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("3a4a4e")
-	env.ambient_light_energy = 0.55
+	env.ambient_light_color = Color("2c3a40")
+	env.ambient_light_energy = 0.42
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.05
+	env.tonemap_exposure = 1.1
+	env.tonemap_white = 6.0
 	env.glow_enabled = true
-	env.glow_intensity = 0.9
-	env.glow_bloom = 0.12
-	env.glow_hdr_threshold = 0.9
+	env.glow_intensity = 1.0
+	env.glow_strength = 1.1
+	env.glow_bloom = 0.05
+	env.glow_hdr_threshold = 0.85
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
+	env.set_glow_level(1, 1.0)
+	env.set_glow_level(2, 0.8)
+	env.set_glow_level(3, 0.6)
+	env.set_glow_level(5, 0.3)
 	env.fog_enabled = true
-	env.fog_light_color = Color("1c2a2a")
-	env.fog_density = 0.012
+	env.fog_light_color = Color("131c1d")
+	env.fog_light_energy = 1.0
+	env.fog_density = 0.018
+	env.fog_sky_affect = 0.0
+	# Forward+ only (ignored by the Compatibility renderer).
 	env.ssao_enabled = true
+	env.ssao_radius = 1.2
+	env.ssao_intensity = 2.5
+	env.ssil_enabled = true
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.02
+	env.volumetric_fog_albedo = Color("8a9a90")
+	env.volumetric_fog_emission = Color("050807")
+	env.volumetric_fog_anisotropy = 0.5
+	env.volumetric_fog_length = 40.0
+	env.adjustment_enabled = true
+	env.adjustment_brightness = 1.0
+	env.adjustment_contrast = 1.12
+	env.adjustment_saturation = 0.82
 	var we := WorldEnvironment.new()
 	we.environment = env
 	_world.add_child(we)
-	var sun := DirectionalLight3D.new()
-	sun.light_color = Color("c9c2ad")
-	sun.light_energy = 0.9
-	sun.shadow_enabled = true
-	sun.rotation_degrees = Vector3(-52, -35, 0)
-	_world.add_child(sun)
+	var moon := DirectionalLight3D.new()
+	moon.light_color = Color("8fa3b0")
+	moon.light_energy = 0.35
+	moon.shadow_enabled = true
+	moon.directional_shadow_max_distance = 60.0
+	moon.rotation_degrees = Vector3(-58, -30, 0)
+	_world.add_child(moon)
 	var rim := DirectionalLight3D.new()
 	rim.light_color = Color("2f6f6a")
-	rim.light_energy = 0.25
-	rim.rotation_degrees = Vector3(-30, 150, 0)
+	rim.light_energy = 0.3
+	rim.rotation_degrees = Vector3(-25, 150, 0)
 	_world.add_child(rim)
 
 
 func _add_unit_view(u: Unit) -> UnitView:
 	var uv := UnitView.new()
 	uv.build(u)
+	uv.stepped.connect(_on_step)
 	_units_root.add_child(uv)
 	unit_views[u.id] = uv
 	return uv
@@ -183,6 +224,11 @@ func _add_unit_view(u: Unit) -> UnitView:
 
 ## View for a unit id. Units the view has not seen yet (spawned by another module)
 ## get a view created from their current state.
+func _on_step() -> void:
+	if sfx != null and player != null and player.speed <= 3.0:
+		sfx.footstep()
+
+
 func view_for(id: int) -> UnitView:
 	if unit_views.has(id):
 		return unit_views[id]
@@ -219,18 +265,26 @@ func _process(_delta: float) -> void:
 		_screenshot_step()
 
 
-## Dev aid: `--screenshot-action=shoot|ready` sets up a scene before the capture.
+## Dev aid: `--screenshot-action=shoot|fire|ready` sets up a scene before the capture;
+## `--screenshot-frame=N` picks the frame (default 150). With Godot's `--write-movie`
+## and `--fixed-fps`, `fire` records a whole shot cinematic.
 func _screenshot_step() -> void:
 	_frames += 1
 	var args := OS.get_cmdline_user_args()
+	var shot_frame := 150
+	for a in args:
+		if a.begins_with("--screenshot-frame="):
+			shot_frame = int(a.trim_prefix("--screenshot-frame="))
 	if _frames == 60:
 		input.cycle()
-	elif _frames == 70 and args.has("--screenshot-action=shoot"):
+	elif _frames == 70 and (args.has("--screenshot-action=shoot") or args.has("--screenshot-action=fire")):
 		input.trigger("shoot")
+	elif _frames == 100 and args.has("--screenshot-action=fire"):
+		input.confirm_shot()
 	elif _frames == 70 and args.has("--screenshot-action=ready"):
 		for p in session.local_players():
 			session.set_ready(p, true)
-	elif _frames == 150:
+	elif _frames == shot_frame:
 		get_viewport().get_texture().get_image().save_png(screenshot_path)
 		print("[screenshot] saved ", screenshot_path)
 		get_tree().quit(0)

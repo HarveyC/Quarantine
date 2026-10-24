@@ -19,3 +19,4 @@ CONTROLS
   1 Shoot (Enter fires)   2 Overwatch   3 Hunker   4+ abilities and mutations   Esc cancel
   WASD pan, Q/E rotate, mouse wheel zoom. Press READY when you're done; enemies move once
   every player is ready.
+  C turns the cinematic shot cameras on or off. M mutes sound.
