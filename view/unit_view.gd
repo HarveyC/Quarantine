@@ -64,6 +64,9 @@ var _infection_ring: MeshInstance3D
 var _infection_mat: StandardMaterial3D
 var _select_ring: MeshInstance3D
 var _target_ring: MeshInstance3D
+## False when the HUD draws its own nameplates, which hides the floating 3D labels.
+static var world_labels := true
+
 var _overlays_on := true
 var _flash := 0.0
 var _flash_color := Color.WHITE
@@ -341,6 +344,8 @@ func _build_labels() -> void:
 	_status_label = Palette.label3d("", 28, Palette.AMBER)
 	_status_label.position.y = 1.75
 	add_child(_status_label)
+	for n in [_hp_sprite, _class_label, _status_label]:
+		n.visible = world_labels
 
 
 # --- display state ----------------------------------------------------------
@@ -413,7 +418,7 @@ func set_targeted(on: bool) -> void:
 func set_overlays_visible(on: bool) -> void:
 	_overlays_on = on
 	for n in [_hp_sprite, _class_label, _status_label]:
-		n.visible = on and not dead
+		n.visible = on and not dead and world_labels
 	if not on:
 		_select_ring.visible = false
 		_target_ring.visible = false
