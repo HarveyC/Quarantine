@@ -75,6 +75,10 @@ func _handle_args() -> void:
 		_join(nm, parts[0], port)
 		if args.has("double-join"):   # test aid: an impatient second click on Join
 			_join(nm, parts[0], port)
+	elif args.has("lineup") or args.has("lineup-mode"):
+		_menu_layer.visible = false
+		var lineup := preload("res://view/lineup.gd").new()
+		add_child(lineup)
 	elif args.has("autoplay") or args.has("screenshot"):
 		_local(2)
 

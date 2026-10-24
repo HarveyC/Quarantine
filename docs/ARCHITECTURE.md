@@ -212,9 +212,16 @@ in an online match plays the same thing.
   and hold through the following `damage` / `died` / `infection` / `turned` / `alerted` beats
   (`CINE_FOLLOW`). Any other event, or the queue draining, cuts back to the tactical camera.
   Skipped when `EventPlayer.cinematics` is false (C key) or playback is sped up (autoplay).
-- **Unit rigs** (`view/unit_view.gd`): primitive meshes on a jointed rig, posed procedurally in
-  `tick` (idle, walk, aim, recoil, hit, hunker, lunge, death). Calls: `set_moving`, `set_aim`,
-  `recoil`, `hit_react`, `set_lunge`, `muzzle_world`, `chest_world`.
+- **Unit rigs** (`view/unit_view.gd`): generated models (`assets/models/*.glb` from
+  `tools/gen_models.py`, loaded by `view/model_kit.gd`) on a jointed rig, posed procedurally in
+  `tick` (idle, walk, aim with two-bone arm IK onto the weapon, recoil, hit, hunker, lunge,
+  death). Two rigs so far: soldier (all classes, also Turned) and infected humanoid (Runner,
+  Spitter; new enemies of that build reuse it). `view/character.gdshader` adds grime, rim light,
+  spreading infection veins and hit flash; growth meshes `grow1..3_*` appear per infection tier.
+  Calls: `set_moving`, `set_aim`, `recoil`, `hit_react`, `set_lunge`, `muzzle_world`, `chest_world`.
+- **Facing**: `face_towards` turns units smoothly (`TURN_SPEED`) toward their path and targets;
+  after every playback drain `MissionView.face_threats` turns each unit to its nearest hostile
+  (dormant enemies keep their own headings). It reads only the shared state, so peers agree.
 - **Sound** (`view/sfx.gd`): `MissionView.sfx.play(name)`; files in `audio/` are synthesized by
   `tools/gen_sfx.py`. `Sfx.muted` is the M key toggle.
 - **Look**: environment and lights in `MissionView._build_environment`, set dressing in `Board`,
