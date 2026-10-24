@@ -96,6 +96,9 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return "%s regains control" % who.call("unit")
 		"alerted":
 			return _c("%s has spotted the squad" % who.call("unit"), Palette.DANGER)
+		"concealment_lost":
+			var by: String = who.call("unit") if int(ev.get("unit", -1)) >= 0 else ""
+			return _c("Concealment lost. %s" % Concealment.cause_text(str(ev.get("cause", "")), by), Palette.DANGER)
 		"turned":
 			return _c("%s has TURNED" % who.call("unit"), Palette.TEAL)
 		"mission_end":

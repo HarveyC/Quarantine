@@ -2,7 +2,7 @@
 """Synthesizes the soundtrack and soundscape from code, so the game ships no third-party audio.
 
 Writes OGG Vorbis files into:
-  audio/music/  adaptive music: menu, node map, rest, combat stems, boss stems, stingers
+  audio/music/  adaptive music: menu, node map, rest, stealth, combat stems, boss stems, stingers
   audio/amb/    seamless ambience beds per act plus one-shot "spot" sounds
   audio/vo/     enemy vocal cues (creature barks, radio chatter, the Source)
   audio/ui/     extra interface sounds
@@ -621,6 +621,35 @@ def combat_stems():
     _write_stems("music/combat", stems, ["base", "pulse", "danger", "bloom"], [-1.0, 0.0, 0.0, -2.0])
 
 
+STEALTH_PROG = ["Dm", "Dm", "Bb", "Bb", "Gm", "Gm", "A", "A"] * 2
+
+
+def stealth():
+    """Concealed: the squad is unseen. 16 bars at the combat tempo (90 BPM) and key, so it can
+    hand straight over to the combat stems: a held drone, a muffled heartbeat, a ticking clock,
+    a single low string and the Bloom motif plucked far away. Tense, never loud."""
+    song = Song(90, 16)
+    prog = STEALTH_PROG
+    s16 = song.beat / 4
+    b = bed(song, prog, pad_lo=45, cutoff=650, pad_gain=0.1, drone_gain=0.4, seed="sth")
+    hb = lp(heartbeat(), 220)
+    for bar in range(16):
+        for beat in (0, 2):
+            b.add(hb, song.t(bar, beat), 0.28 if bar % 4 else 0.34)
+        for st in range(16):     # a clock ticking under everything, the off-beats a little lighter
+            b.add(hat(seed="sth_tick"), song.t(bar, st / 4), 0.025 if st % 2 else 0.04, 0.35 if st % 4 < 2 else -0.35)
+    for ch, bar, bars in segments(prog):
+        dur = bars * 4 * song.beat
+        b.add(strings(root(ch, 50), dur, a=1.6, r=1.6, trem=0.0, seed="sths"), song.t(bar), 0.06, -0.2)
+        b.add(strings(root(ch, 62) + 1, dur * 0.5, a=1.2, r=1.0, seed="sths2"), song.t(bar, 4), 0.025, 0.4)  # a rub a semitone up
+    for bar in (3, 11):
+        for i, m in enumerate(MOTIF):
+            b.add(pluck(m - 12, s16 * 3, bright=900, fdecay=0.08, decay=0.4, seed="sthp"), song.t(bar, i * 1.5), 0.09, -0.4 + 0.25 * i)
+    for bar in (6, 14):
+        b.add(whisper(2.5, "sthw%d" % bar), song.t(bar, 1), 0.05, 0.6 if bar == 6 else -0.6)
+    write("music/stealth.ogg", master(finish_loop(song, b, 0.35, t60=3.2), -22.0))
+
+
 BOSS_PROG = ["Dm"] * 4 + ["Eb"] * 4 + ["Dm"] * 4 + ["C", "C", "Bb", "Bb"] + ["Gm"] * 4 + ["A"] * 4
 
 
@@ -800,6 +829,22 @@ def stingers():
         b.add(strings(74, 1.6, a=0.02, r=0.8, trem=24, seed="cs"), 0.0, 0.08)
         b.add(strings(75, 1.6, a=0.02, r=0.8, trem=24, seed="cs2"), 0.0, 0.06)
 
+    def reveal(b):
+        """Concealment broken: a hit, a rising snare roll and brass that lands on the combat key."""
+        b.add(boom("rv"), 0.0, 0.55)
+        b.add(anvil("rv"), 0.0, 0.3, -0.2)
+        b.add(taiko("rv"), 0.0, 0.5)
+        for m in (38, 39, 45):
+            b.add(brass(m, 0.5), 0.0, 0.18)
+        for i in range(12):
+            b.add(snare("rvs"), 0.35 + i * 0.075, 0.06 + 0.02 * i, -0.3 + 0.05 * i)
+        b.add(swell(0.9, "rvsw"), 0.35, 0.3)
+        for m in voicing("Dm", 50, 4):
+            b.add(brass(m, 1.4), 1.27, 0.15)
+        b.add(kick(), 1.27, 0.6)
+        b.add(taiko("rv2"), 1.27, 0.5)
+        b.add(strings(74, 1.6, a=0.02, r=1.0, trem=24, seed="rvst"), 1.27, 0.07)
+
     def boss(b):
         b.add(boom("b"), 0.0, 0.5)
         b.add(boom("b2"), 1.2, 0.4)
@@ -828,6 +873,7 @@ def stingers():
     stinger("st_lose", 6.0, lose, rms=-19.0)
     stinger("st_contact", 2.0, contact, rms=-16.0, verb=0.3)
     stinger("st_boss", 3.5, boss, rms=-15.5)
+    stinger("st_reveal", 2.8, reveal, rms=-15.0, verb=0.3)
     stinger("st_node", 1.5, node, rms=-21.0, verb=0.45)
     stinger("st_rank", 2.0, rank, rms=-20.0, verb=0.4)
 
@@ -1265,7 +1311,7 @@ def ui():
 # --- main -----------------------------------------------------------------------------------
 
 JOBS = {
-    "combat": combat_stems, "boss": boss_stems, "menu": menu, "map": node_map, "rest": rest,
+    "combat": combat_stems, "stealth": stealth, "boss": boss_stems, "menu": menu, "map": node_map, "rest": rest,
     "stingers": stingers, "wall": amb_wall, "port": amb_port, "bore": amb_bore, "ambmap": amb_map,
     "spots": spots, "voices": voices, "ui": ui,
 }

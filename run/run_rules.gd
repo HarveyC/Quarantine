@@ -343,7 +343,7 @@ static func _start_fight(run: RunState, st: Dictionary) -> void:
 	run.fight_config = MatchConfig.for_fight(run, st)
 	run.fight_snapshot = {}
 	# One-shot event effects are spent on this fight.
-	for k in ["extra_enemies", "enemies_dead_at_start", "first_turn_action_loss", "ambush", "boss_health_mult"]:
+	for k in ["extra_enemies", "enemies_dead_at_start", "first_turn_action_loss", "ambush", "detected", "boss_health_mult"]:
 		run.modifiers.erase(k)
 	run.emit({"type": "fight_start", "kind": st.kind, "objective": st.objective})
 

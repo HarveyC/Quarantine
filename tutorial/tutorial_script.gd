@@ -52,6 +52,8 @@ const STEPS: Array[Dictionary] = [
 	{"id": "overwatch", "title": "Overwatch", "hud": "overwatch", "keys": ["2", "Space"],
 		"text": "Runners incoming. Overwatch fires at the first enemy that moves in sight. Set it, then Ready."},
 	{"id": "clear", "title": "Finish them", "text": "Clear the Runners."},
+	{"id": "concealment", "title": "Concealment", "info": true, "visual": "stealth",
+		"text": "In the field most missions start Concealed. Red tiles near sleeping Infected give you away, and so does any shot. Set overwatch first, then open fire."},
 	{"id": "infection", "title": "Infection", "hud": "mutation",
 		"text": "Bites raise Infection. At 25 a mutation wakes. Use Adrenal Surge, the teal button, for a third action."},
 	{"id": "turning", "title": "Turning", "info": true, "visual": "tiers",
@@ -142,7 +144,7 @@ func update(s: GameState) -> bool:
 
 func _done(s: GameState) -> bool:
 	match str(current().get("id", "")):
-		"welcome", "turning":
+		"welcome", "concealment", "turning":
 			return _continued
 		"move":
 			return _squad_on(s, MOVE_CELLS)

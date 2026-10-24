@@ -115,6 +115,7 @@ static func explode(s: GameState, center: Vector2i, p: Dictionary, by: Unit, kin
 
 ## Dormant Infected within NOISE_RADIUS of `at` wake up (and alert their pods).
 static func noise(s: GameState, at: Vector2i) -> void:
+	Concealment.on_noise(s)
 	for u in s.living(Types.Team.ENEMY):
 		if not EnemyAI.is_alerted(u) and u.pos.distance_to(at) <= NOISE_RADIUS:
 			EnemyAI.alert(s, u)

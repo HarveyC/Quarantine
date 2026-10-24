@@ -37,6 +37,8 @@ const TEAL := Color("3fe0c5")
 const TEAL_DIM := Color("7fb9ae")
 const TEAL_DEEP := Color("127a6b")
 const DANGER := Color("ff5fa2")
+## Squad Concealment (HUD chip, detection tips): cold moonlight blue.
+const STEALTH := Color("8fb4e8")
 const DANGER_TEXT := Color("ff8cbc")
 const HP := Color("b4d77a")
 const HP_OFF := Color(0.66, 0.78, 0.8, 0.12)

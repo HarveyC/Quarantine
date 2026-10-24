@@ -5,6 +5,8 @@ extends RefCounted
 const TEAL := Color("2ef2c8")
 const TEAL_DIM := Color("1b8f78")
 const DANGER := Color("e2533a")
+## Squad Concealment: cold moonlight, kept apart from amber (actionable) and teal (Infection).
+const STEALTH := Color("8fb4e8")
 const AMBER := Color("e8b04a")
 
 const FLOOR_SHADES: Array[Color] = [Color("3b3d39"), Color("363834"), Color("41423d"), Color("33352f")]

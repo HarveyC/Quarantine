@@ -148,6 +148,7 @@ func start(s: GameState, begin := true) -> void:
 	player.name = "EventPlayer"
 	player.view = self
 	player.speed = AUTOPLAY_SPEED if autoplay else GameSettings.game_speed()
+	player.concealed = Concealment.active(s)
 	add_child(player)
 	input = InputController.new()
 	input.name = "Input"
