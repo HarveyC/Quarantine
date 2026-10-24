@@ -62,7 +62,7 @@ func test_solo_run_squad_and_vote_resolves_instantly() -> void:
 	assert_eq(run.players, [0] as Array[int], "one player")
 	assert_eq(run.soldiers_of(0).size(), 4, "solo player commands all four")
 	assert_eq(run.serum[0], 4, "1 sample per soldier controlled")
-	assert_eq(run.reserve_of(0).size(), 1, "one recruit in reserve")
+	assert_eq(run.reserve_of(0).size(), RunRules.reserve_for(4), "two recruits in reserve with 4 soldiers")
 	var target: int = run.reachable_nodes()[0]
 	assert_true(RunRules.apply(run, {"type": RunRules.VOTE, "player": 0, "node": target}), "vote accepted")
 	assert_eq(run.node, target, "single vote resolves at once")
@@ -239,7 +239,7 @@ func test_death_deploys_recruit_and_wipe_ends_run() -> void:
 	RunRules.apply(run, {"type": RunRules.FIGHT_END, "player": 0, "outcome": RunRules.fight_outcome(s)})
 	assert_eq(run.get_soldier(dead.status.sid).status, RunSoldier.DEAD, "dead soldier stays dead")
 	assert_eq(run.squad().size(), 4, "recruit fills the slot")
-	assert_eq(run.reserve_of(0).size(), 0, "reserve used")
+	assert_eq(run.reserve_of(0).size(), RunRules.reserve_for(4) - 1, "one recruit used")
 	_vote_first(run)
 	if run.phase != RunState.Phase.FIGHT:
 		return
@@ -291,9 +291,9 @@ func test_bridge_removes_a_column_and_keeps_the_map_connected() -> void:
 				assert_true(incoming.has(n.id), "every later node is reachable")
 
 
-func test_coop_is_one_soldier_per_player_and_solo_is_four() -> void:
+func test_squad_defaults_solo_four_and_coop_one_each() -> void:
 	var solo := RunRules.new_run(1, 5)
-	assert_eq(solo.squad().size(), 4, "solo fields 4")
+	assert_eq(solo.squad().size(), 4, "solo fields 4 by default")
 	assert_eq(solo.serum[0], 4, "a sample per soldier")
 	for n in [2, 3, 4]:
 		var run := RunRules.new_run(n, 5)
@@ -305,6 +305,53 @@ func test_coop_is_one_soldier_per_player_and_solo_is_four() -> void:
 	assert_eq(picked.squad().map(func(r): return r.kind), ["medic", "medic"], "picks are honoured, repeats allowed")
 	var partial := MatchConfig.squad_plan(3, {1: "trooper"})
 	assert_eq(partial.map(func(e): return e.kind), ["marksman", "trooper", "medic"], "defaults skip picked classes")
+
+
+func test_players_choose_their_squad_size() -> void:
+	var lone := RunRules.new_run(1, 5, {}, {0: ["breacher"]})
+	assert_eq(lone.squad().size(), 1, "solo can run a single soldier")
+	assert_eq(lone.squad()[0].kind, "breacher", "with the picked class")
+	assert_eq(lone.serum[0], 1, "one sample for one soldier")
+	assert_eq(lone.reserve_of(0).size(), RunRules.reserve_for(1), "one recruit")
+	var pair := RunRules.new_run(1, 5, {}, {0: ["medic", "marksman"]})
+	assert_eq(pair.squad().map(func(r): return r.kind), ["medic", "marksman"], "solo pair")
+	var duo := RunRules.new_run(2, 5, {}, {0: ["trooper", "medic"], 1: ["breacher", "marksman"]})
+	assert_eq(duo.soldiers_of(0).size(), 2, "player 1 commands two")
+	assert_eq(duo.soldiers_of(1).size(), 2, "player 2 commands two")
+	assert_eq(duo.serum[1], 2, "a sample per soldier you control")
+	var uneven := RunRules.new_run(2, 5, {}, {0: ["trooper", "medic", "breacher"]})
+	assert_eq(uneven.soldiers_of(0).size(), 3, "3 + 1")
+	assert_eq(uneven.soldiers_of(1).size(), 1, "the other player still gets one")
+	assert_eq(uneven.reserve_of(0).size(), 2, "3 soldiers start with 2 recruits")
+	assert_eq(uneven.reserve_of(1).size(), 1, "1 soldier starts with 1 recruit")
+	var cfg := MatchConfig.for_fight(duo, {"kind": "skirmish", "objective": "hold", "seed": 4})
+	assert_eq(cfg.fight.squad, 4, "enemies scale to soldiers, not players")
+	assert_eq(MatchConfig.for_fight(lone, {"kind": "skirmish", "objective": "hold", "seed": 4}).fight.squad, 1, "a lone soldier faces a lone-soldier fight")
+
+
+func test_squad_picks_never_pass_four() -> void:
+	var plan := MatchConfig.squad_plan(2, {0: ["trooper", "medic", "breacher", "marksman"], 1: ["medic"]})
+	assert_eq(plan.size(), 4, "at most 4 in all")
+	assert_eq(plan.filter(func(e): return e.player == 1).size(), 1, "everyone keeps a soldier")
+	var four := MatchConfig.squad_plan(4, {0: ["trooper", "medic"], 1: ["breacher", "marksman"], 2: ["medic"], 3: ["trooper"]})
+	for p in 4:
+		assert_eq(four.filter(func(e): return e.player == p).size(), 1, "4 players means one each")
+	assert_eq(MatchConfig.room_for(2, {0: ["trooper", "medic", "breacher"]}, 1), 1, "room left for player 2")
+	assert_eq(MatchConfig.room_for(2, {0: ["trooper"]}, 0), 3, "the rest is mine")
+	assert_eq(MatchConfig.room_for(1, {}, 0), 4, "solo has all 4")
+	var filled := MatchConfig.squad_plan(1, {0: ["", "", "medic"]})
+	assert_eq(filled.map(func(e): return e.kind), ["trooper", "marksman", "medic"], "blanks take free classes")
+
+
+func test_solo_bonds_any_two_soldiers() -> void:
+	var run := RunRules.new_run(1, 5, {}, {0: ["trooper", "medic"]})
+	var a: Dictionary = run.squad()[0]
+	assert_eq(Progression.bond_partners(run, a).size(), 1, "the other soldier")
+	var lone := RunRules.new_run(1, 5, {}, {0: ["trooper"]})
+	assert_true(Progression.bond_partners(lone, lone.squad()[0]).is_empty(), "nobody to bond with")
+	var duo := RunRules.new_run(2, 5, {}, {0: ["trooper", "medic"], 1: ["breacher"]})
+	var mine: Dictionary = duo.soldiers_of(0)[0]
+	assert_eq(Progression.bond_partners(duo, mine).map(func(r): return r.owner), [1], "co-op bonds across players")
 
 
 func test_fights_scale_with_squad_size() -> void:

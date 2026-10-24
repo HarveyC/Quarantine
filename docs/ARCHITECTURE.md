@@ -564,9 +564,13 @@ every state change goes through `Rules`: peers never diverge as long as they app
 in the same order on the same seed.
 
 - **`core/match_config.gd` (`MatchConfig`)**: a serializable description of a mission (map, squad,
-  enemy list, seed). `squad_plan(players, picks)` decides who plays what: solo is a squad of 4 for
-  player 0, co-op is one soldier per player, of the class they picked in the lobby
-  (`NetSession.pick_class`, stored as `lobby[id].class`) or the first class nobody took. Every peer builds an identical `GameState` from it.
+  enemy list, seed). `squad_plan(players, picks)` decides who plays what: every player commands their
+  own squad of 1 to 4 soldiers, `MatchConfig.MAX_SQUAD` (4) in all, with the classes they picked
+  in the lobby (`NetSession.pick_squad`, stored as `lobby[id].squad`; the local solo / hot-seat
+  lobby passes the same picks to `LocalSession.start_run`). Blanks take the first class nobody
+  has; with no picks solo gets 4 and co-op 1 each. Picks over 4 are trimmed from the biggest
+  squad, and everyone keeps at least one soldier. Fights scale with soldiers (`fight.squad`), Serum
+  and rewards come per soldier, and each player's reserve is `RunRules.reserve_for(soldiers)`. Every peer builds an identical `GameState` from it.
 - **`net/local_session.gd` (`LocalSession`)** and **`net/net_session.gd` (`NetSession`)** implement the
   same small interface the view talks to: `local_players()`, `is_local(player)`, `submit(action)`,
   `set_ready(player, on)`, `restart()`, `can_restart()`, `status_text()`, `player_names`. The view and
