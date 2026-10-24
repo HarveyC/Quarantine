@@ -23,6 +23,12 @@ const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "leaper
 ## Each act's signature enemies are twice as likely to be bought there, so acts feel different:
 ## act 1 the cordon (Fallen, Leaper), act 2 the port (Drifter, Sharpshooter, Brute), act 3 the bore.
 const SIGNATURE := {1: ["fallen", "leaper"], 2: ["drifter", "sharpshooter", "brute"], 3: ["burrower", "shrieker", "lurker"]}
+## Ranged enemies: they shoot or spit from a distance. Fights are built mostly from melee infected
+## that rush the squad; ranged kinds are supporting threats (FightBuilder caps their share).
+const RANGED: Array[String] = ["spitter", "fallen", "sharpshooter"]
+## How often a kind is bought in each act relative to the others (1 when missing). The Runner is
+## the staple infected, the most common enemy at any budget; later acts lean on their signatures.
+const WEIGHT := {"runner": {1: 3, 2: 2, 3: 2}}
 ## First act an enemy can be an elite in.
 const ELITE_FROM_ACT := {"brute": 1, "lurker": 1, "fallen": 1, "leaper": 1, "bloater": 2, "shrieker": 2,
 	"sharpshooter": 2, "burrower": 3}
@@ -88,6 +94,14 @@ static func spec(kind: String, elite := false, affixes: Array[String] = []) -> S
 	if affixes.is_empty():
 		return kind + ("!" if elite else "")
 	return kind + ("!" if elite else "+") + ",".join(affixes)
+
+
+static func weight(kind: String, act: int) -> int:
+	return WEIGHT.get(kind, {}).get(act, 1)
+
+
+static func is_ranged(kind: String) -> bool:
+	return RANGED.has(kind)
 
 
 static func is_static(u: Unit) -> bool:

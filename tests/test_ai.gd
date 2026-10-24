@@ -250,3 +250,49 @@ func _assert_consistent(s: GameState, ctx: String) -> void:
 			assert_eq(u.actions_left, 0, "%s: enemy %d done" % [ctx, u.id])
 	if s.phase != Types.Phase.ENDED:
 		assert_eq(s.phase, Types.Phase.TEAM, ctx + ": back in team phase")
+
+
+## A soldier in the middle of a wide roof: the only way up is the ladder at the far end. A runner
+## below has to go round to the ladder, not stand at the foot of the wall.
+func test_runner_climbs_to_a_soldier_on_a_roof() -> void:
+	var rows := PackedStringArray([
+		"................",
+		"...^^^^^^^^/....",
+		"...^^^^^^^^.....",
+		"...^^^^^^^^.....",
+		"................",
+		"................",
+		"................",
+	])
+	var s := make_blank(rows)
+	var sol := _soldier(s, "trooper", Vector2i(5, 2))
+	sol.max_hp = 1000
+	sol.hp = 1000
+	var e := _enemy(s, "runner", Vector2i(5, 6))
+	e.status["alerted"] = true
+	var reached := false
+	for turn in 4:
+		e.actions_left = 2
+		EnemyAI.take_turn(s, e)
+		if _cheb(e.pos, sol.pos) == 1 or not _events(s, "ability", e.id).is_empty():
+			reached = true
+			break
+	assert_true(reached, "the runner reached the roof by the ladder (ended at %s)" % e.pos)
+	assert_eq(s.grid.level(e.pos), 1, "it is up on the roof")
+
+
+## A runner that can't reach anyone this turn ends its move behind cover rather than in the open,
+## when that costs it no ground.
+func test_runner_approaches_through_cover() -> void:
+	var rows := _open_rows(32, 9)
+	rows[4] = rows[4].substr(0, 22) + "#" + rows[4].substr(23)
+	var s := make_blank(rows)
+	var sol := _soldier(s, "trooper", Vector2i(15, 5))
+	var e := _enemy(s, "runner", Vector2i(30, 5))
+	e.status["alerted"] = true
+	e.actions_left = 2
+	var action := EnemyAI._choose(s, e)
+	assert_eq(action.get("type"), Types.MOVE, "it advances")
+	var to: Vector2i = action.get("to", e.pos)
+	assert_true(to.x <= 24, "it still closes in (to %s)" % to)
+	assert_true(not Combat.can_see(s, sol.pos, to), "behind the wall, out of the soldier's sight (to %s)" % to)
