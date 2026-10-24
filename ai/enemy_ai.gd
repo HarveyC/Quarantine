@@ -145,9 +145,37 @@ static func _choose(s: GameState, u: Unit) -> Dictionary:
 	match u.kind:
 		"runner": return _choose_runner(s, u, hostiles)
 		"spitter": return _choose_spitter(s, u, hostiles)
+	if u.abilities.has("lunge") or u.abilities.has("bash"):
+		var strike := _melee_soldier_strike(s, u)
+		if not strike.is_empty():
+			return strike
 	if EnemyBehaviours.handles(s, u):
 		return EnemyBehaviours.choose(s, u, hostiles)
 	return _choose_generic(s, u, hostiles)
+
+
+## A Turned Reaper or Warden: Bash an adjacent hostile, else Lunge / Shield Charge the best target
+## in reach. {} when neither is possible (it then shoots or advances like anyone else).
+static func _melee_soldier_strike(s: GameState, u: Unit) -> Dictionary:
+	var best := {}
+	var best_score := -INF
+	for id in ["bash", "lunge", "shield_charge"]:
+		if not u.abilities.has(id):
+			continue
+		for t in _hostiles(s, u):
+			var score := _target_score(s, u, t, u.pos) + (2.0 if id == "bash" else 0.0)
+			if score <= best_score:
+				continue
+			var action := _check(s, {"type": Types.ABILITY, "unit": u.id, "ability": id, "target": t.id})
+			if not action.is_empty():
+				best_score = score
+				best = action
+	return best
+
+
+## Melee rushers keep clear of a guarding Warden's reach: stepping next to one gets them bashed.
+static func _guard_penalty(s: GameState, u: Unit, c: Vector2i) -> float:
+	return 3.0 if not ClassAbilities.guards_against(s, u, c).is_empty() else 0.0
 
 
 ## Shoot the best visible target, else advance toward the nearest hostile.
@@ -186,7 +214,7 @@ static func _choose_runner(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dict
 			if c == u.pos or not reach.has(c):
 				continue
 			var steps: int = reach[c]
-			var score := _target_score(s, u, h, c) - steps * 0.1
+			var score := _target_score(s, u, h, c) - steps * 0.1 - _guard_penalty(s, u, c)
 			if d.x == 0 or d.y == 0:
 				score += 0.5   # orthogonal adjacency is valid for any melee adjacency rule
 			if score > best_score:

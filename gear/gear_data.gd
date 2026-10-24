@@ -209,6 +209,7 @@ const DOCTRINES := {
 const CLASS_LANES := {
 	"trooper": ["Guard", "Suppress"], "marksman": ["Mark", "Overwatch"], "medic": ["Purge", "Guard"],
 	"breacher": ["Close", "Suppress"], "hazmat": ["Burn", "Purge"], "vector": ["Strain", "Purge"],
+	"reaper": ["Close", "Strain"], "warden": ["Guard", "Purge"],
 }
 
 

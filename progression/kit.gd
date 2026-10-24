@@ -24,6 +24,8 @@ const LURE_RADIUS := 6.0
 const DEADEYE_CRIT := 20
 const CHITIN_ARMOR := 2
 const WILLING_HOST_FLOOR := 25
+const LOW_PROFILE := 15
+const SHIELD_UP := 20
 
 
 # ---------------------------------------------------------------- queries
@@ -113,6 +115,7 @@ static func refresh_stats(s: GameState, u: Unit) -> void:
 
 static func on_team_phase_start(s: GameState) -> void:
 	Zones.on_phase_start(s, Types.Team.ENEMY)
+	_bleed_tick(s, Types.Team.PLAYER)
 	for u in s.living(Types.Team.PLAYER):
 		if not is_soldier(u):
 			continue
@@ -141,6 +144,7 @@ static func on_team_phase_start(s: GameState) -> void:
 ## Start of the enemy phase = the end of the squad's turn.
 static func on_enemy_phase_start(s: GameState) -> void:
 	Zones.on_phase_start(s, Types.Team.PLAYER)
+	_bleed_tick(s, Types.Team.ENEMY)
 	for u in s.living(Types.Team.PLAYER):
 		if not is_soldier(u):
 			continue
@@ -236,14 +240,31 @@ static func on_step(s: GameState, u: Unit, _c: Vector2i) -> void:
 
 # ---------------------------------------------------------------- odds and damage
 
-## Cover after perks: Expose lowers a Tagged enemy's cover by one step for the squad.
-static func cover_against(s: GameState, attacker: Unit, target: Unit, cover: int) -> int:
+## Cover after perks: a Warden's Bulwark covers the ally right behind it (Tower Shield: full
+## cover); Expose lowers a Tagged enemy's cover by one step for the squad.
+static func cover_against(s: GameState, attacker: Unit, target: Unit, cover: int, from: Vector2i = attacker.pos) -> int:
+	cover = maxi(cover, bulwark_cover(s, target, from))
 	if cover == Types.Cover.NONE or attacker.team != Types.Team.PLAYER or not Combat.has_status(s, target, "tagged"):
 		return cover
 	for u in s.living(Types.Team.PLAYER):
 		if has_perk(u, "expose"):
 			return cover - 1
 	return cover
+
+
+## Cover a soldier at `target` gets from an adjacent Warden standing between it and `from`
+## (one step toward the attacker on x or y, like a cover tile).
+static func bulwark_cover(s: GameState, target: Unit, from: Vector2i) -> int:
+	if not is_soldier(target):
+		return Types.Cover.NONE
+	var best: int = Types.Cover.NONE
+	for d in [Vector2i(signi(from.x - target.pos.x), 0), Vector2i(0, signi(from.y - target.pos.y))]:
+		if d == Vector2i.ZERO:
+			continue
+		var w := s.unit_at(target.pos + d)
+		if w != null and w != target and w.is_alive() and has_passive(w, "bulwark") and not w.ai_controlled:
+			best = maxi(best, Types.Cover.FULL if has_perk(w, "tower_shield") else Types.Cover.HALF)
+	return best
 
 
 ## Adds perk/passive/mutation terms to a hit-chance breakdown. Returns extra crit chance.
@@ -263,6 +284,10 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 			breakdown.append(["Triage Cover", -TRIAGE_DEFENSE])
 		if has_perk(target, "juggernaut") and target.status.get("k_flanked_turn") == s.turn:
 			breakdown.append(["Juggernaut", -JUGGERNAUT_DEFENSE])
+		if reaction and has_passive(target, "bloodlust"):
+			breakdown.append(["Low profile", -LOW_PROFILE])
+		if reaction and has_passive(target, "bulwark"):
+			breakdown.append(["Shield up", -SHIELD_UP])
 	# Attacker side.
 	if is_soldier(attacker):
 		if has_passive(attacker, "steady_aim"):
@@ -308,6 +333,8 @@ static func modify_incoming(s: GameState, target: Unit, amount: int, source: Uni
 		amount += 1
 	if awake(target, "chitin_plates"):
 		amount = maxi(1, amount - CHITIN_ARMOR)
+	if source != null and has_perk(target, "unbreakable") and cheb(source.pos, target.pos) == 1:
+		amount = maxi(1, amount - 1)
 	var partner := bond_partner(s, target, "shared_blood")
 	if partner != null and amount >= 2 and not target.status.get("k_splitting", false):
 		var half := amount / 2
@@ -319,6 +346,9 @@ static func modify_incoming(s: GameState, target: Unit, amount: int, source: Uni
 		if has_perk(target, "last_stand") and _once(target, "k_last_stand"):
 			s.emit({"type": "perk", "unit": target.id, "perk": "last_stand"})
 			return target.hp - 1
+		if has_perk(target, "last_wall") and _once(target, "k_last_wall"):
+			s.emit({"type": "perk", "unit": target.id, "perk": "last_wall"})
+			return target.hp - 1
 		if awake(target, "second_heart") and _once(target, "k_second_heart"):
 			target.status["k_second_heart_pending"] = true
 			s.emit({"type": "mutation", "unit": target.id, "mutation": "second_heart"})
@@ -327,6 +357,8 @@ static func modify_incoming(s: GameState, target: Unit, amount: int, source: Uni
 
 
 static func after_damage(s: GameState, target: Unit, amount: int, source: Unit) -> void:
+	if amount > 0 and source != null and is_soldier(target) and source.is_enemy_of(target):
+		target.status["hits_taken"] = int(target.status.get("hits_taken", 0)) + 1   # Warden unlock
 	if target.status.get("k_second_heart_pending", false):
 		target.status.erase("k_second_heart_pending")
 		Infection.add(s, target, 15)
@@ -341,6 +373,31 @@ static func after_damage(s: GameState, target: Unit, amount: int, source: Unit) 
 				Rules.deal_damage(s, o, 2, target)
 			elif is_soldier(o):
 				Infection.add(s, o, 5)
+
+
+## Combat's claw resolved against `target` (hit or not). Riposte: a Reaper strikes back once
+## per enemy phase.
+static func after_claw(s: GameState, attacker: Unit, target: Unit) -> void:
+	if has_perk(target, "riposte") and target.is_alive() and attacker.is_alive() and not target.ai_controlled \
+			and target.is_enemy_of(attacker) and cheb(attacker.pos, target.pos) == 1 \
+			and s.phase == Types.Phase.ENEMY and _once(target, "k_riposte", Combat.phase_index(s)):
+		ClassAbilities.strike(s, target, attacker, "riposte")
+
+
+## Bleed Out: a bleeding unit of `team` takes 1 damage at the start of its side's phase.
+static func _bleed_tick(s: GameState, team: int) -> void:
+	for u in s.living(team):
+		var left := int(u.status.get("k_bleed", 0))
+		if left <= 0:
+			continue
+		if left > 1:
+			u.status["k_bleed"] = left - 1
+		else:
+			u.status.erase("k_bleed")
+		s.emit({"type": "bleed", "unit": u.id, "damage": 1})
+		Rules.deal_damage(s, u, 1, s.get_unit(int(u.status.get("k_bleed_by", -1))))
+		if s.phase == Types.Phase.ENDED:
+			return
 
 
 ## A melee hit landed on `target` (claw). Brawler and Barbed Hide bite back.
@@ -368,6 +425,8 @@ static func on_death(s: GameState, dead: Unit, source: Unit) -> void:
 		martyr(s, dead)
 	if source == null or not source.is_alive() or not dead.is_enemy_of(source):
 		return
+	if is_soldier(source) and cheb(source.pos, dead.pos) == 1:
+		source.status["close_kills"] = int(source.status.get("close_kills", 0)) + 1   # Reaper unlock
 	if has_perk(source, "feed"):
 		_heal(s, source, 2, "feed")
 	if has_perk(source, "double_tap") and source.status.get("k_first_action", false) and _once(source, "k_double_tap", s.turn):

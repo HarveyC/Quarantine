@@ -218,7 +218,7 @@ static func cover_against(g: Grid, target: Vector2i, from: Vector2i) -> int:
 static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2i = attacker.pos, reaction: bool = false) -> Dictionary:
 	var los := can_see(s, from, target.pos) or Kit.shared_sight(s, attacker, target.pos) \
 		or GearFx.smart_link_shot(s, attacker, target)
-	var flat_cover := Kit.cover_against(s, attacker, target, cover_against(s.grid, target.pos, from))
+	var flat_cover := Kit.cover_against(s, attacker, target, cover_against(s.grid, target.pos, from), from)
 	var cover := Elevation.adjust_cover(s, attacker, target, from, flat_cover)
 	var flanked := flat_cover == Types.Cover.NONE and cover == Types.Cover.NONE
 	var breakdown: Array = [["Aim", attacker.aim]]
@@ -448,6 +448,7 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			if dmg > 0:
 				Rules.deal_damage(s, t, dmg, u)
 				Kit.after_melee(s, u, t, dmg)
+			Kit.after_claw(s, u, t)
 	Kit.after_ability(s, u, id, t)
 
 

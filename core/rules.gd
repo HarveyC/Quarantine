@@ -218,26 +218,39 @@ static func _validate_move(s: GameState, u: Unit, to: Vector2i) -> String:
 	return ""
 
 
-## Moves step by step so overwatch can interrupt. Emits one "move" event per uninterrupted segment.
 static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
-	var path := s.grid.find_path(u.pos, to, s.occupied(u.id))
 	u.actions_left -= 1
+	move_along(s, u, to)
+
+
+## Moves step by step so overwatch can interrupt. Emits one "move" event per uninterrupted segment.
+## Spends no actions (a MOVE action costs one; Lunge and Shield Charge move as part of a strike).
+## A Warden's Guard bash can stop the move short (ClassAbilities.resolve_guards).
+static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
+	var path := s.grid.find_path(u.pos, to, s.occupied(u.id))
 	u.hunkered = false
 	GearFx.on_move(s, u)
 	var segment: Array[Vector2i] = []
+	var walked: Array[Vector2i] = []
 	var from := u.pos
 	for c in path:
 		u.pos = c
 		segment.append(c)
+		walked.append(c)
 		Vision.on_step(s, u)
 		Kit.on_step(s, u, c)
 		var reactors := Combat.reactions_to_move(s, u, c)
-		if not reactors.is_empty():
+		var guards := ClassAbilities.guards_against(s, u, c)
+		if not reactors.is_empty() or not guards.is_empty():
 			# Flush the movement so far, then let overwatch fire.
 			s.emit({"type": "move", "unit": u.id, "from": from, "path": segment.duplicate()})
 			from = c
 			segment.clear()
 			Combat.resolve_reactions(s, u, reactors)
+			if u.is_alive() and not guards.is_empty() and ClassAbilities.resolve_guards(s, u, guards):
+				if u.is_alive():
+					Hazards.on_move(s, u, walked)
+				return
 		if not u.is_alive():
 			return
 	if not segment.is_empty():
