@@ -194,6 +194,36 @@ static func _find(nodes: Array, id: int) -> Dictionary:
 	return {}
 
 
+## The Bridge event: the rest of the act loses a column. Drops the rightmost node of every row
+## after `row` that has more than one node, relinks whatever pointed at it to the new rightmost
+## node (so nothing crosses), and gives any node left without a way in a link from the rightmost
+## node of the row before.
+static func remove_column(map: Array, row: int) -> void:
+	for r in range(row + 1, RunState.ROWS):
+		var nodes := _row(map, r)
+		if nodes.size() < 2:
+			continue
+		var gone: Dictionary = nodes.back()
+		var keep: Dictionary = nodes[nodes.size() - 2]
+		map.erase(gone)
+		for n in _row(map, r - 1):
+			if n.links.has(gone.id):
+				n.links.erase(gone.id)
+				if not n.links.has(keep.id):
+					n.links.append(keep.id)
+	for r in range(row + 2, RunState.ROWS + 1):
+		var prev := _row(map, r - 1)
+		for n in _row(map, r):
+			if not prev.any(func(p: Dictionary) -> bool: return p.links.has(n.id)):
+				prev.back().links.append(n.id)
+
+
+static func _row(map: Array, r: int) -> Array:
+	var out := map.filter(func(n: Dictionary) -> bool: return n.row == r)
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.col < b.col)
+	return out
+
+
 ## Resolves a "?" node (when it is revealed with Intel or entered). The streak of non-fights
 ## raises the fight chance by 10% each, reset when a fight comes up.
 static func resolve_unknown(run: RunState, n: Dictionary) -> String:

@@ -303,6 +303,10 @@ static func _node_finished(run: RunState) -> void:
 	if run.phase == RunState.Phase.ENDED:
 		return
 	run.node_state = {}
+	if run.modifiers.get("remove_column", false):
+		run.modifiers.erase("remove_column")
+		RunMap.remove_column(run.map, run.row)
+		run.emit({"type": "map_changed", "reason": "remove_column"})
 	if run.current_node().get("type", "") == RunMap.BOSS:
 		_start_act(run, run.act + 1)
 		return
