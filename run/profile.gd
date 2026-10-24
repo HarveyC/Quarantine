@@ -35,6 +35,7 @@ static func meta() -> Dictionary:
 			out[k] = cf.get_value(SECTION, k)
 	out["packs"] = packs()
 	out["severity"] = severity()
+	out["story"] = RunHooks.call_static("StoryProfile", "snapshot", [], {})
 	return out
 
 
@@ -132,3 +133,4 @@ static func record_run(run: RunState, player: int = -1) -> void:
 	if changed:
 		cf.save(path)
 	Achievements.check_run(run)
+	RunHooks.call_static("StoryProfile", "record_run", [run])

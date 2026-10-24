@@ -14,6 +14,7 @@ static func actions(run: RunState) -> Array:
 				out.append_array(RunHooks.call_static("GearRun", "autoplay_actions", [run], []))
 			else:
 				out.append_array(_gear_defaults(run))
+			out.append_array(RunHooks.call_static("Story", "autoplay_actions", [run], []))
 			if RunHooks.has("Progression", "autoplay_actions"):
 				out.append_array(RunHooks.call_static("Progression", "autoplay_actions", [run], []))
 			else:

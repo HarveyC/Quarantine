@@ -105,6 +105,8 @@ func _build_menu(root: VBoxContainer) -> void:
 		var ss := get_node_or_null("/root/Soundscape")
 		if ss != null:
 			ss.toggle_settings())
+	var archive_btn := _button(_menu_box, "Archive")
+	archive_btn.pressed.connect(func() -> void: add_child(preload("res://ui/story/archive_screen.gd").new()))
 
 
 func _build_lobby(root: VBoxContainer) -> void:
