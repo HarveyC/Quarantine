@@ -488,3 +488,15 @@ static func squad_counts(run) -> Dictionary:
 		for t in c:
 			out[t] = out.get(t, 0) + c[t]
 	return out
+
+
+# --- Screens ---------------------------------------------------------------------------
+
+## Control script for the REWARD phase: `setup(run, session)`, sends gear_pick / gear_doctrine.
+static func reward_screen() -> Script:
+	return load("res://ui/gear/reward_screen.gd")
+
+
+## Control script for the map's loadout button: `setup(run, session)`, emits `closed`.
+static func loadout_screen() -> Script:
+	return load("res://ui/gear/loadout_screen.gd")
