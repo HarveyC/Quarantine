@@ -91,12 +91,12 @@ static func hurt_pct(run: RunState, rec: Dictionary, pct: int) -> void:
 # --- perks and mutations (Progression) -------------------------------------------------
 
 static func mutations_of(rec: Dictionary) -> Array:
-	var fallback: Array = rec.get("prog", {}).get("mutations", [])
+	var fallback: Array = []
 	return RunHooks.call_static("Progression", "mutations_of", [rec], fallback)
 
 
 static func mutation_name(id: String) -> String:
-	var fallback: String = Infection.MUTATIONS[id].name if Infection.MUTATIONS.has(id) else id.capitalize()
+	var fallback: String = id.capitalize()
 	return RunHooks.call_static("Progression", "mutation_name", [id], fallback)
 
 
@@ -110,7 +110,7 @@ static func add_random_mutation(run: RunState, rec: Dictionary) -> String:
 		rec.infection = before
 	else:
 		var have := mutations_of(rec)
-		var pool: Array = Infection.MUTATION_ORDER.filter(func(m): return not m in have)
+		var pool: Array = MutationData.MUTATIONS.keys().filter(func(m): return not m in have)
 		if pool.is_empty():
 			return ""
 		id = pool[run.rng.randi_range(0, pool.size() - 1)]
@@ -154,7 +154,7 @@ static func grant_perk_pick(run: RunState, rec: Dictionary) -> void:
 		if not rec.has("prog"):
 			rec["prog"] = {}
 		rec.prog["extra_picks"] = rec.prog.get("extra_picks", 0) + 1
-	emit(run, {"type": "perk_pick", "sid": rec.id})
+	emit(run, {"type": "perk_pick_granted", "sid": rec.id})
 
 
 # --- recruits ----------------------------------------------------------------------------

@@ -67,7 +67,10 @@ Rules for parallel work:
 | `hunker` | `unit` |
 | `ability` | `unit`, `ability`, plus `target`/`cell` and ability-specific fields: `stim` → `heal`, `hp`; `breach` → `hit`, `damage`; `claw` → `hit`, `graze`, `damage`, `chance`; `spit` → `cell`, `units` (affected ids), `damage`. Emitted before the resulting `damage` events |
 | `infection` | `unit`, `value`, `tier` |
-| `mutation` | `unit`, `mutation`, plus target fields (`regenerate` adds `healed`, `hp`) |
+| `mutation` | `unit`, `mutation`, plus `target`/`cell` and effect fields (`leech_bite`: `hit`, `damage`, `healed`; `acid_spit`: `damage`; `rally_musk`/`rampage`/`bloom`: `units`). Passives that trigger also emit one (`second_heart`, `bloom`, `host_body`, `martyr_strain`, `ride_the_wave`) |
+| `perk` | `unit`, `perk` (a perk that visibly triggered: `last_stand`, `double_tap`, `brink`) |
+| `heal` | `unit`, `amount`, `hp`, `source` (passive heals: `clotting_blood`, `regenerator`, `transfusion`, `feed`) |
+| `zone` / `zone_end` | `kind` (`spore_burst`, `growth`), `cells`, (`until`) |
 | `lapse` / `recover` / `turned` | `unit` |
 | `alerted` | `unit` (an Infected wakes up; emitted once per unit, see Enemy AI) |
 | `mission_end` | `result` (`Types.Result`) |
@@ -116,11 +119,8 @@ New event types are fine; add them to this table.
   Tier passives (MUTATING +1 mobility; CRITICAL/TURNED +1 mobility, +10 aim) are applied directly to `unit.mobility`/`unit.aim`
   by `Infection.add`; the applied amounts are in `status["tier_mobility"]`/`status["tier_aim"]`, so a stat panel can show them.
 - **Cure**: lowering infection is `Infection.add(s, u, -amount)` (Medic stim: -15). Passives revert automatically.
-- **Hive Sense** (mutation): `unit.status["hive_sense"] = <turn>`; active while it equals `s.turn`.
-  Query with `Infection.has_hive_sense(s, u)`. **Combat must treat the target's cover as NONE** for shots by a unit
-  with Hive Sense active (hit chance and the HUD preview).
-- **Adrenal Surge** (mutation): costs 0 actions but, like every action, needs `actions_left >= 1`; gives +1 action.
-  Once per turn via `status["surge_turn"]`. Regenerate uses `unit.cooldowns["regenerate"]` (ticked by Rules).
+- **Hive Sense** (legacy MVP mutation, no longer grantable): `unit.status["hive_sense"] = <turn>` still makes
+  Combat treat the target's cover as NONE. Mutations are now grafted per soldier, see "Ranks, perks and mutations".
 - **Lapse**: rolled in `Infection.on_team_phase_start` (MUTATING 10%, CRITICAL 30%, `Infection.lapse_chance(value)`).
   A soldier lapsed at the previous phase start recovers (`recover` event) and does not roll again that phase.
 - **Infection from damage**: `Rules.deal_damage` calls `Infection.on_damaged(s, target, source, amount)`.
@@ -139,11 +139,63 @@ New event types are fine; add them to this table.
   Expired entries are swept at the start of every `Combat.apply`.
 - **Abilities / mutations for the HUD**: `Combat.available_abilities` and `Infection.available_mutations`
   return `{id, name, targeting: "none"|"unit"|"cell", ready, ...}`. Mutations also carry `desc`, `cost` (infection added),
-  `actions` (action cost), `cooldown` (turns left) and `reason` (why not ready, "" if ready). The list is empty below EXPOSED.
+  `actions` (action cost), `cooldown` (turns left), `reason` (why not ready, "" if ready), `source` (`own`, `dormant`,
+  `borrowed` via Hive Link, `mirror` via Mirror Graft) and `tier`. It lists the soldier's grafted active mutations; dormant
+  ones have `ready = false` and reason "Dormant until <tier>".
   Combat adds `cooldown`, `cost` (actions, -1 = ends turn), `desc` and `targets` (legal unit ids for unit-targeted abilities).
 - **Hit chance extras**: `hit_chance` also returns `los`, and takes an optional 5th arg `reaction` (overwatch −15).
   `graze` is the width of the graze band above `hit`; `crit` is the crit chance given a hit.
   `Combat.melee_chance` gives claw odds.
+
+## Ranks, perks and mutations (progression/)
+
+Owner: **ranks, perks and mutations**. Design: the doc's Classes and Mutations sections.
+
+| File / class | What it does |
+|---|---|
+| `perk_data.gd` `PerkData` | Class passives (one per class) and the 7-perk pool per class: `tag`, `rare`, stat grants, granted `ability` |
+| `mutation_data.gd` `MutationData` | Every mutation: `slot` (`exposed`/`mutating`/`critical`/`strain`), `awake_at` tier, active/passive, `tag`, graft and use cost, `bonded`, `vector`, `pending` |
+| `progression.gd` `Progression` | The run record (`soldier_record.prog`), ranks, perk offers, grafts, Serum, reward cards, tag counts, unlocks, `prog_*` run actions |
+| `kit.gd` `Kit` | In-mission hooks for passives, perks and mutation passives (one-line calls from Rules, Combat, Infection, EnemyAI) |
+| `mutations.gd` `Mutations` | Active mutations: list, validate, apply (Infection delegates its mutation API here) |
+| `class_abilities.gd` `ClassAbilities` | Incinerate, Siphon, Purge, Decon Shower, Squad Leader's order, Talk Down, Serum (Combat delegates ids it doesn't know) |
+| `zones.gd` `Zones` | Spore Burst clouds and Overgrowth walls in `GameState.zones` (Incinerate fire and Overgrowth spores are `Hazards`) |
+| `pick_screen.gd` | Rank-up perk picks and mutation offers (`Progression.pick_screen()`, hosted in the reward screen) |
+
+**Unit status keys** (stamped by `Progression.apply_record`): `perks` (Array), `mutations` ({slot: id}), `rank`,
+`bond` (`{"id", "partner"}` unit id or `"partner_sid"`), `inoculated` (half Infection gain), `cured` (a mid-fight Serum
+happened; `after_fight` wipes the record's mutations), `serum` (full cures this soldier can give mid-fight; whoever owns
+Serum stock sets it). Kit's own bookkeeping keys start with `k_`.
+
+**Rules of the system.**
+- Rank 1-5; `after_fight(prog, unit, fight_number)` ranks up after run fights 1, 3, 5, 7 and queues a pick. Each rank is
+  +1 max HP (`Progression.max_hp`). A perk offer is 3 from the class pool minus owned, rares from Rank 4, deterministic
+  from `run.seed`, the soldier id and `picks_taken` (`Progression.perk_offer(run, record)`), so no offer state is stored.
+- A mutation is awake while `Infection.tier(unit.infection) >= MutationData.awake_at(id)`; dormant ones do nothing and
+  count for no tags. Graft adds +10/+15/+20 Infection to the soldier record (capped at 99 between fights); actives cost
+  5/10/15 per use, modified by Sealed Suit (+5), Willing Host and Apex (-5 each, minimum 5) and Patient Zero (0).
+- Modifiers ignore Infection added before turn 1 (`s.turn == 0`), so restoring carried Infection is exact.
+- Serum: `Progression.full_cure(record)` between fights (or the `prog_serum` action for 4 of the player's samples);
+  the `serum` ability mid-fight (adjacent ally, 2 actions). Both wipe every mutation and leave the soldier Inoculated
+  (half Infection gain) for 2 fights.
+- Tag counts for GearTags: `Progression.tag_counts(record)` / `unit_tag_counts(unit)` (perk tags + awake mutation tags,
+  +1 Strain per awake mutation; only tags above 0; names are `Progression.TAGS`).
+- Reward cards for GearRun: `perk_card(rng, record)`, `mutation_card(rng, record)`, `apply_card(record, card)`;
+  nests: `queue_nest_offer(run, record)` (picked with `prog_graft`, may hold a Bonded card with a partner).
+- NodeRules hooks: `grant_random_mutation(run, record)`, `mutations_of(record)`, `remove_mutation(record, id)`,
+  `grant_perk_pick(run, record)`, `mutation_name(id)`, `full_cure(record)`.
+- Unlocks: `unlocked_classes(meta)` (base 4, `hazmat` with `act1_boss_beaten`, `vector` with `vector_unlocked`);
+  `on_fight_end(run, outcome)` sets `vector_unlocked` when a won fight ends with a Mutating+ soldier who didn't Turn.
+
+Run actions (`prog_*`, need `player` = the soldier's controller, not during a fight): `prog_perk_pick` {`sid`, `perk`},
+`prog_graft` {`sid`, `mutation`, `partner` for Bonded}, `prog_skip_offer` {`sid`}, `prog_serum` {`sid`}.
+Run events: `perk_pick` (`sid`, `perk`), `graft` (`sid`, `mutation`), `cured` (`sid`), `class_unlocked` (`kind`).
+
+**Simplifications vs the doc** (worth a later pass): Spore Sense is data-only until there is fog of war; Hive Hush
+only stops dormant Infected spotting you beyond 4 tiles; Lure Scent's aim bonus applies to reaction shots at enemies
+within 6 tiles of you; Hollow Voice makes the target attack its nearest ally now and skip its next turn; Rampage moves
+without triggering overwatch; Overgrowth turns empty cells into walls (the view doesn't draw zones yet); Firewall
+is just the line shape (the AI already avoids fire through Hazards); Spore Sense's double spore Infection isn't applied.
 
 ## Equipment (gear/)
 
