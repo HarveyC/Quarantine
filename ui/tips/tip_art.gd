@@ -56,7 +56,14 @@ func _text(at: Vector2, s: String, px := 10, col := Styles.DIM, align := HORIZON
 		x -= w * 0.5
 	elif w > 0 and align == HORIZONTAL_ALIGNMENT_RIGHT:
 		x -= w
-	draw_string(f, Vector2(x, at.y), s.to_upper() if not mono else s, align, w, Styles.fs(px), col)
+	var t := s.to_upper() if not mono else s
+	var size := Styles.fs(px)
+	# A word wider than its slot (big text sizes) steps down to fit instead of being cut.
+	if w > 0:
+		var tw := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		if tw > w:
+			size = maxi(6, floori(size * w / tw))
+	draw_string(f, Vector2(x, at.y), t, align, w, size, col)
 
 
 func _num(at: Vector2, s: String, px := 13, col := Styles.TEXT, align := HORIZONTAL_ALIGNMENT_CENTER, w := 60.0) -> void:

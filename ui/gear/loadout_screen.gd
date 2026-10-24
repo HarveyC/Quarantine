@@ -10,6 +10,7 @@ signal closed
 
 const Tips := preload("res://ui/tips/tips.gd")
 const UI := preload("res://ui/gear/gear_ui.gd")
+const W := preload("res://ui/widgets.gd")
 
 var run: RunState
 var session
@@ -73,13 +74,15 @@ func _build() -> void:
 	bg.color = Color(UI.BG, 0.96)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	var fit := W.FitBox.new()
+	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(fit)
 	var m := MarginContainer.new()
-	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right"]:
 		m.add_theme_constant_override("margin_" + side, 36)
 	m.add_theme_constant_override("margin_top", 20)
 	m.add_theme_constant_override("margin_bottom", 20)
-	add_child(m)
+	fit.add_child(m)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
 	m.add_child(v)

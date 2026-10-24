@@ -199,7 +199,7 @@ func _accessibility() -> void:
 		"Shifts colours the game relies on (amber orders, teal Infection, red danger, player colours) into ones you can tell apart.")
 	_slider("Colour filter strength", "accessibility", "colorblind_strength", 0.0, 1.0, 0.1, "%d%%", 100.0)
 	_section("Size")
-	_option("Interface scale", "accessibility", "ui_scale", [[0.75, "75%"], [0.9, "90%"], [1.0, "100%"], [1.15, "115%"], [1.3, "130%"], [1.5, "150%"]])
+	_option("Interface scale", "accessibility", "ui_scale", [[0.75, "75%"], [0.9, "90%"], [1.0, "100%"], [1.1, "110%"], [1.25, "125%"]])
 	_option("Text size", "accessibility", "text_scale", [[0.85, "Small"], [1.0, "Normal"], [1.15, "Large"], [1.3, "Larger"], [1.5, "Largest"]],
 		"Applies to each screen as it opens.", true)
 	_section("Motion")

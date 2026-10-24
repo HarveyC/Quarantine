@@ -83,6 +83,7 @@ static func mono(text: String, size := 14, color := TEXT) -> Label:
 
 static func wrap(l: Label, width := 0) -> Label:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	Styles.keep_words(l)
 	if width > 0:
 		l.custom_minimum_size.x = width
 	return l

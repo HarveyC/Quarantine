@@ -42,6 +42,10 @@ var _vote_box: VBoxContainer
 var _vote_note: Label
 var _log: Label
 var _reveal_btn: Button
+var _top: HBoxContainer
+## The words beside the Supplies / Intel / Serum counts; dropped first when the top bar is tight.
+var _res_captions: Array[Label] = []
+var _top_buttons: Array[Button] = []
 var _loadout_btn: Button
 var _loadout: Control
 var _screen_holder: Control
@@ -113,6 +117,7 @@ func _build() -> void:
 
 	# Top bar: act and biome, Outbreak, currencies and buttons.
 	var top := Styles.hbox(28)
+	_top = top
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	top.offset_left = 40
 	top.offset_right = -40
@@ -225,7 +230,9 @@ func _resource(parent: Control, icon: String, col: Color, caption: String) -> La
 	row.add_child(W.Icon.new(icon, col, 18, 1.8))
 	var v := Styles.mono("", 17)
 	row.add_child(v)
-	row.add_child(Styles.label(caption, 13, Styles.MUTED))
+	var cap := Styles.label(caption, 13, Styles.MUTED)
+	row.add_child(cap)
+	_res_captions.append(cap)
 	parent.add_child(row)
 	return v
 
@@ -233,7 +240,42 @@ func _resource(parent: Control, icon: String, col: Color, caption: String) -> La
 func _top_button(text: String, icon: String) -> Button:
 	var b := Styles.icon_button(text, icon, "secondary", 15, 40)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_top_buttons.append(b)
 	return b
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_fit_top.call_deferred()
+
+
+## Keeps the top bar on screen at big text sizes: first the resource words go (the icons and
+## their hover cards stay), then the buttons drop to icons.
+func _fit_top() -> void:
+	if _top == null:
+		return
+	for c in _res_captions:
+		c.visible = true
+	for b in _top_buttons:
+		Styles.icon_only(b, false)
+	_top.add_theme_constant_override("separation", 28)
+	var room := size.x - 80.0
+	if _top.get_combined_minimum_size().x > room:
+		for c in _res_captions:
+			c.visible = false
+	if _top.get_combined_minimum_size().x > room:
+		for b in _top_buttons:
+			Styles.icon_only(b, true)
+		_top.add_theme_constant_override("separation", 16)
+	# Then the Outbreak keeps its number (the bar shows the stage), and the act name shrinks.
+	_outbreak.text = str(_outbreak.get_meta("full_text", _outbreak.text))
+	_biome.remove_theme_font_size_override("font_size")
+	_biome.add_theme_font_size_override("font_size", Styles.fs(roundi(42 * 0.8)))
+	if _top.get_combined_minimum_size().x > room:
+		_outbreak.text = "OUTBREAK %d" % run.outbreak if run != null else _outbreak.text
+	var over := _top.get_combined_minimum_size().x - room
+	if over > 0:
+		Styles.fit_width(_biome, _biome.get_combined_minimum_size().x - over, 0.6)
 
 
 var _pause: Control
@@ -271,6 +313,7 @@ func refresh() -> void:
 	_biome.text = BIOME_NAMES[a].to_upper()
 	var stage := RunRules.outbreak_stage(run.outbreak)
 	_outbreak.text = "OUTBREAK %d · %s" % [run.outbreak, RunRules.OUTBREAK_NAMES[stage].to_upper()]
+	_outbreak.set_meta("full_text", _outbreak.text)
 	_outbreak_tier.text = "+1 each node · -%d per boss" % RunRules.BOSS_OUTBREAK_DROP
 	_outbreak_bar.value = run.outbreak
 	_outbreak_bar.queue_redraw()
@@ -286,7 +329,10 @@ func refresh() -> void:
 	_reveal_btn.disabled = run.intel < 1 or not run.map.any(func(n: Dictionary) -> bool: return n.hidden)
 	if _reveal_btn.disabled and _reveal_btn.button_pressed:
 		_reveal_btn.button_pressed = false
+	Styles.icon_only(_reveal_btn, false)
 	_reveal_btn.text = "REVEAL  1"
+	_reveal_btn.set_meta("full_text", _reveal_btn.text)
+	_fit_top()
 	_map.names = session.player_names if session != null else {}
 	_map.refresh()
 	_node_buttons = _map.dots
@@ -470,13 +516,18 @@ func _option_row(n: Dictionary, i: int) -> Control:
 		head.add_child(W.keycap(str(i + 1)))
 	head.add_child(W.Icon.new(NodeInfo.icon(type), tc if tc != Styles.TEXT else Styles.DIM, 20, 1.8))
 	Tips.term(f, "node_" + type)
-	head.add_child(Styles.caps(NodeInfo.title(n), 17, tc if tc != Styles.TEXT else Styles.TEXT))
-	head.add_child(Styles.spacer())
+	var name := Styles.caps(NodeInfo.title(n), 17, tc if tc != Styles.TEXT else Styles.TEXT)
+	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name.custom_minimum_size.x = 80
+	head.add_child(name)
 	if not run.is_solo():
 		head.add_child(Styles.mono(str(voters.size()), 14, Styles.TEXT if voters.size() > 0 else Styles.MUTED))
 	box.add_child(head)
 	if not voters.is_empty() and not run.is_solo():
-		var chips := Styles.hbox(6)
+		var chips := HFlowContainer.new()
+		chips.add_theme_constant_override("h_separation", 6)
+		chips.add_theme_constant_override("v_separation", 6)
 		for p in voters:
 			var t := _owner_name(p) + (" · host" if p == run.host_player else "")
 			chips.add_child(W.chip(t, Styles.player_color(p), true, 11))
@@ -673,10 +724,14 @@ func _summary() -> Control:
 	if Severity.level(run) > 0:
 		kick += " · Severity %d" % Severity.level(run)
 	top.add_child(Styles.caps(kick, 16, Styles.DIM))
-	top.add_child(Styles.caps(head[0], 76, head[1]))
+	var headline := Styles.caps(head[0], 76, head[1])
+	Styles.fit_width(headline, get_viewport_rect().size.x - 240.0)
+	top.add_child(headline)
 	v.add_child(top)
 	v.add_child(_progress_track())
-	var tiles := Styles.hbox(16)
+	var tiles := HFlowContainer.new()
+	tiles.add_theme_constant_override("h_separation", 16)
+	tiles.add_theme_constant_override("v_separation", 16)
 	var lost := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status in [RunSoldier.DEAD, RunSoldier.TURNED]).size()
 	var stage := RunRules.outbreak_stage(run.outbreak)
 	tiles.add_child(_stat_tile("skirmish", str(run.fights_won), "Fights won", Styles.AMBER))
@@ -723,7 +778,9 @@ func _summary() -> Control:
 	b.pressed.connect(func() -> void: leave_requested.emit())
 	bar.add_child(b)
 	v.add_child(bar)
-	return root
+	var fit := W.FitBox.new()
+	fit.add_child(root)
+	return fit
 
 
 ## A teal chip for story finds on the run board: Echoes laid to rest and intel recovered.

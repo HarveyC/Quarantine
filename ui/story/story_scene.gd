@@ -104,19 +104,27 @@ func _build_overlay() -> void:
 	resized.connect(_layout)
 
 
+## The bottom bar grows to fit a long caption at a big text size, keeping a line free for the
+## key hint under it.
 func _layout() -> void:
+	var w := minf(size.x - 160, 1100.0)
+	_line.size = Vector2(w, 0)
+	var sp_h := _speaker.get_combined_minimum_size().y
+	var line_h := _line.get_combined_minimum_size().y
+	var hint_h := _hint.get_combined_minimum_size().y
 	var h := size.y * BAR_H
+	var bottom_h := maxf(h, 16 + sp_h + 4 + line_h + hint_h + 14)
 	_top.position = Vector2.ZERO
 	_top.size = Vector2(size.x, h)
-	_bottom.position = Vector2(0, size.y - h)
-	_bottom.size = Vector2(size.x, h)
-	var w := minf(size.x - 160, 1100.0)
-	_speaker.position = Vector2((size.x - w) * 0.5, size.y - h + 16)
-	_speaker.size = Vector2(w, 20)
-	_line.position = Vector2((size.x - w) * 0.5, size.y - h + 40)
-	_line.size = Vector2(w, 60)
-	_hint.position = Vector2(size.x - 340, size.y - 28)
-	_hint.size = Vector2(300, 16)
+	_bottom.position = Vector2(0, size.y - bottom_h)
+	_bottom.size = Vector2(size.x, bottom_h)
+	_speaker.position = Vector2((size.x - w) * 0.5, size.y - bottom_h + 16)
+	_speaker.size = Vector2(w, sp_h)
+	_line.position = Vector2((size.x - w) * 0.5, size.y - bottom_h + 16 + sp_h + 4)
+	_line.size = Vector2(w, line_h)
+	_hint.position = Vector2(size.x - 340, size.y - hint_h - 10)
+	_hint.size = Vector2(300, hint_h)
+	Styles.fit_width(_title, size.x - 192)
 
 
 func _secs(text: String) -> float:
@@ -146,6 +154,7 @@ func _next() -> void:
 	_speaker.text = SPEAKERS.get(who, who).to_upper() if who != "" else ""
 	_speaker.add_theme_color_override("font_color", Styles.TEAL if who == "SOURCE" else Styles.AMBER)
 	_line.text = l[1]
+	_layout()
 	_line.add_theme_color_override("font_color", Styles.TEAL if who == "SOURCE" else (Styles.DIM if who == "" else Styles.TEXT))
 	_line.modulate.a = 0.0
 	_speaker.modulate.a = 0.0

@@ -43,14 +43,16 @@ class NodeDot extends Control:
 	var revealable := false
 	var hovered := false
 	var pulse := 0.0
+	## Smaller rings on a short board (a small window at a big Interface scale).
+	var k := 1.0
 
 	func radius() -> float:
 		if type == RunMap.BOSS:
-			return 50.0
+			return 50.0 * k
 		match look:
-			1: return 37.0   # OPTION
-			2: return 40.0   # CURRENT
-		return 30.0
+			1: return 37.0 * k   # OPTION
+			2: return 40.0 * k   # CURRENT
+		return 30.0 * k
 
 	func _draw() -> void:
 		var c := size * 0.5
@@ -251,10 +253,12 @@ func _layout() -> void:
 	_veins.position = Vector2(-left, 0)
 	_veins.size = Vector2(maxf(bloom_edge() + left, 10.0), size.y)
 	_veins._build()
+	var k := clampf(_area().size.y / 420.0, 0.7, 1.0)
 	for n in run.map:
 		var d: NodeDot = dots.get(n.id)
 		if d != null:
-			var r := 54.0
+			d.k = k
+			var r := 54.0 * k
 			d.size = Vector2(r, r) * 2
 			d.position = node_pos(n) - d.size * 0.5
 	_place_card()

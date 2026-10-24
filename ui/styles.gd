@@ -284,6 +284,38 @@ static func display(text: String, size := 28, color := TEXT, heavy := true, uppe
 	return l
 
 
+## Shrinks a one-line label's font until its text fits `max_w` pixels (big headlines at the
+## Largest text size), never below `floor` of its size.
+static func fit_width(l: Label, max_w: float, floor := 0.5) -> void:
+	var size := l.get_theme_font_size("font_size")
+	var w := l.get_theme_font("font").get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	if w > max_w and w > 0:
+		l.add_theme_font_size_override("font_size", maxi(roundi(size * floor), floori(size * max_w / w)))
+
+
+## Keeps every word of a wrapping label whole: when the label is narrower than its longest
+## word (a long gear name at the Largest text size), the font steps down until that word fits
+## instead of the word breaking across lines.
+static func keep_words(l: Label) -> Label:
+	l.resized.connect(_fit_words.bind(l))
+	return l
+
+
+static func _fit_words(l: Label) -> void:
+	if not l.has_meta("base_font_size"):
+		l.set_meta("base_font_size", l.get_theme_font_size("font_size"))
+	var base: int = l.get_meta("base_font_size")
+	var font := l.get_theme_font("font")
+	var widest := 0.0
+	for word in l.text.split(" ", false):
+		widest = maxf(widest, font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x)
+	var want := base
+	if l.size.x > 0 and widest > l.size.x:
+		want = maxi(roundi(base * 0.55), floori(base * (l.size.x - 1.0) / widest))
+	if want != l.get_theme_font_size("font_size"):
+		l.add_theme_font_size_override("font_size", want)
+
+
 ## Gives a label a soft coloured glow behind its letters (the Bloom shining through a title).
 static func glow_text(l: Label, col := TEAL, px := 16, alpha := 0.4) -> void:
 	l.add_theme_color_override("font_shadow_color", Color(col, alpha))
@@ -404,6 +436,24 @@ static func style_button(b: Button, kind := "secondary", pad_left := 20) -> void
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 
 
+## Drops an icon_button() to just its icon in a round button (tight bars at big text sizes),
+## or brings its words back. The words move to the hover tooltip meanwhile.
+static func icon_only(b: Button, on: bool) -> void:
+	if not b.has_meta("full_text"):
+		b.set_meta("full_text", b.text)
+		b.set_meta("pad", b.get_theme_stylebox("normal").content_margin_left)
+	var full := str(b.get_meta("full_text"))
+	b.text = "" if on else full
+	if on and b.tooltip_text == "":
+		b.tooltip_text = full.capitalize()
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		var sb := b.get_theme_stylebox(state)
+		if sb != null and b.has_theme_stylebox_override(state):
+			sb.content_margin_left = 0.0 if on else float(b.get_meta("pad"))
+			sb.content_margin_right = 0.0 if on else 22.0
+	b.custom_minimum_size.x = b.custom_minimum_size.y if on else 0.0
+
+
 ## Gives a styled button a fixed corner radius (tiles and cards that aren't pills).
 static func round_button(b: Button, radius := RADIUS) -> void:
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
@@ -436,7 +486,10 @@ class ButtonIcon extends Control:
 	func _place() -> void:
 		var b := get_parent() as Control
 		if b != null:
-			position = Vector2(maxf(18.0, b.size.y * 0.42), (b.size.y - size.y) * 0.5)
+			if (b as Button).text == "":
+				position = ((b.size - size) * 0.5).round()
+			else:
+				position = Vector2(maxf(18.0, b.size.y * 0.42), (b.size.y - size.y) * 0.5)
 
 	func _draw() -> void:
 		var b := get_parent() as Button

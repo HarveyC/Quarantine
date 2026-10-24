@@ -56,13 +56,15 @@ func _build() -> void:
 	bg.color = Color(UI.BG, 0.93)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	var fit := W.FitBox.new()
+	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(fit)
 	var m := MarginContainer.new()
-	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right"]:
 		m.add_theme_constant_override("margin_" + side, 40)
 	m.add_theme_constant_override("margin_top", 26)
 	m.add_theme_constant_override("margin_bottom", 26)
-	add_child(m)
+	fit.add_child(m)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
 	m.add_child(v)
@@ -73,11 +75,22 @@ func _build() -> void:
 	head.add_child(_sub)
 	_title = UI.caps("Choose your gear", 52)
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UI.wrap(_title, 200)
 	head.add_child(_title)
 	_hint = UI.label("", 15, UI.DIM)
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UI.wrap(_hint, 200)
 	head.add_child(_hint)
-	v.add_child(head)
+	# The title stays centred between the squad panel (right) and a twin spacer (left); the
+	# panel sits in the layout so it pushes the tabs down instead of covering them.
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 16)
+	var twin := Control.new()
+	twin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(twin)
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(head)
+	v.add_child(top)
 	_tabs = HBoxContainer.new()
 	_tabs.alignment = BoxContainer.ALIGNMENT_CENTER
 	_tabs.add_theme_constant_override("separation", 10)
@@ -107,13 +120,13 @@ func _build() -> void:
 	# Squad status, top right.
 	var sq := PanelContainer.new()
 	sq.add_theme_stylebox_override("panel", UI.box(Color(UI.PANEL, 0.85), UI.BORDER, 1, 0, 12))
-	sq.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	sq.position = Vector2(-290, 24)
+	sq.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	sq.custom_minimum_size = Vector2(260, 0)
 	_squad = VBoxContainer.new()
 	_squad.add_theme_constant_override("separation", 6)
 	sq.add_child(_squad)
-	add_child(sq)
+	top.add_child(sq)
+	sq.minimum_size_changed.connect(func() -> void: twin.custom_minimum_size.x = sq.get_combined_minimum_size().x)
 
 
 # --- State -----------------------------------------------------------------------------
