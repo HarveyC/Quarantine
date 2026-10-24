@@ -23,6 +23,7 @@ const MIN_CHANCE := 5
 const GRAZE_BAND := 10
 const FLANK_CRIT := 40
 const MELEE_COVER := 20
+const NO_CELL := Vector2i(-999, -999)
 
 ## Ability table. "cost": actions spent, or -1 for "all actions" (ends the turn).
 const ABILITIES := {
@@ -213,6 +214,19 @@ static func shot_targets(s: GameState, u: Unit) -> Array[Unit]:
 	return out
 
 
+## Fuel barrels `u` may SHOOT ({"type": SHOOT, "cell": c}): squad soldiers with a gun, barrels
+## in their own sight (Destruction.barrel_targets).
+static func shot_barrels(s: GameState, u: Unit) -> Array[Vector2i]:
+	if not _shoots_barrels(u):
+		var none: Array[Vector2i] = []
+		return none
+	return Destruction.barrel_targets(s, u)
+
+
+static func _shoots_barrels(u: Unit) -> bool:
+	return u.team == Types.Team.PLAYER and not u.ai_controlled and not UnitData.is_melee_only(u.kind)
+
+
 # ---------------------------------------------------------------- cover / odds
 
 ## Cover a unit at `target` has against an attack from `from`: the best obstacle one step
@@ -268,6 +282,20 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 	var crit := Kit.modify_odds(s, attacker, target, from, reaction, breakdown)
 	return _finish_odds(breakdown, cover, flanked, los, mini(100, (FLANK_CRIT if flanked else 0) + crit + Weapons.crit_bonus(attacker)),
 		Weapons.graze_band(attacker, GRAZE_BAND))
+
+
+## Shot odds at the fuel barrel on `c`: aim, a bonus for the big still drum, high ground, range,
+## suppression and the overwatch penalty. No cover, no crits, no graze: it goes off or it doesn't.
+static func barrel_chance(s: GameState, attacker: Unit, c: Vector2i, from: Vector2i = attacker.pos, reaction: bool = false) -> Dictionary:
+	var breakdown: Array = [["Aim", attacker.aim], ["Fuel drum", Destruction.BARREL_AIM]]
+	if s.grid.level(from) > s.grid.level(c):
+		breakdown.append(["High ground", Elevation.AIM_BONUS])
+	Weapons.range_terms(attacker, from.distance_to(c), breakdown)
+	if has_status(s, attacker, "suppressed"):
+		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
+	if reaction and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
+		breakdown.append(["Reaction shot", -Weapons.reaction_penalty(attacker, REACTION_PENALTY)])
+	return _finish_odds(breakdown, Types.Cover.NONE, false, can_see(s, from, c), 0, 0)
 
 
 ## Odds of a claw (melee) attack: aim, minus 20 if the target has any cover toward the attacker.
@@ -332,7 +360,6 @@ static func available_abilities(s: GameState, u: Unit) -> Array[Dictionary]:
 			"cooldown": cd, "desc": def.desc, "targets": targets,
 			"ready": cd <= 0 and u.actions_left > 0 and u.is_alive() and has_targets})
 	out.append_array(GearFx.available_abilities(s, u))
-	out.append_array(Destruction.available(s, u))
 	return out
 
 
@@ -369,7 +396,7 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 		"claw":
 			if not u.is_enemy_of(t):
 				return "Not an enemy"
-			if not s.grid.touching(u.pos, t.pos):
+			if not s.grid.melee_reach(u.pos, t.pos):
 				return "Not adjacent"
 	return ""
 
@@ -394,7 +421,6 @@ static func _cheb(a: Vector2i, b: Vector2i) -> int:
 static func _validate_ability(s: GameState, u: Unit, action: Dictionary) -> String:
 	var id: String = action.get("ability", "")
 	if GearFx.owns(id): return GearFx.validate_ability(s, u, action)
-	if Destruction.handles(id): return Destruction.validate(s, u, action)
 	if ClassAbilities.handles(id):
 		return ClassAbilities.validate(s, u, action)
 	if not ABILITIES.has(id) or not u.abilities.has(id):
@@ -424,9 +450,6 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 	var id: String = action.ability
 	if GearFx.owns(id):
 		GearFx.apply_ability(s, u, action)
-		return
-	if Destruction.handles(id):
-		Destruction.apply(s, u, action)
 		return
 	if ClassAbilities.handles(id):
 		ClassAbilities.apply(s, u, action)
@@ -493,6 +516,11 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		Types.SHOOT:
 			if UnitData.is_melee_only(u.kind):
 				return "Melee only"
+			if action.has("cell"):
+				var c: Variant = action.cell
+				if not c is Vector2i or not _shoots_barrels(u):
+					return "Can't shoot that"
+				return Destruction.barrel_error(s, u, c)
 			var t := s.get_unit(action.get("target", -1))
 			if t == null or not shot_targets(s, u).has(t):
 				return "No line of sight"
@@ -506,7 +534,10 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 	match action.type:
 		Types.SHOOT:
 			u.actions_left = 0
-			fire(s, u, s.get_unit(action.target), false)
+			if action.has("cell"):
+				fire_at_barrel(s, u, action.cell, false)
+			else:
+				fire(s, u, s.get_unit(action.target), false)
 		Types.OVERWATCH:
 			u.overwatch = true
 			u.status["ow_until"] = phase_index(s) + 2
@@ -541,6 +572,40 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 	Kit.after_shot(s, u, t, odds, dmg > 0)
 
 
+## Rolls one shot from `u` at the fuel barrel on `c` and emits "barrel_shot"; a hit sets it off
+## (Destruction.hit, chain and fire included). Spends no actions.
+static func fire_at_barrel(s: GameState, u: Unit, c: Vector2i, reaction: bool) -> void:
+	var odds := barrel_chance(s, u, c, u.pos, reaction)
+	var hit := s.rng.randi_range(1, 100) <= int(odds.hit)
+	u.status.erase("suppressed")
+	s.emit({"type": "barrel_shot", "unit": u.id, "cell": c, "hit": hit, "chance": odds.hit, "reaction": reaction})
+	if hit:
+		Destruction.hit(s, {c: 1}, u)
+
+
+## Overwatch at a fuel barrel instead of the mover: a barrel the watcher sees whose blast (chain
+## included) catches the mover and none of the watcher's side, when that shot is at least as
+## likely as the one at the mover. NO_CELL when there is none. Must not change state.
+static func reaction_barrel(s: GameState, w: Unit, mover: Unit) -> Vector2i:
+	if not _shoots_barrels(w) or s.grid.volatile.is_empty():
+		return NO_CELL
+	var direct := int(hit_chance(s, w, mover, w.pos, true).hit)
+	var best := NO_CELL
+	var best_odds := direct - 1
+	for c in shot_barrels(s, w):
+		var blasts := Destruction.barrel_blasts(s, c)
+		var caught := func(o: Unit) -> bool: return blasts.any(func(b: Vector2i) -> bool: return Kit.cheb(b, o.pos) <= 1)
+		if not caught.call(mover):
+			continue
+		if s.living().any(func(o: Unit) -> bool: return not o.is_enemy_of(w) and caught.call(o)):
+			continue
+		var odds := int(barrel_chance(s, w, c, w.pos, true).hit)
+		if odds > best_odds:
+			best_odds = odds
+			best = c
+	return best
+
+
 ## Units on overwatch that would react to `mover` entering `cell`. Must not change state.
 ## Overwatch covers the watcher's own sight radius (Vision.overwatch_sees), not the squad's.
 static func reactions_to_move(s: GameState, mover: Unit, cell: Vector2i) -> Array[Unit]:
@@ -562,4 +627,8 @@ static func resolve_reactions(s: GameState, mover: Unit, reactors: Array[Unit]) 
 		if not Kit.keep_overwatch(s, w, mover):
 			w.overwatch = false
 			w.status.erase("ow_until")
-		fire(s, w, mover, true)
+		var barrel := reaction_barrel(s, w, mover)
+		if barrel != NO_CELL:
+			fire_at_barrel(s, w, barrel, true)
+		else:
+			fire(s, w, mover, true)

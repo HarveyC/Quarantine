@@ -5,6 +5,7 @@ extends TestCase
 ## its _ready runs on the first frame (script errors there fail run.sh).
 
 const MAIN := preload("res://scenes/main.tscn")
+const InputController := preload("res://view/input_controller.gd")
 
 
 func _make_view(begin := true) -> MissionView:
@@ -821,4 +822,40 @@ func test_enemy_sight_areas_and_spotted_path_while_concealed() -> void:
 	v.player.concealed = false
 	v.input.refresh()
 	assert_eq(v.board._sight_layer.get_child_count(), 0, "no sight areas once detected")
+
+
+func test_shoot_cycles_onto_a_fuel_barrel() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var s := v.state
+	v.input.cycle()
+	var u := v.input.selected_unit()
+	var cell := InputController.NO_CELL
+	for d in [Vector2i(0, -2), Vector2i(2, 0), Vector2i(-2, 0), Vector2i(0, 2), Vector2i(1, -1), Vector2i(-1, -1)]:
+		var c: Vector2i = u.pos + d
+		if s.grid.in_bounds(c) and s.grid.tile(c) == Types.Tile.FLOOR and s.unit_at(c) == null and Combat.can_see(s, u.pos, c) \
+				and Vision.cell_visible(s, u.team, c):
+			cell = c
+			break
+	assert_true(cell != InputController.NO_CELL, "a free cell in sight")
+	s.grid.set_tile(cell, Types.Tile.LOW)
+	s.grid.volatile[cell] = true
+	v.input.trigger("shoot")
+	assert_eq(v.input.mode, InputController.Mode.SHOOT, "aiming")
+	assert_true(v.input.targets.has(cell), "the barrel is in the target cycle: %s" % str(v.input.targets))
+	assert_eq(v.input.targets.back(), cell, "after the enemies")
+	for i in v.input.targets.size():
+		if v.input.current_barrel() == cell:
+			break
+		v.input.cycle_target(1)
+	assert_eq(v.input.current_barrel(), cell, "cycled onto it")
+	assert_true(v.input.current_target() == null, "no unit targeted")
+	v.hud.refresh()
+	assert_true(v.hud.target_panel.visible, "the shot panel shows the barrel odds")
+	v.input.confirm_shot()
+	v.player.flush()
+	var shots: Array = s.log.filter(func(ev): return ev.type == "barrel_shot")
+	assert_eq(shots.size(), 1, "one Shoot at the barrel")
+	assert_eq(u.actions_left, 0, "it ended the turn")
+	assert_eq(not shots[0].hit, s.grid.is_volatile(cell), "the barrel went up only on a hit")
 	v.free()

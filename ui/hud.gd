@@ -356,9 +356,13 @@ func _refresh_targeting() -> void:
 	match input.mode:
 		InputController.Mode.SHOOT:
 			var t := input.current_target()
+			var b := input.current_barrel()
 			var u := input.selected_unit()
 			if t != null and u != null:
 				target_panel.show_shot(view.state, u, t)
+				target_panel.visible = true
+			elif b != InputController.NO_CELL and u != null:
+				target_panel.show_barrel(view.state, u, b)
 				target_panel.visible = true
 		InputController.Mode.TARGET_UNIT:
 			hint = "Pick a target unit  ·  Esc to cancel"

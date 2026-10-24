@@ -2,6 +2,7 @@ extends "res://ui/frame.gd"
 ## Shot preview while aiming: the hit chance as a big lantern ring gauge (graze after it),
 ## crit and graze, a hit/graze/miss strip,
 ## every modifier as a signed row, and the damage range shown on the target's HP pips.
+## Aimed at a fuel barrel (show_barrel) the foot shows the blast instead: who it catches.
 
 const W := preload("res://ui/widgets.gd")
 const Tips := preload("res://ui/tips/tips.gd")
@@ -103,9 +104,77 @@ func build() -> void:
 ## Fills the panel for `u` shooting `t`. Returns the odds used.
 func show_shot(s: GameState, u: Unit, t: Unit) -> Dictionary:
 	var odds := Combat.hit_chance(s, u, t)
+	_target.text = "TARGET · %s" % t.display_name.to_upper()
+	_target.remove_meta(Tips.META)
+	_odds(odds)
+	var hit := int(odds.get("hit", 0))
+	var lo := u.damage.x
+	var hi := u.damage.y
+	_dmg.text = "DAMAGE %d–%d" % [lo, hi]
+	_dmg.add_theme_color_override("font_color", Styles.TEXT)
+	_hp.visible = true
+	(_hp as W.Pips).set_values(t.max_hp, t.hp, mini(hi, t.hp), Styles.DANGER)
+	var notes := PackedStringArray()
+	if odds.get("flanked", false):
+		notes.append("Flanked: no cover, crits more likely")
+		Tips.term(_note, "flank")
+	else:
+		_note.remove_meta(Tips.META)
+	if lo >= t.hp and hit > 0:
+		notes.append("A hit kills")
+	elif hi >= t.hp and hit > 0:
+		notes.append("Kill possible")
+	_note.text = " · ".join(notes)
+	_note.add_theme_color_override("font_color", Styles.DANGER_TEXT if odds.get("flanked", false) else Styles.DIM)
+	_note.visible = not notes.is_empty()
+	return odds
+
+
+## Fills the panel for `u` shooting the fuel barrel on `c`: the same odds layout, then the blast
+## (Destruction.barrel_blasts): its damage and who it catches. Returns the odds used.
+func show_barrel(s: GameState, u: Unit, c: Vector2i) -> Dictionary:
+	var odds := Combat.barrel_chance(s, u, c)
+	_target.text = "TARGET · FUEL BARREL"
+	Tips.term(_target, "fuel_barrel")
+	_odds(odds)
+	var blasts := Destruction.barrel_blasts(s, c)
+	var foes := 0
+	var kills := 0
+	var friends := 0
+	for o in s.living():
+		if not Vision.sees_unit(s, u.team, o) and o.team != u.team:
+			continue
+		var n := blasts.filter(func(b: Vector2i) -> bool: return Kit.cheb(b, o.pos) <= 1).size()
+		if n == 0:
+			continue
+		if u.is_enemy_of(o):
+			foes += 1
+			if o.hp <= n * Destruction.BARREL.damage:
+				kills += 1
+		else:
+			friends += 1
+	_dmg.text = "BLAST %d DAMAGE · 3x3" % Destruction.BARREL.damage
+	_dmg.add_theme_color_override("font_color", Styles.AMBER)
+	_hp.visible = false
+	var notes := PackedStringArray()
+	notes.append("Catches %d %s" % [foes, "enemy" if foes == 1 else "enemies"] if foes > 0 else "No enemies in the blast")
+	if kills > 0:
+		notes.append("%d would drop" % kills)
+	if blasts.size() > 1:
+		notes.append("Sets off %d more %s" % [blasts.size() - 1, "barrel" if blasts.size() == 2 else "barrels"])
+	if friends > 0:
+		notes.append("%d of your squad in the blast" % friends)
+	_note.text = " · ".join(notes)
+	_note.add_theme_color_override("font_color", Styles.DANGER_TEXT if friends > 0 else Styles.DIM)
+	_note.remove_meta(Tips.META)
+	_note.visible = true
+	return odds
+
+
+## Ring, crit/graze, the hit/graze/miss strip and the modifier rows for `odds`.
+func _odds(odds: Dictionary) -> void:
 	var hit := int(odds.get("hit", 0))
 	var graze := int(odds.get("graze", 0))
-	_target.text = "TARGET · %s" % t.display_name.to_upper()
 	_hit.text = "%d%%" % hit
 	_ring.set_value(hit / 100.0, Styles.AMBER, graze / 100.0)
 	_crit.text = "%d%%" % int(odds.get("crit", 0))
@@ -143,21 +212,3 @@ func show_shot(s: GameState, u: Unit, t: Unit) -> Dictionary:
 		var vl := Styles.mono(txt.replace("-", "−"), 13, col)
 		vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		_rows.add_child(vl)
-	var lo := u.damage.x
-	var hi := u.damage.y
-	_dmg.text = "DAMAGE %d–%d" % [lo, hi]
-	(_hp as W.Pips).set_values(t.max_hp, t.hp, mini(hi, t.hp), Styles.DANGER)
-	var notes := PackedStringArray()
-	if odds.get("flanked", false):
-		notes.append("Flanked: no cover, crits more likely")
-		Tips.term(_note, "flank")
-	else:
-		_note.remove_meta(Tips.META)
-	if lo >= t.hp and hit > 0:
-		notes.append("A hit kills")
-	elif hi >= t.hp and hit > 0:
-		notes.append("Kill possible")
-	_note.text = " · ".join(notes)
-	_note.add_theme_color_override("font_color", Styles.DANGER_TEXT if odds.get("flanked", false) else Styles.DIM)
-	_note.visible = not notes.is_empty()
-	return odds

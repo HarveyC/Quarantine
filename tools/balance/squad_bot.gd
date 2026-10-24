@@ -127,17 +127,14 @@ static func _class_attack(s: GameState, u: Unit) -> Dictionary:
 	return {}
 
 
-## Shoot barrel when the blast (and any chain, Destruction.preview) catches more enemies than
-## allies: enemies count 2, likely kills 3 more, allies -4.
+## Shoot a fuel barrel when the blast (and any chain, Destruction.barrel_blasts) catches more
+## enemies than allies: enemies count 2, likely kills 3 more, allies -4, all weighed by the odds
+## of hitting the drum (Combat.barrel_chance). A sure shot needs a score of 3.
 static func _barrel(s: GameState, u: Unit) -> Dictionary:
 	var best: Dictionary = {}
-	var best_score := 3
-	for c in Destruction.barrel_targets(s, u):
-		var blasts: Array[Vector2i] = []
-		var p := Destruction.preview(s, {c: 1})
-		for b in p:
-			if p[b] == "barrel":
-				blasts.append(b)
+	var best_score := 3.0
+	for c in Combat.shot_barrels(s, u):
+		var blasts := Destruction.barrel_blasts(s, c)
 		var score := 0
 		for o in s.living():
 			var hits := blasts.filter(func(b: Vector2i) -> bool: return Kit.cheb(b, o.pos) <= 1).size()
@@ -147,9 +144,10 @@ static func _barrel(s: GameState, u: Unit) -> Dictionary:
 				score += 2 + (3 if o.hp <= hits * Destruction.BARREL.damage else 0)
 			else:
 				score -= 4
-		if score >= best_score:
-			best_score = score
-			best = {"type": Types.ABILITY, "unit": u.id, "ability": "shoot_barrel", "cell": c}
+		var weighed := score * float(Combat.barrel_chance(s, u, c).hit) / 100.0
+		if weighed >= best_score:
+			best_score = weighed
+			best = {"type": Types.SHOOT, "unit": u.id, "cell": c}
 	return best
 
 
