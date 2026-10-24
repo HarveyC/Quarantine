@@ -189,7 +189,8 @@ const CONSUMABLES := {
 	"smoke_grenade": {"name": "Smoke grenade", "price": 15, "desc": "+20 defense in radius 1 for 2 turns"},
 	"recon_drone": {"name": "Recon drone", "price": 15, "desc": "Reveals a 6-tile radius for the fight"},
 	"suppressant_shot": {"name": "Suppressant shot", "price": 20, "desc": "-15 Infection"},
-	"frag_grenade": {"name": "Frag grenade", "price": 20, "desc": "3 damage in radius 1, destroys cover and brings down scaffolds"},
+	"frag_grenade": {"name": "Frag grenade", "price": 20, "desc": "3 damage in radius 1. Strips half cover, cracks walls and roofs, brings down scaffolds"},
+	"demo_charge": {"name": "Demo charge", "price": 20, "desc": "Place on a tile or wall next to you: blows a doorway through a wall, 3 damage around it"},
 	"stim": {"name": "Stim", "price": 25, "desc": "+1 action this turn, +5 Infection"},
 	"containment_foam": {"name": "Containment foam", "price": 30, "desc": "Restrains a Lapsed or Turned soldier for 2 turns without killing them"},
 }
@@ -198,7 +199,7 @@ const CONSUMABLE_CHARGES := 2  # a consumable reward card gives 2 charges
 ## A class not listed here gets a random one from STARTER_FALLBACK.
 const STARTER_CONSUMABLES := {
 	"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit",
-	"breacher": "flashbang", "hazmat": "suppressant_shot", "vector": "stim",
+	"breacher": "demo_charge", "hazmat": "suppressant_shot", "vector": "stim",
 }
 const STARTER_FALLBACK: Array[String] = ["medkit", "flashbang", "smoke_grenade"]
 const STARTER_CHARGES := 1

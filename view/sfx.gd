@@ -19,6 +19,7 @@ const SOUNDS := [
 	"belt", "vent", "cylinder", "bolt_heavy", "whiz_pellets", "whiz_heavy", "whiz_bio", "whiz_dart", "whiz_needle",
 	"impact_bio", "impact_slug", "impact_pellets", "impact_dart", "brass", "shell_drop",
 	"machine_pistol", "bloom_pistol", "hand_cannon", "stun_pistol", "longslide", "whiz_zap", "impact_shock",
+	"explosion", "collapse",
 ]
 ## Gunfire, bullet impacts and melee strikes play on the Weapons bus (the music ducks under it).
 const WEAPON := [
@@ -30,6 +31,7 @@ const WEAPON := [
 	"belt", "vent", "cylinder", "bolt_heavy", "whiz_pellets", "whiz_heavy", "whiz_bio", "whiz_dart", "whiz_needle",
 	"impact_bio", "impact_slug", "impact_pellets", "impact_dart", "brass", "shell_drop",
 	"machine_pistol", "bloom_pistol", "hand_cannon", "stun_pistol", "longslide", "whiz_zap", "impact_shock",
+	"explosion", "collapse",
 ]
 ## Mix levels in dB per sound (default 0).
 const LEVELS := {

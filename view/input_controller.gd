@@ -24,6 +24,7 @@ var pending: Dictionary = {}       # action template while targeting an ability/
 var targets: Array[int] = []       # shoot candidates
 var unit_targets: Array = []       # legal targets of the pending unit-targeted ability ([] = not listed)
 var pending_reach := 0             # the pending ability's reach, if it states one
+var cell_targets: Array = []       # cells the pending cell ability can pick, when it lists them (Shoot barrel)
 var target_idx := 0
 var hover_cell := NO_CELL
 var _reach: Dictionary = {}
@@ -115,6 +116,8 @@ func _set_mode(m: Mode) -> void:
 		pending = {}
 	if m != Mode.TARGET_UNIT:
 		unit_targets = []
+	if m != Mode.TARGET_CELL:
+		cell_targets = []
 	refresh()
 
 
@@ -190,7 +193,8 @@ func _update_hover(force: bool) -> void:
 			view.board.show_path(view.state.grid.find_path(u.pos, c, view.state.occupied(u.id)))
 			view.board.show_cover(c, view.state.grid.cover_sides(c))
 		elif mode == Mode.TARGET_CELL:
-			view.board.mark_cells([c], Color(0.18, 0.95, 0.78, 0.35))
+			view.board.mark_cells([c] + cell_targets, Color(0.18, 0.95, 0.78, 0.35))
+			_show_blast(c)
 		elif mode == Mode.TARGET_UNIT:
 			_show_landing(u, c)
 	var other: UnitView = view.unit_view_at(c) if c != NO_CELL else null
@@ -198,6 +202,24 @@ func _update_hover(force: bool) -> void:
 		view.hud.show_tooltip(other)
 	else:
 		view.hud.hide_tooltip()
+
+
+## Grenades, demo charges and barrel shots: what the blast would cover and break (Destruction.preview).
+func _show_blast(c: Vector2i) -> void:
+	var st: GameState = view.state
+	var p := {}
+	match str(pending.get("ability", "")):
+		"item:frag_grenade": p = Destruction.FRAG
+		"item:demo_charge": p = Destruction.DEMO
+		"shoot_barrel":
+			if st.grid.is_volatile(c):
+				p = Destruction.BARREL
+	if p.is_empty():
+		view.board.clear_blast()
+		return
+	var hits := Destruction.pattern(st.grid, c, p)
+	var changes := Destruction.preview(st, {c: 1} if pending.ability == "shoot_barrel" else hits)
+	view.board.show_blast(hits.keys(), changes)
 
 
 ## Lunge / Shield Charge: hovering a target shows the path to the cell the soldier will
@@ -281,6 +303,7 @@ func _trigger(u: Unit, a: Dictionary) -> void:
 		"unit", "cell":
 			pending = _template(u, a)
 			unit_targets = Array(a.get("targets", []))
+			cell_targets = Array(a.get("cells", []))
 			pending_reach = int(a.get("reach", 0))
 			_set_mode(Mode.TARGET_UNIT if a.targeting == "unit" else Mode.TARGET_CELL)
 		_:

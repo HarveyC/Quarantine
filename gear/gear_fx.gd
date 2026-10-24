@@ -55,6 +55,7 @@ const CONSUMABLE_USE := {
 	"suppressant_shot": {"targeting": "unit", "cost": 1},
 	"stim": {"targeting": "none", "cost": 0},
 	"frag_grenade": {"targeting": "cell", "cost": 1, "range": 6.0},
+	"demo_charge": {"targeting": "cell", "cost": 1, "range": 1.5},
 	"flashbang": {"targeting": "cell", "cost": 1, "range": 6.0},
 	"smoke_grenade": {"targeting": "cell", "cost": 1, "range": 6.0},
 	"recon_drone": {"targeting": "cell", "cost": 1, "range": Vision.DRONE_RANGE},
@@ -514,6 +515,9 @@ static func _cell_error(s: GameState, u: Unit, id: String, d: Dictionary, cell: 
 				return "No line of sight"
 		"item:recon_drone":
 			pass   # it flies: any cell in range
+		"item:demo_charge":
+			if c == u.pos or Destruction._cheb(u.pos, c) > Destruction.DEMO_RANGE:
+				return "Place it on a tile or wall next to you"
 		_:
 			if s.grid.blocks_los(c) or not Combat.can_see(s, u.pos, c):
 				return "No line of sight"
@@ -626,19 +630,14 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 				tu.aim = k.aim
 				tu.damage = Vector2i(k.damage, k.damage)
 			return
-		"frag_grenade":
-			var hit: Array = (area.call(1) as Array).filter(func(o): return o != u)
+		"frag_grenade", "demo_charge":
+			# Destruction hurts the units, breaks cover, walls and roofs, and sets off barrels.
+			var p: Dictionary = Destruction.FRAG if key == "frag_grenade" else Destruction.DEMO
+			var hit := Destruction.units_in(s, cell, p, u)
 			ev["units"] = hit.map(func(o): return o.id)
-			ev["damage"] = 3
+			ev["damage"] = p.damage
 			s.emit(ev)
-			for o in hit:
-				Rules.deal_damage(s, o, 3, u)
-			for dx in range(-1, 2):
-				for dy in range(-1, 2):
-					var c := cell + Vector2i(dx, dy)
-					if s.grid.in_bounds(c) and s.grid.tile(c) == Types.Tile.LOW:
-						s.grid.tiles[c.y * s.grid.width + c.x] = Types.Tile.FLOOR
-			Elevation.blast(s, cell, 1, u)   # scaffolds and catwalks come down
+			Destruction.explode(s, cell, p, u, "frag" if key == "frag_grenade" else "demo", u)
 			return
 		"recon_drone":
 			s.emit(ev)

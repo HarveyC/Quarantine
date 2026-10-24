@@ -116,4 +116,5 @@ static func from_dict(d: Dictionary) -> GameState:
 func checksum() -> int:
 	var d := to_dict()
 	d.erase("grid")
+	d["terrain"] = grid.fingerprint()   # destruction changes the board mid-fight
 	return JSON.stringify(d, "", true).hash()

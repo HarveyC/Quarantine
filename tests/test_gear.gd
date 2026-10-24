@@ -366,7 +366,7 @@ func test_bosses_drop_a_gun() -> void:
 
 func test_everyone_starts_with_a_consumable() -> void:
 	var run := make_run()
-	var want := {"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit", "breacher": "flashbang"}
+	var want := {"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit", "breacher": "demo_charge"}
 	for r in run.soldiers:
 		assert_eq(Loadout.pockets(r)[0], {"id": want[r.kind], "charges": 1}, "%s starter" % r.kind)
 		assert_eq(Loadout.pockets(r)[1], null, "one pocket used")
