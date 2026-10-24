@@ -477,3 +477,22 @@ that turn). Main menu: "Continue run" resumes locally; online, the host ticks "C
 run" in the lobby and absent players are benched until they join. `Profile` (`user://profile.cfg`)
 keeps unlock flags between runs (`act1_boss_beaten`, anything a module sets true in `run.meta`) and
 run counts; runs get a copy as `run.meta`.
+
+## Deployables (turrets, decoys)
+
+Owned by the run framework (`deployables/`, `Deployables`). Tile hazards (fire, spore, acid) are
+the map thread's `Hazards` module.
+
+- `Deployables.spawn(s, kind, cell, owner_unit, turns = -1) -> Unit` places one; call it from inside
+  an action's apply (a gadget, ability or mutation) so it replicates with that action.
+  `can_place(s, kind, cell) -> String` checks first. Kinds and stats are in `Deployables.KINDS`
+  (`turret`: shoots, 3 team phases; `decoy`: draws enemy fire, 2 team phases); add new kinds there.
+- A deployable is a player-team `Unit` with `status["deployable"] = kind`, `ai_controlled`, mobility 0,
+  `status["owner_unit"]`, and `status["expires_turn"]`. It acts at team-phase start through
+  `EnemyAI` (generic brain: shoot the best visible hostile). Decoys have `status["decoy"]`, which
+  `EnemyAI._target_score` favours.
+- They are not squad: `Deployables.soldiers(s)` is the living squad without them (defeat uses it;
+  objectives and run results should too), `Infection.add` ignores them, and run outcomes only
+  carry units with a `sid`.
+- Events: `deployed` (`unit`, `kind`, `cell`, `owner`), `deployable_end` (`unit`, then `died`).
+  The view builds a unit view lazily; models fall back to the trooper model until a turret model exists.
