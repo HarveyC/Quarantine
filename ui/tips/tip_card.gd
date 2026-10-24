@@ -8,9 +8,13 @@ const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 const Tips := preload("res://ui/tips/tips.gd")
 const TipArt := preload("res://ui/tips/tip_art.gd")
+const ClassTip := preload("res://ui/tips/class_tip.gd")
 
 const WIDTH := 300.0
 const WIDE := 340.0
+## A soldier class card (ClassTip) has more to lay out side by side.
+const CLASS_WIDTH := 330.0
+const CLASS_WIDE := 380.0
 
 var terms: Array = []
 var text := ""
@@ -63,6 +67,8 @@ func term_at(c: Control) -> String:
 
 
 func width() -> float:
+	if ctx.has("class"):
+		return CLASS_WIDE if expanded else CLASS_WIDTH
 	return WIDE if expanded else WIDTH
 
 
@@ -74,6 +80,12 @@ func _build() -> void:
 	var w := width()
 	custom_minimum_size.x = w
 	var inner := w - 26.0
+	if ctx.has("class"):
+		ClassTip.build(self, _box, str(ctx["class"]), bool(ctx.get("locked", false)), inner, expanded)
+		if not expanded:
+			_box.add_child(_footer())
+		reset_size()
+		return
 	if text != "":
 		_box.add_child(rich(Glossary.plain(text) if key != "" else text, inner, 14 if key == "" else 13,
 			Styles.TEXT if key == "" else Styles.DIM))

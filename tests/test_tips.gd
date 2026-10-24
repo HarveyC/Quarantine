@@ -120,3 +120,33 @@ func test_godot_tooltips_are_replaced() -> void:
 	assert_true(float(ProjectSettings.get_setting("gui/timers/tooltip_delay_sec")) > 1000.0,
 		"the engine's own tooltip never shows; TermTips draws them")
 	assert_true(GameSettings.ACTIONS.any(func(a) -> bool: return a[0] == "tip_more"), "the detail key is rebindable")
+
+
+func test_class_cards() -> void:
+	var ClassTip := preload("res://ui/tips/class_tip.gd")
+	var holder := Control.new()
+	holder.theme = Styles.make_theme()
+	_root().add_child(holder)
+	for k in UnitData.SOLDIERS:
+		assert_true(ClassTip.ROLES.has(k), "%s has a role line" % k)
+		assert_true(PerkData.PASSIVES.has(k), "%s has a passive to show" % k)
+		for id in UnitData.SOLDIERS[k].abilities:
+			assert_true(not ClassTip.ability(str(id)).is_empty(), "%s ability %s has rules text" % [k, id])
+			assert_true(ClassTip.short_lines().has(str(id)), "%s ability %s has a one-liner" % [k, id])
+			assert_true(ClassTip.ability_icon(str(id)) != "ability", "%s ability %s has its own icon" % [k, id])
+		for locked in [false, true]:
+			for wide in [false, true]:
+				var c := TipCard.new([], "", {"class": k, "locked": locked})
+				c.set_expanded(wide)
+				holder.add_child(c)
+				assert_true(c.custom_minimum_size.x >= (TipCard.CLASS_WIDE if wide else TipCard.CLASS_WIDTH), "%s card width" % k)
+				assert_true(c.get_child(0).get_child_count() >= 10, "%s card shows stats, gun, abilities and passive" % k)
+				c.free()
+	var dmr := Weapons.get_gun("dmr")
+	assert_eq(ClassTip.range_aim(dmr, 1.0), -10, "the scope penalty shows up close")
+	assert_eq(ClassTip.range_aim(Weapons.get_gun("shotgun"), 7.0), -16, "shotgun falls off 8 a tile past 5")
+	var b := Button.new()
+	Tips.soldier_class(b, "warden", true)
+	assert_eq(TermTips.content_of(b).ctx, {"class": "warden", "locked": true}, "a tile opens the class card")
+	holder.free()
+	b.free()

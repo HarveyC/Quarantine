@@ -6,7 +6,7 @@ extends SceneTree
 ## Run under xvfb-run with --rendering-driver opengl3 (software GL renders the 3D board dark).
 ## Hover cards: add `tip=<term key>` to hover the first control tagged with that term (or
 ## `tip=@x,y` to hover a point), `shift` to hold the detail key, `nest=<term>` to open a
-## nested card from it.
+## nested card from it. `tip=class:medic` hovers a soldier class tile.
 ## Sizes and scales: `size=1280x800` (window pixels, default 1920x1080), `ui=1.5` (Interface
 ## scale), `text=1.5` (Text size). `report` prints every piece of cut or spilling text that
 ## tools/ui_overflow.gd finds.
@@ -72,7 +72,9 @@ func _hover_tip(args: PackedStringArray) -> void:
 	else:
 		for c in root.find_children("*", "Control", true, false):
 			var tip: Variant = c.get_meta("tip") if c.has_meta("tip") else null
-			if c.is_visible_in_tree() and tip is Dictionary and tip.get("terms", []).has(want) \
+			var hit: bool = tip is Dictionary and (tip.get("terms", []).has(want) \
+				or "class:%s" % tip.get("ctx", {}).get("class", "") == want)
+			if c.is_visible_in_tree() and hit \
 					and (c as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE:
 				at = (c as Control).get_global_rect().get_center()
 				break
@@ -92,10 +94,6 @@ func _hover_tip(args: PackedStringArray) -> void:
 		_move_pointer(tips.cards[-1].get_global_rect().position + Vector2(30, 30))
 		for i in 6:
 			await process_frame
-		for i in 4:
-			await process_frame
-			var h := root.gui_get_hovered_control()
-			print("[dbg] ", tips.cards.size(), " ", h, " ", h.get_path() if h else "", " ", tips.cards[-1].get_global_rect() if tips.cards.size() else "")
 		for i in 10:
 			await process_frame
 

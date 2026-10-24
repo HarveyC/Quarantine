@@ -33,6 +33,7 @@ const W := preload("res://ui/widgets.gd")
 const Icons := preload("res://ui/icons.gd")
 const Feel := preload("res://ui/ui_feel.gd")
 const FieldHQ := preload("res://ui/meta/field_hq.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 const SETTINGS_SCRIPT := "res://view/game_settings.gd"
 const COLUMN_W := 400.0
 
@@ -567,8 +568,13 @@ func _render_lobby(entries: Array, plan: Dictionary, room: int, first: bool) -> 
 		_soldier_row.add_child(_soldier_tile(i, kinds[i], col, i == _sel))
 	NodeUi.clear(_class_row)
 	var picked: String = kinds[_sel] if _sel < kinds.size() else ""
-	for k in Progression.unlocked_classes(Profile.meta()):
+	var open := Progression.unlocked_classes(Profile.meta())
+	for k in open:
 		_class_row.add_child(_class_tile(k, k == picked))
+	# Locked classes stay in view, greyed, so their hover card can say how to unlock them.
+	for k in UnitData.SOLDIERS:
+		if not open.has(k):
+			_class_row.add_child(_class_tile(k, false, true))
 	if first and is_inside_tree():
 		Feel.deal(_slots.get_children(), 0.06)
 		Feel.sound("open")
@@ -694,7 +700,7 @@ func _soldier_tile(i: int, kind: String, col: Color, on: bool) -> Button:
 	b.button_pressed = on
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(132, 112)
-	b.tooltip_text = "Soldier %d: pick a class on the right" % (i + 1)
+	Tips.soldier_class(b, kind)
 	Styles.style_button(b, "secondary", 0)
 	Styles.round_button(b, 24)
 	if on:
@@ -840,13 +846,15 @@ func _add_player_slot(open: bool) -> Control:
 
 
 ## A class tile: the class icon over its name; amber when it's the selected soldier's class.
-func _class_tile(k: String, on: bool) -> Button:
+## A locked class is a dim tile with a lock that can't be picked. Hovering shows the class card.
+func _class_tile(k: String, on: bool, locked := false) -> Button:
 	var b := Button.new()
 	b.toggle_mode = true
 	b.button_pressed = on
+	b.disabled = locked
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(112, 112)
-	b.tooltip_text = str(UnitData.SOLDIERS[k].get("blurb", UnitData.SOLDIERS[k].name))
+	Tips.soldier_class(b, k, locked)
 	Styles.style_button(b, "secondary")
 	Styles.round_button(b, 24)
 	if on:
@@ -855,16 +863,22 @@ func _class_tile(k: String, on: bool) -> Button:
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := W.Icon.new(Icons.for_class(k), Styles.AMBER if on else Styles.DIM, 34, 1.9)
+	var ic := W.Icon.new(Icons.for_class(k), Styles.AMBER if on else (Styles.MUTED if locked else Styles.DIM), 34, 1.9)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
-	var l := Styles.caps(UnitData.SOLDIERS[k].name, 14, Styles.AMBER if on else Styles.TEXT)
+	var l := Styles.caps(UnitData.SOLDIERS[k].name, 14, Styles.AMBER if on else (Styles.MUTED if locked else Styles.TEXT))
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(l)
 	b.add_child(v)
 	# The tile widens for a long class name at a big text size.
 	var text_w := l.get_theme_font("font").get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, l.get_theme_font_size("font_size")).x
 	b.custom_minimum_size.x = maxf(118.0, text_w + 28.0)
+	if locked:
+		b.modulate.a = 0.6
+		var lock := W.Icon.new("lock", Styles.DIM, 16, 1.6)
+		lock.position = Vector2(b.custom_minimum_size.x - 26, 10)
+		b.add_child(lock)
+		return b
 	b.pressed.connect(func() -> void:
 		Feel.sound("pick")
 		var kinds := _current_squad()
