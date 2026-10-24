@@ -6,15 +6,23 @@
 ;   ?  50% low cover, else floor
 ;   P  soldier spawn (deploy parcels)    E  enemy spawn (pod parcels)
 ;   O  objective cell: evac / beacon / civilian / nest / hive, by the parcel's role
-;   ^  high ground (raised floor)    %  low cover on high ground    /  ladder (ground cell that
-;      climbs to the raised cell beside it; the only way between levels). Keep ladders and every
-;      raised cell joined inside the parcel: cut-off cells are sealed as walls.
+;   Height (see Grid.read_glyph): three levels, ground (0), roof (1), upper roof (2).
+;   ^  roof floor (L1)    %  low cover on a roof    ~  fragile roof (scaffold/catwalk: explosives
+;      collapse it)    2  upper roof (L2)    $  low cover on an upper roof
+;   /  ladder on the ground (climbs to the roof beside it, costs 1 extra move)
+;   s  stairs on the ground (walks up to the roof beside it, a normal step)
+;   |  ladder on a roof (up to L2)    S  stairs on a roof (up to L2)
+;   e  enemy spawn on a roof (pod parcels)
+;   Anyone can drop off a ledge (1 move per level, one way), so roofs never strand a unit, but the
+;   way UP needs stairs or a ladder. Keep each roof joined to its way up inside the parcel.
 ; Roles: deploy, breach (the cordon wall, always on row 1, only mirrored left-right),
-;        pod, filler, tower (high ground), evac, beacon, rescue, nest, hive.
+;        pod, filler, tower (high ground), landmark (8x8), evac, beacon, rescue, nest, hive.
 ;
 ; Plots lay parcels out for a whole map:  @plot <objectives> <name> lanes=<0|1>
 ; then one row of slot letters per parcel row, top to bottom. The drop zone is always at the bottom.
 ;   D deploy   B breach   E pod   F filler   T tower   O objective parcel for the fight's objective
+;   L landmark: a 2x2 block of L slots filled by one 8x8 "@landmark" parcel (lanes=0 plots only),
+;     the map's big multi-level building that both sides fight over
 ; lanes=1 puts a 1-tile lane between parcels (4x4 parcels -> 19x19 tiles; 4x4 without lanes is
 ; 16x16, 5x5 is 20x20).
 
@@ -129,6 +137,24 @@ E..E
 ^^..
 .E.=
 
+@pod rooftop_watch
+s^e^
+.^%^
+.=..
+E..E
+
+@pod gantry
+E..E
+~~~~
+~e%~
+/..=
+
+@pod stair_post
+.Ee.
+.s^.
+=.^.
+.E..
+
 ; ---------------------------------------------------------------- towers (high ground)
 @tower guard_tower
 .=..
@@ -151,7 +177,7 @@ E..E
 @tower rooftop
 ^^^.
 ^%^.
-^^/.
+^^s.
 ....
 
 @tower water_tank
@@ -172,12 +198,89 @@ E..E
 .^^.
 ...=
 
+@tower stair_block
+.^^^
+s^%^
+.^^^
+....
+
+@tower sentry_post
+^^^.
+^$|.
+^^^/
+....
+
+@tower scaffold_frag
+~~~.
+~%~.
+~~~/
+...=
+
+@tower two_step
+s^^.
+.^2$
+.^S2
+...=
+
+; ---------------------------------------------------------------- landmarks (8x8, one per map)
+@landmark barracks
+........
+.^^^^^^.
+.^%^^2^.
+s^^^S2$.
+.^^^^22.
+.^%^^^^/
+.^^^^^^.
+........
+
+@landmark gate_tower
+..=..=..
+##^^^^##
+.^S22^^.
+./^2$^/.
+..^^^^..
+...ss...
+.=....=.
+........
+
+@landmark water_tower
+...=....
+.~~~~~~.
+.~~~~~~.
+/~~##~~.
+.~~##~~/
+.~~~~~~.
+.~~~~~~.
+....=...
+
+@landmark comms_bunker
+.=......
+.^^^^^..
+.^2222^.
+s^2$$2^.
+s^2222S.
+.^^^^^^.
+..^%^/..
+......=.
+
 ; ---------------------------------------------------------------- filler
 @filler loading_ramp
 ....
 /^^.
 .^%.
 ....
+
+@filler dock_stairs
+^^^^
+^%^^
+ss..
+..=.
+
+@filler low_roof
+.^^.
+.^^/
+....
+=..?
 
 @filler tents_row
 ==..
@@ -391,6 +494,51 @@ FFDF
 FOET
 ETFF
 FFFT
+FFDF
+
+; Landmark plots: one big building in the middle of the fight.
+@plot skirmish gate_landmark lanes=0
+EFTE
+FLLF
+FLLE
+FTDF
+
+@plot skirmish yard_landmark lanes=0
+FETEF
+ELLFT
+FLLFE
+TFFFF
+FFDFF
+
+@plot extract landmark_run lanes=0
+FOTE
+ELLF
+FLLE
+TFFF
+FFDF
+
+@plot hold landmark_hold lanes=0
+EFTE
+FOLL
+FTLL
+FDFF
+
+@plot rescue landmark_rescue lanes=0
+EFOE
+LLFT
+LLFF
+FTDF
+
+@plot purge landmark_nests lanes=0
+OETO
+FLLF
+TLLO
+FFDF
+
+@plot elite landmark_hive lanes=0
+EOTE
+FLLF
+FLLT
 FFDF
 
 @plot boss source lanes=0

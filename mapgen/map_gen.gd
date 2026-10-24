@@ -32,6 +32,8 @@ const DEAD_GROUND := 3                    # every floor tile within this many ti
 const MAX_SIGHTLINE := 12                 # longest straight open run in a row or column
 const REINFORCE_MIN_STEPS := 6
 const LANE_COVER_CHANCE := 0.08
+const RAISED := Vector2(0.06, 0.35)       # share of all tiles on a roof (level 1 or 2)
+const MIN_WAYS_UP := 2                    # stairs or ladders on the map
 
 # The 8 symmetries of a square parcel, as (x, y) -> cell inside a PARCEL x PARCEL block.
 # Breach and deploy parcels only use 0 and 4 (identity, mirror) so walls stay on their row
@@ -112,11 +114,12 @@ static func parse(text: String) -> Dictionary:
 
 
 static func _transform(rows: PackedStringArray, t: int) -> PackedStringArray:
-	var n := PARCEL - 1
+	var size := rows.size()
+	var n := size - 1
 	var out := PackedStringArray()
-	for y in PARCEL:
+	for y in size:
 		var row := ""
-		for x in PARCEL:
+		for x in size:
 			var src: Vector2i
 			match t:
 				0: src = Vector2i(x, y)
@@ -169,7 +172,7 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 
 	var pools := {}
 	var slot_role := {"D": "deploy", "B": "breach", "E": "pod", "F": "filler", "T": "tower",
-		"O": OBJECTIVE_ROLE.get(objective, "filler")}
+		"L": "landmark", "O": OBJECTIVE_ROLE.get(objective, "filler")}
 	var deploy: Array[Vector2i] = []
 	var pods: Array = []                  # one Array[Vector2i] per pod parcel
 	var markers := {}
@@ -177,36 +180,43 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 		markers[k] = []
 	var reserved := {}                    # cells the fix-up passes must leave as floor
 	var spine_rows: Array[int] = []
+	var landmarked := {}                  # plot slots already covered by an 8x8 landmark
 	for py in prow:
 		for px in cols:
+			if landmarked.has(Vector2i(px, py)):
+				continue
 			var role: String = slot_role[plot.rows[py][px]]
 			if role == "breach" and not spine_rows.has(py * step + 1):
 				spine_rows.append(py * step + 1)
+			var size := PARCEL
+			if role == "landmark":
+				if not data.parcels.has("landmark"):
+					role = "tower"
+				else:
+					size = PARCEL * 2
+					for k in [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
+						landmarked[Vector2i(px, py) + k] = true
 			if not pools.has(role):
 				pools[role] = _Pool.new(data.parcels.get(role, data.parcels.filler), rng)
 			var parcel: Dictionary = pools[role].draw()
 			var options: Array[int] = UPRIGHT_TRANSFORMS if role in ["breach", "deploy"] else ALL_TRANSFORMS
 			var rows := _transform(parcel.rows, options[rng.randi() % options.size()])
 			var pod: Array[Vector2i] = []
-			for y in PARCEL:
-				for x in PARCEL:
+			for y in size:
+				for x in size:
 					var c := Vector2i(px * step + x, py * step + y)
-					var t := Types.Tile.FLOOR
-					match rows[y][x]:
-						"#": t = Types.Tile.WALL
-						"=": t = Types.Tile.LOW
+					var ch := rows[y][x]
+					var t := g.read_glyph(c, ch)
+					match ch:
 						"?": t = Types.Tile.LOW if rng.randf() < 0.5 else Types.Tile.FLOOR
-						"^": g.set_level(c, 1)
-						"%":
-							t = Types.Tile.LOW
-							g.set_level(c, 1)
-						"/":
-							g.ladders[c] = true
+						"/", "s", "|", "S":
 							reserved[c] = true
 						"P":
 							deploy.append(c)
 							reserved[c] = true
-						"E":
+						"E", "e":
+							if ch == "e":
+								g.set_level(c, 1)
 							pod.append(c)
 							reserved[c] = true
 						"O":
@@ -235,11 +245,13 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 					g.tiles[y * g.width + x] = Types.Tile.FLOOR
 					g.set_level(Vector2i(x, y), 0)
 					g.ladders.erase(Vector2i(x, y))
+					g.stairs.erase(Vector2i(x, y))
+					g.fragile.erase(Vector2i(x, y))
 					reserved[Vector2i(x, y)] = true
 		markers.boss.append(centre)
 
-	# Roofs are laid out by hand and every ladder needs both ends clear: the fix-up passes leave them be.
-	for l in g.ladders:
+	# Roofs are laid out by hand and every ladder and stair needs both ends clear: the fix-up passes leave them be.
+	for l in g.ladders.keys() + g.stairs.keys():
 		for d in Grid.DIRS4:
 			reserved[l + d] = true
 	for y in g.height:
@@ -253,23 +265,38 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 	_fix_dead_ground(g, reserved, rng)
 	_fix_sightlines(g, reserved, rng)
 
-	# Connectivity: everything that matters must be reachable from the drop zone; seal the rest.
+	# Connectivity: everything that matters must be reachable from the drop zone and able to walk
+	# back to it (drop-downs are one way); seal the rest. `back` keeps only round-trip cells.
 	var dist := _distance_map(g, deploy)
+	var there := g.reachable(deploy[0], g.width * g.height)
+	var back := _can_return(g, [deploy[0]])
+	for c in back.keys():
+		if not there.has(c):
+			back.erase(c)
 	for k in markers:
 		for c in markers[k]:
-			if not dist.has(c):
+			if not dist.has(c) or not back.has(c):
 				last_reject = "unreachable " + k
 				return null
 	for pod in pods:
 		for c in pod:
-			if not dist.has(c):
+			if not dist.has(c) or not back.has(c):
 				last_reject = "unreachable pod"
 				return null
+	for c in deploy:
+		if not back.has(c):
+			last_reject = "drop zone pit"
+			return null
 	for y in g.height:
 		for x in g.width:
 			var c := Vector2i(x, y)
-			if g.is_walkable(c) and not dist.has(c):
+			if g.is_walkable(c) and not (dist.has(c) and back.has(c)):
 				g.tiles[y * g.width + x] = Types.Tile.WALL
+				dist.erase(c)
+	for c in g.ladders.keys() + g.stairs.keys():
+		if not g.is_walkable(c):
+			g.ladders.erase(c)
+			g.stairs.erase(c)
 
 	if not _validate(g, objective, dist, deploy, pods, markers, spine_rows):
 		return null
@@ -296,8 +323,27 @@ static func _distance_map(g: Grid, sources: Array[Vector2i]) -> Dictionary:
 	return best
 
 
+## Cells from which some cell of `targets` can be walked to (Grid.step_cost run backwards).
+static func _can_return(g: Grid, targets: Array[Vector2i]) -> Dictionary:
+	var seen := {}
+	var frontier: Array[Vector2i] = []
+	for t in targets:
+		seen[t] = true
+		frontier.append(t)
+	while not frontier.is_empty():
+		var next: Array[Vector2i] = []
+		for t in frontier:
+			for d in Grid.DIRS8:
+				var c: Vector2i = t - d
+				if not seen.has(c) and g.is_walkable(c) and g.step_cost(c, d) > 0:
+					seen[c] = true
+					next.append(c)
+		frontier = next
+	return seen
+
+
 static func _is_cover(g: Grid, c: Vector2i) -> bool:
-	return g.in_bounds(c) and g.tile(c) != Types.Tile.FLOOR
+	return g.in_bounds(c) and (g.tile(c) != Types.Tile.FLOOR or g.level(c) > 0)
 
 
 ## Adds half cover near any floor tile that has none within DEAD_GROUND tiles.
@@ -413,6 +459,17 @@ static func _validate(g: Grid, objective: String, dist: Dictionary, deploy: Arra
 		elif t == Types.Tile.LOW:
 			half += 1
 	var total := float(g.tiles.size())
+	var raised := g.levels.size() - g.levels.count(0) if not g.levels.is_empty() else 0
+	if raised / total < RAISED.x or raised / total > RAISED.y:
+		last_reject = "raised %.2f" % (raised / total)
+		return false
+	var ways_up := 0
+	for c in g.ladders.keys() + g.stairs.keys():
+		if g.is_walkable(c):
+			ways_up += 1
+	if ways_up < MIN_WAYS_UP:
+		last_reject = "only %d ways up" % ways_up
+		return false
 	if full / total < FULL_COVER.x or full / total > FULL_COVER.y:
 		last_reject = "full cover %.2f" % (full / total)
 		return false
