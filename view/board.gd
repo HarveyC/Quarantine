@@ -9,6 +9,7 @@ extends Node3D
 ## infection puddles, a chain-link perimeter and sodium floodlights.
 
 const Palette := preload("res://view/palette.gd")
+const Styles := preload("res://ui/styles.gd")
 
 var grid: Grid
 var _tiles: Node3D
@@ -23,7 +24,13 @@ var _hazard_layer: Node3D
 var _sight_layer: Node3D   # enemy sight while Concealed; kept until show_sight / clear_sight
 var _sight_key := ""
 var _hazard_nodes := {}   # cell -> Node3D
-var _hover: MeshInstance3D
+var _hazard_kinds := {}   # cell -> hazard kind, for the region outlines and the legend
+var _hazard_edges: Node3D
+var _zone_keys: Array[String] = []   # objective zones on this map (TileOverlays.ZONES)
+var _sight_cells := {}
+var _blast_cells := {}
+var _mark_kind := ""
+var _hover: Node3D
 
 var _m_range: StandardMaterial3D
 var _m_path: StandardMaterial3D
@@ -69,7 +76,8 @@ func build(g: Grid) -> void:
 	_blast_layer = _layer("Blast")
 	_hazard_layer = _layer("Hazards")
 	_sight_layer = _layer("Sight")
-	_m_range = Palette.overlay(Color(0.55, 0.75, 0.95, 0.09))
+	_hazard_edges = _layer("HazardEdges")
+	_m_range = Palette.overlay(Color(TileOverlays.MOVE, 0.07))
 	_m_path = Palette.overlay(Color(Palette.AMBER, 0.9))
 	_m_dest = Palette.overlay(Color(Palette.AMBER, 0.45))
 	_m_half = Palette.overlay(Color(0.95, 0.8, 0.3, 0.85), true)
@@ -79,9 +87,23 @@ func build(g: Grid) -> void:
 	_build_zones()
 	_build_perimeter()
 	_build_lights()
-	_hover = Palette.box(Vector3(0.96, 0.03, 0.96), Palette.overlay(Color(1, 1, 1, 0.22)))
+	_hover = _brackets(Palette.overlay(Color(1, 1, 1, 0.9)), 0.46, 0.2)
 	_hover.visible = false
 	add_child(_hover)
+
+
+## Four L-shaped corner marks round a cell (the hover cursor, aimed cells). `half` is the
+## distance from the centre to a corner, `arm` the length of each leg.
+static func _brackets(m: Material, half: float, arm: float, thick := 0.045) -> Node3D:
+	var n := Node3D.new()
+	for k in 4:
+		var sx := 1.0 if k % 2 == 0 else -1.0
+		var sz := 1.0 if k < 2 else -1.0
+		for bar in [Vector3(arm, 0.012, thick), Vector3(thick, 0.012, arm)]:
+			var b := Palette.box(bar, m)
+			b.position = Vector3(sx * (half - bar.x * 0.5), 0, sz * (half - bar.z * 0.5))
+			n.add_child(b)
+	return n
 
 
 ## Rebuilds the tile props after the grid changed (cover smashed by a Brute or an airstrike).
@@ -173,7 +195,8 @@ func _build_tiles() -> void:
 	var rebar_mat := Palette.mat(Color("6b4a32"), 0.6, 0.6)
 	var scorch_mat := Palette.mat(Color("121110"), 1.0)
 	var rubble := grimy(Color("3d3c38"), 1.0, 0.6)
-	var goo_mat := Palette.emissive(Palette.TEAL, 1.6)
+	# Kept dim: these are stains for mood, not a marking (spores are the bright teal ones).
+	var goo_mat := Palette.emissive(Palette.TEAL_DIM, 0.6)
 	var goo_lights := 0
 	var roof_mat := grimy(look.wall.darkened(0.25), 0.9, 0.3)
 	var deck_mat := grimy(look.deck, 0.6, 0.35, 0.4)   # steel decking: roofs read lighter than the ground
@@ -348,34 +371,53 @@ func _build_edges(look: Dictionary, trim: Material, hazard: Material, crack_mat:
 		_tiles.add_child(post)
 
 
-const HAZARD_COLORS := {"fire": Color("ff7a2a"), "spore": Color("2ef2c8"), "acid": Color("b8e03a"), "smoke": Color("b9bdb8")}
+const HAZARD_COLORS := {"fire": TileOverlays.FIRE, "spore": Palette.TEAL, "acid": TileOverlays.ACID, "smoke": TileOverlays.SMOKE}
 
 
-## Draws (or redraws) hazard `kind` on `cells`. Fire also gets a few flickering embers and a light.
+## Draws (or redraws) hazard `kind` on `cells`. Each kind has its own floor pattern and props
+## (TileOverlays): fire = warning stripes, embers and a light; spores = a field of dots and
+## floating pods; acid = blotches. Every hazard area also gets an outline in its colour.
 func set_hazard(cells: Array, kind: String) -> void:
 	var color: Color = HAZARD_COLORS.get(kind, Color.WHITE)
-	var plate_mat := Palette.overlay(Color(color, 0.32 if kind == "fire" else 0.22))
-	var glow := Palette.emissive(color, 2.2 if kind == "fire" else 1.0)
+	var pat := TileOverlays.pattern(kind)
+	var plate_mat := TileOverlays.floor_material(Color(color, 0.55 if kind == "fire" else 0.5), pat, {"hatch": 2.0, "puddle": 0.5}.get(pat, 1.0))
+	var glow := Palette.emissive(color, 2.2 if kind == "fire" else 1.2)
 	var lights := 0
 	for c in cells:
-		clear_hazard([c])
+		_drop_hazard(c)
 		var n := Node3D.new()
 		n.position = cell_to_world(c, 0.0)
 		_hazard_layer.add_child(n)
 		_hazard_nodes[c] = n
+		_hazard_kinds[c] = kind
 		if kind == "smoke":
 			_add_smoke(n, c, color)
 			continue
-		var plate := Palette.box(Vector3(0.94, 0.015, 0.94), plate_mat)
+		var plate := Palette.box(Vector3(1.0, 0.015, 1.0), plate_mat)
 		plate.position.y = 0.012
 		n.add_child(plate)
 		var h := _hash(c)
-		for i in (3 if kind == "fire" else 2):
-			var bit := Palette.box(Vector3.ONE * (0.12 if kind == "fire" else 0.2), glow)
-			bit.position = Vector3(float((h >> (i * 3)) % 7) / 7.0 - 0.43, 0.08, float((h >> (i * 3 + 9)) % 7) / 7.0 - 0.43)
-			if kind != "fire":
-				bit.scale.y = 0.15
-			n.add_child(bit)
+		match kind:
+			"fire":   # flickering embers
+				for i in 3:
+					var bit := Palette.box(Vector3.ONE * 0.12, glow)
+					bit.position = Vector3(float((h >> (i * 3)) % 7) / 7.0 - 0.43, 0.08, float((h >> (i * 3 + 9)) % 7) / 7.0 - 0.43)
+					bit.set_meta("bob", Vector3(0.08, 0.06, 7.0))
+					n.add_child(bit)
+			"spore":  # round pods drifting at knee height
+				for i in 2:
+					var pod := MeshInstance3D.new()
+					var sm := SphereMesh.new()
+					sm.radius = 0.055
+					sm.height = 0.11
+					sm.radial_segments = 8
+					sm.rings = 4
+					pod.mesh = sm
+					pod.material_override = glow
+					pod.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+					pod.position = Vector3(float((h >> (i * 3)) % 7) / 7.0 - 0.38, 0.3 + 0.12 * i, float((h >> (i * 3 + 9)) % 7) / 7.0 - 0.38)
+					pod.set_meta("bob", Vector3(pod.position.y, 0.07, 1.6))
+					n.add_child(pod)
 		if kind == "fire" and lights < 3:
 			lights += 1
 			var l := OmniLight3D.new()
@@ -384,6 +426,7 @@ func set_hazard(cells: Array, kind: String) -> void:
 			l.omni_range = 2.4
 			l.position.y = 0.5
 			n.add_child(l)
+	_outline_hazards()
 
 
 ## A smoke grenade's cloud on one tile: a pale ground haze and a few soft billboard puffs
@@ -431,9 +474,36 @@ static func _soft_puff() -> Texture2D:
 
 func clear_hazard(cells: Array) -> void:
 	for c in cells:
-		if _hazard_nodes.has(c):
-			_hazard_nodes[c].queue_free()
-			_hazard_nodes.erase(c)
+		_drop_hazard(c)
+	_outline_hazards()
+
+
+func _drop_hazard(c: Vector2i) -> void:
+	if _hazard_nodes.has(c):
+		_hazard_nodes[c].queue_free()
+		_hazard_nodes.erase(c)
+	_hazard_kinds.erase(c)
+
+
+## Redraws the outline round every hazard area, one colour per kind (smoke has none: the cloud
+## is its own edge).
+func _outline_hazards() -> void:
+	_clear(_hazard_edges)
+	var by_kind := {}
+	for c in _hazard_kinds:
+		var k: String = _hazard_kinds[c]
+		if k == "smoke":
+			continue
+		if not by_kind.has(k):
+			by_kind[k] = {}
+		by_kind[k][c] = true
+	for k in by_kind:
+		_outline(by_kind[k], Palette.overlay(Color(HAZARD_COLORS.get(k, Color.WHITE), 0.85)), 0.05, _hazard_edges)
+
+
+## The hazard kind on `c` as drawn ("" for none).
+func hazard_at(c: Vector2i) -> String:
+	return str(_hazard_kinds.get(c, ""))
 
 
 ## Rebuilds every hazard from state (mission start, snapshot resync).
@@ -461,22 +531,28 @@ func tick_hazards(t: float) -> void:
 					child.position = b + Vector3(sin(t * 0.5 + ph) * 0.12, sin(t * 0.7 + ph) * 0.05, cos(t * 0.4 + ph) * 0.12)
 			continue
 		for child in n.get_children():
-			if child is MeshInstance3D and child.position.y > 0.05:
-				child.position.y = 0.08 + 0.06 * sin(t * 7.0 + float(_hash(c) % 17))
+			if child.has_meta("bob"):   # (base height, amplitude, speed)
+				var b: Vector3 = child.get_meta("bob")
+				child.position.y = b.x + b.y * sin(t * b.z + float(_hash(c) % 17))
 
 
-## Objective zones from MapGen markers, painted on the floor: evac pad (green) and beacon (amber).
+## Objective zones from MapGen markers, painted on the floor with a glowing edge and named by a
+## floating label: evac pad and drop zone (green), beacon (amber). See TileOverlays.ZONES.
 func _build_zones() -> void:
-	var zones := {"evac": Color(0.35, 0.95, 0.45), "beacon": Palette.AMBER}
-	for key in zones:
+	_zone_keys.clear()
+	for key in TileOverlays.ZONES:
 		var cells: Array = grid.marker(key)
 		if cells.is_empty():
 			continue
-		var fill := Palette.overlay(Color(zones[key], 0.16))
-		var edge := Palette.emissive(zones[key], 1.2)
+		_zone_keys.append(key)
+		var col := TileOverlays.color(key)
+		var fill := Palette.overlay(Color(col, 0.16))
+		var edge := Palette.emissive(col, 1.2)
 		var inside := {}
+		var mid := Vector3.ZERO
 		for c in cells:
 			inside[c] = true
+			mid += cell_to_world(c)
 		for c in cells:
 			var plate := Palette.box(Vector3(0.98, 0.01, 0.98), fill)
 			plate.position = cell_to_world(c, 0.006)
@@ -488,6 +564,40 @@ func _build_zones() -> void:
 				var line := Palette.box(Vector3(0.98, 0.012, 0.05) if d.y != 0 else Vector3(0.05, 0.012, 0.98), edge)
 				line.position = cell_to_world(c, 0.01) + Vector3(d.x, 0, d.y) * 0.47
 				_fixed.add_child(line)
+		var label := zone_label(str(TileOverlays.KINDS[key].label), col)
+		label.position = mid / cells.size() + Vector3(0, 1.5, 0)
+		_fixed.add_child(label)
+
+
+## A floating caps label for an objective zone ("EVAC"), always facing the camera.
+static func zone_label(text: String, col: Color) -> Label3D:
+	var l := Label3D.new()
+	l.name = "ZoneLabel"
+	l.text = text
+	l.font = Styles.FONT_COND_BOLD
+	l.font_size = 44
+	l.outline_size = 14
+	l.outline_modulate = Color(0.02, 0.03, 0.03, 0.85)
+	l.modulate = col.lightened(0.15)
+	l.pixel_size = 0.0075
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.render_priority = 5
+	l.outline_render_priority = 4
+	return l
+
+
+## Objective zones on this map, as TileOverlays keys.
+func zones() -> Array[String]:
+	return _zone_keys
+
+
+## The objective zone `c` is in ("" for none).
+func zone_at(c: Vector2i) -> String:
+	for key in _zone_keys:
+		if grid.marker(key).has(c):
+			return key
+	return ""
 
 
 ## The block under a raised cell, with a trim lip on its open (ledge) edges.
@@ -833,7 +943,7 @@ func _add_goo(c: Vector2i, h: int, material: Material, with_light: bool) -> void
 	if with_light:
 		var light := OmniLight3D.new()
 		light.light_color = Palette.TEAL
-		light.light_energy = 0.8
+		light.light_energy = 0.4
 		light.omni_range = 1.8
 		light.position = goo.position + Vector3(0, 0.3, 0)
 		_tiles.add_child(light)
@@ -953,11 +1063,46 @@ func _clear(layer: Node3D) -> void:
 func clear_overlays() -> void:
 	for l in [_range_layer, _path_layer, _cover_layer, _mark_layer, _blast_layer]:
 		_clear(l)
+	_blast_cells = {}
+	_mark_kind = ""
 	_hover.visible = false
 
 
-## Move range. While the squad is Concealed, `spotted` cells (Concealment.danger_cells) are
-## drawn red with a corner bracket: stepping on one gives the squad away.
+## The floor markings on screen right now, as TileOverlays keys in legend order (OverlayLegend).
+func active_overlays() -> Array[String]:
+	var on := {}
+	if _range_layer.get_child_count() > 0:
+		on["move"] = true
+	if not _sight_cells.is_empty():
+		on["sight"] = true
+	if _mark_kind == "aim":
+		on["aim"] = true
+	if not _blast_cells.is_empty():
+		on["blast"] = true
+	for c in _hazard_kinds:
+		on[_hazard_kinds[c]] = true
+	for z in _zone_keys:
+		on[z] = true
+	var out: Array[String] = []
+	for k in TileOverlays.KINDS:
+		if on.has(k):
+			out.append(k)
+	return out
+
+
+## True when `c` is inside the enemy sight wash (Concealed only).
+func in_sight(c: Vector2i) -> bool:
+	return _sight_cells.has(c)
+
+
+## True when `c` is inside the explosive aim preview.
+func in_blast(c: Vector2i) -> bool:
+	return _blast_cells.has(c)
+
+
+## Move range: a pale fill with an outline round the whole area. While the squad is Concealed,
+## `spotted` cells (Concealment.danger_cells) are drawn red with a corner bracket: stepping on
+## one gives the squad away.
 func show_range(cells: Dictionary, spotted: Dictionary = {}) -> void:
 	_clear(_range_layer)
 	var red: StandardMaterial3D = null
@@ -978,6 +1123,8 @@ func show_range(cells: Dictionary, spotted: Dictionary = {}) -> void:
 					var b := Palette.box(bar, edge)
 					b.position = cell_to_world(c, 0.02) + Vector3(sx * (0.44 - bar.x * 0.5), 0, sz * (0.44 - bar.z * 0.5))
 					_range_layer.add_child(b)
+	if not cells.is_empty():
+		_outline(cells, Palette.overlay(Color(TileOverlays.MOVE, 0.55)), 0.04, _range_layer)
 
 
 ## Move path preview. `spotted_at` (index into `path`, -1 for none) is the first step a dormant
@@ -1059,12 +1206,14 @@ func show_sight(fields: Dictionary, focus := -1) -> void:
 		return
 	_sight_key = key
 	_clear(_sight_layer)
+	_sight_cells = {}
 	if fields.is_empty():
 		return
 	var all := {}
 	for id in fields:
 		for c in fields[id].cells:
 			all[c] = true
+	_sight_cells = all
 	var mine: Dictionary = fields[focus].cells if fields.has(focus) else {}
 	var dim := not mine.is_empty()
 	var wash := Palette.overlay(Color(Palette.DANGER, 0.025 if dim else 0.05))
@@ -1080,18 +1229,22 @@ func show_sight(fields: Dictionary, focus := -1) -> void:
 
 func clear_sight() -> void:
 	_sight_key = ""
+	_sight_cells = {}
 	_clear(_sight_layer)
 
 
-## Bars along every edge of `cells` that borders a cell outside it.
-func _outline(cells: Dictionary, m: StandardMaterial3D, width: float) -> void:
+## Bars along every edge of `cells` that borders a cell outside it, added to `layer` (the sight
+## layer by default).
+func _outline(cells: Dictionary, m: StandardMaterial3D, width: float, layer: Node3D = null) -> void:
+	if layer == null:
+		layer = _sight_layer
 	for c in cells:
 		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			if cells.has(c + d):
 				continue
 			var bar := Palette.box(Vector3(width, 0.02, 1.0) if d.x != 0 else Vector3(1.0, 0.02, width), m)
 			bar.position = cell_to_world(c, 0.03) + Vector3(d.x * (0.5 - width * 0.5), 0, d.y * (0.5 - width * 0.5))
-			_sight_layer.add_child(bar)
+			layer.add_child(bar)
 
 
 ## Shield plates on each side of `c` that offers cover. `sides` is Grid.cover_sides(c).
@@ -1115,19 +1268,21 @@ func show_cover(c: Vector2i, sides: Dictionary) -> void:
 func clear_path() -> void:
 	_clear(_path_layer)
 	_clear(_cover_layer)
-	_clear(_blast_layer)
+	clear_blast()
 
 
-## Aim preview for an explosive (Destruction.preview): the blast area as faint amber squares, then
-## a glass block over everything that will change, red for what breaks, drops or goes off, amber
-## for what only cracks. `changes` is {cell: kind}.
+## Aim preview for an explosive (Destruction.preview): the blast area in a red crosshatch with
+## an outline, then a glass block over everything that will change, red for what breaks, drops
+## or goes off, amber for what only cracks. `changes` is {cell: kind}.
 func show_blast(area: Array, changes: Dictionary) -> void:
-	_clear(_blast_layer)
-	var a := Palette.overlay(Color(Palette.AMBER, 0.16))
+	clear_blast()
+	var a := TileOverlays.floor_material(Color(Palette.DANGER, 0.5), "cross", 2.0)
 	for c in area:
-		var q := Palette.box(Vector3(0.94, 0.02, 0.94), a)
+		var q := Palette.box(Vector3(1.0, 0.02, 1.0), a)
 		q.position = cell_to_world(c, 0.03)
 		_blast_layer.add_child(q)
+		_blast_cells[c] = true
+	_outline(_blast_cells, Palette.overlay(Color(Palette.DANGER, 0.9)), 0.05, _blast_layer)
 	var red := Palette.overlay(Color(Palette.DANGER, 0.32))
 	var amber := Palette.overlay(Color(Palette.AMBER, 0.26))
 	for c in changes:
@@ -1141,16 +1296,24 @@ func show_blast(area: Array, changes: Dictionary) -> void:
 
 func clear_blast() -> void:
 	_clear(_blast_layer)
+	_blast_cells = {}
 
 
-## Coloured squares on arbitrary cells (targeting candidates, ability areas).
-func mark_cells(cells: Array, color: Color) -> void:
+## Coloured squares on arbitrary cells (targeting candidates). `kind` "aim" is the area an item
+## or ability will land on: amber squares with corner brackets, listed in the legend.
+func mark_cells(cells: Array, color: Color, kind := "") -> void:
 	_clear(_mark_layer)
+	_mark_kind = kind if not cells.is_empty() else ""
 	var m := Palette.overlay(color)
+	var edge := Palette.overlay(Color(color, 0.95)) if kind == "aim" else null
 	for c in cells:
 		var q := Palette.box(Vector3(0.9, 0.02, 0.9), m)
 		q.position = cell_to_world(c, 0.025)
 		_mark_layer.add_child(q)
+		if edge != null:
+			var b := _brackets(edge, 0.44, 0.2, 0.04)
+			b.position = cell_to_world(c, 0.035)
+			_mark_layer.add_child(b)
 
 
 func set_hover(c: Vector2i, on: bool) -> void:

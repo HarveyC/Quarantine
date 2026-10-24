@@ -16,6 +16,7 @@ const Nameplates := preload("res://ui/nameplates.gd")
 const CombatLog := preload("res://ui/combat_log.gd")
 const EndOverlay := preload("res://ui/end_overlay.gd")
 const FightDebrief := preload("res://ui/fight_debrief.gd")
+const OverlayLegend := preload("res://ui/overlay_legend.gd")
 const CinematicOverlay := preload("res://ui/cinematic_overlay.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const InputController := preload("res://view/input_controller.gd")
@@ -30,6 +31,8 @@ var roster: SquadRoster
 var readiness: ReadinessPanel
 var action_bar: ActionBar
 var target_panel: TargetPanel
+## Lists the floor markings on screen (move range, hazards, zones...).
+var map_key: OverlayLegend
 var nameplates: Nameplates
 var combat_log: CombatLog
 var end_overlay: EndOverlay
@@ -231,6 +234,9 @@ func _build_bottom() -> void:
 	target_panel.build()
 	target_panel.visible = false
 	right.add_child(target_panel)
+	map_key = OverlayLegend.new()
+	map_key.build(view)
+	right.add_child(map_key)
 	right.add_child(_key_legend())
 	_corner(Control.PRESET_BOTTOM_RIGHT, right, Control.GROW_DIRECTION_BEGIN, Control.GROW_DIRECTION_BEGIN)
 

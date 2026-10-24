@@ -6,6 +6,7 @@ extends TestCase
 
 const MAIN := preload("res://scenes/main.tscn")
 const InputController := preload("res://view/input_controller.gd")
+const Palette := preload("res://view/palette.gd")
 
 
 func _make_view(begin := true) -> MissionView:
@@ -859,3 +860,60 @@ func test_shoot_cycles_onto_a_fuel_barrel() -> void:
 	assert_eq(u.actions_left, 0, "it ended the turn")
 	assert_eq(not shots[0].hit, s.grid.is_volatile(cell), "the barrel went up only on a hit")
 	v.free()
+
+
+func test_map_markings_each_have_a_look_a_card_and_a_key_entry() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var u := v.state.controllable_units(0)[0]
+	for k in TileOverlays.KINDS:
+		assert_true(Glossary.has(TileOverlays.term(k)), "%s has a glossary card" % k)
+	assert_true(TileOverlays.color("spore") == Palette.TEAL, "spores are the Infection teal")
+	for k in TileOverlays.KINDS:
+		if k != "spore":
+			assert_true(TileOverlays.color(k) != Palette.TEAL, "%s is not teal: teal means Infection" % k)
+	var looks := {}
+	for k in ["move", "sight", "aim", "blast", "fire", "spore", "acid", "smoke"]:
+		var look := TileOverlays.pattern(k) + str(TileOverlays.color(k))
+		assert_true(not looks.has(look), "%s looks unlike %s" % [k, looks.get(look, "")])
+		looks[look] = k
+	# Hazards: drawn with their own pattern, listed in the key, named on hover.
+	var spore := u.pos + Vector2i(1, 0)
+	var fire := u.pos + Vector2i(2, 0)
+	v.board.set_hazard([spore], "spore")
+	v.board.set_hazard([fire], "fire")
+	assert_eq(v.board.hazard_at(spore), "spore")
+	assert_true(v.board._hazard_edges.get_child_count() > 0, "hazard areas are outlined")
+	v.input.selected_id = u.id
+	v.input.mode = v.input.Mode.MOVE
+	v.input.refresh()
+	var on: Array[String] = v.board.active_overlays()
+	for k in ["move", "spore", "fire"]:
+		assert_true(on.has(k), "the key lists %s: %s" % [k, on])
+	v.hud.map_key.refresh()
+	assert_eq(v.hud.map_key.shown(), on, "the map key shows what is on the floor")
+	assert_true(v.hud.map_key.visible, "the key is up while something is marked")
+	assert_eq(v.input.tile_terms(spore)[0], "hazard_spore", "hovering spores explains spores")
+	v.board.clear_hazard([spore, fire])
+	assert_true(not v.board.active_overlays().has("spore"), "cleared hazards leave the key")
+	# Aiming an item: amber, listed as the aim area (never teal).
+	v.board.mark_cells([u.pos], Color(Palette.AMBER, 0.22), "aim")
+	assert_true(v.board.active_overlays().has("aim"), "the aimed area is in the key")
+	v.board.clear_overlays()
+	assert_true(not v.board.active_overlays().has("aim"), "and leaves it once cleared")
+	assert_true(not (v.board._hover is MeshInstance3D), "the cursor is corner marks, not a white tile")
+	v.free()
+
+
+func test_objective_zones_are_labelled_on_the_map() -> void:
+	var g := Grid.from_rows(PackedStringArray(["......", "......", "......", "......"]))
+	g.objective = "extract"
+	g.markers["evac"] = [Vector2i(4, 1), Vector2i(5, 1)]
+	var b: Node3D = load("res://view/board.gd").new()
+	b.build(g)
+	assert_eq(b.zones(), ["evac"] as Array[String])
+	assert_eq(b.zone_at(Vector2i(4, 1)), "evac")
+	var label: Label3D = b._fixed.find_child("ZoneLabel", true, false)
+	assert_true(label != null and label.text == "EVAC", "the evac pad is named on the map")
+	assert_true(b.active_overlays().has("evac"), "and listed in the map key")
+	b.free()
