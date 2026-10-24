@@ -97,9 +97,10 @@ func test_demo_charge_blows_a_doorway() -> void:
 	assert_eq(path.size(), 3, "and a straight path")
 
 
-func test_shoot_barrel_chains_and_burns() -> void:
+func test_shoot_a_barrel_chains_and_burns() -> void:
 	var s := _state()
 	var sol := _add(s, "trooper", Types.Team.PLAYER, Vector2i(8, 7))
+	sol.aim = 100
 	var near := _add(s, "runner", Types.Team.ENEMY, Vector2i(7, 0))
 	var far := _add(s, "runner", Types.Team.ENEMY, Vector2i(10, 0))
 	near.max_hp = 20
@@ -107,11 +108,13 @@ func test_shoot_barrel_chains_and_burns() -> void:
 	far.max_hp = 20
 	far.hp = 20
 	var ids := Combat.available_abilities(s, sol).map(func(a): return a.id)
-	assert_true(ids.has("shoot_barrel"), "Shoot barrel offered: %s" % str(ids))
-	assert_eq(Rules.validate(s, {"type": Types.ABILITY, "unit": sol.id, "ability": "shoot_barrel", "cell": Vector2i(2, 2)}),
-		"No barrel there", "only barrels")
-	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": sol.id, "ability": "shoot_barrel", "cell": Vector2i(8, 1)}), "shot")
+	assert_true(not ids.has("shoot_barrel"), "no separate barrel action: %s" % str(ids))
+	assert_true(Combat.shot_barrels(s, sol).has(Vector2i(8, 1)), "the barrel is a Shoot target")
+	assert_eq(Rules.validate(s, {"type": Types.SHOOT, "unit": sol.id, "cell": Vector2i(2, 2)}), "No barrel there", "only barrels")
+	assert_true(Rules.apply(s, {"type": Types.SHOOT, "unit": sol.id, "cell": Vector2i(8, 1)}), "shot")
 	assert_eq(sol.actions_left, 0, "ends the turn")
+	var shot: Array = _events(s, "barrel_shot")
+	assert_true(shot.size() == 1 and shot[0].hit, "one barrel shot, a hit")
 	assert_true(not s.grid.is_volatile(Vector2i(8, 1)) and not s.grid.is_volatile(Vector2i(9, 1)), "both barrels went")
 	assert_eq(_events(s, "explosion").size(), 2, "the second one chained")
 	assert_eq(near.hp, 17, "hit by the first blast only")
@@ -119,6 +122,69 @@ func test_shoot_barrel_chains_and_burns() -> void:
 	assert_true(s.grid.is_volatile(Vector2i(8, 4)), "the lone barrel two rows down survives (fire doesn't reach it)")
 	assert_eq(Hazards.at(s, Vector2i(9, 2)).get("kind", ""), "fire", "burning")
 	assert_true(s.grid.is_walkable(Vector2i(8, 1)), "barrel cell is floor now")
+
+
+func test_barrel_odds_and_misses() -> void:
+	var s := _state()
+	var sol := _add(s, "trooper", Types.Team.PLAYER, Vector2i(8, 7))
+	var odds := Combat.barrel_chance(s, sol, Vector2i(8, 4))
+	var labels: Array = odds.breakdown.map(func(r): return r[0])
+	assert_true(labels.has("Fuel drum"), "the drum bonus shows: %s" % str(labels))
+	assert_true(not labels.has("Half cover") and int(odds.graze) == 0 and int(odds.crit) == 0, "no cover, graze or crit")
+	var total := 0
+	for r in odds.breakdown:
+		total += int(r[1])
+	assert_eq(int(odds.hit), clampi(total, Combat.MIN_CHANCE, 100), "the rows add up")
+	assert_eq(odds.breakdown[1], ["Fuel drum", Destruction.BARREL_AIM], "the drum bonus")
+	var reaction := Combat.barrel_chance(s, sol, Vector2i(8, 4), sol.pos, true)
+	assert_true(int(reaction.hit) < int(odds.hit) or int(odds.hit) == 100, "overwatch penalty applies")
+	# A miss leaves the barrel standing: find a seed whose roll misses at 5%.
+	var missed := false
+	for seed in 40:
+		var t := _state()
+		t.rng.seed = seed
+		var u := _add(t, "trooper", Types.Team.PLAYER, Vector2i(8, 7))
+		u.aim = -200
+		assert_true(Rules.apply(t, {"type": Types.SHOOT, "unit": u.id, "cell": Vector2i(8, 4)}), "shot taken")
+		if not _events(t, "barrel_shot")[0].hit:
+			assert_true(t.grid.is_volatile(Vector2i(8, 4)), "a miss leaves the barrel")
+			assert_eq(_events(t, "explosion").size(), 0, "and nothing goes off")
+			missed = true
+			break
+	assert_true(missed, "found a miss")
+	var lapsed := _add(s, "trooper", Types.Team.PLAYER, Vector2i(9, 7))
+	lapsed.ai_controlled = true
+	assert_true(Combat.shot_barrels(s, lapsed).is_empty(), "a Lapsed or Turned soldier never aims at barrels")
+	assert_true(Rules.validate(s, {"type": Types.SHOOT, "unit": lapsed.id, "cell": Vector2i(8, 4)}) != "", "and the rules agree")
+
+
+func test_overwatch_shoots_a_barrel_the_enemy_stands_by() -> void:
+	var s := _state()
+	var w := _add(s, "trooper", Types.Team.PLAYER, Vector2i(8, 7))
+	w.aim = 300
+	var r := _add(s, "runner", Types.Team.ENEMY, Vector2i(10, 4))
+	r.max_hp = 50
+	r.hp = 50
+	assert_true(Rules.apply(s, {"type": Types.OVERWATCH, "unit": w.id}), "overwatch")
+	assert_eq(Combat.reaction_barrel(s, w, r), Combat.NO_CELL, "not in a blast yet")
+	r.pos = Vector2i(9, 4)
+	assert_eq(Combat.reaction_barrel(s, w, r), Vector2i(8, 4), "next to the lone barrel")
+	var ally := _add(s, "medic", Types.Team.PLAYER, Vector2i(7, 5))
+	assert_eq(Combat.reaction_barrel(s, w, r), Combat.NO_CELL, "never with a squadmate in the blast")
+	ally.pos = Vector2i(2, 7)
+	r.pos = Vector2i(10, 4)
+	Combat.resolve_reactions(s, r, [w] as Array[Unit])
+	assert_eq(_events(s, "shot").size(), 1, "out of the blast: shoots the runner")
+	w.overwatch = true
+	w.status["ow_until"] = Combat.phase_index(s) + 2
+	r.pos = Vector2i(9, 4)
+	var before := r.hp
+	Combat.resolve_reactions(s, r, [w] as Array[Unit])
+	var b: Array = _events(s, "barrel_shot")
+	assert_true(b.size() == 1 and b[0].reaction and b[0].hit, "a reaction shot into the barrel")
+	assert_true(not s.grid.is_volatile(Vector2i(8, 4)), "and it went up")
+	assert_eq(r.hp, before - Destruction.BARREL.damage, "the runner took the blast")
+	assert_eq(_events(s, "shot").size(), 1, "and no second shot at it")
 
 
 func test_fire_sets_off_a_barrel() -> void:
@@ -205,7 +271,7 @@ func test_same_actions_same_board() -> void:
 	for i in 2:
 		var s := _state()
 		var sol := _add(s, "trooper", Types.Team.PLAYER, Vector2i(8, 7))
-		Rules.apply(s, {"type": Types.ABILITY, "unit": sol.id, "ability": "shoot_barrel", "cell": Vector2i(8, 4)})
+		Rules.apply(s, {"type": Types.SHOOT, "unit": sol.id, "cell": Vector2i(8, 4)})
 		Destruction.hit(s, {Vector2i(5, 2): 3, Vector2i(2, 6): 2})
 		boards.append(s.checksum())
 	assert_eq(boards[0], boards[1], "deterministic")

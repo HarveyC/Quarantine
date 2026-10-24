@@ -5,7 +5,7 @@ extends RefCounted
 ## volatile, hard, rubble) so it is saved, synced and checksummed with the map.
 ## See docs/ARCHITECTURE.md, "Destruction", and the study page linked there.
 ##
-## Terrain takes "hits" (never bullets: only explosives, airstrikes and smashing enemies):
+## Terrain takes "hits" (bullets only on fuel barrels, else explosives, airstrikes and smashing enemies):
 ##   wall           WALL_HITS hits -> rubble heap (half cover, see-through) -> 1 more -> floor
 ##   half cover     1 hit -> floor (debris)
 ##   fuel barrel    1 hit -> explodes (BARREL_*), then floor
@@ -31,8 +31,8 @@ const BARREL := {"radius": 1, "centre": 2, "ring": 1, "damage": 3}
 const BARREL_FIRE_TURNS := 2
 ## Demo charge reach (Chebyshev): placed on an adjacent tile or wall.
 const DEMO_RANGE := 1
-const SHOOT_BARREL := {"name": "Shoot barrel", "targeting": "cell", "cost": -1, "cooldown": 0,
-	"desc": "Shoot a fuel barrel you can see. It always hits: 3 damage and fire around it, and it sets off barrels next to it. Ends turn."}
+## Shooting a barrel (Combat.barrel_chance): a big, still target.
+const BARREL_AIM := 15
 
 ## Set while a barrel's own fire is placed, so that fire does not set off barrels a second ring out
 ## (a barrel's chain reaches as far as its blast, no further).
@@ -245,56 +245,19 @@ static func cover_cells(g: Grid, target: Vector2i, from: Vector2i) -> Array[Vect
 	return out
 
 
-# --- Shoot barrel (any soldier with a gun) -----------------------------------------------------
+# --- Barrels as Shoot targets (any soldier with a gun) -----------------------------------------
 
-static func handles(id: String) -> bool:
-	return id == "shoot_barrel"
-
-
-## Ability entries for the action bar: Shoot barrel shows only while a barrel is in sight.
-static func available(s: GameState, u: Unit) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	if not _can_shoot(u):
-		return out
-	var cells := barrel_targets(s, u)
-	if cells.is_empty():
-		return out
-	out.append({"id": "shoot_barrel", "name": SHOOT_BARREL.name, "targeting": "cell", "cost": -1,
-		"cooldown": 0, "desc": SHOOT_BARREL.desc, "targets": [], "cells": cells,
-		"ready": u.actions_left > 0 and u.is_alive()})
-	return out
-
-
-## Barrels `u` can shoot right now.
+## Barrels `u` can shoot right now (Combat.shot_barrels adds the gun check).
 static func barrel_targets(s: GameState, u: Unit) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for c in _sorted(s.grid.volatile.keys()):
-		if _barrel_error(s, u, c) == "":
+		if barrel_error(s, u, c) == "":
 			out.append(c)
 	return out
 
 
-static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
-	if not _can_shoot(u):
-		return "No gun"
-	var c: Variant = action.get("cell")
-	if not c is Vector2i:
-		return "No target cell"
-	return _barrel_error(s, u, c)
-
-
-static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
-	var c: Vector2i = action.cell
-	u.actions_left = 0
-	s.emit({"type": "ability", "unit": u.id, "ability": "shoot_barrel", "cell": c})
-	hit(s, {c: 1}, u)
-
-
-static func _can_shoot(u: Unit) -> bool:
-	return u.team == Types.Team.PLAYER and not u.ai_controlled and not UnitData.is_melee_only(u.kind)
-
-
-static func _barrel_error(s: GameState, u: Unit, c: Vector2i) -> String:
+## "" if `u` can see the barrel at `c` and it's in range, else why not.
+static func barrel_error(s: GameState, u: Unit, c: Vector2i) -> String:
 	if not s.grid.is_volatile(c):
 		return "No barrel there"
 	if u.pos.distance_to(c) > Combat.SIGHT_RANGE:
@@ -302,6 +265,17 @@ static func _barrel_error(s: GameState, u: Unit, c: Vector2i) -> String:
 	if not Combat.can_see(s, u.pos, c) or not Vision.cell_visible(s, u.team, c):
 		return "No line of sight"
 	return ""
+
+
+## Cells a hit on the barrel at `c` would blow (the chain included): what the Shoot preview and
+## the bots weigh. Each is a BARREL blast centre.
+static func barrel_blasts(s: GameState, c: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var p := preview(s, {c: 1})
+	for b in _sorted(p.keys()):
+		if p[b] == "barrel":
+			out.append(b)
+	return out
 
 
 # --- Terrain ----------------------------------------------------------------------------------

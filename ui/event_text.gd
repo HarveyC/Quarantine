@@ -31,6 +31,10 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 				res = "CRITS" if ev.get("crit", false) else ("grazes" if ev.get("graze", false) else "hits")
 			var pre := "Reaction: " if ev.get("reaction", false) else ""
 			return "%s%s %s %s (%d%%)" % [pre, who.call("unit"), res, who.call("target"), int(ev.get("chance", 0))]
+		"barrel_shot":
+			var pre := "Reaction: " if ev.get("reaction", false) else ""
+			return "%s%s %s a fuel barrel (%d%%)" % [pre, who.call("unit"), "hits" if ev.get("hit", false) else "misses",
+				int(ev.get("chance", 0))]
 		"pinned":
 			return "%s is pinned down by %s" % [who.call("target"), who.call("unit")]
 		"damage":
@@ -81,8 +85,6 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 				(" (%d)" % dmg) if dmg > 0 else ""]
 		"hazard_end", "level_changed":
 			return ""   # the board shows these
-		"ability" when ev.get("ability") == "shoot_barrel":
-			return "%s shoots a fuel barrel" % who.call("unit")
 		"ability":
 			return "%s uses %s%s" % [who.call("unit"), str(ev.get("name", str(ev.get("ability", "?")).capitalize())), _target_text(ev, who)]
 		"mutation":

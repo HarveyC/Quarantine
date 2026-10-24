@@ -21,10 +21,10 @@ var view: MissionView
 var selected_id := -1
 var mode := Mode.MOVE
 var pending: Dictionary = {}       # action template while targeting an ability/mutation
-var targets: Array[int] = []       # shoot candidates
+var targets: Array = []            # shoot candidates: unit ids (int), then fuel barrels (Vector2i cells)
 var unit_targets: Array = []       # legal targets of the pending unit-targeted ability ([] = not listed)
 var pending_reach := 0             # the pending ability's reach, if it states one
-var cell_targets: Array = []       # cells the pending cell ability can pick, when it lists them (Shoot barrel)
+var cell_targets: Array = []       # cells the pending cell ability can pick, when it lists them
 var target_idx := 0
 var hover_cell := NO_CELL
 var _reach: Dictionary = {}
@@ -50,9 +50,27 @@ func selected_unit() -> Unit:
 
 
 func current_target() -> Unit:
+	var t: Variant = _aimed()
+	return view.state.get_unit(t) if t is int else null
+
+
+## The fuel barrel being aimed at, or NO_CELL when the target is a unit (or nothing).
+func current_barrel() -> Vector2i:
+	var t: Variant = _aimed()
+	return t if t is Vector2i else NO_CELL
+
+
+func _aimed() -> Variant:
 	if mode != Mode.SHOOT or targets.is_empty():
 		return null
-	return view.state.get_unit(targets[target_idx % targets.size()])
+	return targets[target_idx % targets.size()]
+
+
+## Everything `u` can Shoot, in cycling order: units first, then the fuel barrels in sight.
+func shoot_candidates(u: Unit) -> Array:
+	var out: Array = Combat.shot_targets(view.state, u).map(func(t: Unit) -> int: return t.id)
+	out.append_array(Combat.shot_barrels(view.state, u))
+	return out
 
 
 # --- selection ---------------------------------------------------------------
@@ -155,9 +173,12 @@ func refresh() -> void:
 					view.board.show_range(_reach, spotted_cells())
 			Mode.SHOOT:
 				var t := current_target()
+				var b := current_barrel()
 				if t != null:
 					view.view_for(t.id).set_targeted(true)
 					view.board.mark_cells([t.pos], Color(0.9, 0.3, 0.2, 0.3))
+				elif b != NO_CELL:
+					_show_barrel_blast(b)
 			Mode.TARGET_UNIT:
 				# The ability's own target list when it gives one (Combat "targets"), else anyone.
 				var cells: Array = []
@@ -209,6 +230,12 @@ func _update_hover(force: bool) -> void:
 			_show_blast(c)
 		elif mode == Mode.TARGET_UNIT:
 			_show_landing(u, c)
+	if mode == Mode.MOVE and view.board != null:
+		# Hovering a fuel barrel the soldier could shoot previews its blast (click to aim).
+		if u != null and can_act() and c != NO_CELL and u.actions_left > 0 and Combat.shot_barrels(view.state, u).has(c):
+			_show_barrel_blast(c)
+		else:
+			view.board.clear_blast()
 	var other: UnitView = view.unit_view_at(c) if c != NO_CELL else null
 	if other != null:
 		view.hud.show_tooltip(other)
@@ -216,22 +243,27 @@ func _update_hover(force: bool) -> void:
 		view.hud.hide_tooltip()
 
 
-## Grenades, demo charges and barrel shots: what the blast would cover and break (Destruction.preview).
+## Grenades and demo charges: what the blast would cover and break (Destruction.preview).
 func _show_blast(c: Vector2i) -> void:
 	var st: GameState = view.state
 	var p := {}
 	match str(pending.get("ability", "")):
 		"item:frag_grenade": p = Destruction.FRAG
 		"item:demo_charge": p = Destruction.DEMO
-		"shoot_barrel":
-			if st.grid.is_volatile(c):
-				p = Destruction.BARREL
 	if p.is_empty():
 		view.board.clear_blast()
 		return
 	var hits := Destruction.pattern(st.grid, c, p)
-	var changes := Destruction.preview(st, {c: 1} if pending.ability == "shoot_barrel" else hits)
-	view.board.show_blast(hits.keys(), changes)
+	view.board.show_blast(hits.keys(), Destruction.preview(st, hits))
+
+
+## Aiming at a fuel barrel: every cell its blast (and any barrel it sets off) covers, what breaks.
+func _show_barrel_blast(c: Vector2i) -> void:
+	var st: GameState = view.state
+	var cover := {}
+	for b in Destruction.barrel_blasts(st, c):
+		cover.merge(Destruction.pattern(st.grid, b, Destruction.BARREL))
+	view.board.show_blast(cover.keys(), Destruction.preview(st, {c: 1}))
 
 
 ## Lunge / Shield Charge: hovering a target shows the path to the cell the soldier will
@@ -305,7 +337,7 @@ func _trigger(u: Unit, a: Dictionary) -> void:
 			if mode == Mode.SHOOT:
 				confirm_shot()
 				return
-			targets.assign(Combat.shot_targets(view.state, u).map(func(t: Unit) -> int: return t.id))
+			targets = shoot_candidates(u)
 			if targets.is_empty():
 				view.hud.toast("No visible targets")
 				return
@@ -338,6 +370,8 @@ func cycle_target(dir := 1) -> void:
 	var t := current_target()
 	if t != null:
 		view.camera_rig.focus(view.view_for(t.id).position)
+	elif current_barrel() != NO_CELL:
+		view.camera_rig.focus(Board.cell_to_world(current_barrel()))
 	refresh()
 
 
@@ -346,6 +380,8 @@ func confirm_shot() -> void:
 	var t := current_target()
 	if u != null and t != null:
 		submit({"type": Types.SHOOT, "unit": u.id, "target": t.id})
+	elif u != null and current_barrel() != NO_CELL:
+		submit({"type": Types.SHOOT, "unit": u.id, "cell": current_barrel()})
 
 
 func submit(action: Dictionary) -> void:
@@ -384,18 +420,22 @@ func click_cell(c: Vector2i) -> void:
 				select(uv.unit_id)
 			elif u != null and _reach.has(c):
 				submit({"type": Types.MOVE, "unit": u.id, "to": c})
-			elif u != null and uv != null:
-				var vis := Combat.shot_targets(view.state, u).map(func(t: Unit) -> int: return t.id)
-				if vis.has(uv.unit_id):
-					targets.assign(vis)
-					target_idx = targets.find(uv.unit_id)
+			elif u != null and u.actions_left > 0 and (uv != null or view.state.grid.is_volatile(c)):
+				# Clicking an enemy or a fuel barrel in sight aims at it.
+				var picked: Variant = uv.unit_id if uv != null else c
+				var vis := shoot_candidates(u)
+				if vis.has(picked):
+					targets = vis
+					target_idx = targets.find(picked)
+					_ui_sound("ui_click")
 					_set_mode(Mode.SHOOT)
 		Mode.SHOOT:
-			if uv != null and targets.has(uv.unit_id):
-				if targets[target_idx] == uv.unit_id:
+			var picked: Variant = uv.unit_id if uv != null else c
+			if targets.has(picked):
+				if targets[target_idx % targets.size()] == picked:
 					confirm_shot()
 				else:
-					target_idx = targets.find(uv.unit_id)
+					target_idx = targets.find(picked)
 					refresh()
 		Mode.TARGET_UNIT:
 			if uv != null:

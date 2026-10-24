@@ -272,10 +272,10 @@ static func _build() -> Dictionary:
 	t["fuel_barrel"] = {"name": "Fuel barrel", "kind": "terrain", "icon": "barrel", "tone": "danger",
 		"line": "Red drum, amber band. Shoot it or blast it and it goes up.",
 		"art": "",
-		"stats": [["%d" % Destruction.BARREL.damage, "damage"], ["3x3", "blast"], ["%d" % Destruction.BARREL_FIRE_TURNS, "turns of fire"]],
-		"more": ["Any soldier can Shoot barrel: it always hits and ends the turn.", "Barrels in the blast go off too, and fire next to one sets it off.", "Until then it's half {cover}."],
-		"see": ["rubble", "cover"],
-		"aliases": ["Fuel barrels", "Barrel", "Barrels", "Shoot barrel"]}
+		"stats": [["%d" % Destruction.BARREL.damage, "damage"], ["3x3", "blast"], ["+%d" % Destruction.BARREL_AIM, "aim to hit"]],
+		"more": ["Shoot and pick it like any target (Tab cycles to it). A miss leaves it standing.", "The blast burns for %d turns. Barrels in it go off too, and fire next to one sets it off." % Destruction.BARREL_FIRE_TURNS, "On {overwatch}, a soldier shoots the barrel instead when the enemy it reacts to stands in the blast and no squadmate does.", "Until then it's half {cover}."],
+		"see": ["rubble", "cover", "hit_chance"],
+		"aliases": ["Fuel barrels", "Barrel", "Barrels", "Fuel drum"]}
 	t["rubble"] = {"name": "Rubble", "kind": "terrain", "icon": "charge", "tone": "amber",
 		"line": "Explosives break terrain in steps you can see.",
 		"art": "",
@@ -287,8 +287,8 @@ static func _build() -> Dictionary:
 		"line": "End the turn watching: shoot the first enemy that moves in sight.",
 		"art": "overwatch",
 		"stats": [["1", "reaction shot"], ["-%d" % Combat.REACTION_PENALTY, "aim"]],
-		"more": ["Fires in the enemy phase.", "A {suppress|Suppressed} soldier loses their overwatch."],
-		"see": ["suppress", "hit_chance", "tag_overwatch"],
+		"more": ["Fires in the enemy phase.", "If the enemy stands in a {fuel_barrel|fuel barrel}'s blast (and no squadmate does), the shot goes into the barrel.", "A {suppress|Suppressed} soldier loses their overwatch."],
+		"see": ["suppress", "hit_chance", "tag_overwatch", "fuel_barrel"],
 		"aliases": ["Reaction shot", "On overwatch"]}
 	t["concealed"] = {"name": "Concealed", "kind": "status", "icon": "concealed", "tone": Styles.STEALTH,
 		"line": "The Infected haven't seen the squad yet. Most missions start this way.",
