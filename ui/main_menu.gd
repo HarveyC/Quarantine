@@ -14,6 +14,7 @@ signal class_picked(kind: String)
 
 const Styles := preload("res://ui/styles.gd")
 const Palette := preload("res://view/palette.gd")
+const FieldHQ := preload("res://ui/meta/field_hq.gd")
 
 var _name: LineEdit
 var _address: LineEdit
@@ -28,6 +29,7 @@ var _class_row: HBoxContainer
 var _start_btn: Button
 var _start_run_btn: Button
 var _continue_btn: Button
+var _solo_btn: Button
 var _lobby_continue: CheckBox
 
 
@@ -66,8 +68,10 @@ func _build_menu(root: VBoxContainer) -> void:
 	_name = _field(_menu_box, "Your name", OS.get_environment("USER").capitalize() if OS.has_environment("USER") else "Player")
 	_continue_btn = _button(_menu_box, "Continue run")
 	_continue_btn.pressed.connect(func() -> void: continue_requested.emit())
-	var solo_btn := _button(_menu_box, "Solo run")
-	solo_btn.pressed.connect(func() -> void: run_requested.emit(1))
+	_solo_btn = _button(_menu_box, "Solo run")
+	_solo_btn.pressed.connect(func() -> void: run_requested.emit(1))
+	var hq_btn := _button(_menu_box, "Field HQ  (unlocks, Severity, record)")
+	hq_btn.pressed.connect(open_field_hq)
 	var host_btn := _button(_menu_box, "Host online game")
 	host_btn.pressed.connect(func() -> void: host_requested.emit(_name.text, _port_value()))
 	var join_row := HBoxContainer.new()
@@ -125,9 +129,22 @@ func show_menu(message: String = "") -> void:
 	_continue_btn.visible = saved != null
 	if saved != null:
 		_continue_btn.text = "Continue run  (%s)" % RunSave.summary(saved)
+	_solo_btn.text = "Solo run" + _severity_tag()
 	_menu_box.visible = true
 	_lobby_box.visible = false
 	_status.text = message
+
+
+## Field HQ over the menu: Field Data unlocks, Severity, run record, achievements.
+func open_field_hq() -> void:
+	var hq := FieldHQ.new()
+	hq.closed.connect(func() -> void: if _menu_box.visible: show_menu(_status.text))
+	add_child(hq)
+
+
+func _severity_tag() -> String:
+	var n := Profile.severity()
+	return "  ·  Severity %d" % n if n > 0 else ""
 
 
 func show_status(message: String) -> void:
@@ -175,6 +192,7 @@ func show_lobby(net: NetSession) -> void:
 		_lobby_hint.text = "Waiting for the host to start. Squad: %s." % split
 	_start_btn.visible = net.is_host
 	_start_run_btn.visible = net.is_host
+	_start_run_btn.text = "Start run" + _severity_tag()
 	_lobby_continue.visible = net.is_host and RunSave.exists()
 	_lobby_title.text = "LOBBY  (%d/%d)" % [net.lobby.size(), NetSession.MAX_PLAYERS]
 
