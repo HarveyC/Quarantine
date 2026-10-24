@@ -20,11 +20,20 @@ var biome := ""
 var markers := {}
 ## Set by MapGen: the fight's objective ("skirmish", "extract", ...); "" for handmade maps.
 var objective := ""
-## High ground: level per cell (0 ground, 1 raised), row-major like `tiles`. Empty = all ground.
-## Change it in a fight only through Elevation.set_level so the view hears about it.
+## High ground: level per cell (0 ground, 1 roof, 2 upper roof), row-major like `tiles`.
+## Empty = all ground. Change it in a fight only through Elevation.set_level so the view hears about it.
 var levels := PackedByteArray()
-## Ladder cells (set of Vector2i): the only cells a unit can step between levels from or onto.
+## Ladder cells (set of Vector2i): climb one level to an orthogonal neighbour. Climbing costs
+## LADDER_COST steps.
 var ladders := {}
+## Stair cells (set of Vector2i): like ladders, but a normal step (the fast, wide way up).
+var stairs := {}
+## Fragile raised cells (set of Vector2i): scaffolds and catwalks that explosives collapse.
+var fragile := {}
+
+const MAX_LEVEL := 2
+## Steps a ladder climb costs (going up or down a ladder).
+const LADDER_COST := 2
 
 
 static func from_rows(rows: PackedStringArray) -> Grid:
@@ -35,22 +44,45 @@ static func from_rows(rows: PackedStringArray) -> Grid:
 	for y in g.height:
 		assert(rows[y].length() == g.width, "map row %d has wrong width" % y)
 		for x in g.width:
-			var t := Types.Tile.FLOOR
+			var c := Vector2i(x, y)
 			match rows[y][x]:
-				"#": t = Types.Tile.WALL
-				"=": t = Types.Tile.LOW
-				"P": g.player_spawns.append(Vector2i(x, y))
-				"E": g.enemy_spawns.append(Vector2i(x, y))
-				"^": g.set_level(Vector2i(x, y), 1)
-				"%":
-					t = Types.Tile.LOW
-					g.set_level(Vector2i(x, y), 1)
-				"/": g.ladders[Vector2i(x, y)] = true
-			g.tiles[y * g.width + x] = t
+				"P": g.player_spawns.append(c)
+				"E": g.enemy_spawns.append(c)
+			g.tiles[y * g.width + x] = g.read_glyph(c, rows[y][x])
 	return g
 
 
 ## Loads a map text file. Lines starting with ';' and blank lines are ignored.
+## Applies a map glyph's height layer to `c` (level, ladder, stairs, fragile) and returns its tile.
+## Glyphs: # wall, = low cover; ^ roof (L1), % low cover on a roof, ~ fragile roof (scaffold),
+## 2 upper roof (L2), $ low cover on L2; / ladder and s stairs on the ground (up to L1),
+## | ladder and S stairs on a roof (up to L2). Anything else is ground floor.
+func read_glyph(c: Vector2i, ch: String) -> int:
+	match ch:
+		"#": return Types.Tile.WALL
+		"=": return Types.Tile.LOW
+		"^": set_level(c, 1)
+		"~":
+			set_level(c, 1)
+			fragile[c] = true
+		"%":
+			set_level(c, 1)
+			return Types.Tile.LOW
+		"2": set_level(c, 2)
+		"$":
+			set_level(c, 2)
+			return Types.Tile.LOW
+		"/": ladders[c] = true
+		"s": stairs[c] = true
+		"|":
+			set_level(c, 1)
+			ladders[c] = true
+		"S":
+			set_level(c, 1)
+			stairs[c] = true
+	return Types.Tile.FLOOR
+
+
 static func load_file(path: String) -> Grid:
 	var rows := PackedStringArray()
 	for line in FileAccess.get_file_as_string(path).split("\n"):
@@ -65,7 +97,7 @@ func to_dict() -> Dictionary:
 	return {"width": width, "height": height, "tiles": tiles,
 		"player_spawns": player_spawns.duplicate(), "enemy_spawns": enemy_spawns.duplicate(),
 		"biome": biome, "markers": markers.duplicate(true), "objective": objective,
-		"levels": levels, "ladders": ladders.keys()}
+		"levels": levels, "ladders": ladders.keys(), "stairs": stairs.keys(), "fragile": fragile.keys()}
 
 
 static func from_dict(d: Dictionary) -> Grid:
@@ -81,6 +113,10 @@ static func from_dict(d: Dictionary) -> Grid:
 	g.levels = d.get("levels", PackedByteArray())
 	for c in d.get("ladders", []):
 		g.ladders[c] = true
+	for c in d.get("stairs", []):
+		g.stairs[c] = true
+	for c in d.get("fragile", []):
+		g.fragile[c] = true
 	return g
 
 
@@ -101,7 +137,7 @@ func is_walkable(c: Vector2i) -> bool:
 	return tile(c) == Types.Tile.FLOOR
 
 
-## 0 for ground, 1 for high ground (out of bounds counts as ground).
+## 0 for ground, 1 for a roof, 2 for an upper roof (out of bounds counts as ground).
 func level(c: Vector2i) -> int:
 	return levels[c.y * width + c.x] if not levels.is_empty() and in_bounds(c) else 0
 
@@ -120,6 +156,14 @@ func set_level(c: Vector2i, n: int) -> void:
 
 func is_ladder(c: Vector2i) -> bool:
 	return ladders.has(c)
+
+
+func is_stairs(c: Vector2i) -> bool:
+	return stairs.has(c)
+
+
+func is_fragile(c: Vector2i) -> bool:
+	return fragile.has(c)
 
 
 ## Whether the map has any high ground at all.
@@ -148,65 +192,103 @@ func cover_sides(c: Vector2i) -> Dictionary:
 	return out
 
 
-## One step from `from` in direction `d`. Changing level needs a ladder at either end and a
-## straight (not diagonal) step, unless `ignore_levels` (leapers, flyers).
-func _can_step(from: Vector2i, d: Vector2i, blocked: Dictionary, ignore_levels := false) -> bool:
+## Cost of one step from `from` in direction `d`, or -1 if it can't be taken.
+## Flat steps cost 1. Changing level must be straight (not diagonal): up one level only from or
+## onto stairs (cost 1) or a ladder (LADDER_COST); down the same way, or by dropping off any
+## ledge (one way, 1 per level dropped, no damage). `ignore_levels` (leapers, flyers) changes level
+## anywhere for 1. Diagonals never cut a wall corner nor a ledge corner.
+func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_levels := false) -> int:
 	var to := from + d
 	if not is_walkable(to) or blocked.has(to):
-		return false
+		return -1
 	var diagonal := d.x != 0 and d.y != 0
-	if not ignore_levels and level(from) != level(to):
-		if diagonal or not (is_ladder(from) or is_ladder(to)):
-			return false
-	# No corner cutting on diagonals (nor across a ledge).
 	if diagonal:
 		var a := from + Vector2i(d.x, 0)
 		var b := from + Vector2i(0, d.y)
 		if not is_walkable(a) or not is_walkable(b):
-			return false
-		if not ignore_levels and (level(a) != level(from) or level(b) != level(from)):
-			return false
-	return true
+			return -1
+		if not ignore_levels and (level(a) != level(from) or level(b) != level(from) or level(to) != level(from)):
+			return -1
+		return 1
+	var rise := level(to) - level(from)
+	if rise == 0 or ignore_levels:
+		return 1
+	if absi(rise) == 1 and (is_stairs(from) or is_stairs(to)):
+		return 1
+	if absi(rise) == 1 and (is_ladder(from) or is_ladder(to)):
+		return LADDER_COST
+	return -rise if rise < 0 else -1
 
 
-## Cells reachable from `from` within `max_steps` (8-way, each step costs 1).
-## `blocked` is a set (Dictionary keys) of occupied cells. Returns {cell: steps}, including `from`.
-## `ignore_levels` lets the walker change level anywhere (see _can_step).
+## Compatibility wrapper: whether the step can be taken at all.
+func _can_step(from: Vector2i, d: Vector2i, blocked: Dictionary, ignore_levels := false) -> bool:
+	return step_cost(from, d, blocked, ignore_levels) > 0
+
+
+## Cells reachable from `from` within `max_steps` movement (8-way; see step_cost).
+## `blocked` is a set (Dictionary keys) of occupied cells. Returns {cell: cost}, including `from`.
+## `ignore_levels` lets the walker change level anywhere (see step_cost).
 func reachable(from: Vector2i, max_steps: int, blocked: Dictionary = {}, ignore_levels := false) -> Dictionary:
-	var dist := {from: 0}
-	var frontier: Array[Vector2i] = [from]
-	while not frontier.is_empty():
-		var next: Array[Vector2i] = []
-		for c in frontier:
-			if dist[c] >= max_steps:
-				continue
-			for d in DIRS8:
-				var n := c + d
-				if not dist.has(n) and _can_step(c, d, blocked, ignore_levels):
-					dist[n] = dist[c] + 1
-					next.append(n)
-		frontier = next
-	return dist
+	return _search(from, max_steps, blocked, ignore_levels, Vector2i(-1, -1)).dist
 
 
-## Shortest path from `from` to `to`, excluding `from`. Empty if unreachable.
+## Cheapest path from `from` to `to`, excluding `from`. Empty if unreachable.
 func find_path(from: Vector2i, to: Vector2i, blocked: Dictionary = {}, ignore_levels := false) -> Array[Vector2i]:
-	var parent := {from: from}
-	var frontier: Array[Vector2i] = [from]
-	while not frontier.is_empty() and not parent.has(to):
-		var next: Array[Vector2i] = []
-		for c in frontier:
-			for d in DIRS8:
-				var n := c + d
-				if not parent.has(n) and _can_step(c, d, blocked, ignore_levels):
-					parent[n] = c
-					next.append(n)
-		frontier = next
 	var path: Array[Vector2i] = []
-	if not parent.has(to) or to == from:
+	if to == from:
+		return path
+	var r := _search(from, 1 << 20, blocked, ignore_levels, to)
+	if not r.parent.has(to):
 		return path
 	var c := to
 	while c != from:
 		path.push_front(c)
-		c = parent[c]
+		c = r.parent[c]
 	return path
+
+
+## Movement cost of walking `path` from `from` (sum of step_cost); -1 if a step is illegal.
+func path_cost(from: Vector2i, path: Array[Vector2i], blocked: Dictionary = {}, ignore_levels := false) -> int:
+	var total := 0
+	var c := from
+	for n in path:
+		var k := step_cost(c, n - c, blocked, ignore_levels) if maxi(absi(n.x - c.x), absi(n.y - c.y)) == 1 else -1
+		if k < 0:
+			return -1
+		total += k
+		c = n
+	return total
+
+
+## Dijkstra with small integer costs (bucket queue). Neighbours are tried in DIRS8 order and
+## buckets are FIFO, so results are deterministic on every peer. Stops early once `goal` settles.
+func _search(from: Vector2i, max_cost: int, blocked: Dictionary, ignore_levels: bool, goal: Vector2i) -> Dictionary:
+	var dist := {from: 0}
+	var parent := {from: from}
+	var buckets := [[from]]
+	var k := 0
+	while k < buckets.size():
+		var bucket: Array = buckets[k]
+		var i := 0
+		while i < bucket.size():
+			var c: Vector2i = bucket[i]
+			i += 1
+			if dist[c] != k:
+				continue
+			if c == goal:
+				return {"dist": dist, "parent": parent}
+			for d in DIRS8:
+				var cost := step_cost(c, d, blocked, ignore_levels)
+				if cost < 0:
+					continue
+				var n := c + d
+				var nd := k + cost
+				if nd > max_cost or (dist.has(n) and dist[n] <= nd):
+					continue
+				dist[n] = nd
+				parent[n] = c
+				while buckets.size() <= nd:
+					buckets.append([])
+				buckets[nd].append(n)
+		k += 1
+	return {"dist": dist, "parent": parent}

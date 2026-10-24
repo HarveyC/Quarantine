@@ -121,5 +121,5 @@ func test_every_map_has_climbable_high_ground() -> void:
 					if g.level(Vector2i(x, y)) > 0 and dist.has(Vector2i(x, y)):
 						roofs += 1
 			assert_true(roofs >= 4, tag + " has reachable high ground (got %d)" % roofs)
-			for l in g.ladders:
-				assert_true(g.level(l) == 0 and g.is_walkable(l), tag + " ladder on open ground")
+			for l in g.ladders.keys() + g.stairs.keys():
+				assert_true(g.is_walkable(l), tag + " ladder or stairs on open ground")

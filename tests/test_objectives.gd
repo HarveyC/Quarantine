@@ -96,7 +96,7 @@ func test_rescue_civilians_follow_and_reach_the_exit() -> void:
 	var sol := Objectives.soldiers(s)[0]
 	var far := start
 	for cell in Rules.move_range(s, c):
-		if Objectives._cheb(cell, start) >= 3 and s.unit_at(cell) == null:
+		if Objectives._cheb(cell, start) >= 2 and s.unit_at(cell) == null:
 			far = cell
 			break
 	_place(s, sol, far)
