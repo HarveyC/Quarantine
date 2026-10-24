@@ -8,7 +8,7 @@ const Icons := preload("res://ui/icons.gd")
 
 const HEIGHTS := {"tiers": 58, "cover": 66, "high_ground": 72, "flank": 74, "hit_roll": 44,
 	"damage": 50, "overwatch": 62, "lapse": 46, "turning": 40, "set": 30, "outbreak": 52,
-	"severity": 40, "hazards": 50, "rank": 42, "intel": 46, "healing": 30}
+	"severity": 40, "hazards": 50, "rank": 42, "intel": 46, "healing": 30, "tile": 44, "climb": 58}
 
 var kind := ""
 var ctx := {}
@@ -45,6 +45,8 @@ func _draw() -> void:
 		"rank": _rank()
 		"intel": _intel()
 		"healing": _healing()
+		"tile": _tile()
+		"climb": _climb()
 
 
 # --- helpers -------------------------------------------------------------------------------
@@ -355,18 +357,15 @@ func _severity() -> void:
 
 ## The three ground hazards as tiles with their numbers.
 func _hazards() -> void:
-	var kinds := [["fire", Color("#ff7a45"), "%d dmg" % Hazards.KINDS.fire.damage],
-		["spore", Styles.TEAL, "+%d inf" % Hazards.KINDS.spore.infection], ["acid", Color("#b8d14a"), "%d dmg" % Hazards.KINDS.acid.damage]]
+	var kinds := [["fire", "%d dmg" % Hazards.KINDS.fire.damage],
+		["spore", "+%d inf" % Hazards.KINDS.spore.infection], ["acid", "%d dmg" % Hazards.KINDS.acid.damage]]
 	var w := size.x / 3.0
 	for i in kinds.size():
 		var r := Rect2(i * w + 4, 4, 26, 26)
-		var col: Color = kinds[i][1]
-		draw_rect(r, Color(col, 0.25))
-		draw_rect(r, col, false, 1.5)
-		for k in 3:
-			draw_circle(r.position + Vector2(6 + k * 7, 13 + (k % 2) * 6), 2.2, col)
+		var col := TileOverlays.color(kinds[i][0])
+		TileOverlays.draw_swatch(self, r, kinds[i][0])
 		_text(Vector2(i * w + 36, 14), Hazards.KINDS[kinds[i][0]].name, 10, col)
-		_num(Vector2(i * w + 36, 28), kinds[i][2], 10, Styles.TEXT, HORIZONTAL_ALIGNMENT_LEFT, w - 36)
+		_num(Vector2(i * w + 36, 28), kinds[i][1], 10, Styles.TEXT, HORIZONTAL_ALIGNMENT_LEFT, w - 36)
 
 
 ## Fights along a run; stars where a rank-up comes.
@@ -417,3 +416,68 @@ func _healing() -> void:
 		else:
 			draw_rect(r, Styles.HP_OFF)
 	_num(Vector2(max_hp * 17 + 6, 17), "+%d%%" % roundi(RunRules.HEAL_AFTER_FIGHT * 100), 12, Styles.HP, HORIZONTAL_ALIGNMENT_LEFT, 60)
+
+
+## A strip of floor with the marking ctx.overlay (a TileOverlays key) painted on the middle
+## tiles, exactly as on the map; objective zones carry their map label over it.
+func _tile() -> void:
+	var key := str(ctx.get("overlay", ""))
+	var n := 7
+	var gap := 2.0
+	var t := minf(30.0, (size.x - 8.0 - gap * (n - 1)) / n)
+	var y := size.y - t - 4.0
+	var lit := [2, 3, 4]
+	for i in n:
+		var r := Rect2(4.0 + i * (t + gap), y, t, t)
+		if lit.has(i):
+			TileOverlays.draw_swatch(self, r, key)
+		else:
+			draw_rect(r, Color("24261f"))
+	var label := str(TileOverlays.KINDS.get(key, {}).get("label", ""))
+	if label != "":
+		var mid := 4.0 + 3 * (t + gap) + t * 0.5
+		_text(Vector2(mid, y - 1.0), label, 10, TileOverlays.color(key), HORIZONTAL_ALIGNMENT_CENTER, 120.0)
+
+
+## Side view of a way up (ctx.way: "ladder", "stairs" or "scaffold"): ground, a roof, and the
+## way between them, with its cost in moves.
+func _climb() -> void:
+	var way := str(ctx.get("way", "ladder"))
+	var ground := size.y - 8.0
+	var top := ground - 34.0
+	var x0 := 70.0
+	var x1 := 170.0
+	draw_line(Vector2(6, ground), Vector2(size.x - 6, ground), Styles.BORDER_STRONG, 1.5)
+	var roof := Rect2(x1, top, size.x - 6 - x1, ground - top)
+	if way == "scaffold":
+		# Thin planks on poles: it can come down.
+		draw_rect(Rect2(x0, top, x1 - x0 + 40, 4), Color("7a5a36"))
+		for px in [x0 + 4, x0 + 60, x1 + 30]:
+			draw_line(Vector2(px, top + 4), Vector2(px, ground), Styles.MUTED, 2.0)
+		for k in 3:
+			var cx := x0 + 18 + k * 28
+			draw_line(Vector2(cx, top + 8), Vector2(cx + 8, top + 16), Styles.DANGER, 1.5)
+			draw_line(Vector2(cx + 8, top + 16), Vector2(cx + 4, top + 22), Styles.DANGER, 1.5)
+		_text(Vector2(x0, top - 4), "collapses", 10, Styles.DANGER_TEXT)
+		_num(Vector2(x1 + 50, ground - 10), "-%d / level" % Elevation.FALL_DAMAGE_PER_LEVEL, 11, Styles.TEXT, HORIZONTAL_ALIGNMENT_LEFT, 90)
+		return
+	draw_rect(roof, Color(0.66, 0.78, 0.8, 0.12))
+	draw_line(roof.position, Vector2(roof.end.x, roof.position.y), Styles.BORDER_STRONG, 2.0)
+	var col := Styles.AMBER
+	if way == "stairs":
+		var steps := 4
+		for k in steps:
+			var sx := x1 - (steps - k) * 22.0
+			var sy := ground - (k + 1) * (ground - top) / steps
+			draw_line(Vector2(sx, sy), Vector2(sx + 22, sy), col, 2.0)
+			draw_line(Vector2(sx, sy), Vector2(sx, sy + (ground - top) / steps), col, 2.0)
+		_num(Vector2(x0 - 40, ground - 26), "1 move", 11, Styles.TEXT, HORIZONTAL_ALIGNMENT_LEFT, 60)
+	else:
+		for rx in [x1 - 16, x1 - 4]:
+			draw_line(Vector2(rx, ground), Vector2(rx, top - 6), col, 2.0)
+		var k := ground - 6
+		while k > top:
+			draw_line(Vector2(x1 - 16, k), Vector2(x1 - 4, k), col, 1.5)
+			k -= 7
+		_num(Vector2(x0 - 40, ground - 26), "%d moves" % Grid.LADDER_COST, 11, Styles.TEXT, HORIZONTAL_ALIGNMENT_LEFT, 60)
+	_text(Vector2(roof.position.x + 8, top + 16), "roof", 10, Styles.DIM)

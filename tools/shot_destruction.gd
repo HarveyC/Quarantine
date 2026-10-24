@@ -8,6 +8,7 @@ extends SceneTree
 const MAIN := preload("res://scenes/main.tscn")
 const Board := preload("res://view/board.gd")
 const InputController := preload("res://view/input_controller.gd")
+const Palette := preload("res://view/palette.gd")
 
 # Roof x2..5 / y2..4 with stairs at (6, 4); half cover (12, 2) beside fuel barrels (13, 2) and
 # (13, 3); a wall line on row 7 with a gap at (7, 7), a reinforced section at (13, 7), open from x 15.
@@ -133,7 +134,7 @@ func _aim(u: Unit, ability: String, cell: Vector2i) -> void:
 		return
 	_view.input.pending = {"type": Types.ABILITY, "unit": u.id, "ability": ability}
 	_view.input.mode = InputController.Mode.TARGET_CELL
-	_view.board.mark_cells([cell], Color(0.18, 0.95, 0.78, 0.35))
+	_view.board.mark_cells([cell], Color(Palette.AMBER, 0.22), "aim")
 	_view.input._show_blast(cell)
 	_view.camera_rig.focus(Board.cell_to_world(cell))
 

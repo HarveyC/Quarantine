@@ -16,6 +16,9 @@ const TipCard := preload("res://ui/tips/tip_card.gd")
 const Styles := preload("res://ui/styles.gd")
 
 const SHOW_DELAY := 0.35
+## Map tiles under the pointer wait a little longer, so sweeping the mouse across the board
+## doesn't flash cards.
+const WORLD_DELAY := 0.6
 const NEST_DELAY := 0.2
 const GRACE := 0.3
 const PAD_DWELL := 0.9
@@ -25,6 +28,10 @@ const MARGIN := 8.0
 var expanded := false
 ## Cards on screen, root first; each nested one was opened from a link in the one before.
 var cards: Array = []
+## Cards for things in the game world rather than on a control (map tiles): called with the
+## pointer position when it is over no control, returns {"terms": [...], "ctx": {}} or {}.
+## The mission's input controller sets it.
+var world_tip := Callable()
 
 var _layer: CanvasLayer
 var _root: Control
@@ -40,6 +47,8 @@ var _pad := false
 var _dwell := 0.0
 var _dwell_done := false
 var _last_mouse := Vector2.ZERO
+var _world: Control   # stands in as the source control for world_tip cards
+var _world_key := ""
 
 
 func _ready() -> void:
@@ -53,6 +62,10 @@ func _ready() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.theme = Styles.make_theme()
 	_layer.add_child(_root)
+	_world = Control.new()
+	_world.name = "WorldTip"
+	_world.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_world)
 	if not InputMap.has_action("tip_more"):
 		InputMap.add_action("tip_more")
 		var k := InputEventKey.new()
@@ -168,6 +181,8 @@ func _process(dt: float) -> void:
 		close_all()
 	_nest_cand = ""
 	var src := source_of(hov)
+	if src == null and hov == null:
+		src = _world_source(mouse)
 	if src != _blocked:
 		_blocked = null
 	elif src != null:
@@ -189,12 +204,29 @@ func _process(dt: float) -> void:
 		_cand = src
 		_cand_t = 0.0
 	_cand_t += dt
-	if _cand_t >= SHOW_DELAY and cards.is_empty():
+	if _cand_t >= (WORLD_DELAY if src == _world else SHOW_DELAY) and cards.is_empty():
 		var content := content_of(src)
 		if not content.is_empty():
 			_source = src
 			_away_t = 0.0
 			_open(content, Rect2(mouse, Vector2.ZERO), null)
+
+
+## The pointer is over the game world: the stand-in control carrying what world_tip says is
+## there, or null. Moving to a tile with other markings starts the wait again.
+func _world_source(mouse: Vector2) -> Control:
+	var tip: Variant = world_tip.call(mouse) if world_tip.is_valid() else {}
+	if not (tip is Dictionary) or tip.get("terms", []).is_empty():
+		_world_key = ""
+		return null
+	var key := str(tip.terms)
+	if key != _world_key:
+		_world_key = key
+		_cand = null
+		if _blocked == _world:
+			_blocked = null
+	_world.set_meta(Tips.META, {"terms": tip.terms, "ctx": tip.get("ctx", {})})
+	return _world
 
 
 func _update_expanded(dt: float, moved: bool) -> void:

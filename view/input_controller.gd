@@ -16,6 +16,8 @@ const UnitView := preload("res://view/unit_view.gd")
 const EventPlayer := preload("res://view/event_player.gd")
 const Sfx := preload("res://view/sfx.gd")
 const QuickMenu := preload("res://ui/quick_menu.gd")
+const Palette := preload("res://view/palette.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 var view: MissionView
 var selected_id := -1
@@ -28,6 +30,18 @@ var cell_targets: Array = []       # cells the pending cell ability can pick, wh
 var target_idx := 0
 var hover_cell := NO_CELL
 var _reach: Dictionary = {}
+
+
+func _ready() -> void:
+	var h := Tips.host()
+	if h != null:
+		h.world_tip = tile_tip
+
+
+func _exit_tree() -> void:
+	var h := Tips.host()
+	if h != null and h.world_tip == Callable(self, "tile_tip"):
+		h.world_tip = Callable()
 
 
 func can_act() -> bool:
@@ -261,7 +275,7 @@ func _update_hover(force: bool) -> void:
 			view.board.show_path(path, spotted_step(path))
 			view.board.show_cover(c, view.state.grid.cover_sides(c))
 		elif mode == Mode.TARGET_CELL:
-			view.board.mark_cells([c] + cell_targets + _item_area(c), Color(0.18, 0.95, 0.78, 0.35))
+			view.board.mark_cells([c] + cell_targets + _item_area(c), Color(Palette.AMBER, 0.22), "aim")
 			_show_blast(c)
 		elif mode == Mode.TARGET_UNIT:
 			_show_landing(u, c)
@@ -295,6 +309,53 @@ func _item_area(c: Vector2i) -> Array:
 			if cc != c and view.state.grid.in_bounds(cc) and view.state.grid.is_walkable(cc):
 				out.append(cc)
 	return out
+
+
+## The hover card for the map tile under the pointer (TermTips.world_tip): {} over a soldier or
+## an enemy (they have their own panel), a tile with nothing on it, or while aiming (the target
+## panel has the floor then; the map key still explains the markings).
+func tile_tip(_at: Vector2) -> Dictionary:
+	if view == null or view.state == null or view.board == null or mode != Mode.MOVE:
+		return {}
+	var c := _mouse_cell()
+	if c == NO_CELL:
+		return {}
+	var uv: UnitView = view.unit_view_at(c)
+	if uv != null and uv.visible:
+		return {}
+	var terms := tile_terms(c)
+	return {"terms": terms, "ctx": {}} if not terms.is_empty() else {}
+
+
+## Glossary keys for what is on `c`, most pressing first: the blast or aim being previewed, a
+## hazard, an objective zone, enemy sight, then the terrain (ways up, scaffolds, barrels, rubble).
+func tile_terms(c: Vector2i) -> Array:
+	var b: Board = view.board
+	var g: Grid = view.state.grid
+	var out: Array = []
+	if b.in_blast(c):
+		out.append("tile_blast")
+	var hz := b.hazard_at(c)
+	if hz != "":
+		out.append(TileOverlays.term(hz))
+	var z := b.zone_at(c)
+	if z != "":
+		out.append(TileOverlays.term(z))
+	if b.in_sight(c):
+		out.append("tile_sight")
+	if g.is_ladder(c):
+		out.append("ladder")
+	elif g.is_stairs(c):
+		out.append("stairs")
+	if g.is_fragile(c):
+		out.append("scaffold")
+	if g.is_volatile(c):
+		out.append("fuel_barrel")
+	elif g.rubble.has(c) or g.wear.has(c):
+		out.append("rubble")
+	if g.level(c) > 0 and not g.is_fragile(c):
+		out.append("high_ground")
+	return out.filter(func(k) -> bool: return Glossary.has(str(k)))
 
 
 ## Grenades and demo charges: what the blast would cover and break (Destruction.preview).

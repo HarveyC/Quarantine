@@ -308,6 +308,8 @@ static func _build() -> Dictionary:
 		"more": ["Harmless: it does no damage.", "Fire burns it away."],
 		"see": ["concealed", "hazards"],
 		"aliases": ["Smoke cloud", "Smoke grenade", "In smoke"]}
+	t["smoke"].art = "tile"
+	t["smoke"].art_ctx = {"overlay": "smoke"}
 	t["stunned"] = {"name": "Stunned", "kind": "status", "icon": "stun", "tone": "danger",
 		"line": "Loses its next turn. Flashbangs and the Warden's Shield Bash do it.",
 		"art": "",
@@ -347,8 +349,100 @@ static func _build() -> Dictionary:
 		"art": "hazards",
 		"stats": [["%d" % Hazards.KINDS.fire.damage, "fire dmg"], ["+%d" % Hazards.KINDS.spore.infection, "spore Infection"], ["%d" % Hazards.KINDS.acid.damage, "acid dmg"]],
 		"more": ["Spores don't hurt the Infected.", "Fire burns spores away."],
-		"see": ["burning", "infection"],
-		"aliases": ["Hazard", "Spores", "Acid", "Fire tiles", "Fire tile"]}
+		"see": ["hazard_fire", "hazard_spore", "hazard_acid", "burning", "infection"],
+		"aliases": ["Hazard"]}
+	# --- Map markings (hover a tile; the HUD legend lists the ones on screen) --------------
+	# Each card's diagram is the marking itself (TileOverlays), so the card matches the floor.
+	t["hazard_fire"] = {"name": "Fire", "kind": "hazard", "icon": "alert", "tone": TileOverlays.FIRE,
+		"line": "Burning ground in orange stripes. Hurts anyone who crosses it or ends a turn in it.",
+		"art": "tile", "art_ctx": {"overlay": "fire"},
+		"stats": [["%d" % Hazards.KINDS.fire.damage, "damage"], ["all", "teams"]],
+		"more": ["Burns spores and smoke away.", "Sets off a {fuel_barrel} next to it."],
+		"see": ["hazards", "burning", "fuel_barrel"],
+		"aliases": ["Fire tile", "Fire tiles", "Burning ground"]}
+	t["hazard_spore"] = {"name": "Spores", "kind": "hazard", "icon": "infection", "tone": "teal",
+		"line": "Teal dots and floating pods. Crossing or standing in them adds {infection}.",
+		"art": "tile", "art_ctx": {"overlay": "spore"},
+		"stats": [["+%d" % Hazards.KINDS.spore.infection, "Infection"], ["0", "damage"]],
+		"more": ["The Infected walk through them unharmed.", "Fire burns them away."],
+		"see": ["infection", "hazards", "hazard_fire"],
+		"aliases": ["Spore", "Spore cloud", "Spore tiles"]}
+	t["hazard_acid"] = {"name": "Acid", "kind": "hazard", "icon": "danger", "tone": TileOverlays.ACID,
+		"line": "Yellow-green puddles. Hurts anyone who crosses it or ends a turn in it.",
+		"art": "tile", "art_ctx": {"overlay": "acid"},
+		"stats": [["%d" % Hazards.KINDS.acid.damage, "damage"], ["all", "teams"]],
+		"more": ["Spitters leave it behind.", "Acid washes spores away."],
+		"see": ["hazards"],
+		"aliases": ["Acid pool", "Acid puddle"]}
+	t["tile_move"] = {"name": "Move range", "kind": "map marking", "icon": "move", "tone": TileOverlays.MOVE,
+		"line": "Pale tiles inside the outline: where this soldier can get to for one action.",
+		"art": "tile", "art_ctx": {"overlay": "move"},
+		"stats": [["1", "action"], ["%d" % Grid.LADDER_COST, "moves per ladder"]],
+		"more": ["Amber dots show the path, the big amber square is where they stop.", "Shields at the stop show its {cover}.",
+			"While {concealed}, red tiles with corner marks are where a sleeping enemy would see you."],
+		"see": ["actions", "cover", "tile_sight", "ladder"],
+		"aliases": ["Move tiles", "Movement range"]}
+	t["tile_sight"] = {"name": "Enemy sight", "kind": "map marking", "icon": "detected", "tone": "danger",
+		"line": "Red ground while the squad is {concealed}: a sleeping enemy would see a soldier here.",
+		"art": "tile", "art_ctx": {"overlay": "sight"},
+		"stats": [["%d" % int(Concealment.DETECT_RADIUS), "tiles out"]],
+		"more": ["Hover an enemy to see its own area.", "Walls, high ground and {smoke} cut it."],
+		"see": ["concealed", "smoke", "line_of_sight"],
+		"aliases": ["Sight area", "Red ground", "Red tiles"]}
+	t["tile_blast"] = {"name": "Blast", "kind": "map marking", "icon": "grenade", "tone": "danger",
+		"line": "Red crosshatch: everyone and everything here takes the explosion.",
+		"art": "tile", "art_ctx": {"overlay": "blast"},
+		"stats": [["3x3", "area"]],
+		"more": ["Red blocks break, drop or go off; amber blocks only crack.", "Explosions give away a {concealed} squad."],
+		"see": ["rubble", "fuel_barrel", "concealed"],
+		"aliases": ["Blast area", "Blast preview"]}
+	t["tile_aim"] = {"name": "Aim area", "kind": "map marking", "icon": "attack", "tone": "amber",
+		"line": "Amber squares with corner marks: where the item you are aiming lands, and what it covers.",
+		"art": "tile", "art_ctx": {"overlay": "aim"},
+		"stats": [],
+		"see": ["smoke", "tile_blast"],
+		"labels": ["Aim area"]}
+	var evac := TileOverlays.color("evac")
+	t["zone_evac"] = {"name": "Evac zone", "kind": "objective", "icon": "flag", "tone": evac,
+		"line": "Get every soldier onto the green pad by the end of a squad turn to win.",
+		"art": "tile", "art_ctx": {"overlay": "evac"},
+		"stats": [["%d" % Objectives.EXTRACT_TURNS, "turns to make it"]],
+		"more": ["When the dropship leaves, anyone off the pad is lost."],
+		"see": ["actions"],
+		"aliases": ["Evac", "Evac pad", "Evac zone"]}
+	t["zone_beacon"] = {"name": "Beacon", "kind": "objective", "icon": "flag", "tone": "amber",
+		"line": "Hold it: if only enemies stand in the amber zone when a round ends, the fight is lost.",
+		"art": "tile", "art_ctx": {"overlay": "beacon"},
+		"stats": [["%d" % Objectives.HOLD_TURNS, "rounds to hold"]],
+		"more": ["One soldier inside is enough to keep it."],
+		"see": ["overwatch"],
+		"aliases": ["Beacon zone"]}
+	t["zone_drop"] = {"name": "Drop zone", "kind": "objective", "icon": "flag", "tone": evac,
+		"line": "Civilians follow the nearest soldier. Lead them onto the green zone to rescue them.",
+		"art": "tile", "art_ctx": {"overlay": "exit"},
+		"stats": [["%d" % Objectives.CIVILIAN.max_hp, "civilian HP"]],
+		"more": ["If every civilian dies, killing every enemy still wins."],
+		"aliases": ["Drop zone"]}
+	t["ladder"] = {"name": "Ladder", "kind": "terrain", "icon": "rank", "tone": "text",
+		"line": "Climbs one level to the roof beside it. Slow, but the only way up some roofs.",
+		"art": "climb", "art_ctx": {"way": "ladder"},
+		"stats": [["%d" % Grid.LADDER_COST, "moves"], ["1", "level"]],
+		"see": ["stairs", "high_ground"],
+		"aliases": ["Ladders"]}
+	t["stairs"] = {"name": "Stairs", "kind": "terrain", "icon": "rank", "tone": "text",
+		"line": "The quick way up: one level for a normal step.",
+		"art": "climb", "art_ctx": {"way": "stairs"},
+		"stats": [["1", "move"], ["1", "level"]],
+		"more": ["Melee reaches across a stair step."],
+		"see": ["ladder", "high_ground"],
+		"aliases": ["Stair", "Staircase"]}
+	t["scaffold"] = {"name": "Scaffold", "kind": "terrain", "icon": "alert", "tone": "danger",
+		"line": "Wooden walkway up high. A frag grenade or airstrike brings it down.",
+		"art": "climb", "art_ctx": {"way": "scaffold"},
+		"stats": [["%d" % Elevation.FALL_DAMAGE_PER_LEVEL, "fall dmg / level"]],
+		"more": ["Anyone standing on it falls when it goes."],
+		"see": ["high_ground", "rubble"],
+		"aliases": ["Scaffolds", "Scaffolding", "Catwalk"]}
 	t["actions"] = {"name": "Actions", "kind": "rule", "icon": "turn", "tone": "amber",
 		"line": "Each soldier gets %d actions in a squad phase, in any order." % Types.ACTIONS_PER_TURN,
 		"art": "",
