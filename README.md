@@ -3,6 +3,32 @@
 Co-op tactics roguelike: a squad of Carriers fighting an infection that is also their power source.
 First playable MVP: one mission, four soldiers, local hot-seat co-op.
 
+## Download and play (no Godot needed)
+
+Grab the zip for your computer from the [Releases page](https://github.com/HarveyC/Quarantine/releases),
+unzip it and run the game. Each zip has a `HOW-TO-PLAY.txt`.
+
+- **Windows:** run `Quarantine.exe`. SmartScreen will warn because the game isn't code-signed yet:
+  click **More info → Run anyway**.
+- **Mac:** move `Quarantine.app` somewhere, then the first time **right-click → Open → Open**.
+  If macOS says the app "is damaged" or can't be opened (Gatekeeper quarantine on unsigned apps),
+  run once in Terminal: `xattr -cr /path/to/Quarantine.app`.
+- **Linux:** run `./Quarantine.x86_64`.
+
+### Publishing a build
+
+Push a version tag and GitHub Actions builds Windows, macOS (universal, ad-hoc signed) and Linux zips
+and attaches them to a release:
+
+```
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+To build locally instead: `release/build.sh /path/to/godot dev` (needs Godot 4.4.1 export templates);
+zips land in `build/dist/`.
+
+## Development
+
 - Engine: Godot 4.4 (GDScript)
 - Run the game: open the folder in Godot 4.4 and press F5
 - Run tests: `./tests/run.sh` (set `GODOT=/path/to/godot` if it is not on your PATH)

@@ -1,0 +1,21 @@
+QUARANTINE - co-op tactics in the infected zone
+
+START
+  Windows: double-click Quarantine.exe. If Windows SmartScreen says "Windows protected your PC",
+           click "More info" then "Run anyway" (the game isn't code-signed yet).
+  Mac:     drag Quarantine.app somewhere (e.g. Applications). The first time, RIGHT-click it and
+           choose Open, then Open again. If macOS says it "is damaged" or can't be opened, run this in
+           Terminal once:   xattr -cr /path/to/Quarantine.app
+  Linux:   run ./Quarantine.x86_64
+
+PLAY TOGETHER ONLINE
+  One person clicks "Host online game". Everyone else types the host's address and clicks Join.
+  The host's lobby shows the address to share. On the same Wi-Fi that address just works.
+  Over the internet the host needs to forward port 24680 on their router, or everyone installs
+  Tailscale (free) and uses the host's Tailscale address. The host clicks "Start mission".
+
+CONTROLS
+  Click a soldier, then click a highlighted tile to move.
+  1 Shoot (Enter fires)   2 Overwatch   3 Hunker   4+ abilities and mutations   Esc cancel
+  WASD pan, Q/E rotate, mouse wheel zoom. Press READY when you're done; enemies move once
+  every player is ready.
