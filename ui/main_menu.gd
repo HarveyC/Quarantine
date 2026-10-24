@@ -76,6 +76,9 @@ var _edit_player := 0
 var _sel := 0
 
 
+var _fit: W.FitBox
+
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -83,18 +86,22 @@ func _ready() -> void:
 	var bg := Backdrop.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	var fit := W.FitBox.new()
+	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fit = fit
+	add_child(fit)
 	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 110)
 	margin.add_theme_constant_override("margin_right", 90)
 	margin.add_theme_constant_override("margin_top", 60)
 	margin.add_theme_constant_override("margin_bottom", 64)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(margin)
+	fit.add_child(margin)
 	var root := Styles.vbox(20)
 	margin.add_child(root)
 	root.add_child(_wordmark())
-	var body := Control.new()
+	# Stacks the menu and the lobby, and tells the FitBox how much room they need.
+	var body := MarginContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(body)
@@ -253,6 +260,7 @@ func _menu_button(parent: Control, text: String, icon: String, cb: Callable, kin
 
 func _toggle_join() -> void:
 	_join_panel.visible = not _join_panel.visible
+	_fit.refit()
 	if _join_panel.visible:
 		Feel.enter(_join_panel)
 		Feel.sound("open")
@@ -354,6 +362,7 @@ func show_menu(message: String = "") -> void:
 	_menu_box.visible = true
 	_lobby_box.visible = false
 	_join_panel.visible = false
+	_fit.refit()
 	show_status(message)
 	if is_inside_tree():
 		Feel.deal(_menu_box.get_child(0).get_children(), 0.035)
@@ -519,6 +528,7 @@ func _render_lobby(entries: Array, plan: Dictionary, room: int, first: bool) -> 
 	_menu_box.visible = false
 	_lobby_box.visible = true
 	_status.visible = false
+	_fit.refit()
 	var local := _net == null
 	_lobby_pips.set_values(NetSession.MAX_PLAYERS, entries.size(), 0, Styles.AMBER)
 	_lobby_count.text = "%d / %d" % [entries.size(), NetSession.MAX_PLAYERS]
@@ -852,6 +862,9 @@ func _class_tile(k: String, on: bool) -> Button:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(l)
 	b.add_child(v)
+	# The tile widens for a long class name at a big text size.
+	var text_w := l.get_theme_font("font").get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, l.get_theme_font_size("font_size")).x
+	b.custom_minimum_size.x = maxf(118.0, text_w + 28.0)
 	b.pressed.connect(func() -> void:
 		Feel.sound("pick")
 		var kinds := _current_squad()

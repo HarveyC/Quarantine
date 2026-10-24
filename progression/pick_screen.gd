@@ -141,10 +141,18 @@ func _card(icon: String, title: String, col: Color, chips: Array, desc: String, 
 	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 14)
 	b.add_child(box)
 	var head := Styles.hbox(10)
-	head.add_child(W.Icon.new(icon, col, 24, 1.8))
-	head.add_child(Styles.caps(title, 20))
+	var ic := W.Icon.new(icon, col, 24, 1.8)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	head.add_child(ic)
+	var name := Styles.keep_words(Styles.caps(title, 20))
+	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name.custom_minimum_size.x = 60
+	head.add_child(name)
 	box.add_child(head)
-	var cr := Styles.hbox(6)
+	var cr := HFlowContainer.new()
+	cr.add_theme_constant_override("h_separation", 6)
+	cr.add_theme_constant_override("v_separation", 6)
 	for c in chips:
 		if c is Control:
 			cr.add_child(c)
@@ -152,6 +160,10 @@ func _card(icon: String, title: String, col: Color, chips: Array, desc: String, 
 	var d := Styles.label(desc, 14, Styles.DIM)
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(d)
+	# The card is a Button (for its hover look), which doesn't size to what it holds: grow it
+	# to fit the text, so big text sizes push the card taller instead of spilling out.
+	box.minimum_size_changed.connect(func() -> void:
+		b.custom_minimum_size = Vector2(250, maxf(150.0, box.get_combined_minimum_size().y + 28.0)))
 	b.pressed.connect(func():
 		Feel.sound("pick")
 		on_pick.call())

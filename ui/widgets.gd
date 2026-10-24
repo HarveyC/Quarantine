@@ -318,6 +318,50 @@ class Icon extends Control:
 		Icons.draw(self, id, Rect2(Vector2.ZERO, size), color, width)
 
 
+## Holds a screen's layout at full size and shrinks it evenly when it needs more room than it
+## has (Largest text on a small window), so nothing runs off the edge. Reports no minimum size
+## of its own: put it at the root of a full-screen layout.
+class FitBox extends Container:
+	var _fitting := false
+	var _scale := 1.0
+	var _for_size := Vector2.ZERO
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _get_minimum_size() -> Vector2:
+		return Vector2.ZERO
+
+	func _notification(what: int) -> void:
+		if what != NOTIFICATION_SORT_CHILDREN or size.x <= 0 or size.y <= 0 or _fitting:
+			return
+		_fitting = true
+		if size != _for_size:
+			_for_size = size
+			_scale = 1.0
+		for c in get_children():
+			if c is Control and (c as Control).visible:
+				_fit(c)
+		_fitting = false
+
+	## Starts over at full size, for when the content swaps (a panel opens or closes).
+	func refit() -> void:
+		_for_size = Vector2.ZERO
+		queue_sort()
+
+	## Wrapped and flowing content needs less height when it gets more width, so the scale only
+	## ever steps down for a given box size: it settles instead of flickering between two fits.
+	func _fit(c: Control) -> void:
+		for i in 6:
+			fit_child_in_rect(c, Rect2(Vector2.ZERO, size / _scale))
+			c.scale = Vector2(_scale, _scale)
+			var need := c.get_combined_minimum_size()
+			var next := minf(1.0, minf(size.x / maxf(need.x, 1.0), size.y / maxf(need.y, 1.0)))
+			if next >= _scale - 0.002:
+				break
+			_scale = next
+
+
 ## Round class-icon tile used on soldier cards: a dark disc with a coloured ring.
 static func glyph(kind: String, col: Color, px := 46.0, border := Styles.BORDER_STRONG) -> PanelContainer:
 	var p := PanelContainer.new()

@@ -128,6 +128,7 @@ func refresh(view: MissionView) -> void:
 		_class.text = "%s  ·  %s" % [UnitData.SOLDIERS.get(u.kind, {}).get("name", u.kind.capitalize()), Weapons.of(u).name]
 		_ap.set_values(2, u.actions_left)
 		_hp.set_values(u.max_hp, u.hp, 0, Styles.DANGER if u.hp * 3 <= u.max_hp else Styles.HP)
+		_fit_soldier_box()
 		_place(input.actions(), input, can_act)
 	# Ready applies to the owner of the selected soldier, else the first local player.
 	var p := ready_player(view)
@@ -170,6 +171,16 @@ func ready_button() -> Control:
 	return _ready
 
 
+## Sits the name / class / HP block just above the portrait, centred, however tall and wide a
+## big text size makes it.
+func _fit_soldier_box() -> void:
+	_soldier_box.size = Vector2.ZERO
+	var need := _soldier_box.get_combined_minimum_size()
+	var sz := Vector2(maxf(260.0, need.x), maxf(88.0, need.y))
+	_soldier_box.size = sz
+	_soldier_box.position = Vector2(HUB.x - sz.x * 0.5, HUB.y - PORTRAIT * 0.5 - 8.0 - sz.y)
+
+
 ## Fans the buttons along the arc, evenly from left to right.
 func _place(actions: Array, input: InputController, can_act: bool) -> void:
 	var n := actions.size()
@@ -184,6 +195,19 @@ func _place(actions: Array, input: InputController, can_act: bool) -> void:
 		var b: Control = _placeholder(px) if actions[i] == null else _button(input, actions[i], can_act, px)
 		b.position = at - Vector2(px, px) * 0.5
 		_buttons.add_child(b)
+		_clear_caption(b)
+
+
+## A caption that would run into the soldier's name block moves above its button instead.
+func _clear_caption(b: Control) -> void:
+	if not _soldier_box.visible:
+		return
+	var box := Rect2(_soldier_box.position, _soldier_box.size).grow(4.0)
+	for l in b.get_children():
+		if l is Label and l.has_meta("caption"):
+			var h: float = (l as Label).get_combined_minimum_size().y
+			if box.intersects(Rect2(b.position + l.position, Vector2(l.size.x, h))):
+				l.position.y = -h - 4.0
 
 
 func _placeholder(px: float) -> Control:
@@ -242,10 +266,12 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 	# The name sits under the button, outside the circle, so long names never clip.
 	var l := Styles.bold(_short(label), 12, fg if not active else Styles.AMBER)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.size = Vector2(130, 18)
-	l.position = Vector2((px - 130) * 0.5, px + 3)
 	l.add_theme_constant_override("outline_size", 6)
 	l.add_theme_color_override("font_outline_color", Color(Styles.GROUND, 0.85))
+	l.size = Vector2(maxf(130.0, l.get_combined_minimum_size().x), 0)
+	l.position = Vector2((px - l.size.x) * 0.5, px + 3)
+	l.set_meta("spill_ok", true)
+	l.set_meta("caption", true)
 	b.add_child(l)
 	if str(a.get("hotkey", "")) != "":
 		var kc := W.keycap(a.hotkey, 9, Styles.AMBER_DARK if active else Styles.TEXT,

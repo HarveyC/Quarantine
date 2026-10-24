@@ -19,9 +19,15 @@ func _init() -> void:
 func setup(r: RunState, s: Node) -> void:
 	run = r
 	session = s
+	var fit := W.FitBox.new()
+	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(fit)
+	var margin := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 40)
+	fit.add_child(margin)
 	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
+	margin.add_child(center)
 	var box := Styles.vbox(18)
 	center.add_child(box)
 	var head := Styles.caps("The bottom of the Bore", 16, Styles.DIM)

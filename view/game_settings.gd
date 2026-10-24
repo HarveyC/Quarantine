@@ -97,6 +97,9 @@ const DEFAULTS := {
 		"screen_shake": 1.0},
 }
 
+## Interface scale tops out where the UI still has a 1280x720 canvas (the base is 1600x900).
+const MAX_UI_SCALE := 1.25
+
 static var values := {}
 ## action -> Array of keycodes (with modifier masks), only when changed from the default.
 static var bindings := {}
@@ -234,7 +237,7 @@ static func _validate() -> void:
 	var a: Dictionary = values.accessibility
 	if not COLORBLIND.has(a.colorblind): a.colorblind = "off"
 	a.colorblind_strength = clampf(a.colorblind_strength, 0.0, 1.0)
-	a.ui_scale = clampf(a.ui_scale, 0.75, 1.5)
+	a.ui_scale = clampf(a.ui_scale, 0.75, MAX_UI_SCALE)
 	a.text_scale = clampf(a.text_scale, 0.85, 1.5)
 	a.screen_shake = clampf(a.screen_shake, 0.0, 1.0)
 
@@ -284,7 +287,7 @@ static func _apply_one(section: String, key: String) -> void:
 		["accessibility", "ui_scale"]:
 			var root := _root()
 			if root != null:
-				root.content_scale_factor = float(v)
+				root.content_scale_factor = minf(float(v), MAX_UI_SCALE)
 		["accessibility", "text_scale"]:
 			Styles.text_scale = float(v)
 	if section == "accessibility" and key.begins_with("colorblind") or [section, key] == ["graphics", "show_fps"]:

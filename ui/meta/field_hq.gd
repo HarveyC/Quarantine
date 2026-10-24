@@ -29,6 +29,9 @@ var _fd: Label
 var _tab_buttons := {}
 
 
+var _fit: Widgets.FitBox
+
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -37,13 +40,16 @@ func _ready() -> void:
 	bg.color = Color(Styles.GROUND, 0.97)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	var fit := Widgets.FitBox.new()
+	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fit = fit
+	add_child(fit)
 	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right"]:
 		margin.add_theme_constant_override("margin_" + side, 48)
 	margin.add_theme_constant_override("margin_top", 28)
 	margin.add_theme_constant_override("margin_bottom", 28)
-	add_child(margin)
+	fit.add_child(margin)
 	var root := Styles.vbox(16)
 	margin.add_child(root)
 	root.add_child(_header())
@@ -93,6 +99,8 @@ func show_tab(id: String) -> void:
 		"severity": _build_severity()
 		"record": _build_record()
 		"achievements": _build_achievements()
+	if _fit != null:
+		_fit.refit()
 
 
 func _header() -> Control:
@@ -298,7 +306,10 @@ func _build_severity() -> void:
 		var name := Styles.caps(lv.name, 16, Styles.TEXT)
 		name.custom_minimum_size = Vector2(170, 0)
 		row.add_child(name)
-		row.add_child(Styles.label(lv.rule, 16, Styles.DIM))
+		var rule := Styles.label(lv.rule, 16, Styles.DIM)
+		rule.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(rule)
 		Tips.terms(row, Glossary.scan(lv.rule))
 		box.add_child(row)
 	if top < Severity.MAX:
@@ -330,9 +341,13 @@ func _severity_step(n: int, pick: int, top: int) -> Control:
 	var icon := Widgets.Icon.new(Severity.LEVELS[n - 1].icon if n > 0 else "check", col if open else Color("2f3a4c"), 20)
 	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(icon)
-	var name := Styles.caps(Severity.LEVELS[n - 1].name if n > 0 else "Standard", 11, col if open else Color("39465a"))
+	var name := Styles.keep_words(Styles.caps(Severity.LEVELS[n - 1].name if n > 0 else "Standard", 11, col if open else Color("39465a")))
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(name)
+	# A Button doesn't size to what it holds: grow the step to fit two-line names.
+	box.minimum_size_changed.connect(func() -> void:
+		b.custom_minimum_size.y = maxf(116.0, box.get_combined_minimum_size().y + 12.0))
 	return b
 
 

@@ -50,7 +50,7 @@ func test_bad_values_fall_back_to_safe_ones() -> void:
 	assert_eq(GameSettings.get_value("graphics", "quality"), "high", "unknown preset")
 	assert_eq(GameSettings.get_value("graphics", "resolution"), "1600x900", "broken resolution")
 	assert_eq(GameSettings.game_speed(), 1.0, "speed")
-	assert_eq(GameSettings.get_value("accessibility", "ui_scale"), 1.5, "ui scale clamped")
+	assert_eq(GameSettings.get_value("accessibility", "ui_scale"), GameSettings.MAX_UI_SCALE, "ui scale clamped")
 	assert_eq(GameSettings.screen_shake(), 0.0, "shake clamped")
 	_restore()
 

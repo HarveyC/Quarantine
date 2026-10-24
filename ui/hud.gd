@@ -47,6 +47,7 @@ var _phase_enemy: PanelContainer
 var _objective: Label
 var _hostiles: Label
 var _session_label: Label
+var _banner_box: Control
 var _hint: PanelContainer
 var _hint_label: Label
 var _toast: Label
@@ -130,6 +131,7 @@ func _build_turn_banner() -> void:
 	box.add_child(obj)
 	_session_label = Styles.label("", 12, Styles.MUTED)
 	box.add_child(_session_label)
+	_banner_box = box
 	_corner(Control.PRESET_TOP_LEFT, box, Control.GROW_DIRECTION_END, Control.GROW_DIRECTION_END)
 
 
@@ -147,6 +149,10 @@ func _build_roster() -> void:
 	roster.unit_clicked.connect(_on_unit_clicked)
 	_corner(Control.PRESET_TOP_LEFT, roster, Control.GROW_DIRECTION_END, Control.GROW_DIRECTION_END)
 	roster.offset_top = 150
+	# The roster starts under the turn banner, which grows with the text size.
+	if _banner_box != null:
+		_banner_box.resized.connect(func() -> void:
+			roster.offset_top = maxf(150.0, _banner_box.position.y + _banner_box.size.y + 16.0))
 
 
 func _build_bottom() -> void:
