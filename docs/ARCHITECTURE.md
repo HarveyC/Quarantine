@@ -161,3 +161,188 @@ Online flow:
 The determinism this relies on: all randomness is `state.rng`, and the enemy/infection/AI code only
 ever reads `state`. The two-process check in `tests/net_playtest.sh` asserts a host and client play a
 whole match and end on the same checksum.
+
+## Run framework (roguelike run)
+
+A run is 3 acts of 5-row node maps (design doc, "Run structure" and "Run map and events").
+It follows the same pattern as a mission: a pure, serializable **`RunState`** changed only through
+**`RunRules.apply(run, action)`**, so online play replicates run actions exactly like mission
+actions, and save/resume is `RunState.to_dict()`. Solo (1 player) is a first-class case: the
+player owns all 4 soldiers, every vote resolves the moment they click, and no lobby or network is
+involved (`LocalSession`).
+
+### Modules and owners
+
+| Folder / class | Owner | What it does |
+|---|---|---|
+| `run/` `RunState`, `RunRules`, `RunMap`, `RunSoldier`, `RunHooks` | **run framework** | Run state, map generation, route vote, node flow, fight setup and results, income, save/resume |
+| `core/match_config.gd` `MatchConfig.for_fight` / `build` | run framework | Turns a fight node into a mission config, builds the GameState |
+| `gear/` `GearRun` (+ `ui/gear/` screens) | **gear, rewards and loadout** | Gear, stash, post-fight 1-of-3 rewards, Doctrines, loadout |
+| `progression/` `Progression` | **ranks, perks and mutations** | Soldier rank/perk/mutation record, rank-up picks, grafts |
+| `nodes/` `NodeRules` | **events, shop and hospital** | Event, Supply depot, Field hospital and Survivors nodes |
+| `enemies/` `FightBuilder`, `EnemyRoster`, `Encounter` | **enemy roster and bosses** | Enemy lists per fight, elites, bosses, Outbreak effects in a fight, spore zones |
+| `mapgen/` `MapGen`, `objectives/` `Objectives` | **tactical map variety** | Mission maps per biome/objective, objective win rules |
+
+**Late binding.** The framework calls the other modules through `RunHooks.call_static("Class",
+"method", [args], fallback)`, so `main` builds and the whole run plays (with stand-ins) before a
+module lands, and each module goes live the moment its class exists. Keep the class names and
+static signatures below exactly; add new functions freely.
+
+### RunState fields
+
+Framework-owned (read freely; change only through `RunRules` or the helpers below):
+`seed`, `rng` (all run randomness), `phase` (`RunState.Phase` MAP / NODE / FIGHT / REWARD / ENDED),
+`result` (`Types.Result`), `players: Array[int]` (everyone in the run, 0..n-1, solo = `[0]`),
+`host_player` (0, breaks split votes), `benched` (player -> true while absent), `act` (1-3),
+`row` (row of the current node, 0 before the act's first node), `node` (current node id, -1 at act
+start), `map` (Array of node Dictionaries, see below), `supplies` (shared), `intel` (shared),
+`outbreak`, `serum` (player -> samples; 2 samples = 1 dose), `fights_won`, `soldiers` (every soldier
+record of the run), `votes` (player -> node id), `steps` (queued steps of the current node),
+`fight_config` (the current fight's MatchConfig), `fight_snapshot` (GameState.to_dict for save),
+`seen_events`, `unknown_streak`, `echoes` (soldiers who Turned: `{sid, kind, name, act}`), `meta`
+(read-only copy of profile unlock flags such as `act1_boss_beaten`, `vector_unlocked`).
+
+Queries: `present_players()` (not benched; these vote), `is_solo()`, `squad()` (active records,
+max 4), `soldiers_of(player)` (active), `reserve_of(player)`, `get_soldier(sid)`, `get_node(id)`,
+`current_node()`, `reachable_nodes()`, `controller_of(record)` (owner, or the host while the owner
+is benched).
+
+Module-owned fields (opaque to the framework, saved and synced as-is):
+- `run.gear` — GearRun (stash, reward offers, pity).
+- `run.node_state` — NodeRules: the open event/depot/hospital/survivors screen. Cleared on node exit.
+- `run.modifiers` — effects for later, set by NodeRules/GearRun, consumed by the framework and
+  FightBuilder: `extra_enemies` (int), `enemies_dead_at_start` (int), `ambush` (bool),
+  `boss_health_mult` (float), `first_turn_action_loss` (Array of soldier ids), all one-shot (cleared
+  when the next fight starts and passed to FightBuilder as `spec.modifiers`); `force_nest_next`
+  (bool, the next route vote must pick a reachable nest); `remove_column` (framework, not yet);
+  `pending_fight` (`{"kind", "objective"}`: a fight runs right after the current node, with
+  rewards); `heal_after_fight` (float, default 0.25, a Doctrine may raise it); `doctrines` (Array of
+  ids, GearRun).
+
+### Soldier record
+
+`run.soldiers` holds Dictionaries (`RunSoldier.make(run, kind, owner, status)`):
+
+| key | owner | meaning |
+|---|---|---|
+| `id` | framework | soldier id (`sid`), stable for the run; units carry it as `unit.status["sid"]` |
+| `kind`, `name`, `owner` | framework | class id, surname, owning player |
+| `status` | framework | `active` (squad) / `reserve` / `dead` / `turned` / `gone` (`RunSoldier.ACTIVE`, ...) |
+| `hp`, `max_hp`, `infection` | framework | carried between fights (copied back from the unit after each fight) |
+| `fights` | framework | fights survived (XP) |
+| `injuries` (int), `scars` (Array), `sit_out` (int fights to miss, e.g. Checkpoint "held") | framework, written by NodeRules | |
+| `prog` | **Progression** | `Progression.new_record(kind)`; rank, perks, mutations, pending picks |
+| `gear` | **GearRun** | loadout: 4 slots + 2 pockets |
+
+A soldier who dies or Turns stays in the list with that status; their owner's first reserve recruit
+deploys in their place (`Progression.on_recruit_deployed(new_prog, lost_prog)` sets the rank one below).
+
+### Node map
+
+`RunMap.generate(rng, act)` returns the act's nodes. A node: `id`, `row` (1-5), `col`, `x` (0-1
+layout), `type` (`RunMap.SKIRMISH`/`NEST`/`EVENT`/`DEPOT`/`HOSPITAL`/`SURVIVORS`/`BOSS`/`UNKNOWN`),
+`links` (ids in the next row), `objective` (`extract`/`hold`/`rescue`/`purge` for fights, `boss`),
+`seed` (fight seed), `visited`, `hidden` (an unrevealed "?"), `resolved` (what a "?" became:
+`event`/`ambush`/`depot`/`survivors`). Show `RunMap.shown_type(n)` on the map. Rules from the doc:
+row 1 Skirmish, row 4 Field hospital, row 5 boss, rows 2-3 rolled from the act weights with the
+placement rules (no act-1 row-2 nest, no back-to-back depots/hospitals, a non-combat node on every
+path, a nest and a depot every act); links never cross, 1-2 out per node.
+
+### Run actions
+
+`{"type": String, "player": int, ...}` through `RunRules.validate(run, action) -> String` and
+`RunRules.apply(run, action) -> bool`. Built in:
+
+| type | fields | |
+|---|---|---|
+| `vote` | `node` | MAP phase, present players. Resolves when every present player has voted (solo: instantly); majority wins, a split goes to the host's pick |
+| `close_vote` | | host only: the 20 s vote timer ran out, resolve with the votes cast |
+| `reveal` | `node` | spend 1 Intel to reveal a "?" node |
+| `bench` | `target`, `on` | host only (sessions send it when a player drops or rejoins) |
+| `fight_end` | `outcome` | host only, once the mission is over: `RunRules.fight_outcome(state, bonus)` |
+
+Prefixed types are routed to the owning module's `validate(run, action) -> String` and
+`apply(run, action)`: **`gear_*` -> `GearRun`**, **`prog_*` -> `Progression`**, **`node_*` ->
+`NodeRules`**. A module checks its own phase rules (e.g. `gear_equip` in MAP and REWARD, depot
+buys only in NODE). Modules change shared values with the helpers `RunRules.add_supplies(run, n,
+reason)`, `add_intel`, `add_serum(run, player, samples, reason)`, `add_outbreak`, and
+`add_recruit(run, player, kind, infection)`, which emit the matching events. All randomness is
+`run.rng`.
+
+### Node flow
+
+```
+MAP --vote--> enter_node: Outbreak +1, "?" resolves, then the node's steps:
+  fight nodes (skirmish, ambush, nest, boss):  [fight, rewards]
+  other nodes (event, depot, hospital, survivors): [node]   (+ [fight, rewards] if pending_fight)
+FIGHT   fight_config is set; every peer builds the GameState with MatchConfig.build and plays it.
+        The host sends fight_end. Results: HP/Infection copied back, dead/Turned recorded,
+        recruits deploy, 25% heal, income (Skirmish 40, nest 50 + 1 Serum sample per soldier
+        controlled, boss 60 + 1 sample, +10 Supplies and +1 Intel for a bonus objective),
+        boss: Outbreak -3. Then GearRun.on_fight_won(run, "skirmish"|"nest"|"boss").
+        A lost fight (squad wiped) ends the run in DEFEAT; the act-3 boss ends it in VICTORY.
+REWARD  waits while GearRun.has_pending(run) or Progression.has_pending(run).
+NODE    NodeRules.enter(run, kind) opens the screen; waits until NodeRules.is_done(run).
+then    back to MAP, or after the boss the next act's map.
+```
+The run also starts in REWARD if `GearRun.starting_kit_offers(run)` leaves picks pending.
+
+### Hooks other modules implement
+
+All static. Missing ones fall back to the stand-in in brackets.
+
+- **GearRun**: `init_run(run)`, `starting_kit_offers(run)`, `on_fight_won(run, kind)` (roll 1-of-3
+  per soldier; after a boss also the Doctrine vote), `has_pending(run) -> bool` [false],
+  `apply_to_unit(unit, entry)` (entry is the squad entry, gear in `entry.gear`), `validate`/`apply`
+  for `gear_*`. Fight income is the framework's; a skipped pick's +10 Supplies is GearRun's (use
+  `RunRules.add_supplies`).
+- **Progression**: `new_record(kind) -> Dictionary` [`{kind, rank: 1}`], `apply_record(unit, prog)`,
+  `after_fight(prog, unit, fight_number)` (queue rank-up picks), `has_pending(run) -> bool` [false],
+  `on_recruit_deployed(new_prog, lost_prog)`, `validate`/`apply` for `prog_*` (perk picks, grafts,
+  Serum use).
+- **NodeRules**: `enter(run, kind)`, `is_done(run) -> bool` [true: the node is skipped],
+  `validate`/`apply` for `node_*`. Events that fight set `modifiers.pending_fight`.
+- **FightBuilder**: `build(spec) -> {"enemies": Array[String], "encounter": Dictionary}`
+  [`MatchConfig.default_enemies`]. `spec` = `{act, row, node, objective, outbreak, seed, players,
+  modifiers}`; deterministic from it. Optional `preview(spec) -> {"title", "elite"}` for the map.
+- **Encounter**: `setup(state, encounter)`, called by `MatchConfig.build` after the GameState exists.
+- **MapGen**: `generate(map_spec) -> Grid` [`maps/mission_01.txt`]. `map_spec` = `{biome ("wall" /
+  "port" / "bore" for acts 1-3), objective, seed, act, row, outbreak}`.
+
+Units for run fights are built by `Rules.new_mission_on_grid`; squad entries from a run carry
+`sid`, `name`, `hp`, `infection`, `prog`, `gear`, `first_turn_action_loss`, and
+`RunSoldier.apply_entry` applies them (Progression, then GearRun, then HP and Infection).
+
+### Screens and sessions
+
+The run view (framework) shows the node map and swaps in each phase's screen. A module screen is
+a `Control` with `setup(run: RunState, session)`; it reads `run`, listens to `run.event`, and sends
+input with `session.submit_run(action)`. Screens must work for **every player count**: draw a
+section for each player in `session.local_players()` (solo and hot-seat: all of them; online: one)
+and, for per-soldier picks, one row per soldier that player controls (`run.soldiers_of(p)`), so a
+solo player picks for all four. Votes and secret choices from one player resolve at once.
+Registered screens: REWARD -> `GearRun.reward_screen()` (returns the script), loadout button on the
+map -> `GearRun.loadout_screen()`, NODE -> `NodeRules.screen(kind)`, rank-up picks inside the
+reward screen via `Progression.pick_screen()`. Visual target: the approved UI mockups (dark
+see-through panels with amber corner marks, amber only for actionable things, teal only for
+Infection, player-colour stripes on soldier cards).
+
+Sessions (`LocalSession`, `NetSession`) gain `run: RunState`, `submit_run(action)` and a
+`run_changed` signal. Online: the host creates the run from a seed and broadcasts it; run actions
+go host -> validate -> broadcast with a sequence number and `run.checksum()`, the same path as
+mission actions (a gap or mismatch resyncs with `run.to_dict()`).
+
+### Run events
+
+`run.event(ev)`: `run_start` (`players`, `seed`), `act_start` (`act`), `vote` (`player`, `node`),
+`vote_result` (`node`, `votes`), `reveal` (`node`, `as`), `node_enter` (`node`, `node_type`, `row`),
+`step` (`step`), `map`, `fight_start` (`kind`, `objective`), `fight_end` (`result`, `kind`),
+`soldier_lost` (`sid`, `how`), `recruit` / `recruit_deployed`, `supplies` / `intel` / `outbreak`
+(`amount`, `total`, `reason`), `serum` (+ `player`), `bench` (`player`, `on`), `rejected`, `run_end`
+(`result`). Modules may add their own; list them here.
+
+### Save / resume
+
+`run.save_string()` / `RunState.from_save_string(text)` (Godot `var_to_str`, so ints and Vector2i
+survive). The host (or solo player) saves to `user://run_save.txt` after every run action and at
+mission end; a save made mid-fight carries `fight_snapshot` and resumes into that fight.

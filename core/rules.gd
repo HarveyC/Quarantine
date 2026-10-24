@@ -6,15 +6,23 @@ extends RefCounted
 
 ## Builds a mission from a map file. `squad` is an Array of {"kind": String, "player": int}.
 static func new_mission(map_path: String, squad: Array, enemies: Array[String], seed: int = 0) -> GameState:
+	return new_mission_on_grid(Grid.load_file(map_path), squad, enemies, seed)
+
+
+## Same, on a grid built elsewhere (MapGen). Squad entries from a run (they carry "sid") get
+## their persistent HP, Infection, perks and gear through RunSoldier.apply_entry.
+static func new_mission_on_grid(grid: Grid, squad: Array, enemies: Array[String], seed: int = 0) -> GameState:
 	var s := GameState.new()
 	s.rng.seed = seed if seed != 0 else randi()
-	s.grid = Grid.load_file(map_path)
+	s.grid = grid
 	var players := {}
 	for i in squad.size():
 		var u := UnitData.make(squad[i].kind, Types.Team.PLAYER)
 		u.owner_player = squad[i].player
 		players[u.owner_player] = true
 		s.add_unit(u, s.grid.player_spawns[i])
+		if squad[i].has("sid"):
+			RunSoldier.apply_entry(s, u, squad[i])
 	s.players.assign(players.keys())
 	for i in enemies.size():
 		var spawn := s.grid.enemy_spawns[i % s.grid.enemy_spawns.size()]
@@ -47,6 +55,8 @@ static func start_team_phase(s: GameState) -> void:
 		s.ready[p] = false
 	for u in s.living(Types.Team.PLAYER):
 		u.actions_left = Types.ACTIONS_PER_TURN
+		if s.turn == 1 and u.status.get("first_turn_action_loss", false):
+			u.actions_left -= 1   # event: Whispers, "fight it"
 		u.overwatch = false
 		u.hunkered = false
 		for k in u.cooldowns.keys():
