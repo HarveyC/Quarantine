@@ -8,12 +8,12 @@ const SOLDIERS := {
 	"medic": {"name": "Medic", "max_hp": 7, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["stim"]},
 	"breacher": {"name": "Breacher", "max_hp": 8, "aim": 60, "mobility": 6, "damage": [4, 7], "abilities": ["breach"]},
 	"hazmat": {"name": "Hazmat", "max_hp": 8, "aim": 60, "mobility": 4, "damage": [2, 4], "abilities": ["incinerate"]},
-	"vector": {"name": "Vector", "max_hp": 6, "aim": 65, "mobility": 6, "damage": [3, 5], "abilities": ["siphon"]},
+	"vector": {"name": "Vector", "max_hp": 7, "aim": 65, "mobility": 6, "damage": [3, 5], "abilities": ["siphon"]},
 }
 
 const ENEMIES := {
 	"runner": {"name": "Runner", "max_hp": 5, "aim": 70, "mobility": 7, "damage": [3, 4], "abilities": ["claw"], "melee_only": true},
-	"spitter": {"name": "Spitter", "max_hp": 4, "aim": 60, "mobility": 4, "damage": [2, 3], "abilities": ["spit"]},
+	"spitter": {"name": "Spitter", "max_hp": 4, "aim": 55, "mobility": 4, "damage": [2, 3], "abilities": ["spit"]},
 	# Enemy roster (enemies/ module). Extra keys: "infects" (false = hits deal damage only),
 	# "armour" (damage taken per hit is reduced by this), "static" (never moves or acts on its own).
 	"fallen": {"name": "Fallen", "max_hp": 6, "aim": 60, "mobility": 5, "damage": [3, 5], "abilities": [], "infects": false},
