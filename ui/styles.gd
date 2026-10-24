@@ -33,6 +33,14 @@ const GRAZE := Color("c9b57a")
 ## Player colours (index = player id). Blue and coral differ in lightness as well as hue.
 const PLAYERS: Array[Color] = [Color("79b0ff"), Color("ff9a6b"), Color("c9a8ff"), Color("e0d06a")]
 
+## Text size multiplier from Settings > Accessibility (GameSettings sets it). Screens pick it
+## up as they are built.
+static var text_scale := 1.0
+
+
+static func fs(size: int) -> int:
+	return roundi(size * text_scale)
+
 
 static func player_color(p: int) -> Color:
 	return PLAYERS[posmod(p, PLAYERS.size())]
@@ -54,7 +62,7 @@ static func panel_box(bg := BG, border := BORDER, radius := 0) -> StyleBoxFlat:
 static func make_theme() -> Theme:
 	var t := Theme.new()
 	t.default_font = FONT_BODY
-	t.default_font_size = 15
+	t.default_font_size = fs(15)
 	t.set_color("font_color", "Label", TEXT)
 	t.set_constant("outline_size", "Label", 0)
 	t.set_stylebox("panel", "PanelContainer", panel_box())
@@ -66,7 +74,7 @@ static func make_theme() -> Theme:
 	t.set_stylebox("disabled", "Button", panel_box(Color(0.06, 0.07, 0.065, 0.9), Color("222823")))
 	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	t.set_font("font", "Button", FONT_COND)
-	t.set_font_size("font_size", "Button", 16)
+	t.set_font_size("font_size", "Button", fs(16))
 	t.set_color("font_color", "Button", TEXT)
 	t.set_color("font_hover_color", "Button", TEXT)
 	t.set_color("font_disabled_color", "Button", Color("5b6052"))
@@ -87,7 +95,7 @@ static func make_theme() -> Theme:
 static func label(text: String, size := 15, color := TEXT) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", fs(size))
 	l.add_theme_color_override("font_color", color)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l

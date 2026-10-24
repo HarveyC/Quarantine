@@ -185,7 +185,7 @@ func _build_tiles() -> void:
 						_: _add_barrels(c, h, barrel_mats)
 				_:
 					if h % 23 == 0:
-						_add_goo(c, h, goo_mat, goo_lights < 8)
+						_add_goo(c, h, goo_mat, goo_lights < GameSettings.puddle_lights())
 						goo_lights += 1
 					elif h % 5 == 0:
 						_add_rubble(c, h, rubble)

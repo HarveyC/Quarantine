@@ -144,7 +144,7 @@ func start(s: GameState, begin := true) -> void:
 	player = EventPlayer.new()
 	player.name = "EventPlayer"
 	player.view = self
-	player.speed = AUTOPLAY_SPEED if autoplay else 1.0
+	player.speed = AUTOPLAY_SPEED if autoplay else GameSettings.game_speed()
 	add_child(player)
 	input = InputController.new()
 	input.name = "Input"
@@ -244,6 +244,7 @@ func _build_environment() -> void:
 	env.adjustment_brightness = 1.0
 	env.adjustment_contrast = 1.12
 	env.adjustment_saturation = 0.82
+	GameSettings.apply_environment(env)   # the quality preset drops the costly effects
 	var we := WorldEnvironment.new()
 	we.environment = env
 	_world.add_child(we)
