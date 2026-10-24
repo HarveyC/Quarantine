@@ -121,11 +121,21 @@ func _win_fight(run: RunState, bonus: bool = false) -> void:
 
 ## Makes every waiting Progression pick (first perk on offer, mutation offers skipped).
 func _take_rank_up_picks(run: RunState) -> void:
+	if run.phase == RunState.Phase.ENDED:
+		return
 	for r in run.squad():
-		while Progression.pending_picks(r) > 0:
-			var perk: String = Progression.perk_offer(run, r)[0]
-			assert_true(RunRules.apply(run, {"type": "prog_perk_pick", "player": run.controller_of(r), "sid": r.id, "perk": perk}), "perk pick")
-		while not r.prog.offers.is_empty():
+		var guard := 0
+		while Progression.pending_picks(r) > 0 and guard < 10:
+			guard += 1
+			var offer := Progression.perk_offer(run, r)
+			var act := {"type": "prog_perk_pick", "player": run.controller_of(r), "sid": r.id, "perk": offer[0] if offer.size() > 0 else ""}
+			var err := RunRules.validate(run, act)
+			assert_eq(err, "", "perk pick")
+			if err != "":
+				break
+			RunRules.apply(run, act)
+		while not r.prog.offers.is_empty() and guard < 20:
+			guard += 1
 			RunRules.apply(run, {"type": "prog_skip_offer", "player": run.controller_of(r), "sid": r.id})
 
 
