@@ -293,12 +293,12 @@ func _set_pips() -> void:
 	var have := int(ctx.get("count", need))
 	var n := maxi(need, have)
 	for i in n:
-		var r := Rect2(i * 30, 6, 24, 14)
+		var c := Vector2(10 + i * 26, 13)
 		if i < have:
-			draw_rect(r, col)
+			draw_circle(c, 9, col)
 		else:
-			draw_rect(r, Color(col, 0.6), false, 1.5)
-	var x := n * 30 + 6
+			draw_arc(c, 8.5, 0, TAU, 28, Color(col, 0.6), 1.5, true)
+	var x := n * 26 + 4
 	draw_line(Vector2(x, 13), Vector2(x + 22, 13), Styles.MUTED, 1.5)
 	_arrow_head(Vector2(x + 26, 13), Vector2.RIGHT, Styles.MUTED)
 	var on := have >= need
@@ -306,18 +306,23 @@ func _set_pips() -> void:
 	_text(Vector2(x + 58, 18), "bonus on" if on else "%d more" % (need - have), 10, col if on else Styles.MUTED)
 
 
-## Outbreak track with its stages; the marker sits on the run's value.
+## Outbreak track with its stages; the marker sits on the run's value. Stage names that don't
+## fit their segment are left to the current stage's label.
 func _outbreak() -> void:
 	var top := 16
 	var w := size.x - 4
 	var y := 20.0
 	var starts := [0, 3, 6, 9, 13]
+	var cur := RunRules.outbreak_stage(int(ctx.get("value", -1))) if ctx.has("value") else -1
+	var f: Font = Styles.FONT_COND_BOLD
 	for i in starts.size():
 		var a: float = 2 + w * starts[i] / float(top)
 		var b: float = 2 + w * (starts[i + 1] if i + 1 < starts.size() else top) / float(top)
 		var col := Styles.TEAL.lerp(Styles.DANGER, i / 4.0)
-		draw_rect(Rect2(a, y, b - a - 2, 8), Color(col, 0.35 + i * 0.15))
-		_text(Vector2(a, y + 22), RunRules.OUTBREAK_NAMES[i], 9, col.lightened(0.1), HORIZONTAL_ALIGNMENT_LEFT, b - a)
+		draw_rect(Rect2(a, y, b - a - 2, 8), Color(col, 0.35 + i * 0.15) if i != cur else col)
+		var name: String = RunRules.OUTBREAK_NAMES[i].to_upper()
+		if f.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, Styles.fs(9)).x <= b - a - 2 or i == cur:
+			_text(Vector2(a, y + 22), name, 9, col.lightened(0.15) if i == cur or cur < 0 else Color(col, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1)
 		_num(Vector2(a, y - 6), str(starts[i]), 9, Styles.MUTED, HORIZONTAL_ALIGNMENT_LEFT, 20)
 	if ctx.has("value"):
 		var x := 2 + w * clampf(float(ctx.value), 0, top) / float(top)

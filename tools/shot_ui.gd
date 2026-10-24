@@ -169,6 +169,12 @@ func _hover_tip(args: PackedStringArray) -> void:
 		await process_frame
 		# Rest the pointer on the nested card, as a player following the link would.
 		_move_pointer(tips.cards[-1].get_global_rect().position + Vector2(30, 30))
+		for i in 6:
+			await process_frame
+		for i in 4:
+			await process_frame
+			var h := root.gui_get_hovered_control()
+			print("[dbg] ", tips.cards.size(), " ", h, " ", h.get_path() if h else "", " ", tips.cards[-1].get_global_rect() if tips.cards.size() else "")
 		for i in 10:
 			await process_frame
 

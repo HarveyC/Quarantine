@@ -193,7 +193,7 @@ static func _build() -> Dictionary:
 	t["infection"] = {"name": "Infection", "kind": "meter", "icon": "infection", "tone": "teal",
 		"line": "The Bloom inside a soldier, 0 to 100. It only goes up on its own.",
 		"art": "tiers",
-		"stats": [["+%d" % Infection.DAMAGE_GAIN_BASE, "per Infected hit"], ["%d" % Infection.EXPOSED_AT, "{mutation} wakes"], ["%d" % Infection.TURNED_AT, "{turning|Turns}"]],
+		"stats": [["+%d" % Infection.DAMAGE_GAIN_BASE, "per hit taken"], ["%d" % Infection.EXPOSED_AT, "{mutation} wakes"], ["%d" % Infection.TURNED_AT, "{turning|Turns}"]],
 		"more": ["Each hit from the Infected adds %d, +%d per damage, %d at most." % [Infection.DAMAGE_GAIN_BASE, Infection.DAMAGE_GAIN_PER_DAMAGE, Infection.DAMAGE_GAIN_MAX],
 			"From %d a soldier can {lapse}." % Infection.MUTATING_AT,
 			"Mutating: +1 move. Critical: +1 move and +10 aim.",

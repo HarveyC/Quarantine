@@ -144,6 +144,7 @@ func _input(e: InputEvent) -> void:
 
 
 func _process(dt: float) -> void:
+	dt = minf(dt, 0.1)   # a frame hitch shouldn't close a card the pointer is travelling to
 	var vp := get_viewport()
 	if vp == null:
 		return
@@ -157,13 +158,14 @@ func _process(dt: float) -> void:
 			close_all()
 		return
 	cards = cards.filter(func(c) -> bool: return is_instance_valid(c))
-	if _source != null and (not is_instance_valid(_source) or not _source.is_visible_in_tree()):
-		close_all()
 	var hov := vp.gui_get_hovered_control()
 	var ci := _card_index(hov)
 	if ci >= 0:
+		# Reading a card keeps it open even if its source was rebuilt underneath (HUD refresh).
 		_on_card(ci, hov, dt)
 		return
+	if _source != null and (not is_instance_valid(_source) or not _source.is_visible_in_tree()):
+		close_all()
 	_nest_cand = ""
 	var src := source_of(hov)
 	if src != _blocked:

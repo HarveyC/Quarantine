@@ -159,14 +159,14 @@ func _term_block(box: VBoxContainer, k: String, inner: float, art_ctx: Dictionar
 		box.add_child(TipArt.new(art, actx, col, inner))
 	var stats: Array = e.get("stats", [])
 	if not stats.is_empty():
-		var row := Styles.hbox(0)
+		var row := Styles.hbox(10)
 		for i in stats.size():
 			var cell := Styles.vbox(0)
 			cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			cell.add_child(Styles.mono(str(stats[i][0]), 20, col if i == 0 else Styles.TEXT))
 			var l := Styles.caps(Glossary.plain(str(stats[i][1])), 10, Styles.MUTED, false)
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			l.custom_minimum_size.x = inner / stats.size() - 6
+			l.custom_minimum_size.x = (inner - 10 * (stats.size() - 1)) / stats.size()
 			cell.add_child(l)
 			row.add_child(cell)
 		box.add_child(row)
