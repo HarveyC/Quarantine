@@ -127,6 +127,23 @@ static func preview(record, id: String) -> Array[Dictionary]:
 			after[t] = after.get(t, 0) - 1
 	for t in GearData.tags_of(id):
 		after[t] = after.get(t, 0) + 1
+	return _diff(before, after)
+
+
+## Like `preview`, for carrying gun `id` ("" = the signature gun) instead of the current one.
+static func preview_gun(record, id: String) -> Array[Dictionary]:
+	var before := counts(record)
+	var after := before.duplicate()
+	var old := Weapons.tag_of(Loadout.gun(record))
+	if old != "":
+		after[old] = after.get(old, 0) - 1
+	var new := Weapons.tag_of(id)
+	if new != "":
+		after[new] = after.get(new, 0) + 1
+	return _diff(before, after)
+
+
+static func _diff(before: Dictionary, after: Dictionary) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for t in GearData.TAGS:
 		var a: int = before.get(t, 0)
