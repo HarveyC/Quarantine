@@ -11,6 +11,10 @@ signal start_requested
 signal start_run_requested
 signal leave_requested
 signal class_picked(kind: String)
+## Host a friends-only Steam lobby (only offered when Steam is running).
+signal steam_host_requested(name: String)
+## Open the Steam overlay to invite friends to our lobby.
+signal steam_invite_requested
 
 const Styles := preload("res://ui/styles.gd")
 const Palette := preload("res://view/palette.gd")
@@ -31,6 +35,8 @@ var _start_run_btn: Button
 var _continue_btn: Button
 var _solo_btn: Button
 var _lobby_continue: CheckBox
+var _steam_host_btn: Button
+var _invite_btn: Button
 
 
 func _ready() -> void:
@@ -65,14 +71,18 @@ func _build_menu(root: VBoxContainer) -> void:
 	_menu_box = VBoxContainer.new()
 	_menu_box.add_theme_constant_override("separation", 10)
 	root.add_child(_menu_box)
-	_name = _field(_menu_box, "Your name", OS.get_environment("USER").capitalize() if OS.has_environment("USER") else "Player")
+	var steam_name: String = _platform().player_name() if _platform() != null else ""
+	_name = _field(_menu_box, "Your name", steam_name if steam_name != "" else (OS.get_environment("USER").capitalize() if OS.has_environment("USER") else "Player"))
 	_continue_btn = _button(_menu_box, "Continue run")
 	_continue_btn.pressed.connect(func() -> void: continue_requested.emit())
 	_solo_btn = _button(_menu_box, "Solo run")
 	_solo_btn.pressed.connect(func() -> void: run_requested.emit(1))
 	var hq_btn := _button(_menu_box, "Field HQ  (unlocks, Severity, record)")
 	hq_btn.pressed.connect(open_field_hq)
-	var host_btn := _button(_menu_box, "Host online game")
+	_steam_host_btn = _button(_menu_box, "Host on Steam (invite friends)")
+	_steam_host_btn.pressed.connect(func() -> void: steam_host_requested.emit(_name.text))
+	_steam_host_btn.visible = _platform() != null and _platform().steam_ready()
+	var host_btn := _button(_menu_box, "Host online game (by address)")
 	host_btn.pressed.connect(func() -> void: host_requested.emit(_name.text, _port_value()))
 	var join_row := HBoxContainer.new()
 	join_row.add_theme_constant_override("separation", 8)
@@ -116,6 +126,8 @@ func _build_lobby(root: VBoxContainer) -> void:
 	_lobby_continue.text = "Continue the saved run"
 	_lobby_continue.focus_mode = Control.FOCUS_NONE
 	_lobby_box.add_child(_lobby_continue)
+	_invite_btn = _button(_lobby_box, "Invite Steam friends")
+	_invite_btn.pressed.connect(func() -> void: steam_invite_requested.emit())
 	_start_run_btn = _button(_lobby_box, "Start run")
 	_start_run_btn.pressed.connect(func() -> void: start_run_requested.emit())
 	_start_btn = _button(_lobby_box, "Quick mission (no run)")
@@ -184,7 +196,12 @@ func show_lobby(net: NetSession) -> void:
 		b.pressed.connect(func() -> void: class_picked.emit(k))
 		_class_row.add_child(b)
 	var split := "solo runs field all 4 soldiers" if net.lobby.size() == 1 else "one soldier each"
-	if net.is_host:
+	_invite_btn.visible = net.via_steam()
+	_invite_btn.disabled = net.steam_lobby() == 0
+	if net.via_steam():
+		_lobby_hint.text = ("Invite friends, or they can pick Join game on you in their Steam friends list. Squad: %s." if net.is_host
+			else "Waiting for the host to start. Squad: %s.") % split
+	elif net.is_host:
 		var addrs := NetSession.local_addresses()
 		_lobby_hint.text = "Friends join with your address: %s (port %d). Over the internet they need your public IP and port %d forwarded, or a shared LAN tool like Tailscale.\nSquad: %s." % [
 			", ".join(addrs) if not addrs.is_empty() else "?", int(_port_value()), int(_port_value()), split]
@@ -200,6 +217,10 @@ func show_lobby(net: NetSession) -> void:
 ## Host: whether to continue the saved run instead of starting a new one.
 func continue_saved() -> bool:
 	return _lobby_continue.visible and _lobby_continue.button_pressed
+
+
+func _platform() -> Node:
+	return get_node_or_null("/root/Platform")
 
 
 func _emit_join() -> void:
