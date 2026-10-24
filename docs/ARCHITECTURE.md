@@ -16,6 +16,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `combat/` | `Combat` | **combat** | LOS, cover, hit chance, shoot, overwatch, hunker, class abilities |
 | `infection/` | `Infection` | **infection** | Meter, tiers, mutation powers, Lapse rolls, Turning, cure |
 | `ai/` | `EnemyAI` | **ai** | Enemy and Lapsed-soldier decisions |
+| `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
 | `tests/` | `TestCase` | everyone | `tests/test_<module>.gd` per workstream |
 
@@ -111,6 +112,35 @@ New event types are fine; add them to this table.
 - **Hit chance extras**: `hit_chance` also returns `los`, and takes an optional 5th arg `reaction` (overwatch −15).
   `graze` is the width of the graze band above `hit`; `crit` is the crit chance given a hit.
   `Combat.melee_chance` gives claw odds.
+
+## Equipment (gear/)
+
+Run-level and pure data, like the rules core. Design: "Equipment and builds" in the design doc.
+
+- **Data** (`GearData`): `ITEMS` (37: name, tag, slot `weapon|ammo|armor|gadget`, rarity
+  `common|uncommon|rare`, desc, desc_mk2, optional flat `stats`/`stats_mk2`), `PROTOTYPES` (9: two `tags`,
+  rarity "prototype", start at Mk II, not sold), `CONSUMABLES` (with `price`), `TAGS` (the 8 capitalised
+  tag names) and `TAG_INFO` (colour, set bonus text). `price(id)`, `upgrade_price(id)` (Armorer).
+- **Loadout** (`Loadout`, on the run soldier record as `record.gear`):
+  `{"slots": {slot: {"id", "mk"} | null}, "pockets": [{"id", "charges"} | null]}`. Always go through
+  `Loadout.equip(run, record, id)` (duplicate -> Mk II; a different item in the slot goes to the stash,
+  or is scrapped for 10 Supplies if the stash is full), `unequip`, `upgrade(record, slot)`,
+  `take_from_stash`, `add_consumable`, `use_consumable`. The 4-item squad stash is `run.gear.stash`.
+- **Tags** (`GearTags`): `counts(record)` / `unit_counts(unit)` = gear + `Progression.tag_counts` /
+  `Progression.unit_tag_counts` (perks and awake mutations; loaded by path `res://progression/progression.gd`,
+  optional). `has_set`, `active_sets`, `ranked`, `qualified_prototypes`, `preview(record, id)` (threshold
+  preview for cards). Set bonus at 3, Prototype at two tags at 2.
+- **Draws** (`GearDraw`): tag weight = 1 + 2 per point (max +6); rarity odds per act with +2% Rare pity per
+  Common seen; `draw_item(rng, counts, rarity, exclude, only_tags)`; `depot_items(rng, squad_counts, act)`.
+- **Run hooks** (`GearRun`), reading `run.supplies`, `run.act`, `run.rng`, `run.soldiers` (records with
+  `id`, `kind`, `player`) and owning `run.gear`: `init_run(run)`, `starting_kit_offers(run)`,
+  `on_fight_won(run, "skirmish"|"nest"|"boss")` (one 1-of-3 offer per living soldier: gear 45%, perk 15%,
+  mutation 15%, consumable 15%, cache 10%; from the second fight an on-build card and a pivot card),
+  `all_picked(run)`, `apply_to_unit(unit, record)` when spawning a mission soldier (flat stats; stamps
+  `status["gear"]`, `["gear_tags"]`, `["pockets"]`, `["armor"]`), `sync_from_unit` after the mission.
+- **Run actions** (replicated like mission actions; `GearRun.handles(action)`, `validate`, `apply`):
+  `gear_pick {player, soldier, card (-1 = skip for +10 Supplies), to_stash?}`,
+  `gear_stash_take {player, soldier, index}`, `gear_unequip {player, soldier, slot}`. `player` -1 = anyone.
 
 ## View presentation (cinematics, animation, sound)
 
