@@ -196,3 +196,24 @@ func test_pending_items_never_drawn() -> void:
 	for i in 300:
 		var id := GearDraw.draw_item(rng, {}, ["common", "uncommon", "rare"][i % 3])
 		assert_true(not GearFx.is_pending(id), "%s is pending" % id)
+
+
+func test_sentry_turret_deploys_a_turret() -> void:
+	var s := _state()
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	_add(s, "runner", Types.Team.ENEMY, Vector2i(9, 2))
+	_gear(u, [["sentry_turret", 2]])
+	var a := {"type": Types.ABILITY, "unit": u.id, "ability": "gear:sentry_turret", "cell": Vector2i(8, 2)}
+	assert_eq(Rules.validate(s, a), "Too far", "range 3")
+	a.cell = u.pos
+	assert_eq(Rules.validate(s, a), "Cell is occupied", "needs an empty tile")
+	a.cell = Vector2i(4, 2)
+	assert_true(Rules.apply(s, a), "deployed")
+	var t := s.unit_at(Vector2i(4, 2))
+	assert_true(t != null and Deployables.is_deployable(t), "turret on the field")
+	assert_eq(t.aim, 70, "Mk II aim")
+	assert_eq(t.damage, Vector2i(3, 3), "Mk II damage")
+	assert_eq(int(t.status.expires_turn), s.turn + 4, "Mk II lasts 4 turns")
+	u.actions_left = 2
+	a.cell = Vector2i(3, 3)
+	assert_eq(Rules.validate(s, a), "Used up this fight", "once per fight")
