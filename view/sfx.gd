@@ -1,10 +1,10 @@
 extends Node
-## Sound effects and the ambience loop. All sounds are synthesized by tools/gen_sfx.py
-## into audio/ (no third-party audio). View-only: driven by the event player and UI,
-## never by the rules, so it cannot affect online sync.
+## Sound effects. All sounds are synthesized by tools/gen_sfx.py into audio/ (no third-party
+## audio). View-only: driven by the event player and UI, never by the rules, so it cannot
+## affect online sync. Music, ambience and enemy voices live in view/soundscape.gd.
 ##
 ## `play(name)` picks a free voice from a small pool; pitch is jittered a little so
-## repeated shots do not sound identical.
+## repeated shots do not sound identical. Voices play on the SFX bus, ui_* sounds on UI.
 
 const VOICES := 12
 const SOUNDS := [
@@ -24,7 +24,6 @@ static var muted := false
 
 var _streams: Dictionary = {}
 var _voices: Array[AudioStreamPlayer] = []
-var _ambience: AudioStreamPlayer
 var _rng := RandomNumberGenerator.new()
 
 
@@ -36,22 +35,15 @@ func _init() -> void:
 			_streams[s] = load(path)
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
+		p.bus = "SFX"
 		add_child(p)
 		_voices.append(p)
-	_ambience = AudioStreamPlayer.new()
-	_ambience.volume_db = -10.0
-	add_child(_ambience)
-	var amb: AudioStreamWAV = load("res://audio/ambience.wav") if ResourceLoader.exists("res://audio/ambience.wav") else null
-	if amb != null:
-		amb.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		amb.loop_begin = 0
-		amb.loop_end = amb.data.size() / 2
-		_ambience.stream = amb
 
 
 func _ready() -> void:
-	if _ambience.stream != null and not muted:
-		_ambience.play()
+	var ss := get_node_or_null("/root/Soundscape")
+	if ss != null:
+		muted = ss.is_muted()
 
 
 func has_sound(s: String) -> bool:
@@ -59,14 +51,15 @@ func has_sound(s: String) -> bool:
 
 
 ## Plays a sound. `delay` (seconds, real time) is for sounds that land after another,
-## e.g. an impact after the shot.
-func play(s: String, volume_db := 0.0, pitch_jitter := 0.06, delay := 0.0) -> void:
+## e.g. an impact after the shot. `bus` overrides the default (SFX, or UI for ui_* sounds).
+func play(s: String, volume_db := 0.0, pitch_jitter := 0.06, delay := 0.0, bus := "") -> void:
 	if muted or not _streams.has(s) or not is_inside_tree():
 		return
 	if delay > 0.0:
-		get_tree().create_timer(delay).timeout.connect(play.bind(s, volume_db, pitch_jitter, 0.0))
+		get_tree().create_timer(delay).timeout.connect(play.bind(s, volume_db, pitch_jitter, 0.0, bus))
 		return
 	var v := _free_voice()
+	v.bus = bus if bus != "" else ("UI" if s.begins_with("ui_") else "SFX")
 	v.stream = _streams[s]
 	v.volume_db = volume_db + LEVELS.get(s, 0.0)
 	v.pitch_scale = 1.0 + _rng.randf_range(-pitch_jitter, pitch_jitter)
@@ -77,14 +70,15 @@ func footstep() -> void:
 	play("step%d" % _rng.randi_range(1, 3), 0.0, 0.12)
 
 
+## Mutes everything (the Master bus, via the Soundscape so the choice is saved).
 func set_muted(on: bool) -> void:
 	muted = on
+	var ss := get_node_or_null("/root/Soundscape") if is_inside_tree() else null
+	if ss != null:
+		ss.set_muted(on)
 	if on:
-		_ambience.stop()
 		for v in _voices:
 			v.stop()
-	elif _ambience.stream != null and is_inside_tree():
-		_ambience.play()
 
 
 func _free_voice() -> AudioStreamPlayer:
