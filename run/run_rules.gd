@@ -430,6 +430,7 @@ static func add_recruit(run: RunState, player: int, kind: String = "", infection
 	var r := RunSoldier.make(run, kind, player, RunSoldier.RESERVE)
 	r.infection = infection
 	run.soldiers.append(r)
+	RunHooks.call_static("GearRun", "on_recruit", [run, r])
 	run.emit({"type": "recruit", "sid": r.id, "player": player, "kind": kind})
 	# A player with an empty slot (everyone dead) deploys at once.
 	if run.squad().size() < 4 and run.soldiers_of(player).is_empty():

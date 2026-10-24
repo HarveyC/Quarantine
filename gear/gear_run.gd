@@ -100,11 +100,28 @@ static func _rng(run) -> RandomNumberGenerator:
 	return r
 
 
-## Sets up run.gear and an empty loadout for every soldier.
+## Sets up run.gear and a loadout for every soldier (squad and reserve), each with its
+## starting consumable.
 static func init_run(run) -> void:
 	state(run)
 	for r in soldiers(run):
 		Loadout.of(r)
+		give_starter(run, r)
+
+
+## A recruit joining mid-run (RunRules.add_recruit) gets its starting consumable too.
+static func on_recruit(run, record) -> void:
+	Loadout.of(record)
+	give_starter(run, record)
+
+
+## One charge of the soldier's class consumable in a pocket (random fallback for other classes).
+static func give_starter(run, record) -> void:
+	var id: String = GearData.STARTER_CONSUMABLES.get(record.get("kind", ""), "")
+	if id == "":
+		var pool := GearData.STARTER_FALLBACK.filter(func(c): return not GearFx.is_pending(c))
+		id = pool[_rng(run).randi_range(0, pool.size() - 1)]
+	Loadout.add_consumable(record, id, GearData.STARTER_CHARGES)
 
 
 # --- Offers ----------------------------------------------------------------------------
