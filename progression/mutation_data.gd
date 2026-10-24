@@ -123,7 +123,7 @@ static func regular_pool(slot: String) -> Array[String]:
 	var out: Array[String] = []
 	for id in MUTATIONS:
 		var m: Dictionary = MUTATIONS[id]
-		if m.slot == slot and not m.get("bonded", false) and not m.get("vector", false):
+		if m.slot == slot and not m.get("bonded", false) and not m.get("vector", false) and not MetaUnlocks.is_locked(id):
 			out.append(id)
 	return out
 
@@ -131,7 +131,7 @@ static func regular_pool(slot: String) -> Array[String]:
 static func vector_pool() -> Array[String]:
 	var out: Array[String] = []
 	for id in MUTATIONS:
-		if MUTATIONS[id].get("vector", false):
+		if MUTATIONS[id].get("vector", false) and not MetaUnlocks.is_locked(id):
 			out.append(id)
 	return out
 
@@ -139,6 +139,6 @@ static func vector_pool() -> Array[String]:
 static func bonded_pool() -> Array[String]:
 	var out: Array[String] = []
 	for id in MUTATIONS:
-		if MUTATIONS[id].get("bonded", false):
+		if MUTATIONS[id].get("bonded", false) and not MetaUnlocks.is_locked(id):
 			out.append(id)
 	return out
