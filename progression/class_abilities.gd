@@ -235,10 +235,5 @@ static func _incinerate(s: GameState, u: Unit, cell: Vector2i) -> void:
 		"units": hit.map(func(x: Unit) -> int: return x.id), "damage": INCINERATE_DAMAGE})
 	for t in hit:
 		Rules.deal_damage(s, t, INCINERATE_DAMAGE, u)
-	Zones.burn_spores(s, cells)
-	var turns := 2 if Kit.has_perk(u, "napalm") else 1
-	var floor_cells: Array[Vector2i] = []
-	for c in cells:
-		if s.grid.is_walkable(c):
-			floor_cells.append(c)
-	Zones.add(s, "fire", floor_cells, Combat.phase_index(s) + 2 * turns, u, clean)
+	# Fire burns spores away (Hazards' "replaces" rule).
+	Hazards.add(s, cells, "fire", 2 if Kit.has_perk(u, "napalm") else 1, u.id, u.team if clean else -1)

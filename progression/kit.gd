@@ -13,7 +13,6 @@ extends RefCounted
 ##   "kit_mods": {stat: n}         stat deltas currently applied by refresh_stats
 ## Per-fight / per-turn bookkeeping keys are prefixed "k_" and are owned by this file.
 
-const FIRE_DAMAGE := 2
 const SHOULDER_DEFENSE := 10
 const STEADFAST_DEFENSE := 20
 const HOLD_LINE_HUNKER := 10
@@ -203,7 +202,6 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 
 static func before_action(s: GameState, u: Unit, action: Dictionary) -> void:
 	u.status["k_first_action"] = s.phase == Types.Phase.TEAM and u.actions_left >= Types.ACTIONS_PER_TURN
-	u.status.erase("k_fire_burned")
 	if is_soldier(u) and (action.get("type") in [Types.SHOOT, Types.ABILITY] or action.has("target") or action.has("cell")):
 		u.status["k_attacked"] = true
 
@@ -227,21 +225,13 @@ static func tiles_moved(s: GameState, u: Unit) -> int:
 	return int(u.status.get("k_moved_tiles", 0)) if u.status.get("k_moved_turn") == s.turn else 0
 
 
-## Called by Rules._do_move for each cell entered. Returns true if entering it hurts (so the
-## caller can flush the move event first); apply the effect with on_step.
-static func step_hazard(s: GameState, u: Unit, c: Vector2i) -> bool:
-	return Zones.burns(s, u, c) and not u.status.get("k_fire_burned", false)
-
-
-static func on_step(s: GameState, u: Unit, c: Vector2i) -> void:
+## Called by Rules._do_move for each cell entered (counts tiles for Steady Aim / Relocate).
+static func on_step(s: GameState, u: Unit, _c: Vector2i) -> void:
 	if is_soldier(u):
 		if u.status.get("k_moved_turn") != s.turn:
 			u.status["k_moved_turn"] = s.turn
 			u.status["k_moved_tiles"] = 0
 		u.status["k_moved_tiles"] = int(u.status.k_moved_tiles) + 1
-	if step_hazard(s, u, c):
-		u.status["k_fire_burned"] = true
-		Rules.deal_damage(s, u, FIRE_DAMAGE, null)
 
 
 # ---------------------------------------------------------------- odds and damage

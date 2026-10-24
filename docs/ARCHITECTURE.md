@@ -16,6 +16,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `combat/` | `Combat` | **combat** | LOS, cover, hit chance, shoot, overwatch, hunker, class abilities |
 | `infection/` | `Infection` | **infection** | Meter, tiers, mutation powers, Lapse rolls, Turning, cure |
 | `ai/` | `EnemyAI` | **ai** | Enemy and Lapsed-soldier decisions |
+| `hazards/` | `Hazards` | **maps** | Fire, spore and acid tiles: placement, hits, ageing |
 | `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
@@ -68,10 +69,13 @@ Rules for parallel work:
 | `mutation` | `unit`, `mutation`, plus `target`/`cell` and effect fields (`leech_bite`: `hit`, `damage`, `healed`; `acid_spit`: `damage`; `rally_musk`/`rampage`/`bloom`: `units`). Passives that trigger also emit one (`second_heart`, `bloom`, `host_body`, `martyr_strain`, `ride_the_wave`) |
 | `perk` | `unit`, `perk` (a perk that visibly triggered: `last_stand`, `double_tap`, `brink`) |
 | `heal` | `unit`, `amount`, `hp`, `source` (passive heals: `clotting_blood`, `regenerator`, `transfusion`, `feed`) |
-| `zone` / `zone_end` | `kind` (`fire`, `spore`, `spore_burst`, `growth`), `cells`, (`until`) |
+| `zone` / `zone_end` | `kind` (`spore_burst`, `growth`), `cells`, (`until`) |
 | `lapse` / `recover` / `turned` | `unit` |
 | `alerted` | `unit` (an Infected wakes up; emitted once per unit, see Enemy AI) |
 | `mission_end` | `result` (`Types.Result`) |
+| `hazard` | `kind`, `cells` (changed), `turns`, `source`, `spare` |
+| `hazard_tick` | `unit`, `kind`, `cell`, `damage`, `infection` (emitted before the resulting `damage` / `infection` events) |
+| `hazard_end` | `kind`, `cells` |
 | `gear` | `unit`, `item` (gear effect that isn't a shot: `choke` splash `target`/`damage`, `feral_grip` `heal`/`hp`, `close_set` `actions`, `mark_set` `target`, `suppress` `target`) |
 | `burning` / `burn` | `unit`, `turns` / `damage` (set Burning; the start-of-phase tick, before its `damage` event) |
 
@@ -130,7 +134,7 @@ Owner: **ranks, perks and mutations**. Design: the doc's Classes and Mutations s
 | `kit.gd` `Kit` | In-mission hooks for passives, perks and mutation passives (one-line calls from Rules, Combat, Infection, EnemyAI) |
 | `mutations.gd` `Mutations` | Active mutations: list, validate, apply (Infection delegates its mutation API here) |
 | `class_abilities.gd` `ClassAbilities` | Incinerate, Siphon, Purge, Decon Shower, Squad Leader's order, Talk Down, Serum (Combat delegates ids it doesn't know) |
-| `zones.gd` `Zones` | Timed ground effects in `GameState.zones`: fire, spore zones, Spore Burst clouds, Overgrowth walls |
+| `zones.gd` `Zones` | Spore Burst clouds and Overgrowth walls in `GameState.zones` (Incinerate fire and Overgrowth spores are `Hazards`) |
 | `pick_screen.gd` | Rank-up perk picks and mutation offers (`Progression.pick_screen()`, hosted in the reward screen) |
 
 **Unit status keys** (stamped by `Progression.apply_record`): `perks` (Array), `mutations` ({slot: id}), `rank`,
@@ -166,7 +170,7 @@ Run events: `perk_pick` (`sid`, `perk`), `graft` (`sid`, `mutation`), `cured` (`
 only stops dormant Infected spotting you beyond 4 tiles; Lure Scent's aim bonus applies to reaction shots at enemies
 within 6 tiles of you; Hollow Voice makes the target attack its nearest ally now and skip its next turn; Rampage moves
 without triggering overwatch; Overgrowth turns empty cells into walls (the view doesn't draw zones yet); Firewall
-doesn't make the AI avoid fire; fire burns a unit once per move and at the end of its side's turn.
+is just the line shape (the AI already avoids fire through Hazards); Spore Sense's double spore Infection isn't applied.
 
 ## Equipment (gear/)
 
@@ -305,6 +309,26 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 
 The view paints `evac` and `beacon` zones on the floor (`Board._build_zones`). For a look at a
 generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --screenshot-action=overview --screenshot=x.png`.
+
+## Tile hazards (hazards/)
+
+One shared system for ground effects; gear, class abilities, mutations, enemies and maps all call it.
+
+- **State**: `GameState.hazards` = `{cell: {"kind", "turns", "source", "spare"}}`, one hazard per cell,
+  saved in `to_dict` (so it is in the checksum and resyncs). No RNG.
+- **Kinds** (`Hazards.KINDS`): `fire` 2 damage, `spore` +10 Infection to soldiers (enemies immune),
+  `acid` 1 damage. Each lists the kinds it `replaces` on its cell (fire burns spores and acid away) and
+  an AI `avoid` weight. Deployables (`status.deployable`) and Turned units take no Infection.
+- **Add / remove**: `Hazards.add(s, cells, kind, turns, source_id := -1, spare_team := -1) -> Array[Vector2i]`
+  (walls skipped; `turns` in rounds, `Hazards.PERMANENT` = -1; `spare_team` makes it harmless to that
+  team, e.g. a squad-safe burn). Same kind keeps the longer duration. `Hazards.remove(s, cells, kind := "")`.
+- **Hits**: once per move per kind crossed or ended on (`Rules._do_move` -> `Hazards.on_move`), and at
+  the end of the unit's own side's turn while standing in one (`on_team_phase_end` from `Rules.set_ready`,
+  `on_enemy_phase_end` at the end of `Rules.run_enemy_phase`). Damage via `Rules.deal_damage` (no
+  source), Infection via `Infection.add`. Hazards age by one round at the end of the enemy phase.
+- **Queries**: `Hazards.at(s, cell)`, `cells_of(s, kind)`, `affects(u, kind)`, `avoid_cost(s, u, cell)`
+  (0 if harmless to `u`) for AI cell scoring.
+- **View**: `Board.set_hazard` / `clear_hazard` / `sync_hazards`, driven by the events above.
 
 ## View presentation (cinematics, animation, sound)
 

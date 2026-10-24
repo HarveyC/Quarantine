@@ -346,5 +346,4 @@ static func _overgrowth(s: GameState, u: Unit, cell: Vector2i) -> void:
 				spores.append(c)
 	var until := Combat.phase_index(s) + 4
 	Zones.add(s, "growth", walls, until, u)
-	if not spores.is_empty():
-		Zones.add(s, "spore", spores, until, u)
+	Hazards.add(s, spores, "spore", 2, u.id)

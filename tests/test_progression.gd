@@ -398,7 +398,7 @@ func test_incinerate_cone_fire_and_clean_burn() -> void:
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": hz.id, "ability": "incinerate", "cell": Vector2i(3, 0)}), "incinerate")
 	assert_eq(foe.hp, 17, "3 damage")
 	assert_eq(tr.hp, tr.max_hp - 3, "friendly fire")
-	assert_true(Zones.burns(s, foe, Vector2i(2, 0)), "fire left behind")
+	assert_eq(Hazards.at(s, Vector2i(2, 0)).get("kind", ""), "fire", "fire left behind")
 	assert_eq(hz.actions_left, 0, "ends turn")
 	assert_eq(hz.cooldowns.get("incinerate", 0), 2, "cooldown 2")
 	# Enemy moving through fire burns once per move.
@@ -466,12 +466,12 @@ func test_shared_blood_splits_damage() -> void:
 	assert_eq(b.hp, hb - 2, "partner takes half")
 
 
-func test_zones_survive_snapshot() -> void:
+func test_fire_survives_snapshot() -> void:
 	var s := _state(["hazmat"])
 	_enemy(s, "runner", Vector2i(8, 4))
 	Rules.apply(s, {"type": Types.ABILITY, "unit": _soldier(s, 0).id, "ability": "incinerate", "cell": Vector2i(3, 0)})
 	var copy := GameState.from_dict(s.to_dict())
-	assert_eq(copy.zones.size(), 1, "zone saved")
+	assert_true(copy.hazards.size() > 0, "fire saved")
 	assert_eq(copy.checksum(), s.checksum(), "same checksum")
 
 
