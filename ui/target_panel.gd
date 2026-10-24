@@ -1,0 +1,142 @@
+extends "res://ui/frame.gd"
+## Shot preview while aiming: big hit chance, crit and graze, a hit/graze/miss strip,
+## every modifier as a signed row, and the damage range shown on the target's HP pips.
+
+const W := preload("res://ui/widgets.gd")
+
+var _target: Label
+var _hit: Label
+var _crit: Label
+var _graze: Label
+var _strip: HBoxContainer
+var _rows: GridContainer
+var _dmg: Label
+var _hp: Control
+var _note: Label
+
+
+func _init() -> void:
+	super(Vector4(18, 14, 18, 14))
+
+
+func build() -> void:
+	name = "TargetPanel"
+	custom_minimum_size = Vector2(330, 0)
+	size_flags_horizontal = Control.SIZE_SHRINK_END
+	var box := Styles.vbox(8)
+	add_child(box)
+	var head := Styles.hbox(6)
+	_target = Styles.caps("", 13, Styles.DIM)
+	head.add_child(_target)
+	head.add_child(Styles.spacer())
+	head.add_child(W.keycap("Tab"))
+	head.add_child(Styles.caps("next", 11, Styles.MUTED, false))
+	box.add_child(head)
+	var big := Styles.hbox(18)
+	var hitcol := Styles.vbox(0)
+	hitcol.add_child(Styles.caps("Hit", 11, Styles.MUTED))
+	_hit = Styles.mono("", 54, Styles.AMBER)
+	hitcol.add_child(_hit)
+	big.add_child(hitcol)
+	var side := Styles.vbox(6)
+	side.alignment = BoxContainer.ALIGNMENT_END
+	var cr := Styles.hbox(8)
+	var cl := Styles.caps("Crit", 11, Styles.MUTED)
+	cl.custom_minimum_size = Vector2(40, 0)
+	cr.add_child(cl)
+	_crit = Styles.mono("", 16, Styles.TEXT)
+	cr.add_child(_crit)
+	side.add_child(cr)
+	var gr := Styles.hbox(8)
+	var gl := Styles.caps("Graze", 11, Styles.MUTED)
+	gl.custom_minimum_size = Vector2(40, 0)
+	gr.add_child(gl)
+	_graze = Styles.mono("", 16, Styles.GRAZE)
+	gr.add_child(_graze)
+	side.add_child(gr)
+	big.add_child(side)
+	box.add_child(big)
+	_strip = Styles.hbox(2)
+	_strip.custom_minimum_size = Vector2(0, 7)
+	box.add_child(_strip)
+	_rows = GridContainer.new()
+	_rows.columns = 2
+	_rows.add_theme_constant_override("v_separation", 3)
+	_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(_rows)
+	var sep := ColorRect.new()
+	sep.color = Styles.BORDER_SOFT
+	sep.custom_minimum_size = Vector2(0, 1)
+	box.add_child(sep)
+	var dmg := Styles.hbox(6)
+	_dmg = Styles.caps("", 13)
+	dmg.add_child(_dmg)
+	dmg.add_child(Styles.spacer())
+	_hp = W.Pips.new(Vector2(14, 6))
+	_hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dmg.add_child(_hp)
+	box.add_child(dmg)
+	_note = Styles.label("", 13, Styles.DIM)
+	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_note.custom_minimum_size = Vector2(294, 0)
+	box.add_child(_note)
+	var foot := Styles.hbox(8)
+	foot.add_child(W.keycap("Enter"))
+	foot.add_child(Styles.label("fire", 13))
+	foot.add_child(Control.new())
+	foot.add_child(W.keycap("Esc"))
+	foot.add_child(Styles.label("cancel", 13))
+	box.add_child(foot)
+
+
+## Fills the panel for `u` shooting `t`. Returns the odds used.
+func show_shot(s: GameState, u: Unit, t: Unit) -> Dictionary:
+	var odds := Combat.hit_chance(s, u, t)
+	var hit := int(odds.get("hit", 0))
+	var graze := int(odds.get("graze", 0))
+	_target.text = "TARGET · %s" % t.display_name.to_upper()
+	_hit.text = "%d%%" % hit
+	_crit.text = "%d%%" % int(odds.get("crit", 0))
+	_graze.text = "%d%%" % graze
+	for c in _strip.get_children():
+		_strip.remove_child(c)
+		c.queue_free()
+	for part in [[hit, Styles.AMBER], [graze, Color("8a7440")], [100 - hit - graze, Color("2e352e")]]:
+		if int(part[0]) <= 0:
+			continue
+		var r := ColorRect.new()
+		r.color = part[1]
+		r.custom_minimum_size = Vector2(0, 7)
+		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		r.size_flags_stretch_ratio = float(part[0])
+		_strip.add_child(r)
+	for c in _rows.get_children():
+		_rows.remove_child(c)
+		c.queue_free()
+	for row in odds.get("breakdown", []):
+		if not (row is Array and row.size() >= 2):
+			continue
+		var n := Styles.label(str(row[0]), 14, Styles.DIM)
+		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_rows.add_child(n)
+		var v := int(row[1])
+		var txt := str(v) if str(row[0]) == "Aim" else "%+d" % v
+		var col := Styles.TEXT if str(row[0]) == "Aim" else (Styles.HP if v > 0 else (Styles.DANGER_TEXT if v < 0 else Styles.DIM))
+		var vl := Styles.mono(txt.replace("-", "−"), 13, col)
+		vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_rows.add_child(vl)
+	var lo := u.damage.x
+	var hi := u.damage.y
+	_dmg.text = "DAMAGE %d–%d" % [lo, hi]
+	(_hp as W.Pips).set_values(t.max_hp, t.hp, mini(hi, t.hp), Styles.DANGER)
+	var notes := PackedStringArray()
+	if odds.get("flanked", false):
+		notes.append("Flanked: no cover, crits more likely")
+	if lo >= t.hp and hit > 0:
+		notes.append("A hit kills")
+	elif hi >= t.hp and hit > 0:
+		notes.append("Kill possible")
+	_note.text = " · ".join(notes)
+	_note.add_theme_color_override("font_color", Styles.DANGER_TEXT if odds.get("flanked", false) else Styles.DIM)
+	_note.visible = not notes.is_empty()
+	return odds

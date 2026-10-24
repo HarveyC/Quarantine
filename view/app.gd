@@ -90,6 +90,10 @@ func _handle_args() -> void:
 			_join(nm, parts[0], port)
 	elif args.has("run"):
 		_local_run(int(args.run) if args.run.is_valid_int() else 1, int(args.get("seed", "0")))
+	elif args.has("lineup") or args.has("lineup-mode"):
+		_menu_layer.visible = false
+		var lineup := preload("res://view/lineup.gd").new()
+		add_child(lineup)
 	elif args.has("autoplay") or args.has("screenshot"):
 		_local(2)
 
