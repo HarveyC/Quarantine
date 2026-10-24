@@ -8,6 +8,7 @@ signal unit_clicked(id: int)
 const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 const UnitView := preload("res://view/unit_view.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const WIDTH := 320.0
 
@@ -79,11 +80,14 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 	top.add_child(Styles.caps(uv.display_name, 17))
 	top.add_child(Styles.spacer())
 	var status := _status(view, uv, u)
+	var corner: Control
 	if status[0] != "":
-		top.add_child(Styles.caps(status[0], 12, status[1]))
+		corner = Styles.caps(status[0], 12, status[1])
+		top.add_child(corner)
 	else:
 		var d := W.Diamonds.new(8.0)
 		d.set_values(2, u.actions_left if u != null else 0)
+		corner = d
 		top.add_child(d)
 	col.add_child(top)
 
@@ -117,10 +121,20 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 		flags.append("Overwatch")
 	if uv.hunkered:
 		flags.append("Hunkered")
+	var flag_label: Label
 	if not flags.is_empty() and not out_of_play:
-		col.add_child(Styles.label(" · ".join(flags), 12, Styles.AMBER))
+		flag_label = Styles.label(" · ".join(flags), 12, Styles.AMBER)
+		col.add_child(flag_label)
 	for c in card.find_children("*", "Control", true, false):
 		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Hover cards: the Infection bar, the corner word or action diamonds, and the flags.
+	Tips.term(inf, "infection", {"value": uv.infection})
+	if status[0] == "":
+		Tips.term(corner, "actions")
+	else:
+		Tips.auto(corner, str(status[0]))
+	if flag_label != null:
+		Tips.terms(flag_label, Glossary.scan(flag_label.text))
 	return card
 
 

@@ -4,6 +4,7 @@ extends RefCounted
 ## teal only for Infection, tag colours from GearData.TAG_INFO, Barlow / JetBrains Mono.
 ## Fonts are picked up from res://ui/fonts/ when the UI module ships them.
 
+const Tips := preload("res://ui/tips/tips.gd")
 const PANEL := Color("#111511")
 const PANEL_SOFT := Color("#121613")
 const BORDER := Color("#2c342d")
@@ -113,8 +114,10 @@ static func tag_chip(tag: String, text := "", dim := false) -> PanelContainer:
 	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(dot)
 	row.add_child(caps(text if text != "" else tag, 13, c))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(row)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Tips.term(p, "tag_" + tag.to_lower())
 	return p
 
 

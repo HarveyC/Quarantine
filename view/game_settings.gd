@@ -63,6 +63,7 @@ const ACTIONS := [
 	["action_8", "Action 8", [KEY_8]],
 	["action_9", "Action 9", [KEY_9]],
 	["settings", "Settings", [KEY_F10]],
+	["tip_more", "Term details (hold over a tooltip)", [KEY_SHIFT]],
 ]
 
 ## Fixed gamepad bindings: action -> [["button", JoyButton] | ["axis", JoyAxis, sign]].

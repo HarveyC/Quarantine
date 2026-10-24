@@ -8,6 +8,7 @@ extends Control
 
 signal closed
 
+const Tips := preload("res://ui/tips/tips.gd")
 const UI := preload("res://ui/gear/gear_ui.gd")
 
 var run: RunState
@@ -308,6 +309,7 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 		v.add_child(sp2)
 		v.add_child(tags)
 		t.tooltip_text = "%s\nMk I: %s\nMk II: %s" % [GearData.item_name(it.id), GearData.desc(it.id, 1), GearData.desc(it.id, 2)]
+		_tag_terms(t, r, GearData.tags_of(it.id))
 	for n in v.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -351,6 +353,8 @@ func _gun_tile(r: Dictionary, id: String) -> Control:
 		tags.add_child(UI.tag_chip(g.tag))
 		v.add_child(tags)
 	t.tooltip_text = "%s\n%s" % [g.name, g.desc]
+	if g.get("tag", "") != "":
+		_tag_terms(t, r, [g.tag])
 	for n in v.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -384,8 +388,18 @@ func _pocket_tile(p) -> Control:
 		h.add_child(UI.mono("×%d" % int(p.charges), 13, UI.DIM))
 		v.add_child(h)
 		t.tooltip_text = GearData.desc(p.id)
+	Tips.term(t, "pocket")
 	t.add_child(v)
 	return t
+
+
+## Hover card for a gear tile: the item text, then its tag with this soldier's count.
+func _tag_terms(t: Control, r: Dictionary, tags: Array) -> void:
+	if tags.is_empty():
+		return
+	var tag := str(tags[0])
+	Tips.terms(t, tags.map(func(x): return "tag_" + str(x).to_lower()),
+		{"count": GearTags.counts(r).get(tag, 0), "color": GearData.tag_color(tag)})
 
 
 func _build_tags(r: Dictionary) -> void:
@@ -394,7 +408,7 @@ func _build_tags(r: Dictionary) -> void:
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(sp)
-	head.add_child(UI.label("set bonus at %d" % GearData.SET_THRESHOLD, 12, UI.FAINT))
+	head.add_child(Tips.term(UI.label("set bonus at %d" % GearData.SET_THRESHOLD, 12, UI.FAINT), "set_bonus"))
 	_tags.add_child(head)
 	var counts := GearTags.counts(r)
 	var changes := {}
@@ -430,6 +444,7 @@ func _build_tags(r: Dictionary) -> void:
 		h.add_child(sp2)
 		h.add_child(UI.pips(tag, n, ch.get("to", -1)))
 		row.add_child(h)
+		Tips.term(row, "tag_" + tag.to_lower(), {"count": n, "color": GearData.tag_color(tag)})
 		_tags.add_child(row)
 		if n >= GearData.SET_THRESHOLD and not ch.get("loses", false):
 			_tags.add_child(_bonus_line("Set bonus on: " + GearData.TAG_INFO[tag].bonus, col))

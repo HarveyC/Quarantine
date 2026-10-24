@@ -19,6 +19,7 @@ const FightDebrief := preload("res://ui/fight_debrief.gd")
 const CinematicOverlay := preload("res://ui/cinematic_overlay.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const InputController := preload("res://view/input_controller.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const MARGIN := 22.0
 
@@ -51,6 +52,7 @@ var _hint_label: Label
 var _toast: Label
 var _banner: Label
 var _tooltip: Control
+var _tooltip_uv: UnitView
 var _toast_t := 0.0
 var _banner_t := 0.0
 
@@ -294,6 +296,10 @@ func show_tooltip(uv: UnitView) -> void:
 	hide_tooltip()
 	if _debriefing:
 		return
+	_tooltip_uv = uv
+	var tips := Tips.host()
+	if tips != null and not tips.expanded_changed.is_connected(_on_tips_expanded):
+		tips.expanded_changed.connect(_on_tips_expanded)
 	var col := Styles.player_color(uv.owner_player) if uv.is_soldier else Styles.DANGER
 	var f := W.Frame.new(Vector4(12, 9, 12, 10))
 	f.custom_minimum_size = Vector2(230, 0)
@@ -338,12 +344,71 @@ func show_tooltip(uv: UnitView) -> void:
 			chips.add_child(W.chip("Flanked", Styles.DANGER, true, 11))
 	if chips.get_child_count() > 0:
 		box.add_child(chips)
+	_unit_terms(box, uv, target, sel)
 	_tooltip = f
 	add_child(f)
 	if is_inside_tree():
 		f.reset_size()
 		var mp := get_local_mouse_position() + Vector2(18, 18)
 		f.position = Vector2(minf(mp.x, size.x - f.size.x - 8), minf(mp.y, size.y - f.size.y - 8))
+
+
+## What the unit's statuses mean: a "Shift more" hint, or with Shift held one short row each.
+func _unit_terms(box: VBoxContainer, uv: UnitView, u: Unit, sel: Unit) -> void:
+	var keys: Array[String] = []
+	if uv.turned:
+		keys.append("turning")
+	elif uv.lapsed:
+		keys.append("lapse")
+	elif uv.is_soldier and uv.infection > 0:
+		keys.append("infection")
+	if uv.overwatch:
+		keys.append("overwatch")
+	if uv.hunkered:
+		keys.append("hunker")
+	if u != null and view.state != null:
+		if Combat.has_status(view.state, u, "suppressed"):
+			keys.append("suppress")
+		if Combat.has_status(view.state, u, "tagged"):
+			keys.append("mark")
+		if int(u.status.get("burning", 0)) > 0:
+			keys.append("burning")
+		if sel != null and sel.id != u.id and sel.is_enemy_of(u) and Combat.shot_targets(view.state, sel).has(u):
+			keys.append("flank" if Combat.hit_chance(view.state, sel, u).get("flanked", false) else "cover")
+	if keys.is_empty():
+		return
+	if not Tips.expanded():
+		var hint := Styles.hbox(6)
+		hint.add_child(Styles.spacer())
+		hint.add_child(W.keycap("Shift", 10))
+		hint.add_child(Styles.caps("what this means", 10, Styles.MUTED, false))
+		box.add_child(hint)
+		return
+	for k in keys:
+		var e := Glossary.entry(k)
+		var col := Glossary.tone(k)
+		var sep := ColorRect.new()
+		sep.color = Styles.BORDER_SOFT
+		sep.custom_minimum_size = Vector2(0, 1)
+		box.add_child(sep)
+		var head := Styles.hbox(6)
+		head.add_child(W.Icon.new(str(e.icon), col, 14, 1.6))
+		head.add_child(Styles.caps(str(e.name), 12, col))
+		head.add_child(Styles.spacer())
+		var stats: Array = e.get("stats", [])
+		if not stats.is_empty():
+			head.add_child(Styles.mono(str(stats[0][0]), 11, Styles.TEXT))
+			head.add_child(Styles.caps(Glossary.plain(str(stats[0][1])), 9, Styles.MUTED, false))
+		box.add_child(head)
+		var line := Styles.label(Glossary.plain(str(e.line)), 12, Styles.DIM)
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.custom_minimum_size = Vector2(230, 0)
+		box.add_child(line)
+
+
+func _on_tips_expanded(_on: bool) -> void:
+	if _tooltip != null and _tooltip_uv != null and is_instance_valid(_tooltip_uv):
+		show_tooltip(_tooltip_uv)
 
 
 func hide_tooltip() -> void:

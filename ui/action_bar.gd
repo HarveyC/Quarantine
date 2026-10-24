@@ -10,6 +10,7 @@ const W := preload("res://ui/widgets.gd")
 const Icons := preload("res://ui/icons.gd")
 const InputController := preload("res://view/input_controller.gd")
 const SquadRoster := preload("res://ui/squad_roster.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const BTN := Vector2(86, 96)
 
@@ -50,6 +51,7 @@ func build() -> void:
 	_ap_text = Styles.mono("", 10, Styles.DIM)
 	ap.add_child(_ap_text)
 	_soldier_box.add_child(ap)
+	Tips.term(ap, "actions")
 	_empty = Styles.label("Select a soldier (click or Tab)", 15, Styles.DIM)
 	_empty.custom_minimum_size = Vector2(150, 0)
 	_empty.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -173,6 +175,9 @@ func _button(input: InputController, a: Dictionary, can_act: bool) -> Button:
 		fg = Color(fg, 0.35)
 	b.tooltip_text = label + ("\n" + str(a.desc) if not mutation and str(a.get("desc", "")) != "" else "")
 	var key: String = a.key
+	var term := "mutation" if mutation else ("hit_chance" if key == "shoot" else Glossary.find(label))
+	if term != "":
+		Tips.term(b, term)
 	b.set_meta("key", key)
 	b.pressed.connect(func() -> void: action_pressed.emit(key))
 	var col := Styles.vbox(6)

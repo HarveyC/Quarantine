@@ -6,6 +6,7 @@ extends "res://ui/frame.gd"
 signal pressed(id: String)
 
 const W := preload("res://ui/widgets.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const WIDTH := 430.0
 
@@ -13,6 +14,7 @@ var _kicker: Label
 var _title: Label
 var _text: Label
 var _keys: HBoxContainer
+var _terms: HFlowContainer
 var _visual: Control
 var _buttons: HBoxContainer
 var _dots: Control
@@ -44,6 +46,12 @@ func _init() -> void:
 	box.add_child(_visual)
 	_keys = Styles.hbox(8)
 	box.add_child(_keys)
+	# Glossary terms named in the text: hover one for its card.
+	_terms = HFlowContainer.new()
+	_terms.add_theme_constant_override("h_separation", 6)
+	_terms.add_theme_constant_override("v_separation", 6)
+	_terms.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(_terms)
 	_buttons = Styles.hbox(8)
 	_buttons.alignment = BoxContainer.ALIGNMENT_END
 	box.add_child(_buttons)
@@ -71,6 +79,12 @@ func show_card(kicker: String, title: String, text: String, keys: Array = [], vi
 	for k in keys:
 		_keys.add_child(W.keycap(str(k), 12))
 	_keys.visible = not keys.is_empty()
+	for c in _terms.get_children():
+		_terms.remove_child(c)
+		c.queue_free()
+	for k in Glossary.scan(title + ". " + text).slice(0, 4):
+		_terms.add_child(Tips.chip(k, 11))
+	_terms.visible = _terms.get_child_count() > 0
 	for c in _buttons.get_children():
 		_buttons.remove_child(c)
 		c.queue_free()
