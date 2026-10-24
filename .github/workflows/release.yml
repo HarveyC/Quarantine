@@ -1,10 +1,16 @@
 name: release
 # Builds Windows, macOS and Linux zips and attaches them to a GitHub release.
-# Push a tag like v0.1.0 to publish, or run it by hand from the Actions tab to get the zips as artifacts.
+# Push a tag like v0.1.0 to publish, or run it by hand from the Actions tab: give a version
+# (e.g. v0.1.0) to publish a release with that tag, or leave it empty to only get the zips as artifacts.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to create, e.g. v0.1.0 (empty = build only)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -40,8 +46,11 @@ jobs:
       - name: Run tests
         run: GODOT=~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ./tests/run.sh
 
+      - name: Pick version
+        run: echo "VERSION=${{ inputs.version || github.ref_name }}" >> "$GITHUB_ENV"
+
       - name: Export and zip
-        run: ./release/build.sh ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 "${GITHUB_REF_NAME}"
+        run: ./release/build.sh ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 "$VERSION"
 
       - name: Upload zips to the workflow run
         uses: actions/upload-artifact@v4
@@ -50,10 +59,10 @@ jobs:
           path: build/dist/*.zip
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.version != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" build/dist/*.zip \
-            --title "Quarantine $GITHUB_REF_NAME" \
+          gh release create "$VERSION" build/dist/*.zip --target "$GITHUB_SHA" \
+            --title "Quarantine $VERSION" \
             --notes "Download the zip for your computer, unzip, and run. Mac and Windows will warn that the game is unsigned; see HOW-TO-PLAY.txt inside the zip."
