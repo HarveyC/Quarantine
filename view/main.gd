@@ -385,6 +385,13 @@ func _screenshot_step() -> void:
 	if _frames == 2 and args.has("--screenshot-action=map"):   # whole map, fog off, from high up
 		Vision.disable(state)
 		show_vision(FogOverlay.annotate(state, {"type": "start"}), true)
+		fog.visible = false
+		_ui_layer.visible = false
+		var sun := DirectionalLight3D.new()   # flat daylight so the layout reads
+		sun.light_energy = 1.6
+		sun.rotation_degrees = Vector3(-60, 35, 0)
+		sun.shadow_enabled = true
+		_world.add_child(sun)
 	if _frames == 60 and args.has("--screenshot-action=map"):
 		camera_rig._target_dist = CameraRig.MAX_DIST
 		camera_rig._dist = CameraRig.MAX_DIST

@@ -348,24 +348,35 @@ generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --scre
 
 ## High ground (elevation/)
 
-One raised level. Data on the `Grid`: `level(c) -> int` (0 ground, 1 raised), `is_ladder(c)`,
-`has_levels()`, serialized in `to_dict`. Parcels mark it with `^` (raised floor), `%` (low cover on
-a roof) and `/` (ladder: a ground cell that climbs to the raised cell beside it).
+Three levels: ground (0), roof (1), upper roof (2). Data on the `Grid`: `level(c)`, `is_ladder(c)`,
+`is_stairs(c)`, `is_fragile(c)`, `has_levels()`, all serialized in `to_dict`. Glyphs are read by
+`Grid.read_glyph` (shared by handmade maps and MapGen): `^` roof, `%` half cover on a roof, `~`
+fragile roof (scaffold), `2` upper roof, `$` half cover on it, `/` ladder and `s` stairs on the
+ground, `|` ladder and `S` stairs on a roof; MapGen also reads `e` (enemy spawn on a roof).
 
-- **Movement** (`Grid._can_step`): a step between levels needs a ladder at one end and must be
-  straight, not diagonal; diagonals can't cut round a ledge corner. `reachable` and `find_path` take
-  `ignore_levels := true` for leapers and flyers.
+- **Movement** (`Grid.step_cost`, Dijkstra in `reachable`/`find_path`, which return/minimise move
+  cost): flat steps cost 1. Going up one level must be straight and needs stairs (cost 1) or a ladder
+  (`Grid.LADDER_COST` = 2) at either end. Going down works the same way, or by dropping off any ledge
+  (one way, 1 per level dropped, no damage). Diagonals never cut wall or ledge corners.
+  `ignore_levels := true` (leapers, flyers) changes level anywhere for 1. `Grid.path_cost` sums a path.
 - **Shooting** (`Combat.hit_chance` calls `Elevation`): from higher ground +10 aim ("High ground" in
-  the breakdown) and the target's cover counts one step lower (full to half, half to none). Shooting
-  up at a higher target, it has at least half cover. Height never makes a shot a flank (no flank
-  crit). Line of sight by height is in `Combat.can_see` (see Fog of war). `Elevation.height(s, u)` is the cell's level, or 1 for status `flying`.
+  the breakdown, same for 1 or 2 levels up) and the target's cover counts one step lower. Shooting up
+  at a higher target, it has at least half cover. Height never makes a shot a flank.
+  `Combat.cover_against`: a raised block beside the target is a building wall, full cover against
+  shooters below its roof.
+- **Sight** (`Combat.can_see`): a raised cell blocks the line when it is higher than both ends
+  (a flyer counts as at least level 1). Vision sight radius +2 per level.
 - **Changing levels** in a fight: `Elevation.set_level(s, cell, n)` only (emits `level_changed`,
-  drops ladders that join nothing; units on the cell stay and stand at the new level).
-  `Grid.set_level` is the raw write for map building. `Elevation.is_ledge(grid, c)`: a raised cell
-  beside lower walkable ground.
-- **View**: `Board.cell_to_world` lifts raised cells by `Board.RAISE`, so units, props and overlays
-  sit on roofs; roofs are steel decks with amber lips, ladders are drawn on their climb side, and
-  mouse picking tries the roof plane first.
+  drops ladders/stairs that join nothing, clears `fragile` at ground). `Elevation.blast(s, center,
+  radius, by)` collapses fragile cells in the area (frag grenade radius 1, airstrike cells) and units
+  on them fall (`fell`, 2 damage per level). The Burrower's collapse is `EnemyTerrain.collapse`.
+- **View**: `Board.cell_to_world` lifts cells by `Board.RAISE` per level. Roofs are grey steel decks,
+  upper roofs paler, scaffolds plank decks on poles with a tarp skirt; amber lips on ledges; ladders
+  and stairs drawn on their climb side. Mouse picking tries the highest level's plane first.
+- **MapGen**: 8x8 `@landmark` parcels fill a 2x2 block of `L` slots (lanes=0 plots). Validation: every
+  walkable cell must walk to and back from the drop zone (one-way pits are sealed), 6-35% raised
+  cells, at least 2 stairs/ladders. Dev aid: `-- --objective=hold --biome=wall --screenshot-action=map`
+  renders the whole map with fog and HUD off.
 
 ## Objectives (objectives/)
 
