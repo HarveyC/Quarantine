@@ -99,8 +99,8 @@ const ITEMS := {
 	"expanding_rounds": {"name": "Expanding rounds", "tag": "Overwatch", "slot": "ammo", "rarity": "uncommon",
 		"desc": "Overwatch hits deal +2 damage", "desc_mk2": "Overwatch hits deal +3 damage"},
 	"sentry_turret": {"name": "Sentry turret", "tag": "Overwatch", "slot": "gadget", "rarity": "rare",
-		"desc": "Once per fight: deploy a turret on overwatch for 3 turns (aim 60, 2 damage)",
-		"desc_mk2": "Once per fight: deploy a turret on overwatch for 4 turns (aim 70, 3 damage)"},
+		"desc": "Once per fight: deploy a sentry turret within 3 tiles that fires each turn for 3 turns (aim 60, 2 damage)",
+		"desc_mk2": "Once per fight: deploy a sentry turret within 3 tiles that fires each turn for 4 turns (aim 70, 3 damage)"},
 	# Close
 	"light_harness": {"name": "Light harness", "tag": "Close", "slot": "armor", "rarity": "common",
 		"desc": "+1 movement", "desc_mk2": "+2 movement",
