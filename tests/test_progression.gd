@@ -535,3 +535,21 @@ func _try(s: GameState, u: Unit, base: Dictionary) -> void:
 			if Rules.validate(s, act) == "":
 				Rules.apply(s, act)
 				return
+
+
+func test_pick_screen_picks_for_every_local_soldier() -> void:
+	var run := RunRules.new_run(1, 80)
+	RunRules.start_run(run)
+	for r in run.squad():
+		Progression.grant_perk_pick(run, r)
+	var first: Dictionary = run.squad()[0]
+	first.prog.offers.append({"cards": ["hollow_bones", "acid_spit", "rampage"], "source": "nest"})
+	first.prog.bonus_picks = 0
+	var screen: PanelContainer = Progression.pick_screen().new()
+	screen.setup(run, null)
+	var buttons := screen.find_children("*", "Button", true, false)
+	assert_eq(buttons.size(), 3 * 3 + 3 + 1, "3 perk rows of 3, one mutation row of 3 plus Skip")
+	(buttons[0] as Button).pressed.emit()
+	assert_eq(first.prog.mutations.values().size(), 1, "first card grafted")
+	assert_eq(first.infection, 10, "graft cost")
+	screen.free()
