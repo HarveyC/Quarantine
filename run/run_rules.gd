@@ -15,7 +15,7 @@ const ROUTES := {"gear_": "GearRun", "prog_": "Progression", "node_": "NodeRules
 
 const START_SUPPLIES := 60
 const START_INTEL := 1
-const START_RESERVE := 1           # recruits per player
+const START_RESERVE := 1           # recruits per player, +1 for each 2 soldiers past the first (reserve_for)
 const RESERVE_CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
 const HEAL_AFTER_FIGHT := 0.25
 const BOSS_OUTBREAK_DROP := 3
@@ -34,9 +34,9 @@ const SERUM_CACHE := 1
 
 # --- setup -------------------------------------------------------------------------
 
-## A new run for `num_players` (1 = solo: one player commands all four soldiers).
-## Solo is a squad of 4; co-op is one soldier per player (MatchConfig.squad_plan), with `picks`
-## mapping player -> class. `meta` is the profile's unlock flags.
+## A new run for `num_players` (1 = solo). Each player commands their own squad of 1 to 4
+## soldiers, at most 4 in all (MatchConfig.squad_plan); `picks` maps player -> Array of classes
+## (left out: a solo player gets 4, co-op players 1 each). `meta` is the profile's unlock flags.
 static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}, picks: Dictionary = {}) -> RunState:
 	var run := RunState.new()
 	var n := clampi(num_players, 1, 4)
@@ -55,11 +55,16 @@ static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}, pick
 		run.soldiers.append(RunSoldier.make(run, e.kind, e.player))
 		run.serum[e.player] += 2 if MetaUnlocks.owns(run.meta, "serum_reserve") else 1   # 1 sample per soldier you control (+1 Serum reserve)
 	for p in n:
-		for k in START_RESERVE:
+		for k in reserve_for(run.soldiers_of(p).size()):
 			run.soldiers.append(RunSoldier.make(run, random_class(run), p, RunSoldier.RESERVE))
 	Severity.apply_new_run(run)
 	RunHooks.call_static("Story", "init_run", [run])
 	return run
+
+
+## Starting recruits for a player who commands `soldiers`: 1 for 1-2 soldiers, 2 for 3-4.
+static func reserve_for(soldiers: int) -> int:
+	return START_RESERVE + floori(maxi(0, soldiers - 1) / 2.0)
 
 
 ## Starts the run: act 1 map, then the starting-kit pick if GearRun offers one.

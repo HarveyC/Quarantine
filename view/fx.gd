@@ -532,3 +532,50 @@ func flash_light(at: Vector3, color: Color, energy := 5.0, life := 0.25, light_r
 	light.position = at
 	add_child(light)
 	_items.append({"node": light, "life": life, "max": life, "kind": "light", "e0": energy})
+
+
+## An explosion (Destruction): white-hot flash, a rolling fireball, a smoke column that hangs,
+## chunks of concrete and embers thrown out, a shock ring and scorch on the cells it covered.
+## `kind`: "frag" (sharp, small), "demo" (debris heavy) or "barrel" (big fuel fireball).
+func explosion(at: Vector3, radius: int, kind := "frag") -> void:
+	var big := 1.35 if kind == "barrel" else (1.15 if kind == "demo" else 1.0)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(at) ^ hash(kind)
+	flash_light(at + Vector3(0, 1.0, 0), Color(1.0, 0.62, 0.3), 14.0 * big, 0.55, 6.0 + radius * 2.5)
+	puff(at + Vector3(0, 0.5, 0), Color(1.0, 0.95, 0.8), 1.4 * big, 0.18, 0.2)          # white-hot core
+	for i in int(7 * big):
+		var off := Vector3(rng.randf_range(-0.7, 0.7), rng.randf_range(0.2, 1.1), rng.randf_range(-0.7, 0.7)) * float(radius) * big
+		var col := Color(1.0, 0.45, 0.12).lerp(Color(1.0, 0.8, 0.35), rng.randf())
+		puff(at + off, col, rng.randf_range(1.0, 1.7) * big, rng.randf_range(0.35, 0.6), 0.9)
+	for i in int(9 * big):
+		var off := Vector3(rng.randf_range(-0.9, 0.9), rng.randf_range(0.3, 1.4), rng.randf_range(-0.9, 0.9)) * float(radius)
+		var grey := rng.randf_range(0.12, 0.26)
+		puff(at + off, Color(grey, grey * 0.97, grey * 0.92), rng.randf_range(1.6, 2.6) * big, rng.randf_range(1.8, 3.2), rng.randf_range(1.4, 2.6))
+	burst(at + Vector3(0, 0.25, 0), Vector3.UP, Color("5d5a52"), 22 if kind != "demo" else 34, 6.5 * big, false, 0.11)
+	burst(at + Vector3(0, 0.4, 0), Vector3.UP, Color(1.0, 0.6, 0.2), 26, 7.5 * big, true, 0.035)
+	var ring_mat := Palette.emissive(Color(1.0, 0.7, 0.35), 4.0)
+	ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = 0.85
+	mesh.outer_radius = 1.0
+	var ring := MeshInstance3D.new()
+	ring.mesh = mesh
+	ring.material_override = ring_mat
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.position = at + Vector3(0, 0.08, 0)
+	ring.scale = Vector3(0.4, 0.3, 0.4) * float(radius + 1)
+	add_child(ring)
+	_items.append({"node": ring, "life": 0.45, "max": 0.45, "kind": "ring", "mat": ring_mat})
+	if at.y > 0.5:
+		return   # scorch decals sit on the ground; the board draws scorch on roofs itself
+	for dx in range(-radius, radius + 1):
+		for dz in range(-radius, radius + 1):
+			var p := at + Vector3(dx, 0, dz)
+			decal(p, Color(0.05, 0.045, 0.04), 0.42 if dx == 0 and dz == 0 else 0.3)
+
+
+## Wall or cover breaking apart (Destruction "break" / "clear"): a spray of chunks and a dust cloud.
+func crumble(at: Vector3, height := 1.0, color := Color("5d5a52")) -> void:
+	burst(at + Vector3(0, height * 0.6, 0), Vector3.UP * 0.6, color, 18 + int(height * 8), 3.5, false, 0.12)
+	puff(at + Vector3(0, height * 0.5, 0), Color(0.5, 0.48, 0.42), 1.3 + height * 0.6, 1.6, 0.6)
+	puff(at + Vector3(0.3, 0.2, -0.2), Color(0.42, 0.4, 0.36), 1.1, 2.0, 0.3)

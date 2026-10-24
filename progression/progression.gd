@@ -239,8 +239,8 @@ static func graft_error(record: Dictionary, id: String) -> String:
 static func graft_bonded(a: Dictionary, b: Dictionary, id: String) -> String:
 	if not MutationData.get_def(id).get("bonded", false):
 		return "Not a Bonded mutation"
-	if a.get("owner", -1) == b.get("owner", -2) or a == b:
-		return "Bond two soldiers of different players"
+	if a == b or a.get("id", -1) == b.get("id", -2):
+		return "Bond two different soldiers"
 	for r in [a, b]:
 		var err := graft(r, id)
 		if err != "":
@@ -336,15 +336,23 @@ static func apply_card(record: Dictionary, card: Dictionary) -> String:
 	return "Unknown card"
 
 
+## Who `record` can share a Bonded mutation with: in co-op a soldier of another player, solo any
+## other soldier in the squad.
+static func bond_partners(run: RunState, record: Dictionary) -> Array:
+	var solo := run.players.size() <= 1
+	return run.squad().filter(func(o: Dictionary) -> bool:
+		return o.get("id", -1) != record.get("id", -2) and (solo or o.get("owner", -1) != record.get("owner", -1)))
+
+
 ## Queues an Infested nest's 1-of-3 mutation pick for this soldier (at least one Mutating or
-## Critical; a Bonded one may appear when the run has 2+ players). Picked with prog_graft.
+## Critical; a Bonded one may appear when it has a partner, see bond_partners). Picked with prog_graft.
 static func queue_nest_offer(run: RunState, record: Dictionary) -> void:
 	var rng: RandomNumberGenerator = run.rng
 	var high := _candidates(record, MutationData.regular_pool("mutating") + MutationData.regular_pool("critical"))
 	var cards: Array[String] = []
 	if not high.is_empty():
 		cards.append(high[rng.randi() % high.size()])
-	if run.players.size() >= 2 and rng.randf() < 0.5:
+	if not bond_partners(run, record).is_empty() and rng.randf() < 0.5:
 		var bonded := _candidates(record, MutationData.bonded_pool())
 		if not bonded.is_empty():
 			cards.append(bonded[rng.randi() % bonded.size()])
@@ -461,8 +469,8 @@ static func validate(run: RunState, action: Dictionary) -> String:
 				var partner := run.get_soldier(int(action.get("partner", -1)))
 				if partner.is_empty() or partner.get("status", "") != RunSoldier.ACTIVE:
 					return "Pick a partner"
-				if partner.get("owner", -1) == r.get("owner", -1):
-					return "Bond two soldiers of different players"
+				if not bond_partners(run, r).has(partner):
+					return "Bond two soldiers of different players" if run.players.size() > 1 else "Bond two different soldiers"
 			else:
 				return graft_error(r, id)
 		"prog_skip_offer":

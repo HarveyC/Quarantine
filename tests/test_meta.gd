@@ -153,7 +153,7 @@ func test_severity_rules_stack() -> void:
 	assert_eq(hard.supplies, Severity.START_SUPPLIES, "3: Short rations")
 	assert_eq(hard.modifiers.get("heal_after_fight"), Severity.HEAL_AFTER_FIGHT, "4: Thin medicine")
 	assert_eq(hard.reserve_of(0).size(), 0, "7: No reserves")
-	assert_eq(easy.reserve_of(0).size(), 1, "normal reserve")
+	assert_eq(easy.reserve_of(0).size(), RunRules.reserve_for(4), "normal reserve")
 	assert_true(hard.soldiers.all(func(r): return r.infection >= Severity.START_INFECTION), "10: Ground zero")
 	assert_eq(Severity.income(hard, 40), 30, "6: Lean pickings")
 	assert_eq(Severity.boss_outbreak_drop(hard, 3), 1, "9: Unbroken")
@@ -163,7 +163,7 @@ func test_severity_rules_stack() -> void:
 	assert_eq(spec.modifiers.extra_enemies, 1, "8: Dense hive")
 	assert_eq(spec.modifiers.boss_health_mult, Severity.BOSS_HEALTH_MULT, "5: Swollen hosts")
 	var mid := RunRules.new_run(1, 21, {"severity": 4})
-	assert_eq(mid.reserve_of(0).size(), 1, "level 4 keeps reserves")
+	assert_eq(mid.reserve_of(0).size(), RunRules.reserve_for(4), "level 4 keeps reserves")
 	assert_eq(Severity.income(mid, 40), 40, "level 4 keeps full pay")
 	_done()
 

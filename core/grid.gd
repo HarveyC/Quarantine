@@ -30,6 +30,14 @@ var ladders := {}
 var stairs := {}
 ## Fragile raised cells (set of Vector2i): scaffolds and catwalks that explosives collapse.
 var fragile := {}
+## Destruction (see Destruction): hits a cell's current layer has taken ({Vector2i: int}; a cracked
+## wall or roof), fuel barrels (set; LOW tiles that explode), reinforced walls that never break
+## (set), and what broke on a cell ({Vector2i: "heap" | "debris" | "barrel" | "roof" | "scaffold"},
+## read by the view for rubble and debris). Change them in a fight only through Destruction.
+var wear := {}
+var volatile := {}
+var hard := {}
+var rubble := {}
 
 const MAX_LEVEL := 2
 ## Steps a ladder climb costs (going up or down a ladder).
@@ -56,11 +64,18 @@ static func from_rows(rows: PackedStringArray) -> Grid:
 ## Applies a map glyph's height layer to `c` (level, ladder, stairs, fragile) and returns its tile.
 ## Glyphs: # wall, = low cover; ^ roof (L1), % low cover on a roof, ~ fragile roof (scaffold),
 ## 2 upper roof (L2), $ low cover on L2; / ladder and s stairs on the ground (up to L1),
-## | ladder and S stairs on a roof (up to L2). Anything else is ground floor.
+## | ladder and S stairs on a roof (up to L2); ! fuel barrel (low cover that explodes), H reinforced
+## wall (never breaks). Anything else is ground floor.
 func read_glyph(c: Vector2i, ch: String) -> int:
 	match ch:
 		"#": return Types.Tile.WALL
 		"=": return Types.Tile.LOW
+		"!":
+			volatile[c] = true
+			return Types.Tile.LOW
+		"H":
+			hard[c] = true
+			return Types.Tile.WALL
 		"^": set_level(c, 1)
 		"~":
 			set_level(c, 1)
@@ -94,10 +109,12 @@ static func load_file(path: String) -> Grid:
 
 
 func to_dict() -> Dictionary:
-	return {"width": width, "height": height, "tiles": tiles,
+	# Packed arrays are shared by reference: copy them so a snapshot never moves with the live map.
+	return {"width": width, "height": height, "tiles": tiles.duplicate(),
 		"player_spawns": player_spawns.duplicate(), "enemy_spawns": enemy_spawns.duplicate(),
 		"biome": biome, "markers": markers.duplicate(true), "objective": objective,
-		"levels": levels, "ladders": ladders.keys(), "stairs": stairs.keys(), "fragile": fragile.keys()}
+		"levels": levels.duplicate(), "ladders": ladders.keys(), "stairs": stairs.keys(), "fragile": fragile.keys(),
+		"wear": wear.duplicate(), "volatile": volatile.keys(), "hard": hard.keys(), "rubble": rubble.duplicate()}
 
 
 static func from_dict(d: Dictionary) -> Grid:
@@ -117,7 +134,26 @@ static func from_dict(d: Dictionary) -> Grid:
 		g.stairs[c] = true
 	for c in d.get("fragile", []):
 		g.fragile[c] = true
+	g.wear = d.get("wear", {}).duplicate()
+	for c in d.get("volatile", []):
+		g.volatile[c] = true
+	for c in d.get("hard", []):
+		g.hard[c] = true
+	g.rubble = d.get("rubble", {}).duplicate()
 	return g
+
+
+## Order-independent fingerprint of the terrain (tiles, heights, damage), for online checksums.
+func fingerprint() -> int:
+	var parts := [tiles.hex_encode(), levels.hex_encode()]
+	for group in [ladders, stairs, fragile, volatile]:
+		var keys: Array = group.keys()
+		keys.sort()
+		parts.append(str(keys))
+	var worn: Array = wear.keys()
+	worn.sort()
+	parts.append(str(worn.map(func(c: Vector2i) -> String: return "%s=%d" % [c, wear[c]])))
+	return "|".join(parts).hash()
 
 
 ## Cells under a marker name, empty if the map has none.
@@ -164,6 +200,20 @@ func is_stairs(c: Vector2i) -> bool:
 
 func is_fragile(c: Vector2i) -> bool:
 	return fragile.has(c)
+
+
+func is_volatile(c: Vector2i) -> bool:
+	return volatile.has(c)
+
+
+func is_hard(c: Vector2i) -> bool:
+	return hard.has(c)
+
+
+## Raw tile write. In a fight, terrain changes go through Destruction (which emits events).
+func set_tile(c: Vector2i, t: int) -> void:
+	if in_bounds(c):
+		tiles[c.y * width + c.x] = t
 
 
 ## Whether the map has any high ground at all.

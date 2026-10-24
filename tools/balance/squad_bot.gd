@@ -46,6 +46,9 @@ static func choose(s: GameState, u: Unit) -> Dictionary:
 	a = _class_attack(s, u)
 	if not a.is_empty():
 		return a
+	a = _barrel(s, u)
+	if not a.is_empty():
+		return a
 	var shot := _best_shot(s, u, u.pos)
 	if u.actions_left >= 2:
 		var move := _best_move(s, u, hostiles, shot)
@@ -122,6 +125,32 @@ static func _class_attack(s: GameState, u: Unit) -> Dictionary:
 		if best_cell.x >= 0 and _ok(s, a):
 			return a
 	return {}
+
+
+## Shoot barrel when the blast (and any chain, Destruction.preview) catches more enemies than
+## allies: enemies count 2, likely kills 3 more, allies -4.
+static func _barrel(s: GameState, u: Unit) -> Dictionary:
+	var best: Dictionary = {}
+	var best_score := 3
+	for c in Destruction.barrel_targets(s, u):
+		var blasts: Array[Vector2i] = []
+		var p := Destruction.preview(s, {c: 1})
+		for b in p:
+			if p[b] == "barrel":
+				blasts.append(b)
+		var score := 0
+		for o in s.living():
+			var hits := blasts.filter(func(b: Vector2i) -> bool: return Kit.cheb(b, o.pos) <= 1).size()
+			if hits == 0:
+				continue
+			if u.is_enemy_of(o):
+				score += 2 + (3 if o.hp <= hits * Destruction.BARREL.damage else 0)
+			else:
+				score -= 4
+		if score >= best_score:
+			best_score = score
+			best = {"type": Types.ABILITY, "unit": u.id, "ability": "shoot_barrel", "cell": c}
+	return best
 
 
 static func _tag(u: Unit, t: Unit) -> Dictionary:

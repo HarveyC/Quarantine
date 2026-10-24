@@ -22,7 +22,7 @@ const KEEP := ["SettingsHost", "Soundscape", "UiFeel", "Platform", "TermTips", "
 
 
 static func _screens() -> Array[String]:
-	var out: Array[String] = ["title", "lobby", "sound", "map", "map_start", "event", "depot", "hospital",
+	var out: Array[String] = ["title", "lobby", "solo-lobby", "hotseat-lobby", "sound", "map", "map_start", "event", "depot", "hospital",
 		"survivors", "reward", "loadout", "doctrine", "kit", "rankup", "hud", "aim", "quick", "debrief", "lost",
 		"runend", "pause", "settings_graphics", "settings_audio", "settings_gameplay", "settings_accessibility",
 		"settings_controls", "hq_unlocks", "hq_severity", "hq_record", "hq_achievements", "archive", "story",
@@ -64,8 +64,19 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 			await tree.process_frame
 			net.host(24690, "Harvey")
 			if players > 1:
-				net.lobby[7] = {"player": 1, "name": "Kestrel"}
+				net.lobby[7] = {"player": 1, "name": "Kestrel", "squad": ["marksman"]}
+				net.lobby[1]["squad"] = ["trooper", "medic", "breacher"]
 			m.show_lobby(net)
+		"solo-lobby", "hotseat-lobby":
+			var m := MainMenu.new()
+			root.add_child(m)
+			await tree.process_frame
+			m.show_local_lobby(1 if screen == "solo-lobby" else players)
+			if screen == "hotseat-lobby":
+				m._local_picks = {0: ["trooper", "medic"], 1: ["breacher", "marksman"]}
+				m._edit_player = 1
+				m._sel = 1
+				m._refresh_lobby()
 		"sound":
 			root.add_child(MainMenu.new())
 			await tree.process_frame

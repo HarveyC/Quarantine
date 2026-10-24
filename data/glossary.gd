@@ -269,6 +269,20 @@ static func _build() -> Dictionary:
 		"more": ["Full cover becomes half, half becomes none.", "Shooting up at a roof: they always have half cover.", "One level or two, the bonus is the same."],
 		"see": ["cover", "flank"],
 		"aliases": ["Height", "Elevation", "Roof", "Rooftop"]}
+	t["fuel_barrel"] = {"name": "Fuel barrel", "kind": "terrain", "icon": "barrel", "tone": "danger",
+		"line": "Red drum, amber band. Shoot it or blast it and it goes up.",
+		"art": "",
+		"stats": [["%d" % Destruction.BARREL.damage, "damage"], ["3x3", "blast"], ["%d" % Destruction.BARREL_FIRE_TURNS, "turns of fire"]],
+		"more": ["Any soldier can Shoot barrel: it always hits and ends the turn.", "Barrels in the blast go off too, and fire next to one sets it off.", "Until then it's half {cover}."],
+		"see": ["rubble", "cover"],
+		"aliases": ["Fuel barrels", "Barrel", "Barrels", "Shoot barrel"]}
+	t["rubble"] = {"name": "Rubble", "kind": "terrain", "icon": "charge", "tone": "amber",
+		"line": "Explosives break terrain in steps you can see.",
+		"art": "",
+		"stats": [["%d" % Destruction.WALL_HITS, "hits: wall to rubble"], ["1", "hit: cover to floor"], ["%d" % Destruction.ROOF_HITS, "hits: roof drops"]],
+		"more": ["A rubble heap is half {cover} you can see over.", "A collapsed roof leaves a ramp you can walk up. Anyone on it falls.", "Bullets never break cover. Explosions also wake nearby Infected."],
+		"see": ["fuel_barrel", "cover", "high_ground"],
+		"aliases": ["Rubble heap", "Cracked", "Demo charge", "Destructible"]}
 	t["overwatch"] = {"name": "Overwatch", "kind": "action", "icon": "overwatch", "tone": "amber",
 		"line": "End the turn watching: shoot the first enemy that moves in sight.",
 		"art": "overwatch",
@@ -386,8 +400,8 @@ static func _build() -> Dictionary:
 	t["reserve"] = {"name": "Reserve", "kind": "squad", "icon": "recruit", "tone": "hp",
 		"line": "Recruits waiting to replace a soldier who falls.",
 		"art": "",
-		"stats": [["%d" % RunRules.START_RESERVE, "to start"]],
-		"more": ["Survivor nodes add more.", "Dead soldiers sit out and come back as recruits."],
+		"stats": [["%d" % RunRules.reserve_for(1), "to start"], ["%d" % RunRules.reserve_for(4), "with 3-4 soldiers"]],
+		"more": ["Each player has their own reserve. Commanding 3 or 4 soldiers starts you with an extra recruit.", "Survivor nodes add more.", "Dead soldiers sit out and come back as recruits."],
 		"aliases": ["Recruit", "Recruits", "Reserves"]}
 	# --- The run ---------------------------------------------------------------------------
 	t["outbreak"] = {"name": "Outbreak", "kind": "run meter", "icon": "outbreak", "tone": "teal",

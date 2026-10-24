@@ -30,6 +30,8 @@ func build() -> void:
 
 
 func add_line(bbcode: String) -> void:
+	if bbcode == "":
+		return
 	if _count >= MAX_LINES:
 		_text.remove_paragraph(0)
 		_count -= 1

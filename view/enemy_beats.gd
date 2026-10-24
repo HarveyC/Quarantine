@@ -70,10 +70,25 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			return {"dur": 0.8}
 		"cover_destroyed":
 			view.board.rebuild_tiles()
-			for c in ev.get("cells", []):
-				fx.puff(Board.cell_to_world(c) + Vector3(0, 0.3, 0), Color(0.5, 0.48, 0.42), 0.8, 0.8, 0.5)
-			ep._sfx("concrete")
-			return {"dur": 0.3}
+			var heavy := false
+			var changes: Array = ev.get("changes", [])
+			if changes.is_empty():   # older events: cover smashed to floor
+				for c in ev.get("cells", []):
+					changes.append({"cell": c, "kind": "clear"})
+			for ch in changes:
+				var at := Board.cell_to_world(ch.cell)
+				match str(ch.get("kind", "")):
+					"break":   # a wall comes down to a rubble heap
+						fx.crumble(at, 2.0, Color("4a4d50"))
+						heavy = true
+					"clear":
+						fx.crumble(at, 0.7)
+					"crack":
+						fx.burst(at + Vector3(0, 1.0, 0), Vector3.UP, Color("5d5a52"), 6, 2.0, false, 0.06)
+			ep._sfx("collapse" if heavy else "concrete", -2.0 if heavy else 0.0)
+			if heavy:
+				view.camera_rig.shake(0.6)
+			return {"dur": 0.45 if heavy else 0.25}
 		"spores", "reinforcements_incoming":
 			_refresh_overlay(view)
 			if ev.type == "reinforcements_incoming":
@@ -158,7 +173,24 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"spawned": return "%s emerges" % who.call("unit")
 		"telegraph": return "[color=#%s]%s: %s next turn[/color]" % [red, who.call("unit"), str(ev.get("kind", "")).replace("_", " ")]
 		"strike": return "[color=#%s]%s lands[/color]" % [red, str(ev.get("kind", "strike")).replace("_", " ").capitalize()]
-		"cover_destroyed": return "Cover destroyed"
+		"cover_destroyed":
+			var walls := 0
+			var cover := 0
+			for ch in ev.get("changes", []):
+				if ch.get("kind") == "break":
+					walls += 1
+				elif ch.get("kind") == "clear":
+					cover += 1
+			if ev.get("changes", []).is_empty():
+				return "Cover destroyed"
+			if walls + cover == 0:
+				return ""   # cracks only: the board shows them
+			var parts: Array[String] = []
+			if walls > 0:
+				parts.append("%d wall%s down" % [walls, "" if walls == 1 else "s"])
+			if cover > 0:
+				parts.append("%d cover destroyed" % cover)
+			return ", ".join(parts)
 		"spores": return "Spores spread"
 		"spore_exposure": return "%s breathes spores (+%d Infection)" % [who.call("unit"), int(ev.get("amount", 0))]
 		"source_pulse": return "The Source pulses (+%d Infection to the squad)" % int(ev.get("amount", 0))

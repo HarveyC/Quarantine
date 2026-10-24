@@ -324,16 +324,12 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			"units": victims.map(func(x: Unit) -> int: return x.id), "damage": t.damage})
 		for u in victims:
 			Rules.deal_damage(s, u, int(t.damage), src if src != null and src.is_alive() else null)
-		if t.get("smash", false):
-			var smashed: Array[Vector2i] = []
+		if t.get("smash", false) and s.phase != Types.Phase.ENDED:
+			var hits := {}
 			for c in t.cells:
-				if s.grid.tile(c) == Types.Tile.LOW:
-					EnemyAbilities.set_tile(s.grid, c, Types.Tile.FLOOR)
-					smashed.append(c)
-			if not smashed.is_empty():
-				s.emit({"type": "cover_destroyed", "cells": smashed, "unit": t.get("unit", -1)})
-			for c in t.cells:
-				Elevation.blast(s, c, 0)
+				hits[c] = 1
+			Destruction.noise(s, t.cells[t.cells.size() / 2])
+			Destruction.hit(s, hits, src if src != null and src.is_alive() else null)
 		if s.phase == Types.Phase.ENDED:
 			return
 	s.encounter["telegraphs"] = keep

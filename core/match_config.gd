@@ -13,31 +13,77 @@ const CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
 const ENEMIES: Array[String] = ["runner", "runner", "spitter", "runner", "spitter"]
 
 
-## Who controls what: solo is a full squad of 4 for player 0; co-op is one soldier per player.
-## `picks` maps player -> class; a player without a pick gets the first class nobody has.
+## Most soldiers a squad can field, across every player.
+const MAX_SQUAD := 4
+
+
+## Who controls what. Every player picks their own squad of 1 to 4 soldiers; the whole squad is
+## at most MAX_SQUAD. `picks` maps player -> Array of classes (a String counts as one soldier;
+## "" is "any free class"). A player without picks gets the full squad when alone, else one
+## soldier. Each player keeps at least one soldier: when the picks add up to more than
+## MAX_SQUAD, the biggest squads (latest player first on a tie) give one up until they fit.
 static func squad_plan(num_players: int, picks: Dictionary = {}) -> Array:
-	var n := clampi(num_players, 1, CLASSES.size())
-	var out: Array = []
-	if n == 1:
-		for k in CLASSES:
-			out.append({"kind": k, "player": 0})
-		return out
+	var n := clampi(num_players, 1, MAX_SQUAD)
+	var want := squads(n, picks)
 	var taken := {}
 	for p in n:
-		if picks.has(p):
-			taken[picks[p]] = true
+		for k in want[p]:
+			if k != "":
+				taken[k] = true
+	var out: Array = []
+	var i := 0
 	for p in n:
-		var kind: String = picks.get(p, "")
-		if kind == "":
-			for k in CLASSES:
-				if not taken.has(k):
-					kind = k
-					break
+		for k in want[p]:
+			var kind: String = k
 			if kind == "":
-				kind = CLASSES[p % CLASSES.size()]
-			taken[kind] = true
-		out.append({"kind": kind, "player": p})
+				for c in CLASSES:
+					if not taken.has(c):
+						kind = c
+						break
+				if kind == "":
+					kind = CLASSES[i % CLASSES.size()]
+				taken[kind] = true
+			out.append({"kind": kind, "player": p})
+			i += 1
 	return out
+
+
+## player -> Array of picked classes ("" = any free class), trimmed to fit MAX_SQUAD.
+static func squads(num_players: int, picks: Dictionary = {}) -> Dictionary:
+	var n := clampi(num_players, 1, MAX_SQUAD)
+	var want := {}
+	for p in n:
+		var v = picks.get(p, null)
+		var list: Array = []
+		if v is String:
+			list = [v]
+		elif v is Array:
+			list = (v as Array).slice(0, MAX_SQUAD).map(func(k) -> String: return str(k))
+		if list.is_empty():
+			list = CLASSES.duplicate() if n == 1 else [""]
+		want[p] = list
+	var total := func() -> int:
+		var t := 0
+		for p in want:
+			t += want[p].size()
+		return t
+	while total.call() > MAX_SQUAD:
+		var big := 0
+		for p in n:
+			if want[p].size() >= want[big].size():
+				big = p
+		want[big].pop_back()
+	return want
+
+
+## How many soldiers `player` could field, given what everyone else picked.
+static func room_for(num_players: int, picks: Dictionary, player: int) -> int:
+	var want := squads(num_players, picks)
+	var others := 0
+	for p in want:
+		if p != player:
+			others += want[p].size()
+	return clampi(MAX_SQUAD - others, 1, MAX_SQUAD)
 
 
 static func make(num_players: int, seed: int = 0, picks: Dictionary = {}) -> Dictionary:

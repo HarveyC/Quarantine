@@ -27,7 +27,7 @@ func start_tutorial() -> void:
 	match_started.emit(state)
 
 
-func start_new(_num_players: int = 1, _seed: int = 0) -> void:
+func start_new(_num_players: int = 1, _seed: int = 0, _picks: Dictionary = {}) -> void:
 	start_tutorial()
 
 

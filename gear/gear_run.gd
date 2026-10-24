@@ -275,7 +275,10 @@ static func roll_offer(run, record, fight_kind: String) -> Array:
 					if kind == "mutation":
 						mutation_cards += 1
 			"consumable":
-				card = {"kind": "consumable", "id": GearDraw.draw_consumable(rng), "charges": GearData.CONSUMABLE_CHARGES}
+				var cid := GearDraw.draw_consumable(rng)
+				# Full pockets can't take it: offer gear instead of a card that can't be picked.
+				if Loadout.can_add_consumable(record, cid):
+					card = {"kind": "consumable", "id": cid, "charges": GearData.CONSUMABLE_CHARGES}
 			"cache":
 				card = {"kind": "cache", "supplies": CACHE_SUPPLIES}
 			"gun":

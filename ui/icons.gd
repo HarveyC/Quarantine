@@ -5,7 +5,8 @@ extends RefCounted
 const CLASS_ICON := {"trooper": "trooper", "marksman": "marksman", "medic": "medic", "breacher": "breacher",
 	"hazmat": "hazmat", "vector": "vector", "reaper": "reaper", "warden": "warden"}
 const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "breach": "breach",
-	"lunge": "lunge", "bash": "bash", "guard": "guard", "shield_charge": "shield_charge"}
+	"lunge": "lunge", "bash": "bash", "guard": "guard", "shield_charge": "shield_charge",
+	"shoot_barrel": "barrel", "item:frag_grenade": "grenade", "item:demo_charge": "charge"}
 
 
 static func for_class(kind: String) -> String:
@@ -113,6 +114,22 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 			line.call([[17, 8], [21, 6]])
 			line.call([[17, 12], [22, 12]])
 			line.call([[17, 16], [21, 18]])
+		"barrel":   # a fuel drum with its hazard band, in the sights
+			line.call([[7, 6], [17, 6], [17, 21], [7, 21], [7, 6]])
+			line.call([[7, 11], [17, 11]])
+			line.call([[7, 14], [17, 14]])
+			line.call([[19, 3], [22, 3], [22, 6]])
+			line.call([[2, 6], [2, 3], [5, 3]])
+		"grenade":   # a frag body, lever and pin ring
+			circle.call(11, 14, 6.5)
+			line.call([[9, 7.5], [9, 5], [15, 5], [15, 7.5]])
+			line.call([[15, 5], [19, 9]])
+			circle.call(19.5, 4, 2)
+		"charge":   # a block charge on a wall with its timer
+			line.call([[3, 3], [3, 21]])
+			line.call([[6, 8], [18, 8], [18, 18], [6, 18], [6, 8]])
+			circle.call(12, 13, 2.5)
+			line.call([[18, 11], [22, 9]])
 		"mutation":
 			circle.call(12, 7, 3.5)
 			circle.call(7, 15.5, 3.5)

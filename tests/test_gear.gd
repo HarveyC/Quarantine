@@ -15,8 +15,8 @@ func make_run(seed: int = 7) -> Dictionary:
 
 
 func test_item_tables_are_consistent() -> void:
-	assert_eq(GearData.ITEMS.size(), 37, "items")
-	assert_eq(GearData.PROTOTYPES.size(), 9, "prototypes")
+	assert_eq(GearData.ITEMS.size(), 48, "items")
+	assert_eq(GearData.PROTOTYPES.size(), 13, "prototypes")
 	for id in GearData.ITEMS:
 		var d: Dictionary = GearData.ITEMS[id]
 		assert_true(GearData.TAGS.has(d.tag), "%s tag" % id)
@@ -366,7 +366,7 @@ func test_bosses_drop_a_gun() -> void:
 
 func test_everyone_starts_with_a_consumable() -> void:
 	var run := make_run()
-	var want := {"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit", "breacher": "flashbang"}
+	var want := {"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit", "breacher": "demo_charge"}
 	for r in run.soldiers:
 		assert_eq(Loadout.pockets(r)[0], {"id": want[r.kind], "charges": 1}, "%s starter" % r.kind)
 		assert_eq(Loadout.pockets(r)[1], null, "one pocket used")

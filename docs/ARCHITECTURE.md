@@ -21,6 +21,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `vision/` | `Vision` | **fog of war** | Squad vision, explored cells, hidden enemies, exposure, senses |
 | `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
 | `elevation/` | `Elevation` | **maps** | High ground: aim and cover from height, in-fight level changes |
+| `destruction/` | `Destruction` | **destruction** | Explosions, cover/walls/roofs breaking in steps, fuel barrels, Shoot barrel |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
 | `tutorial/`, `ui/tutorial/` | `Onboarding`, `TutorialScript`, `TutorialSession` | **onboarding** | Training mission, first-time tips, what the player has been taught |
@@ -91,7 +92,8 @@ Rules for parallel work:
 | `spawned` | `unit`, `kind`, `cell`, `from` (spawner unit id or -1) — a new enemy appeared (Hive node, egg sac, root, wave, split, brood spit) |
 | `telegraph` | `unit`, `kind` (`burst`/`charge`/`airstrike`/`core_slam`), `cells`, `turn` (when it lands) |
 | `strike` | `kind`, `cells`, `unit`, `units` (hit ids), `damage` — a telegraphed airstrike / core slam lands (before its `damage` events) |
-| `cover_destroyed` | `cells`, `unit` — half cover turned to floor (Brute charge, airstrike); the grid has changed |
+| `cover_destroyed` | `cells`, `unit`, `changes` (`[{cell, kind, tile}]`, kind `crack` / `break` (wall to rubble heap) / `clear` (cover to floor) / `barrel` / `drop`) — terrain changed (Destruction); the grid has changed |
+| `explosion` | `kind` (`frag`, `demo`, `barrel`), `cell`, `radius`, `unit` (who set it off, or -1), `units` (hurt ids), `damage`, `level` — emitted before its `damage`, `cover_destroyed`, `level_changed`/`fell` events |
 | `source_pulse` | `unit` (the Source), `units`, `amount` |
 | `reinforcements_incoming` | `cells`, `turn`, `count` — a wave arrives at these vents next enemy phase |
 | `revealed` | `unit` (a hidden Lurker) |
@@ -218,8 +220,8 @@ is just the line shape (the AI already avoids fire through Hazards). Spore Sense
 
 Run-level and pure data, like the rules core. Design: "Equipment and builds" in the design doc.
 
-- **Data** (`GearData`): `ITEMS` (37: name, tag, slot `weapon|ammo|armor|gadget`, rarity
-  `common|uncommon|rare`, desc, desc_mk2, optional flat `stats`/`stats_mk2`), `PROTOTYPES` (9: two `tags`,
+- **Data** (`GearData`): `ITEMS` (48: name, tag, slot `weapon|ammo|armor|gadget`, rarity
+  `common|uncommon|rare`, desc, desc_mk2, optional flat `stats`/`stats_mk2`), `PROTOTYPES` (13: two `tags`,
   rarity "prototype", start at Mk II, not sold), `CONSUMABLES` (with `price`), `TAGS` (the 8 capitalised
   tag names) and `TAG_INFO` (colour, set bonus text). `price(id)`, `upgrade_price(id)` (Armorer).
 - **Loadout** (`Loadout`, on the run soldier record as `record.gear`):
@@ -262,7 +264,8 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   `smoked`, `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`,
   `burn_source`, `gear_fire_mobility`. Fire from gear (Thermite line, Igniter barrel, Burn set spread)
   goes through `GearFx.set_fire` -> `Hazards.add(..., "fire", turns, unit.id)`, and `Hazards._hit` asks
-  `GearFx.hazard_hit` (Flame-retardant coat, Filter mask, Scorched earth, Spotter flare). Sentry turret
+  `GearFx.hazard_hit` (Flame-retardant coat, Cauterizer, Filter mask, Scorched earth, Spotter flare).
+  Ember plating ignites attackers from `damage_taken`; Pinpoint marks from both `_suppress` and `on_suppress`. Sentry turret
   spawns a Deployables turret. `GearFx.PENDING` lists items whose systems don't exist yet (
   restraint, mutation costs); they stay out of draws until they work.
 - **Gear max HP** (Kevlar vest etc.): `Loadout.equip / unequip / upgrade` move the run record's
@@ -287,7 +290,8 @@ rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind i
   only: the 20 s choice timer ran out, missing picks take the default), `node_leave`;
   depot `node_buy {index, soldier?, slot?}`, `node_sell {soldier, slot}`, `node_reroll`;
   hospital `node_treat {soldier, treatment: patch|purge|train|cure}`; survivors `node_claim`.
-- **Events** are data in `EventData.EVENTS` (15, written in the world's voice), run by
+- **Events** are data in `EventData.EVENTS` (28, written in the world's voice; 8 lean on Port Ardent
+  and 5 on the Bore), run by
   `EventRules`. An event is a graph of steps; each step is decided one of five ways: `vote`
   (majority, the host breaks a tie, re-voting allowed until the last vote is in), `secret` (picks
   revealed together, with an optional `unanimous` bonus), `per_player` (each player for their own
@@ -295,7 +299,8 @@ rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind i
   (only the owner of the event's subject soldier). Options carry requirements, an optional own-soldier
   target and a list of effects (format at the top of `event_data.gd`). Events never repeat in a run,
   are filtered by act and squad state (Whispers needs a soldier at 50+, Last seat a wounded one,
-  The Source's signal is act 3 only) and act 1 weights the low-stakes ones x3. A solo player answers
+  The Source's signal is act 3 only; Recovery team needs a soldier at 25+), act 1 weights the low-stakes
+  ones x3, and acts 2 and 3 weight their own-biome events x2. A solo player answers
   every kind of step alone and votes resolve at once.
 - **What nodes write**: shared values only through `RunRules.add_supplies` / `add_intel` /
   `add_serum` / `add_outbreak` / `add_recruit`; soldier `hp`, `infection` (capped at 99 outside a
@@ -388,9 +393,8 @@ ground, `|` ladder and `S` stairs on a roof; MapGen also reads `e` (enemy spawn 
 - **Sight** (`Combat.can_see`): a raised cell blocks the line when it is higher than both ends
   (a flyer counts as at least level 1). Vision sight radius +2 per level.
 - **Changing levels** in a fight: `Elevation.set_level(s, cell, n)` only (emits `level_changed`,
-  drops ladders/stairs that join nothing, clears `fragile` at ground). `Elevation.blast(s, center,
-  radius, by)` collapses fragile cells in the area (frag grenade radius 1, airstrike cells) and units
-  on them fall (`fell`, 2 damage per level). The Burrower's collapse is `EnemyTerrain.collapse`.
+  drops ladders/stairs that join nothing, clears `fragile` at ground). Explosions collapse scaffolds and
+  roofs through `Destruction` (see below), and units on them fall (`fell`, 2 damage per level). The Burrower's collapse is `EnemyTerrain.collapse`.
 - **View**: `Board.cell_to_world` lifts cells by `Board.RAISE` per level. Roofs are grey steel decks,
   upper roofs paler, scaffolds plank decks on poles with a tarp skirt; amber lips on ledges; ladders
   and stairs drawn on their climb side. Mouse picking tries the highest level's plane first.
@@ -398,6 +402,47 @@ ground, `|` ladder and `S` stairs on a roof; MapGen also reads `e` (enemy spawn 
   walkable cell must walk to and back from the drop zone (one-way pits are sealed), 6-35% raised
   cells, at least 2 stairs/ladders. Dev aid: `-- --objective=hold --biome=wall --screenshot-action=map`
   renders the whole map with fog and HUD off.
+
+## Destruction (destruction/)
+
+Design and reasoning: the study page https://claude.ai/artifact/VLXDiRJdfo8Ri9pwgcSyZy. Only explosives
+and smashing enemies break terrain; bullets never do. Terrain takes **hits**, layer by layer, and extra
+hits carry into the next layer:
+
+| Terrain | Hits | Becomes |
+|---|---|---|
+| Wall | `WALL_HITS` = 2 (1 = cracked, still a wall) | rubble heap: `LOW`, half cover, see-through; then floor |
+| Half cover | 1 | floor with debris |
+| Fuel barrel (`Grid.volatile`) | 1 | explodes (`BARREL`), floor |
+| Roof cell (level > 0) | `ROOF_HITS` = 2 per level | one level lower, a rubble ramp (stairs where it meets higher ground); units on it fall (2 per level) |
+| Scaffold | 1 | ground (no ramp) |
+| Map edge wall, `H` reinforced wall (`Grid.hard`) | never | |
+
+- **Sources**: frag grenade `FRAG` (3x3, 1 hit each, 3 damage), demo charge `DEMO` (consumable, range 1,
+  centre 3 / ring 1, 3 damage, not to its user; the Breacher's starter), fuel barrel `BARREL` (centre 2 /
+  ring 1, 3 damage, fire on the 3x3 for 2 turns, barrels in its blast chain), Breach (1 hit on the
+  target's cover cells toward the Breacher, `Destruction.cover_cells`), airstrike and core slam (1 hit
+  per marked cell), Brute charge and Burrower erupt (1 hit on the cover they plough through).
+  Fire placed next to a barrel (Incinerate, thermite; not a barrel's own fire) sets it off.
+- **Shoot barrel**: `{"type": ABILITY, "ability": "shoot_barrel", "cell"}` for any squad soldier with a
+  gun; needs sight (Combat.can_see and squad vision), always hits, ends the turn. Listed by
+  `Combat.available_abilities` only while a barrel is in sight (with `cells`).
+- **Noise**: every explosion (and airstrike landing) alerts dormant enemies within `NOISE_RADIUS` = 6.
+- **API**: `Destruction.explode(s, center, profile, by, kind, spare)`, `hit(s, {cell: hits}, by)`,
+  `detonate`, `preview(s, hits) -> {cell: kind}` (no state change; aim preview and bot),
+  `pattern`, `units_in`, `breakable`.
+- **State** on the Grid, in `to_dict` and `Grid.fingerprint()` (part of `GameState.checksum`):
+  `wear` {cell: hits on its current layer}, `volatile` (barrels), `hard`, `rubble` {cell: "heap" |
+  "debris" | "barrel" | "roof" | "scaffold"} (view only). No dice; cells resolve row-major and
+  chains in hit order, so every peer gets the same board.
+- **Maps**: glyphs `!` fuel barrel and `H` reinforced wall (`Grid.read_glyph`). `MapGen._place_barrels`
+  turns up to `MapGen.BARRELS` = 2 half-cover pieces within 3 of enemy spawns (and 7+ from the drop zone)
+  into barrels when the parcels placed none; it runs last, so layouts are unchanged.
+- **View**: `Board` draws cracked walls and roofs, rubble heaps, debris and scorch, rubble ramps and
+  red fuel drums with an amber band (plain drums are grey/olive now). `Fx.explosion` / `Fx.crumble`;
+  beats `explosion`, `cover_destroyed` (per change), throw and Shoot barrel beats; sounds `explosion`
+  and `collapse` (tools/gen_sfx.py). Aim preview `Board.show_blast` from `Destruction.preview`.
+  Dev capture: `godot -s tools/shot_destruction.gd -- OUT_DIR` (needs a renderer).
 
 ## Objectives (objectives/)
 
@@ -564,9 +609,13 @@ every state change goes through `Rules`: peers never diverge as long as they app
 in the same order on the same seed.
 
 - **`core/match_config.gd` (`MatchConfig`)**: a serializable description of a mission (map, squad,
-  enemy list, seed). `squad_plan(players, picks)` decides who plays what: solo is a squad of 4 for
-  player 0, co-op is one soldier per player, of the class they picked in the lobby
-  (`NetSession.pick_class`, stored as `lobby[id].class`) or the first class nobody took. Every peer builds an identical `GameState` from it.
+  enemy list, seed). `squad_plan(players, picks)` decides who plays what: every player commands their
+  own squad of 1 to 4 soldiers, `MatchConfig.MAX_SQUAD` (4) in all, with the classes they picked
+  in the lobby (`NetSession.pick_squad`, stored as `lobby[id].squad`; the local solo / hot-seat
+  lobby passes the same picks to `LocalSession.start_run`). Blanks take the first class nobody
+  has; with no picks solo gets 4 and co-op 1 each. Picks over 4 are trimmed from the biggest
+  squad, and everyone keeps at least one soldier. Fights scale with soldiers (`fight.squad`), Serum
+  and rewards come per soldier, and each player's reserve is `RunRules.reserve_for(soldiers)`. Every peer builds an identical `GameState` from it.
 - **`net/local_session.gd` (`LocalSession`)** and **`net/net_session.gd` (`NetSession`)** implement the
   same small interface the view talks to: `local_players()`, `is_local(player)`, `submit(action)`,
   `set_ready(player, on)`, `restart()`, `can_restart()`, `status_text()`, `player_names`. The view and

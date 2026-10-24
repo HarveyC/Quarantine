@@ -24,6 +24,9 @@ const LURE_RADIUS := 6.0
 const DEADEYE_CRIT := 20
 const CHITIN_ARMOR := 2
 const WILLING_HOST_FLOOR := 25
+const STEADY_HANDS_DEFENSE := 15
+const SPORE_VEIL_DEFENSE := 10
+const HIGH_PERCH_AIM := 10
 const LOW_PROFILE := 15
 const SHIELD_UP := 20
 
@@ -127,6 +130,10 @@ static func on_team_phase_start(s: GameState) -> void:
 			u.actions_left = maxi(0, u.actions_left - 1)
 		if u.status.get("k_surge_penalty") == s.turn:
 			u.actions_left = mini(u.actions_left, 1)
+		if has_perk(u, "decon_protocol") and not u.ai_controlled:
+			for a in s.living(Types.Team.PLAYER):
+				if a != u and is_soldier(a) and cheb(a.pos, u.pos) == 1 and a.infection > 0:
+					Infection.add(s, a, -medic_cure(a, 5))
 		if has_passive(u, "containment") and not u.ai_controlled:
 			for a in s.living(Types.Team.PLAYER):
 				if a != u and is_soldier(a) and cheb(a.pos, u.pos) == 1 and a.infection > 0:
@@ -284,6 +291,10 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 			breakdown.append(["Triage Cover", -TRIAGE_DEFENSE])
 		if has_perk(target, "juggernaut") and target.status.get("k_flanked_turn") == s.turn:
 			breakdown.append(["Juggernaut", -JUGGERNAUT_DEFENSE])
+		if has_perk(target, "steady_hands") and target.status.has("k_steady") and Combat.has_status(s, target, "k_steady"):
+			breakdown.append(["Steady Hands", -STEADY_HANDS_DEFENSE])
+		if has_perk(target, "spore_veil") and Infection.tier(target.infection) >= Infection.Tier.EXPOSED:
+			breakdown.append(["Spore Veil", -SPORE_VEIL_DEFENSE])
 		if reaction and has_passive(target, "bloodlust"):
 			breakdown.append(["Low profile", -LOW_PROFILE])
 		if reaction and has_passive(target, "bulwark"):
@@ -296,6 +307,8 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 				breakdown.append(["Steady Aim", STEADY_AIM])
 		if reaction and has_perk(attacker, "long_watch"):
 			breakdown.append(["Long Watch", Combat.REACTION_PENALTY])
+		if has_perk(attacker, "high_perch") and s.grid.level(from) > s.grid.level(target.pos):
+			breakdown.append(["High Perch", HIGH_PERCH_AIM])
 		if reaction:
 			for a in s.living(Types.Team.PLAYER):
 				if a != attacker and a.status.get("k_lure_until", -1) > Combat.phase_index(s) and a.pos.distance_to(target.pos) <= LURE_RADIUS:
@@ -307,8 +320,16 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 
 
 ## Damage of a shot that connected, before Rules.deal_damage.
-static func shot_damage(_s: GameState, u: Unit, t: Unit, dmg: int) -> int:
-	if dmg > 0 and has_passive(u, "point_blank") and u.pos.distance_to(t.pos) <= Combat.CLOSE_RANGE:
+static func shot_damage(s: GameState, u: Unit, t: Unit, dmg: int) -> int:
+	if dmg <= 0:
+		return dmg
+	if has_passive(u, "point_blank") and u.pos.distance_to(t.pos) <= Combat.CLOSE_RANGE:
+		dmg += 1
+	if has_perk(u, "headhunter") and s != null and Combat.has_status(s, t, "tagged"):
+		dmg += 1
+	if has_perk(u, "scorcher") and int(t.status.get("burning", 0)) > 0:
+		dmg += 1
+	if has_perk(u, "carrier_wave") and Infection.tier(u.infection) >= Infection.Tier.MUTATING:
 		dmg += 1
 	return dmg
 
@@ -329,6 +350,8 @@ static func modify_incoming(s: GameState, target: Unit, amount: int, source: Uni
 		return amount
 	if source != null and target.status.get("k_flies", false):
 		amount += 1
+	if source != null and has_perk(target, "battle_hardened") and _once(target, "k_battle_hardened"):
+		amount = maxi(1, amount - 1)
 	if awake(target, "hollow_bones"):
 		amount += 1
 	if awake(target, "chitin_plates"):
@@ -429,6 +452,9 @@ static func on_death(s: GameState, dead: Unit, source: Unit) -> void:
 		source.status["close_kills"] = int(source.status.get("close_kills", 0)) + 1   # Reaper unlock
 	if has_perk(source, "feed"):
 		_heal(s, source, 2, "feed")
+	if has_perk(source, "adrenaline") and source.pos.distance_to(dead.pos) <= Combat.CLOSE_RANGE \
+			and _once(source, "k_adrenaline", s.turn):
+		_heal(s, source, 2, "adrenaline")
 	if has_perk(source, "double_tap") and source.status.get("k_first_action", false) and _once(source, "k_double_tap", s.turn):
 		source.actions_left += 1
 		source.status.erase("k_shoot_only")
@@ -501,6 +527,10 @@ static func after_stim(s: GameState, u: Unit, t: Unit, removed: int) -> void:
 	if has_perk(u, "overdrive"):
 		t.actions_left += 1
 		Infection.add(s, t, 10)
+	if has_perk(u, "field_surgeon"):
+		_heal(s, t, 2, "field_surgeon")
+	if has_perk(u, "steady_hands"):
+		u.status["k_steady"] = Combat.phase_index(s) + (2 if s.phase == Types.Phase.TEAM else 1)
 
 
 ## Called at the end of Combat._apply_ability for the built abilities.
@@ -510,6 +540,8 @@ static func after_ability(s: GameState, u: Unit, id: String, t: Unit) -> void:
 			if has_perk(u, "pinned_down") and t != null:
 				t.status["k_pinned"] = t.status.get("suppressed", 0)
 				refresh_stats(s, t)
+			if has_perk(u, "suppressive_volley") and t != null and t.is_alive():
+				Rules.deal_damage(s, t, 1, u)
 		"tag":
 			if has_perk(u, "hunters_mark") and t != null and t.status.has("tagged"):
 				t.status["tagged"] = int(t.status.tagged) + 2

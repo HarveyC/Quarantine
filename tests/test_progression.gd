@@ -553,3 +553,60 @@ func test_pick_screen_picks_for_every_local_soldier() -> void:
 	assert_eq(first.prog.mutations.values().size(), 1, "first card grafted")
 	assert_eq(first.infection, 10, "graft cost")
 	screen.free()
+
+
+func test_content_pack_perks_damage() -> void:
+	var s := _state(["marksman", "hazmat", "vector"])
+	var foe := _enemy(s, "brute", Vector2i(8, 0))
+	var mk := _soldier(s, 0)
+	_give(mk, ["headhunter"])
+	assert_eq(Kit.shot_damage(s, mk, foe, 3), 3, "Headhunter needs a Tag")
+	foe.status["tagged"] = Combat.phase_index(s) + 2
+	assert_eq(Kit.shot_damage(s, mk, foe, 3), 4, "Headhunter +1 vs Tagged")
+	var hz := _soldier(s, 1)
+	_give(hz, ["scorcher"])
+	foe.status["burning"] = 2
+	assert_eq(Kit.shot_damage(s, hz, foe, 3), 4, "Scorcher +1 vs Burning")
+	var vc := _soldier(s, 2)
+	_give(vc, ["carrier_wave"])
+	vc.infection = 10
+	assert_eq(Kit.shot_damage(s, vc, foe, 3), 3, "Carrier Wave needs Mutating")
+	vc.infection = 55
+	assert_eq(Kit.shot_damage(s, vc, foe, 3), 4, "Carrier Wave +1 at Mutating")
+
+
+func test_content_pack_perks_defense() -> void:
+	var s := _state(["trooper", "vector", "medic"])
+	var foe := _enemy(s, "spitter", Vector2i(8, 0))
+	var tr := _soldier(s, 0)
+	_give(tr, ["battle_hardened"])
+	var hp := tr.hp
+	Rules.deal_damage(s, tr, 3, foe)
+	assert_eq(tr.hp, hp - 2, "first hit -1")
+	Rules.deal_damage(s, tr, 3, foe)
+	assert_eq(tr.hp, hp - 5, "only the first")
+	var vc := _soldier(s, 1)
+	_give(vc, ["spore_veil"])
+	vc.infection = 30
+	assert_eq(_term(Combat.hit_chance(s, foe, vc), "Spore Veil"), -10, "Spore Veil at Exposed")
+	var md := _soldier(s, 2)
+	_give(md, ["steady_hands", "field_surgeon"])
+	tr.hp = 1
+	Kit.after_stim(s, md, tr, 0)
+	assert_eq(tr.hp, 3, "Field Surgeon heals 2")
+	assert_eq(_term(Combat.hit_chance(s, foe, md), "Steady Hands"), -15, "Steady Hands after a Stim")
+
+
+func test_high_perch_needs_height() -> void:
+	var s := _state(["marksman"])
+	var foe := _enemy(s, "spitter", Vector2i(6, 0))
+	var mk := _soldier(s, 0)
+	_give(mk, ["high_perch"])
+	assert_eq(_term(Combat.hit_chance(s, mk, foe), "High Perch"), 0, "level ground")
+	s.grid.set_level(mk.pos, 1)
+	assert_eq(_term(Combat.hit_chance(s, mk, foe), "High Perch"), 10, "shooting down")
+
+
+func test_new_perks_in_every_pool() -> void:
+	for k in ["trooper", "marksman", "medic", "breacher", "hazmat", "vector"]:
+		assert_true(PerkData.pool(k).size() >= 9, "%s has 9+ perks" % k)

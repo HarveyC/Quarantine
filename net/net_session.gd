@@ -365,13 +365,49 @@ func _send(action: Dictionary) -> void:
 
 # --- lobby --------------------------------------------------------------------
 
-## The class each lobby player picked for their soldier (co-op is one soldier per player).
-func class_picks() -> Dictionary:
+## The squad each lobby player picked: player -> Array of classes (see MatchConfig.squad_plan).
+func squad_picks() -> Dictionary:
 	var out := {}
 	for v in lobby.values():
-		if v.get("class", "") != "":
-			out[v.player] = v["class"]
+		var sq: Array = v.get("squad", [])
+		if not sq.is_empty():
+			out[v.player] = sq.duplicate()
 	return out
+
+
+## What each lobby player will field if the match started now: player -> Array of classes,
+## trimmed and filled in like MatchConfig.squad_plan (lobby player numbers can have gaps until
+## the match starts, so this plans in join order and maps back).
+func planned_squads() -> Dictionary:
+	var order := _lobby_order()
+	var picks := {}
+	var mine := squad_picks()
+	for i in order.size():
+		if mine.has(order[i]):
+			picks[i] = mine[order[i]]
+	var out := {}
+	for p in order:
+		out[p] = []
+	for e in MatchConfig.squad_plan(order.size(), picks):
+		out[order[e.player]].append(e.kind)
+	return out
+
+
+## How many soldiers `player` can pick, given the others' squads.
+func room_for(player: int) -> int:
+	var order := _lobby_order()
+	var picks := {}
+	var mine := squad_picks()
+	for i in order.size():
+		if mine.has(order[i]):
+			picks[i] = mine[order[i]]
+	return MatchConfig.room_for(order.size(), picks, maxi(0, order.find(player)))
+
+
+func _lobby_order() -> Array:
+	var order: Array = lobby.values().map(func(v: Dictionary) -> int: return v.player)
+	order.sort()
+	return order
 
 
 ## The meta for a new run: the host's profile, so everyone plays with the host's unlocks.
@@ -379,25 +415,35 @@ func run_meta() -> Dictionary:
 	return Profile.meta()
 
 
-## Picks the class of this player's soldier for the next match or run.
-func pick_class(kind: String) -> void:
+## Picks this player's squad for the next match or run: 1 to 4 classes, one per soldier.
+func pick_squad(kinds: Array) -> void:
 	if is_host:
-		handle_pick(1, kind)
+		handle_pick(1, kinds)
 	elif _live():
-		_pick_class.rpc_id(1, kind)
+		_pick_squad.rpc_id(1, kinds)
+
+
+## One soldier of the class `kind` (kept for callers that pick a single soldier).
+func pick_class(kind: String) -> void:
+	pick_squad([kind])
 
 
 @rpc("any_peer", "reliable")
-func _pick_class(kind: String) -> void:
+func _pick_squad(kinds: Array) -> void:
 	if is_host:
-		handle_pick(multiplayer.get_remote_sender_id(), kind)
+		handle_pick(multiplayer.get_remote_sender_id(), kinds)
 
 
-## Host: a lobby peer picked a class. Ignored mid-match and for classes the host hasn't unlocked.
-func handle_pick(id: int, kind: String) -> void:
-	if in_match or not lobby.has(id) or not Progression.unlocked_classes(Profile.meta()).has(kind):
+## Host: a lobby peer picked their squad. Ignored mid-match, and for classes the host hasn't
+## unlocked. A squad bigger than the room the others leave is cut down to fit.
+func handle_pick(id: int, kinds: Array) -> void:
+	if in_match or not lobby.has(id) or kinds.is_empty():
 		return
-	lobby[id]["class"] = kind
+	var ok := Progression.unlocked_classes(Profile.meta())
+	for k in kinds:
+		if not (k is String) or not ok.has(k):
+			return
+	lobby[id]["squad"] = kinds.slice(0, room_for(lobby[id].player))
 	_broadcast_lobby()
 
 
@@ -412,7 +458,7 @@ func start_match() -> void:
 	for i in ids.size():
 		lobby[ids[i]].player = i
 	_broadcast_lobby()
-	var config := MatchConfig.make(lobby.size(), 0, class_picks())
+	var config := MatchConfig.make(lobby.size(), 0, squad_picks())
 	if _live():
 		_start.rpc(config)
 	_start(config)
@@ -440,7 +486,7 @@ func start_run() -> void:
 			if p != run.host_player and not here.has(p):
 				RunRules.apply(run, {"type": RunRules.BENCH, "player": run.host_player, "target": p, "on": true})
 	else:
-		run = RunRules.new_run(lobby.size(), 0, run_meta(), class_picks())
+		run = RunRules.new_run(lobby.size(), 0, run_meta(), squad_picks())
 		RunRules.start_run(run)
 	var snap := run.fight_snapshot if run.phase == RunState.Phase.FIGHT else {}
 	if _live():
@@ -525,11 +571,13 @@ func handle_hello(id: int, name: String, cid: String) -> int:
 	if lobby.has(id):
 		return lobby[id].player   # duplicate hello from the same connection
 	var slot := -1
+	var squad: Array = []
 	# Same install reconnecting (crash, restart, Wi-Fi drop): take over its old slot and drop
 	# the dead connection now instead of waiting for it to time out.
 	for old_id in lobby.keys():
 		if cid != "" and old_id != id and lobby[old_id].get("cid", "") == cid:
 			slot = lobby[old_id].player
+			squad = lobby[old_id].get("squad", [])
 			lobby.erase(old_id)
 			_drop_peer(old_id)
 			break
@@ -539,6 +587,8 @@ func handle_hello(id: int, name: String, cid: String) -> int:
 		_send_kick(id, "That game is full" if not in_match else "That match is full or already running")
 		return -1
 	lobby[id] = {"name": name, "player": slot, "cid": cid}
+	if not squad.is_empty():
+		lobby[id]["squad"] = squad
 	absent.erase(slot)
 	_broadcast_lobby()
 	if in_match and run != null and run.benched.get(slot, false):

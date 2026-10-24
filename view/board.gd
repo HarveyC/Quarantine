@@ -16,6 +16,7 @@ var _range_layer: Node3D
 var _path_layer: Node3D
 var _cover_layer: Node3D
 var _mark_layer: Node3D
+var _blast_layer: Node3D
 var _hazard_layer: Node3D
 var _hazard_nodes := {}   # cell -> Node3D
 var _hover: MeshInstance3D
@@ -60,6 +61,7 @@ func build(g: Grid) -> void:
 	_path_layer = _layer("Path")
 	_cover_layer = _layer("Cover")
 	_mark_layer = _layer("Marks")
+	_blast_layer = _layer("Blast")
 	_hazard_layer = _layer("Hazards")
 	_m_range = Palette.overlay(Color(0.55, 0.75, 0.95, 0.09))
 	_m_path = Palette.overlay(Color(Palette.AMBER, 0.9))
@@ -155,7 +157,13 @@ func _build_tiles() -> void:
 	var band_mat := Palette.mat(Palette.CRATE_BAND, 0.7, 0.3)
 	var bag_mat := grimy(Color("5b5640"), 1.0, 0.6)
 	var concrete := grimy(Color("6a6862"), 0.95, 0.4)
-	var barrel_mats: Array[StandardMaterial3D] = [grimy(Color("5a2a22"), 0.7, 0.5, 0.3), grimy(Color("3c4a3a"), 0.7, 0.5, 0.3)]
+	# Plain drums are grey and olive: red with an amber band is kept for fuel barrels that explode.
+	var barrel_mats: Array[StandardMaterial3D] = [grimy(Color("4a4d48"), 0.7, 0.5, 0.3), grimy(Color("3c4a3a"), 0.7, 0.5, 0.3)]
+	var fuel_mat := grimy(Color("a3301f"), 0.55, 0.6, 0.35)
+	var lamp_mat := Palette.emissive(Palette.AMBER, 2.4)
+	var crack_mat := Palette.mat(Color("0d0e0f"), 1.0)
+	var rebar_mat := Palette.mat(Color("6b4a32"), 0.6, 0.6)
+	var scorch_mat := Palette.mat(Color("121110"), 1.0)
 	var rubble := grimy(Color("3d3c38"), 1.0, 0.6)
 	var goo_mat := Palette.emissive(Palette.TEAL, 1.6)
 	var goo_lights := 0
@@ -189,18 +197,34 @@ func _build_tiles() -> void:
 				_add_platform(c, h, roof_mat, lip_mat)
 			if grid.is_ladder(c):
 				_add_ladder(c, ladder_mat)
-			if grid.is_stairs(c):
+			var broke: String = grid.rubble.get(c, "")
+			if grid.is_stairs(c) and broke == "roof":
+				_add_ramp(c, h, rubble)
+			elif grid.is_stairs(c):
 				_add_stairs(c, stair_mat, lip_mat)
+			if grid.tile(c) != Types.Tile.WALL and grid.level(c) > 0 and grid.wear.has(c):
+				_add_cracks(c, h, grid.level(c) * RAISE, crack_mat, true)
 			match grid.tile(c):
-				Types.Tile.WALL: _add_wall(c, h, wall_mat, trim_mat, rib_mat, hazard)
+				Types.Tile.WALL:
+					_add_wall(c, h, wall_mat, trim_mat, rib_mat, hazard)
+					if grid.wear.has(c):
+						_add_cracks(c, h, 2.2, crack_mat, false)
+						_add_rubble(c, h ^ 0x55, rubble)
 				Types.Tile.LOW:
-					match (h >> 3) % 4:
-						0: _add_crate(c, h, crate_mat, band_mat)
-						1: _add_sandbags(c, h, bag_mat)
-						2: _add_barrier(c, h, concrete, hazard)
-						_: _add_barrels(c, h, barrel_mats)
+					if grid.is_volatile(c):
+						_add_fuel_drums(c, h, fuel_mat, hazard, lamp_mat)
+					elif broke == "heap":
+						_add_heap(c, h, concrete, rebar_mat)
+					else:
+						match (h >> 3) % 4:
+							0: _add_crate(c, h, crate_mat, band_mat)
+							1: _add_sandbags(c, h, bag_mat)
+							2: _add_barrier(c, h, concrete, hazard)
+							_: _add_barrels(c, h, barrel_mats)
 				_:
-					if h % 23 == 0:
+					if broke != "" and broke != "roof":
+						_add_debris(c, h, broke, rubble, plank_mat, scorch_mat)
+					elif h % 23 == 0:
 						_add_goo(c, h, goo_mat, goo_lights < GameSettings.puddle_lights())
 						goo_lights += 1
 					elif h % 5 == 0:
@@ -484,6 +508,142 @@ func _add_barrels(c: Vector2i, h: int, mats: Array[StandardMaterial3D]) -> void:
 		_tiles.add_child(b)
 
 
+## Fuel barrel (Destruction): a pair of red drums with an amber hazard band and a small warning
+## lamp on top, so it reads as "explodes" from any camera angle.
+func _add_fuel_drums(c: Vector2i, h: int, body: Material, band: Material, lamp: Material) -> void:
+	for i in 2:
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.24
+		mesh.bottom_radius = 0.24
+		mesh.height = 0.74
+		mesh.radial_segments = 16
+		var drum := MeshInstance3D.new()
+		drum.mesh = mesh
+		drum.material_override = body
+		var off := Vector3(-0.17 if i == 0 else 0.19, 0, 0.12 if i == 0 else -0.14).rotated(Vector3.UP, float(h % 6))
+		drum.position = cell_to_world(c, 0.37) + off
+		_tiles.add_child(drum)
+		var ring := CylinderMesh.new()
+		ring.top_radius = 0.245
+		ring.bottom_radius = 0.245
+		ring.height = 0.1
+		ring.radial_segments = 16
+		var stripe := MeshInstance3D.new()
+		stripe.mesh = ring
+		stripe.material_override = band
+		stripe.position = Vector3(0, 0.12, 0)
+		drum.add_child(stripe)
+		if i == 0:
+			var cap := Palette.box(Vector3(0.09, 0.07, 0.09), lamp)
+			cap.position = Vector3(0, 0.4, 0)
+			drum.add_child(cap)
+
+
+## A broken wall's rubble heap (half cover you can see over): slabs, chunks and bent rebar.
+func _add_heap(c: Vector2i, h: int, m: Material, rebar: Material) -> void:
+	var root := Node3D.new()
+	root.position = cell_to_world(c)
+	root.rotation.y = float(h % 4) * PI * 0.5
+	_tiles.add_child(root)
+	var base := Palette.box(Vector3(0.9, 0.34, 0.8), m)
+	base.position = Vector3(0, 0.12, 0)
+	base.rotation = Vector3(0.12, 0.2, -0.08)
+	root.add_child(base)
+	for i in 5:
+		var k := float((h >> (i * 2)) % 10) / 10.0
+		var slab := Palette.box(Vector3(0.36 + k * 0.2, 0.12 + k * 0.08, 0.3), m)
+		slab.position = Vector3(-0.3 + i * 0.15, 0.32 + k * 0.18, (k - 0.5) * 0.5)
+		slab.rotation = Vector3(k * 0.9 - 0.4, k * 3.0, 0.5 - k)
+		root.add_child(slab)
+	for i in 3:
+		var bar := Palette.box(Vector3(0.025, 0.55, 0.025), rebar)
+		bar.position = Vector3(-0.2 + i * 0.2, 0.5, -0.1 + i * 0.08)
+		bar.rotation = Vector3(0.5 - i * 0.35, 0.0, -0.4 + i * 0.4)
+		root.add_child(bar)
+
+
+## What's left on a cleared cell: chunks and splinters ("debris"), a burnt-out drum and a scorch
+## mark ("barrel"), or fallen planks and poles ("scaffold").
+func _add_debris(c: Vector2i, h: int, kind: String, chunk: Material, plank: Material, scorch: Material) -> void:
+	var floor_y := lift(c)
+	var mark := Palette.box(Vector3(0.9, 0.012, 0.8), scorch) if kind == "barrel" else null
+	if mark != null:
+		mark.position = Vector3(c.x, floor_y + 0.006, c.y)
+		mark.rotation.y = float(h % 7)
+		_tiles.add_child(mark)
+		var shell := CylinderMesh.new()
+		shell.top_radius = 0.2
+		shell.bottom_radius = 0.26
+		shell.height = 0.22
+		shell.radial_segments = 10
+		var drum := MeshInstance3D.new()
+		drum.mesh = shell
+		drum.material_override = scorch
+		drum.position = Vector3(c.x + 0.15, floor_y + 0.1, c.y - 0.1)
+		drum.rotation = Vector3(1.2, float(h % 5), 0.3)
+		_tiles.add_child(drum)
+	var mat := plank if kind == "scaffold" else chunk
+	for i in 4 + h % 3:
+		var k := float((h >> (i * 3)) % 100) / 100.0
+		var sz := Vector3(0.5, 0.05, 0.1) if kind == "scaffold" else Vector3(0.12, 0.08, 0.1) * (0.8 + k)
+		var bit := Palette.box(sz, mat)
+		var k2 := float((h >> (i * 5)) % 100) / 100.0
+		bit.position = Vector3(c.x + (k - 0.5) * 0.8, floor_y + sz.y * 0.5, c.y + (k2 - 0.5) * 0.8)
+		bit.rotation = Vector3(0, k * 6.0, k * 0.6)
+		_tiles.add_child(bit)
+
+
+## Cracks on a damaged wall's faces (`top` = false) or across a cracked roof (`top` = true).
+func _add_cracks(c: Vector2i, h: int, height: float, m: Material, top: bool) -> void:
+	var base := lift(c) if not top else 0.0
+	if top:
+		for i in 3:
+			var k := float((h >> (i * 4)) % 16) / 16.0
+			var line := Palette.box(Vector3(0.5 - k * 0.2, 0.012, 0.035), m)
+			line.position = Vector3(c.x + (k - 0.5) * 0.5, height + 0.004, c.y + (i - 1) * 0.22)
+			line.rotation.y = k * 2.5 - 1.2
+			_tiles.add_child(line)
+		return
+	for d in Grid.DIRS4:
+		var n: Vector2i = c + d
+		if grid.in_bounds(n) and grid.tile(n) == Types.Tile.WALL:
+			continue
+		var out := Vector3(d.x, 0, d.y)
+		var along := Vector3(absf(d.y), 0, absf(d.x))
+		for i in 3:
+			var k := float((h >> (i * 4 + d.x + 2)) % 16) / 16.0
+			var seg := Palette.box(Vector3(0.03, 0.55 + k * 0.4, 0.03), m)
+			seg.position = Vector3(c.x, base, c.y) + out * 0.515 + along * (k - 0.5) * 0.7 + Vector3(0, 0.6 + i * 0.5, 0)
+			seg.rotate(out.abs(), (k - 0.5) * 1.4)
+			_tiles.add_child(seg)
+		var chip := Palette.box(Vector3(0.3, 0.22, 0.12), m)   # a bite out of the top edge
+		chip.position = Vector3(c.x, base + height - 0.08, c.y) + out * 0.47 + along * 0.2
+		_tiles.add_child(chip)
+
+
+## A collapsed roof cell: a slope of broken slabs from its new floor up to the level above,
+## walkable like stairs (Destruction makes it a ramp).
+func _add_ramp(c: Vector2i, h: int, m: Material) -> void:
+	for d in Grid.DIRS4:
+		var n: Vector2i = c + d
+		if not grid.in_bounds(n) or grid.level(n) != grid.level(c) + 1 or not grid.is_walkable(n):
+			continue
+		var base := lift(c)
+		var out := Vector3(d.x, 0, d.y)
+		var along := Vector3(absf(d.y), 0, absf(d.x))
+		var slab := Palette.box(along * 0.95 + out.abs() * 1.25 + Vector3(0, 0.16, 0), m)
+		slab.position = Vector3(c.x, base + RAISE * 0.45, c.y) + out * 0.02
+		slab.rotate(along, atan2(RAISE, 1.0) * (d.x - d.y))   # high end towards the roof
+		_tiles.add_child(slab)
+		for i in 4:
+			var k := float((h >> (i * 3)) % 8) / 8.0
+			var chunk := Palette.box(Vector3(0.22, 0.16, 0.2) * (0.8 + k), m)
+			chunk.position = Vector3(c.x, base + 0.1 + k * 0.4, c.y) + along * (k - 0.5) * 0.7 + out * (-0.35 + i * 0.2)
+			chunk.rotation = Vector3(k, k * 4.0, 0.3)
+			_tiles.add_child(chunk)
+		return
+
+
 func _add_rubble(c: Vector2i, h: int, m: Material) -> void:
 	for i in 1 + h % 3:
 		var k := float((h >> (i * 3)) % 100) / 100.0
@@ -616,7 +776,7 @@ func _clear(layer: Node3D) -> void:
 
 
 func clear_overlays() -> void:
-	for l in [_range_layer, _path_layer, _cover_layer, _mark_layer]:
+	for l in [_range_layer, _path_layer, _cover_layer, _mark_layer, _blast_layer]:
 		_clear(l)
 	_hover.visible = false
 
@@ -659,6 +819,32 @@ func show_cover(c: Vector2i, sides: Dictionary) -> void:
 func clear_path() -> void:
 	_clear(_path_layer)
 	_clear(_cover_layer)
+	_clear(_blast_layer)
+
+
+## Aim preview for an explosive (Destruction.preview): the blast area as faint amber squares, then
+## a glass block over everything that will change, red for what breaks, drops or goes off, amber
+## for what only cracks. `changes` is {cell: kind}.
+func show_blast(area: Array, changes: Dictionary) -> void:
+	_clear(_blast_layer)
+	var a := Palette.overlay(Color(Palette.AMBER, 0.16))
+	for c in area:
+		var q := Palette.box(Vector3(0.94, 0.02, 0.94), a)
+		q.position = cell_to_world(c, 0.03)
+		_blast_layer.add_child(q)
+	var red := Palette.overlay(Color(Palette.DANGER, 0.32))
+	var amber := Palette.overlay(Color(Palette.AMBER, 0.26))
+	for c in changes:
+		var kind: String = changes[c]
+		var tall := 2.3 if grid.tile(c) == Types.Tile.WALL else (0.95 if grid.tile(c) == Types.Tile.LOW else 0.12)
+		var y0 := -RAISE * grid.level(c) + 0.02 if kind == "drop" else 0.0
+		var block := Palette.box(Vector3(1.0, tall - y0, 1.0), amber if kind == "crack" else red)
+		block.position = cell_to_world(c, (tall + y0) * 0.5)
+		_blast_layer.add_child(block)
+
+
+func clear_blast() -> void:
+	_clear(_blast_layer)
 
 
 ## Coloured squares on arbitrary cells (targeting candidates, ability areas).
