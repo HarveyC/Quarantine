@@ -46,6 +46,9 @@ var _phase_squad: PanelContainer
 var _phase_enemy: PanelContainer
 var _objective: Label
 var _hostiles: Label
+var _stealth_icon: W.Icon
+var _stealth_chip: PanelContainer
+var _stealth_shown := -1   # 1 concealed, 0 detected, -1 not built yet
 var _session_label: Label
 var _banner_box: Control
 var _hint: PanelContainer
@@ -129,6 +132,12 @@ func _build_turn_banner() -> void:
 	_hostiles = Styles.mono("", 13, Styles.DANGER_TEXT)
 	obj.add_child(_hostiles)
 	box.add_child(obj)
+	var stealth := Styles.hbox(8)
+	_stealth_icon = W.Icon.new("concealed", Styles.STEALTH, 17.0, 2.0)
+	stealth.add_child(_stealth_icon)
+	_stealth_chip = W.chip("Concealed", Styles.STEALTH)
+	stealth.add_child(_stealth_chip)
+	box.add_child(stealth)
 	_session_label = Styles.label("", 12, Styles.MUTED)
 	box.add_child(_session_label)
 	_banner_box = box
@@ -248,6 +257,7 @@ func refresh() -> void:
 	var hostiles := s.living(Types.Team.ENEMY).size()
 	_hostiles.text = "%d hostile%s" % [hostiles, "" if hostiles == 1 else "s"]
 	_objective.text = Objectives.describe(s)
+	_refresh_stealth()
 	_session_label.text = view.session.status_text()
 	var sel := view.input.selected_id if view.input != null else -1
 	roster.refresh(view, sel, can_act)
@@ -262,6 +272,30 @@ func refresh() -> void:
 	var reach := 0.04 + worst / 100.0 * 0.26
 	if absf(reach - _veins.reach) > 0.01:
 		_veins.set_reach(reach)
+
+
+## The Concealed / Detected chip (the coach points at it).
+func stealth_chip() -> Control:
+	return _stealth_chip
+
+
+## Concealed (filled, cold blue) until the event player shows the squad being spotted, then an
+## outlined Detected chip for the rest of the fight.
+func _refresh_stealth() -> void:
+	var on := view.player.concealed if view.player != null else Concealment.active(view.state)
+	if int(on) == _stealth_shown:
+		return
+	_stealth_shown = int(on)
+	var col := Styles.STEALTH if on else Styles.DANGER
+	_stealth_icon.set_icon("concealed" if on else "detected", col)
+	var sb := _stealth_chip.get_theme_stylebox("panel") as StyleBoxFlat
+	sb.bg_color = col if on else Color(col, 0.06)
+	sb.border_color = col if on else Color(col, 0.4)
+	sb.shadow_size = 6 if on else 0
+	sb.shadow_color = Color(col, 0.3)
+	var l := _stealth_chip.get_child(0) as Label
+	l.text = "CONCEALED" if on else "DETECTED"
+	l.add_theme_color_override("font_color", Styles.GROUND if on else Styles.DANGER_TEXT)
 
 
 func _set_chip(chip: PanelContainer, col: Color, on: bool) -> void:

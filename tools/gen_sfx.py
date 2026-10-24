@@ -743,6 +743,35 @@ def radio_beep():
     return mix(static, np.concatenate([np.zeros(int(0.08 * SR)), beep, np.zeros(int(0.03 * SR)), sine(1250, 0.06) * 0.6]))
 
 
+def _blip(freq, dur, decay, glide=0.0):
+    x = t(dur)
+    f = freq * (1 + glide * np.exp(-x / 0.02))
+    tone = sine(f, dur) + sine(f * 2.0, dur) * 0.18
+    return tone * env(len(x), 0.002, decay)
+
+
+def ping():
+    """Co-op ping: a bright two-note sonar chirp with a short tail."""
+    a = _blip(1320, 0.5, 0.12, 0.08)
+    b = np.concatenate([np.zeros(int(0.07 * SR)), _blip(1980, 0.43, 0.16)]) * 0.8
+    return echo(a + b, 0.09, 0.25, 3)
+
+
+def ping_attack():
+    """Attack ping: the chirp, falling, over a low pulse."""
+    a = _blip(1660, 0.45, 0.09, -0.12)
+    b = np.concatenate([np.zeros(int(0.06 * SR)), _blip(1110, 0.39, 0.12)]) * 0.9
+    low = sine(220, 0.2) * env(int(0.2 * SR), 0.003, 0.05) * 0.5
+    return echo(mix(a + b, low), 0.08, 0.22, 3)
+
+
+def ping_danger():
+    """Danger ping: two quick low warning pips, dissonant on purpose."""
+    pip = lambda: (sine(740, 0.13) + sine(784, 0.13) * 0.7) * env(int(0.13 * SR), 0.002, 0.05)
+    gap = np.zeros(int(0.05 * SR))
+    return echo(np.concatenate([pip(), gap, pip(), np.zeros(int(0.15 * SR))]), 0.07, 0.2, 2)
+
+
 def sting_squad():
     d = 1.8
     x = t(d)
@@ -837,6 +866,7 @@ SOUNDS = {
     "machine_pistol": machine_pistol, "bloom_pistol": bloom_pistol, "hand_cannon": hand_cannon,
     "stun_pistol": stun_pistol, "longslide": longslide, "whiz_zap": whiz_zap, "impact_shock": impact_shock,
     "explosion": explosion, "collapse": collapse,
+    "ping": ping, "ping_attack": ping_attack, "ping_danger": ping_danger,
 }
 
 if __name__ == "__main__":

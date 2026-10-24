@@ -264,6 +264,7 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 	if reaction and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
 		breakdown.append(["Reaction shot", -Weapons.reaction_penalty(attacker, REACTION_PENALTY)])
 	GearFx.odds_terms(s, attacker, target, from, reaction, cover, breakdown)
+	Concealment.odds_terms(s, attacker, target, reaction, breakdown)
 	var crit := Kit.modify_odds(s, attacker, target, from, reaction, breakdown)
 	return _finish_odds(breakdown, cover, flanked, los, mini(100, (FLANK_CRIT if flanked else 0) + crit + Weapons.crit_bonus(attacker)),
 		Weapons.graze_band(attacker, GRAZE_BAND))

@@ -1,7 +1,8 @@
 class_name Rules
 extends RefCounted
 ## Turn flow and action dispatch. The single entry point for changing GameState.
-## Module-specific behaviour is delegated to Combat, Infection and EnemyAI.
+## Module-specific behaviour is delegated to Combat, Infection and EnemyAI (Concealment hooks
+## into moves, attacks and damage).
 
 
 ## Builds a mission from a map file. `squad` is an Array of {"kind": String, "player": int}.
@@ -126,6 +127,7 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		Types.MOVE: _do_move(s, u, action.to)
 		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: Combat.apply(s, u, action)
 		Types.MUTATION: Infection.apply_mutation(s, u, action)
+	Concealment.after_action(s, u, action)
 	Encounter.after_action(s, u, action)
 	Kit.after_action(s, u, action)
 	Vision.refresh(s)
@@ -238,6 +240,13 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 		segment.append(c)
 		walked.append(c)
 		Vision.on_step(s, u)
+		var spot := Concealment.spotter(s, u)
+		if not spot.is_empty():
+			# Show the walk up to here before the squad is spotted, so the alarm lands on time.
+			s.emit({"type": "move", "unit": u.id, "from": from, "path": segment.duplicate()})
+			from = c
+			segment.clear()
+			Concealment.lose(s, "spotted", spot[0], spot[1])
 		Kit.on_step(s, u, c)
 		var reactors := Combat.reactions_to_move(s, u, c)
 		var guards := ClassAbilities.guards_against(s, u, c)
@@ -271,6 +280,7 @@ static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = 
 	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1})
 	if source != null and source.is_enemy_of(target):
 		Vision.expose(s, source)
+	Concealment.on_damage(s, target, source)
 	if source and EnemyRoster.infects(source):
 		Infection.on_damaged(s, target, source, amount)
 	Encounter.on_damaged(s, target, source, amount)

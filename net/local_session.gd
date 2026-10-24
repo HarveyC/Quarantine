@@ -8,6 +8,8 @@ signal match_started(state: GameState)
 signal resynced(state: GameState)
 signal rejected(reason: String)
 signal run_changed(run: RunState)
+## A ping, map stroke or clear (see coop/marks.gd) to show. View-only; never touches the state.
+signal marked(m: Dictionary)
 
 var state: GameState
 var run: RunState
@@ -15,6 +17,7 @@ var player_names := {}
 ## Tests turn saving off so they don't touch the player's save slot.
 var save_enabled := true
 var _picks := {}
+var _mark_limit := Marks.Limiter.new()
 
 
 func local_players() -> Array[int]:
@@ -49,6 +52,16 @@ func submit(action: Dictionary) -> void:
 
 func set_ready(player: int, on: bool) -> void:
 	Rules.set_ready(state, player, on)
+
+
+## Shows a ping or map stroke. Every player is at this screen, so it goes straight to the view
+## (through the same checks and rate limit as online, so hot-seat behaves the same).
+func mark(m: Dictionary) -> bool:
+	var clean := Marks.sanitize(m)
+	if clean.is_empty() or not _mark_limit.allow(clean.player, clean.type, Marks.now()):
+		return false
+	marked.emit(clean)
+	return true
 
 
 func restart() -> void:

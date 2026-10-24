@@ -2,7 +2,7 @@ extends Node3D
 ## Angled tactical camera. WASD / arrow keys / screen-edge pan, Q/E rotate in
 ## 90 degree steps, mouse wheel zoom. Everything eases towards its target.
 ## Keys are InputMap actions (rebindable, see view/game_settings.gd); on a gamepad the
-## right stick pans, LT/RT rotate and the stick clicks zoom.
+## right stick pans, LT/RT rotate and a tap of R3 steps the zoom (zoom_cycle).
 ##
 ## Cinematic mode (shot cams): the event player hands over two camera poses and
 ## drives the blend between them on its own clock with `cine_progress`, so slow
@@ -99,6 +99,19 @@ func rotate_step(dir: int) -> void:
 
 func zoom_step(dir: int) -> void:
 	_target_dist = clampf(_target_dist * (1.0 + 0.12 * dir), MIN_DIST, MAX_DIST)
+
+
+## Gamepad zoom (a tap of R3, whose hold draws on the map): steps in to the next of three
+## distances, and from the closest back out to the farthest.
+const ZOOM_STOPS: Array[float] = [8.0, 13.0, 20.0]
+
+
+func zoom_cycle() -> void:
+	for i in range(ZOOM_STOPS.size() - 1, -1, -1):
+		if ZOOM_STOPS[i] < _target_dist - 0.5:
+			_target_dist = ZOOM_STOPS[i]
+			return
+	_target_dist = ZOOM_STOPS.back()
 
 
 func snap() -> void:

@@ -68,6 +68,7 @@ Rules for parallel work:
 | `move` | `unit`, `from`, `path: Array[Vector2i]` (one event per segment between interrupts) |
 | `shot` | `unit`, `target`, `hit`, `graze`, `crit`, `damage`, `chance`, `reaction` (a graze has `hit` and `graze` both true and reduced damage; emitted before its `damage` event) |
 | `damage` | `unit`, `amount`, `hp`, `source` |
+| `concealment_lost` | `cause` (spotted, fired, attacked, explosion, alerted), `unit` (the spotter or target, -1), `by` (our unit, -1) |
 | `died` | `unit` |
 | `overwatch` | `unit` |
 | `hunker` | `unit` |
@@ -472,6 +473,30 @@ hits carry into the next layer:
   and `collapse` (tools/gen_sfx.py). Aim preview `Board.show_blast` from `Destruction.preview`.
   Dev capture: `godot -s tools/shot_destruction.gd -- OUT_DIR` (needs a renderer).
 
+## Concealment (stealth/)
+
+XCOM-style squad stealth, `Concealment` in stealth/concealment.gd. Pure rules code; state is
+`state.encounter.concealment = {on, lost_turn, cause}`, so it is in every snapshot and checksum.
+
+- Per-mission option: `FightBuilder.starts_concealed` sets encounter `concealed`. On for most
+  fights and quick play; off for Ambush nodes, Hold the beacon, bosses, an event's
+  `modifiers.detected`, and Echo fights (`Story.setup_echo` calls `Concealment.disable`).
+- While concealed a dormant Infected only spots a unit within `DETECT_RADIUS` (4, Hive Hush 2)
+  with line of sight, instead of its full sight. `Rules.move_along` checks every step either
+  side takes (`Concealment.spotter`), flushes the walk so far as a `move` event, then breaks it,
+  so the alarm plays at the right moment. `EnemyAI` checks again at each dormant enemy's turn.
+- Any squad attack (hit or miss), any damage between the sides, an explosion
+  (`Destruction.noise`) or any other alert (`EnemyAI.alert`) also breaks it. The enemy involved
+  and its pod wake. Concealment never comes back in that fight.
+- Dormant enemies patrol (`Concealment.patrol`, `state.rng`) near `status.patrol_home`, and
+  spawns arrive dormant. Attacks on unaware targets get `Unaware` +15 aim; reaction shots in the
+  enemy phase of the reveal turn get `Ambush shot` +15.
+- View: `EventPlayer.concealed` is the displayed state (lags the rules like the rest). It drives
+  the HUD chip, the red move tiles (`Concealment.danger_cells`, only enemies the squad can see),
+  the SQUAD CONCEALED / DETECTED banners and the Soundscape `stealth` loop, which hands over to
+  the combat stems with the `st_reveal` stinger and full pulse and danger for 30 seconds.
+- Dev aid: `godot -s tools/shot_concealment.gd -- OUT_DIR` renders the sequence.
+
 ## Objectives (objectives/)
 
 The objective comes with the map: `grid.objective` (set by MapGen, saved with the grid). Progress is
@@ -666,6 +691,28 @@ Online flow:
 The determinism this relies on: all randomness is `state.rng`, and the enemy/infection/AI code only
 ever reads `state`. The two-process check in `tests/net_playtest.sh` asserts a host and client play a
 whole match and end on the same checksum.
+
+### Pings and map drawing (coop/, ui/marks/)
+
+Co-op callouts on the tactical map and the route map. They never touch `GameState` or `RunState`, so
+they skip the action pipeline: no sequence number, no checksum, nothing saved.
+
+- **`coop/marks.gd` (`Marks`)**: the mark vocabulary (`ping` with a kind from `Marks.KINDS`, `stroke`
+  chunks of points), `sanitize()` for anything off the network, the quick ping's kind from what's under
+  it (`fight_context`, `quick_kind`: enemy = attack, barrel or hazard = danger, objective marker = loot,
+  route node = move), live limits and token-bucket rate limits (`Marks.Limiter`, `Marks.LIMITS`).
+- **Sessions**: `mark(m)` and a `marked(m)` signal on both `LocalSession` and `NetSession`. Online, the
+  sender shows its own mark at once and sends it to the host; the host stamps the sender's own player
+  on it, sanitizes and rate-limits it again (`relay_mark`), then passes it to everyone else.
+  A stroke goes out in chunks every `CHUNK_SECONDS` (at most `MAX_CHUNK` points) with one id.
+- **`ui/marks/mark_layer.gd`**: one per screen (the fight's UI layer, a child of the route map board).
+  Reads input (Ping: G / middle mouse / L3, tap = quick ping, hold = `ping_wheel.gd`; Draw: V / R3
+  held), sends marks, and draws what comes back: a player-coloured badge with the kind's icon and a
+  label, ripples, an arrow on the screen edge for pings out of view, fading strokes. The screen
+  specifics are a surface: `fight_surface.gd` (cells, units, world points, a world beacon per ping)
+  and `route_surface.gd` (nodes, points as fractions of the board so window sizes agree).
+- A tap of R3 without drawing steps the camera zoom (`CameraRig.zoom_cycle`), since the stick
+  clicks used to zoom. `tests/net_playtest.sh` scenario 5 checks marks cross a real ENet connection.
 
 ## Run framework (roguelike run)
 
@@ -1003,6 +1050,12 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
   turn unless line of sight breaks or it is suppressed; height lowers the target's cover as for any shot), Burrower (act 3, hidden underground, erupts
   next to the soldier on the highest ground, destroys cover and collapses raised tiles). Each act
   weights its `EnemyRoster.SIGNATURE` enemies double.
+- **Mostly melee**: fights are built from melee infected, with the Runner as the staple
+  (`EnemyRoster.WEIGHT`, and it fits any budget). Ranged kinds (`EnemyRoster.RANGED`: Spitter,
+  Fallen, Sharpshooter) are supporting threats, capped at `FightBuilder.ranged_limit` (1, or 2 in a
+  5-enemy fight); reinforcement waves are melee only. Melee AI paths by real walking cost (stairs and
+  ladders, `EnemyAI._distance_field`), and a rusher out of reach ends its move in cover when that
+  costs no ground.
 - **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
 - Dev aid: `-- --fight=<node>,<act>,<outbreak>` plays one built fight on the test map.
 

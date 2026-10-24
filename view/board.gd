@@ -900,12 +900,28 @@ func clear_overlays() -> void:
 	_hover.visible = false
 
 
-func show_range(cells: Dictionary) -> void:
+## Move range. While the squad is Concealed, `spotted` cells (Concealment.danger_cells) are
+## drawn red with a corner bracket: stepping on one gives the squad away.
+func show_range(cells: Dictionary, spotted: Dictionary = {}) -> void:
 	_clear(_range_layer)
+	var red: StandardMaterial3D = null
+	var edge: StandardMaterial3D = null
+	if not spotted.is_empty():
+		red = Palette.overlay(Color(Palette.DANGER, 0.3))
+		edge = Palette.overlay(Color(Palette.DANGER, 0.85), true)
 	for c in cells:
-		var q := Palette.box(Vector3(0.92, 0.01, 0.92), _m_range)
+		var alarm := spotted.has(c)
+		var q := Palette.box(Vector3(0.92, 0.01, 0.92), red if alarm else _m_range)
 		q.position = cell_to_world(c, 0.015)
 		_range_layer.add_child(q)
+		if alarm:
+			for k in 4:
+				var sx := 1.0 if k % 2 == 0 else -1.0
+				var sz := 1.0 if k < 2 else -1.0
+				for bar in [Vector3(0.22, 0.012, 0.04), Vector3(0.04, 0.012, 0.22)]:
+					var b := Palette.box(bar, edge)
+					b.position = cell_to_world(c, 0.02) + Vector3(sx * (0.44 - bar.x * 0.5), 0, sz * (0.44 - bar.z * 0.5))
+					_range_layer.add_child(b)
 
 
 func show_path(path: Array[Vector2i]) -> void:

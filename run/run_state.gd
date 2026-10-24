@@ -53,7 +53,8 @@ var node_state := {}
 ## Owned by GearRun: stash, reward offers, pity. Opaque to the framework.
 var gear := {}
 ## Next-fight / map effects set by events, consumed by RunRules and FightBuilder.
-## Keys: extra_enemies, enemies_dead_at_start, first_turn_action_loss, ambush, boss_health_mult,
+## Keys: extra_enemies, enemies_dead_at_start, first_turn_action_loss, ambush, detected (start the
+## next fight without Concealment), boss_health_mult,
 ## force_nest_next, remove_column, pending_fight ({"kind", "objective"}). Squad-wide doctrine
 ## passives live under "doctrines" (Array of ids).
 var modifiers := {}

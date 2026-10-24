@@ -232,7 +232,8 @@ func _controls() -> void:
 	_section("Gamepad")
 	for line in ["Left stick moves the pointer · D-pad steps it one cell · A clicks / moves / fires · B cancels",
 			"X shoots · Y quick action menu · LB/RB cycle soldiers or targets · Start = Ready",
-			"Right stick pans · LT/RT rotate · L3/R3 zoom · Back opens Settings"]:
+			"Right stick pans · LT/RT rotate · tap R3 to zoom · Back opens Settings",
+			"L3 pings what the pointer is on (hold for the ping wheel) · hold R3 and move the pointer to draw"]:
 		var l := Styles.label(line, 14, Styles.DIM)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD
 		_content.add_child(l)

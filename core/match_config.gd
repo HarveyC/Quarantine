@@ -92,9 +92,9 @@ static func make(num_players: int, seed: int = 0, picks: Dictionary = {}) -> Dic
 		e["prog"] = Progression.quick_play_record(e.kind)
 		squad.append(e)
 	var s := seed if seed != 0 else randi() % 1000000 + 1
-	# Quick matches outside a run roll an act 1 skirmish layout from their seed.
+	# Quick matches outside a run roll an act 1 skirmish layout from their seed, and start Concealed.
 	return {"map": MAP, "squad": squad, "enemies": ENEMIES.slice(0, 1 + squad.size()), "seed": s,
-		"map_spec": {"biome": "wall", "objective": "skirmish", "seed": s}}
+		"map_spec": {"biome": "wall", "objective": "skirmish", "seed": s}, "encounter": {"concealed": true}}
 
 
 ## The mission for a fight step of a run. `st` is {"kind", "objective", "seed"} from RunRules.

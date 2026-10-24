@@ -10,7 +10,8 @@ extends RefCounted
 ##   boss (boss kind), infect_bonus (extra Infection on infected hits), lapse_double (bool),
 ##   waves: [{turn, every, kinds: Array[String] specs}], incoming: [{turn, cells, kinds}],
 ##   telegraphs: [{kind, cells, turn, damage, source, smash, unit}],
-##   over (bool, boss dead: adds die without death effects).
+##   over (bool, boss dead: adds die without death effects),
+##   concealed (bool, the squad starts Concealed) and concealment (Concealment's state).
 
 const SPAWN_CAP := 8             # living non-static enemies; spawners pause above this
 ## Boss fights by squad size (encounter "squad", default 4): egg sacs the Brood Mother starts
@@ -80,6 +81,7 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 		if EnemyRoster.is_boss(u) and mult != 1.0:
 			u.max_hp = maxi(1, roundi(u.max_hp * mult))
 			u.hp = u.max_hp
+	Concealment.setup(s, enc)
 	_seed_spores(s, int(enc.get("spore_patches", 0)))
 	var start_inf := int(enc.get("start_infection", 0))
 	if start_inf > 0:
@@ -157,11 +159,15 @@ static func _seed_spores(s: GameState, patches: int) -> void:
 
 # --- shared mechanics ----------------------------------------------------------------------
 
-## Spawns an alerted enemy at (or near) `cell`. Emits {"type": "spawned", unit, kind, cell, from}.
+## Spawns an alerted enemy at (or near) `cell` (dormant, on patrol, while the squad is
+## Concealed). Emits {"type": "spawned", unit, kind, cell, from}.
 static func spawn(s: GameState, spec: String, cell: Vector2i, source: Unit = null) -> Unit:
 	var u := EnemyRoster.make(spec)
 	s.add_unit(u, free_cell(s, cell))
-	u.status["alerted"] = true
+	if Concealment.active(s):
+		u.status["patrol_home"] = u.pos
+	else:
+		u.status["alerted"] = true
 	u.status.erase("hidden")
 	s.emit({"type": "spawned", "unit": u.id, "kind": u.kind, "cell": u.pos, "from": source.id if source else -1})
 	return u

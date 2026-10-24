@@ -18,6 +18,8 @@ const PostFx := preload("res://view/post_fx.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
 const IntentOverlay := preload("res://view/intent_overlay.gd")
 const FogOverlay := preload("res://view/fog_overlay.gd")
+const MarkLayer := preload("res://ui/marks/mark_layer.gd")
+const FightSurface := preload("res://ui/marks/fight_surface.gd")
 
 signal left_match
 ## A run fight's debrief was continued or skipped; the app moves on to the run view.
@@ -42,6 +44,8 @@ var hud: Hud
 var unit_views: Dictionary = {}   # unit id -> UnitView
 var intents: IntentOverlay
 var fog: FogOverlay
+## Co-op pings and map drawing.
+var marks: MarkLayer
 var autoplay := false
 var debrief_done := false
 var screenshot_path := ""
@@ -148,6 +152,7 @@ func start(s: GameState, begin := true) -> void:
 	player.name = "EventPlayer"
 	player.view = self
 	player.speed = AUTOPLAY_SPEED if autoplay else GameSettings.game_speed()
+	player.concealed = Concealment.active(s)
 	add_child(player)
 	input = InputController.new()
 	input.name = "Input"
@@ -165,6 +170,10 @@ func start(s: GameState, begin := true) -> void:
 	hud = Hud.new()
 	_ui_layer.add_child(hud)
 	hud.setup(self)
+	marks = MarkLayer.new()
+	_ui_layer.add_child(marks)
+	marks.setup(FightSurface.new(self), session)
+	marks.draw_tapped.connect(camera_rig.zoom_cycle)
 	player.beat_started.connect(input.on_beat)
 	player.beat_started.connect(hud.on_beat)
 	player.drained.connect(_on_drained)
@@ -431,6 +440,8 @@ func _screenshot_step() -> void:
 		var m := _autoplay_advance(u)
 		if not m.is_empty():
 			session.submit(m)
+	elif _frames == 60 and args.has("--screenshot-action=marks"):
+		_screenshot_marks()
 	elif _frames == 60:
 		input.cycle()
 	elif _frames == 70 and (args.has("--screenshot-action=shoot") or args.has("--screenshot-action=fire")):
@@ -444,6 +455,36 @@ func _screenshot_step() -> void:
 		get_viewport().get_texture().get_image().save_png(screenshot_path)
 		print("[screenshot] saved ", screenshot_path)
 		get_tree().quit(0)
+
+
+## Dev aid for `--screenshot-action=marks`: two players' pings (one off screen), strokes and the
+## ping wheel open.
+func _screenshot_marks() -> void:
+	Vision.disable(state)
+	show_vision(FogOverlay.annotate(state, {"type": "start"}), true)
+	input.deselect()
+	var enemy: Unit = state.living(Types.Team.ENEMY)[0]
+	camera_rig.focus(Board.cell_to_world(enemy.pos + Vector2i(-1, 1)))
+	camera_rig.snap()
+	var send := func(m: Dictionary) -> void:
+		marks._on_marked(Marks.sanitize(m))
+	var to := enemy.pos + Vector2i(-3, 2)
+	send.call({"type": "ping", "player": 0, "where": "fight", "kind": "attack", "cell": enemy.pos, "unit": enemy.id})
+	send.call({"type": "ping", "player": 1, "where": "fight", "kind": "move", "cell": to})
+	send.call({"type": "ping", "player": 1, "where": "fight", "kind": "danger", "cell": Vector2i(state.grid.width - 1, 0)})
+	var a := PackedVector3Array()
+	var b := PackedVector3Array()
+	var p0 := Board.cell_to_world(to, 0.06)
+	var p1 := Board.cell_to_world(enemy.pos, 0.06)
+	for i in 16:   # player 2 draws a curved approach; player 1 circles the enemy
+		var k := i / 15.0
+		a.append(p0.lerp(p1, k) + Vector3(sin(k * PI) * 1.2, 0, 0))
+		b.append(p1 + Vector3(cos(k * TAU * 0.9) * 1.1, 0, sin(k * TAU * 0.9) * 1.1))
+	send.call({"type": "stroke", "player": 1, "where": "fight", "id": 1, "points": a})
+	send.call({"type": "stroke", "player": 0, "where": "fight", "id": 1, "points": b})
+	marks.wheel.size = marks.size
+	marks.wheel.open_at(marks.size * Vector2(0.74, 0.5), Marks.color(0), "Fuel barrel")
+	marks.wheel.point_at(Vector2(60, 60))
 
 
 func _autoplay_step() -> void:
@@ -460,6 +501,7 @@ func _autoplay_step() -> void:
 		return
 	if state.phase != Types.Phase.TEAM or (session.has_method("is_waiting") and session.is_waiting()):
 		return
+	_autoplay_marks()
 	# One shot per frame from any of our soldiers with a visible target, then ready up.
 	for p in session.local_players():
 		for u in state.controllable_units(p):
@@ -482,6 +524,24 @@ func _autoplay_step() -> void:
 			print("[autoplay] turn %d: player %d ready" % [state.turn, p])
 			session.set_ready(p, true)
 			return
+
+
+var _autoplay_marked := false
+
+
+## Test aid (`--autoplay-marks`): on its first turn each peer pings a soldier's cell and draws a
+## short line, so tests/net_playtest.sh can check marks cross the network.
+func _autoplay_marks() -> void:
+	if _autoplay_marked or not OS.get_cmdline_user_args().has("--autoplay-marks") or marks == null:
+		return
+	_autoplay_marked = true
+	var mine := state.controllable_units(session.local_players()[0])
+	if mine.is_empty():
+		return
+	var c: Vector2i = mine[0].pos
+	marks.ping({"cell": c, "context": ""}, "move")
+	session.mark({"type": Marks.STROKE, "where": Marks.FIGHT, "player": session.local_players()[0], "id": 1, "end": true,
+		"points": PackedVector3Array([Board.cell_to_world(c), Board.cell_to_world(c + Vector2i(2, 1))])})
 
 
 ## The move that takes `u` closest to the nearest enemy, or {} if it is as close as it gets.
