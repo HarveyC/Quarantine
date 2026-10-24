@@ -205,6 +205,27 @@ func test_shot_cinematic_takes_and_returns_camera() -> void:
 	v.free()
 
 
+func test_every_gun_fires_through_the_shot_beat() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldier := v.state.controllable_units(0)[0]
+	var enemy := v.state.living(Types.Team.ENEMY)[0]
+	var uv := v.view_for(soldier.id)
+	var k := 0
+	for id in Weapons.TABLE:
+		uv.weapon = id
+		for outcome in [[true, false], [false, false], [true, true]]:
+			v.player.enqueue({"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": outcome[0], "graze": outcome[1],
+				"crit": false, "damage": 1, "chance": 50, "reaction": k % 2 == 0})
+			var steps := 0
+			while v.player.is_busy() and steps < 600:
+				v.player.advance(1.0 / 20.0)
+				steps += 1
+			assert_true(not v.player.is_busy(), "%s shot finishes" % id)
+			k += 1
+	v.free()
+
+
 func test_cinematics_off_plays_quick_shot() -> void:
 	var v := _make_view()
 	v.player.flush()
