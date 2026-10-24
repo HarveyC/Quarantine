@@ -6,6 +6,7 @@ signal host_requested(name: String, port: int)
 signal join_requested(name: String, address: String, port: int)
 signal local_requested(players: int)
 signal run_requested(players: int)
+signal training_requested
 signal continue_requested
 signal start_requested
 signal start_run_requested
@@ -68,6 +69,9 @@ func _build_menu(root: VBoxContainer) -> void:
 	_continue_btn.pressed.connect(func() -> void: continue_requested.emit())
 	var solo_btn := _button(_menu_box, "Solo run")
 	solo_btn.pressed.connect(func() -> void: run_requested.emit(1))
+	var training_btn := _button(_menu_box, "Training")
+	training_btn.tooltip_text = "A short guided mission that teaches the rules"
+	training_btn.pressed.connect(func() -> void: training_requested.emit())
 	var host_btn := _button(_menu_box, "Host online game")
 	host_btn.pressed.connect(func() -> void: host_requested.emit(_name.text, _port_value()))
 	var join_row := HBoxContainer.new()

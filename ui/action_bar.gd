@@ -127,6 +127,19 @@ static func ready_player(view: MissionView) -> int:
 	return -1
 
 
+## The live action button whose key starts with `prefix` (shoot, overwatch, mutation:...),
+## or null. Training arrows point at these.
+func find_button(prefix: String) -> Control:
+	for b in _buttons.get_children():
+		if str(b.get_meta("key", "")).begins_with(prefix):
+			return b
+	return null
+
+
+func ready_button() -> Control:
+	return _ready
+
+
 func _placeholder() -> Control:
 	var c := Panel.new()
 	c.custom_minimum_size = BTN
@@ -160,6 +173,7 @@ func _button(input: InputController, a: Dictionary, can_act: bool) -> Button:
 		fg = Color(fg, 0.35)
 	b.tooltip_text = label + ("\n" + str(a.desc) if a.get("key") == "shoot" and a.has("desc") else "")
 	var key: String = a.key
+	b.set_meta("key", key)
 	b.pressed.connect(func() -> void: action_pressed.emit(key))
 	var col := Styles.vbox(6)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
