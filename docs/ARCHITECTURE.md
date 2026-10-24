@@ -23,6 +23,8 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `elevation/` | `Elevation` | **maps** | High ground: aim and cover from height, in-fight level changes |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
+| `net/` | `NetSession`, `LocalSession`, `NetTransport` (`EnetTransport`, `SteamTransport`) | net | Sessions the view talks to; online replication over ENet or Steam (see docs/STEAM.md) |
+| `platform/` | `Platform` autoload, `CloudSync`, `CrashReporter` | net | Steam (optional), cloud saves, achievements bridge, rich presence, crash reports |
 | `tests/` | `TestCase` | everyone | `tests/test_<module>.gd` per workstream |
 
 Rules for parallel work:

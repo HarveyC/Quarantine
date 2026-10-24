@@ -1,6 +1,7 @@
 class_name NetSession
 extends Node
-## Online co-op over ENet, host-authoritative.
+## Online co-op, host-authoritative, over a NetTransport: ENet by address (LAN, port forward,
+## dev and CI) or Steam lobbies with relayed traffic (no port forwarding).
 ##
 ## Every peer runs the same deterministic rules on the same seed. Clients never change
 ## their state on their own: they send action requests to the host, the host validates
@@ -9,6 +10,10 @@ extends Node
 ## apply it and compare checksums; on a mismatch or a gap they ask for a full snapshot.
 ##
 ## This node must sit at the same path on every peer (App adds it as "Net").
+##
+## A client that loses the host mid-match (Wi-Fi drop, relay hiccup) keeps its state and tries to
+## reconnect a few times; the host keeps its slot as absent and hands it back on the same client id.
+## A host that quits on purpose says goodbye first, so clients don't wait on a reconnect.
 
 signal lobby_changed
 signal match_started(state: GameState)
@@ -16,6 +21,10 @@ signal resynced(state: GameState)
 signal rejected(reason: String)
 signal disconnected(reason: String)
 signal run_changed(run: RunState)
+## Client: the connection to the host dropped mid-match and we're trying again.
+signal reconnecting(attempt: int, of: int)
+## Client: back in the match after a drop.
+signal reconnected
 
 const DEFAULT_PORT := 24680
 const MAX_PLAYERS := 4
@@ -23,9 +32,10 @@ const READY := "ready"   # pseudo action type: {"type": READY, "player": int, "r
 const RUN := "run"       # wrapper for run actions: {"type": RUN, "action": <RunRules action>}
 ## Seconds after the first route vote before the host closes the vote (design doc: 20).
 const VOTE_SECONDS := 20.0
-## How long the host waits on a silent peer before dropping it (ms). ENet's default is ~30s, which
-## left crashed clients in the lobby long enough to push a rejoining player into the wrong slot.
-const PEER_TIMEOUT_MS := 5000
+## How long the host waits on a silent ENet peer before dropping it (ms).
+const PEER_TIMEOUT_MS := EnetTransport.PEER_TIMEOUT_MS
+## Seconds to wait before each reconnect attempt; the client gives up after the last.
+const RECONNECT_DELAYS: Array[float] = [1.0, 2.0, 3.0, 4.0, 5.0, 5.0]
 const CLIENT_ID_PATH := "user://client_id.txt"
 
 var state: GameState
@@ -49,17 +59,60 @@ var _seq := 0
 var _config := {}
 var _waiting := false
 var _absent_pending := false
+var transport: NetTransport
+## Client: reconnect attempt in progress (1-based), 0 when connected normally.
+var _reconnect_attempt := 0
+var _host_said_bye := false
+## Dev/test aid (--drop-client-at=N): the host cuts the first client off after action N.
+var drop_client_at := -1
 
 
 # --- connecting --------------------------------------------------------------
 
-## Returns "" on success, otherwise a reason.
+## Hosts over ENet on `port`. Returns "" on success, otherwise a reason.
 func host(port: int, name: String) -> String:
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(port, MAX_PLAYERS - 1)
-	if err != OK:
-		return "Could not open port %d (%s)" % [port, error_string(err)]
-	_attach(peer, name)
+	return host_with(EnetTransport.new("", port, MAX_PLAYERS - 1), name)
+
+
+## Joins a host over ENet by address. Returns "" if connecting, otherwise a reason.
+func join(address: String, port: int, name: String) -> String:
+	return join_with(EnetTransport.new(address, port), name)
+
+
+## Hosts a friends-only Steam lobby. Returns "" if under way, otherwise a reason.
+func host_steam(steam, name: String) -> String:
+	var t := SteamTransport.new(steam)
+	t.max_members = MAX_PLAYERS
+	return host_with(t, name)
+
+
+## Joins the host of a Steam lobby (from an invite, the friends list or +connect_lobby).
+func join_steam(steam, lobby: int, name: String) -> String:
+	return join_with(SteamTransport.new(steam, lobby), name)
+
+
+func via_steam() -> bool:
+	return transport is SteamTransport
+
+
+## The Steam lobby we're in, or 0.
+func steam_lobby() -> int:
+	return (transport as SteamTransport).lobby_id if transport is SteamTransport else 0
+
+
+## Host over Steam: opens the overlay's invite dialog. False if that isn't possible.
+func invite_friends() -> bool:
+	return transport is SteamTransport and (transport as SteamTransport).invite_friends()
+
+
+func is_reconnecting() -> bool:
+	return _reconnect_attempt > 0
+
+
+func host_with(t: NetTransport, name: String) -> String:
+	var err := _attach(t, name, t.host)
+	if err != "":
+		return err
 	is_host = true
 	my_player = 0
 	lobby = {1: {"name": my_name, "player": 0}}
@@ -71,26 +124,30 @@ func host(port: int, name: String) -> String:
 	return ""
 
 
-func join(address: String, port: int, name: String) -> String:
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(address, port)
-	if err != OK:
-		return "Could not connect to %s:%d (%s)" % [address, port, error_string(err)]
-	_attach(peer, name)
-	multiplayer.connected_to_server.connect(func() -> void: _hello.rpc_id(1, my_name, client_id))
-	multiplayer.connection_failed.connect(func() -> void: _drop("Could not reach the host at %s:%d" % [address, port]))
-	multiplayer.server_disconnected.connect(func() -> void: _drop("The host left the game"))
+func join_with(t: NetTransport, name: String) -> String:
+	var err := _attach(t, name, t.join)
+	if err != "":
+		return err
+	_watch_host()
 	return ""
 
 
+func _watch_host() -> void:
+	multiplayer.connected_to_server.connect(_on_connected_to_host)
+	multiplayer.connection_failed.connect(_on_host_lost.bind(true))
+	multiplayer.server_disconnected.connect(_on_host_lost.bind(false))
+
+
+func _on_connected_to_host() -> void:
+	_hello.rpc_id(1, my_name, client_id)
+
+
 func leave() -> void:
-	if multiplayer.multiplayer_peer != null:
-		multiplayer.multiplayer_peer.close()
-	multiplayer.multiplayer_peer = null
-	for sig in [multiplayer.peer_connected, multiplayer.peer_disconnected, multiplayer.connected_to_server,
-			multiplayer.connection_failed, multiplayer.server_disconnected]:
-		for c in sig.get_connections():
-			sig.disconnect(c.callable)
+	if is_host and _live() and in_match:
+		# Tell clients this is on purpose so they don't sit through reconnect attempts.
+		_bye.rpc()
+		multiplayer.multiplayer_peer.poll()
+	_close_transport()
 	in_match = false
 	is_host = false
 	my_player = -1
@@ -99,16 +156,59 @@ func leave() -> void:
 	absent = {}
 	player_names = {}
 	_waiting = false
+	_reconnect_attempt = 0
+	_host_said_bye = false
 
 
-func _attach(peer: ENetMultiplayerPeer, name: String) -> void:
+## Closes the connection and forgets the transport, keeping the match state (for reconnects).
+func _close_transport() -> void:
+	if transport != null:
+		if transport.ready.is_connected(_on_transport_ready):
+			transport.ready.disconnect(_on_transport_ready)
+		if transport.failed.is_connected(_on_transport_failed):
+			transport.failed.disconnect(_on_transport_failed)
+		transport.close()
+		transport = null
+	if is_inside_tree():
+		multiplayer.multiplayer_peer = null
+		for sig in [multiplayer.peer_connected, multiplayer.peer_disconnected, multiplayer.connected_to_server,
+				multiplayer.connection_failed, multiplayer.server_disconnected]:
+			for c in sig.get_connections():
+				sig.disconnect(c.callable)
+
+
+## Starts `t` with `start` (its host or join). Returns "" if under way, otherwise a reason.
+func _attach(t: NetTransport, name: String, start: Callable) -> String:
 	# A second Host/Join while already connected would leave a stray connection on the host.
-	if multiplayer.multiplayer_peer != null:
+	if transport != null or (is_inside_tree() and multiplayer.multiplayer_peer != null):
 		leave()
 	my_name = name.strip_edges() if name.strip_edges() != "" else "Player"
 	if client_id == "":
 		client_id = load_client_id(my_name if Array(OS.get_cmdline_user_args()).any(func(a: String) -> bool: return a.begins_with("--name=")) else "")
+	if t.player_id() != "":
+		client_id = t.player_id()   # a Steam id follows the player across installs
+	var err: String = start.call()
+	if err != "":
+		return err
+	transport = t
+	if t.peer != null:
+		multiplayer.multiplayer_peer = t.peer
+	else:
+		t.ready.connect(_on_transport_ready)
+		t.failed.connect(_on_transport_failed)
+	return ""
+
+
+func _on_transport_ready(peer: MultiplayerPeer) -> void:
 	multiplayer.multiplayer_peer = peer
+	lobby_changed.emit()   # e.g. the Steam lobby now exists, so invites work
+
+
+func _on_transport_failed(reason: String) -> void:
+	if _reconnect_attempt > 0:
+		_on_host_lost(true)
+	else:
+		_drop(reason)
 
 
 ## A random id saved once per install. `suffix` keeps several dev copies on one machine distinct.
@@ -125,6 +225,63 @@ static func load_client_id(suffix: String = "") -> String:
 func _drop(reason: String) -> void:
 	leave()
 	disconnected.emit(reason)
+
+
+# --- reconnecting (client) ------------------------------------------------------
+
+@rpc("authority", "reliable")
+func _bye() -> void:
+	_host_said_bye = true
+
+
+## Whether a dropped connection is worth getting back: a match is still going.
+func _match_live() -> bool:
+	if not in_match or is_host:
+		return false
+	if run != null:
+		return run.phase != RunState.Phase.ENDED
+	return state != null and state.phase != Types.Phase.ENDED
+
+
+## The host went away (`failed`: a connect attempt failed). Mid-match, retry; otherwise give up.
+func _on_host_lost(failed: bool) -> void:
+	if _host_said_bye or not _match_live() or transport == null:
+		if failed and _reconnect_attempt == 0 and not in_match:
+			_drop("Could not reach the host at %s" % transport.describe() if transport else "Could not reach the host")
+		else:
+			_drop("The host left the game")
+		return
+	if _reconnect_attempt >= RECONNECT_DELAYS.size():
+		_drop("Lost the connection to the host")
+		return
+	var again := transport.rejoin_copy()
+	_close_transport()
+	_waiting = false
+	_reconnect_attempt += 1
+	print("[net] connection lost; reconnecting (%d/%d)" % [_reconnect_attempt, RECONNECT_DELAYS.size()])
+	reconnecting.emit(_reconnect_attempt, RECONNECT_DELAYS.size())
+	var attempt := _reconnect_attempt
+	get_tree().create_timer(RECONNECT_DELAYS[attempt - 1]).timeout.connect(func() -> void:
+		if _reconnect_attempt != attempt or again == null:
+			return
+		var err := _attach_again(again)
+		if err != "":
+			_on_host_lost(true))
+
+
+func _attach_again(t: NetTransport) -> String:
+	var err: String = t.join()
+	if err != "":
+		transport = t
+		return err
+	transport = t
+	_watch_host()
+	if t.peer != null:
+		multiplayer.multiplayer_peer = t.peer
+	else:
+		t.ready.connect(_on_transport_ready)
+		t.failed.connect(_on_transport_failed)
+	return ""
 
 
 ## Local IPv4 addresses, to tell a friend where to connect.
@@ -155,6 +312,9 @@ func is_waiting() -> bool:
 
 
 func submit(action: Dictionary) -> void:
+	if is_reconnecting():
+		rejected.emit("Reconnecting to the host...")
+		return
 	var err := Rules.validate(state, action)
 	if err != "":
 		rejected.emit(err)
@@ -163,11 +323,17 @@ func submit(action: Dictionary) -> void:
 
 
 func set_ready(player: int, on: bool) -> void:
+	if is_reconnecting():
+		rejected.emit("Reconnecting to the host...")
+		return
 	_send({"type": READY, "player": player, "ready": on})
 
 
 func submit_run(action: Dictionary) -> void:
 	if run == null:
+		return
+	if is_reconnecting():
+		rejected.emit("Reconnecting to the host...")
 		return
 	var err := RunRules.validate(run, action)
 	if err != "":
@@ -183,7 +349,10 @@ func restart() -> void:
 
 func status_text() -> String:
 	var others := lobby.size() - 1
-	return "%s · %d player%s" % ["Hosting" if is_host else "Online", lobby.size(), "" if others == 0 else "s"]
+	if is_reconnecting():
+		return "Reconnecting to the host (%d/%d)..." % [_reconnect_attempt, RECONNECT_DELAYS.size()]
+	var how := " on Steam" if via_steam() else ""
+	return "%s%s · %d player%s" % ["Hosting" if is_host else "Online", how, lobby.size(), "" if others == 0 else "s"]
 
 
 func _send(action: Dictionary) -> void:
@@ -374,9 +543,8 @@ func handle_hello(id: int, name: String, cid: String) -> int:
 
 
 func _on_peer_connected(id: int) -> void:
-	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
-	if enet != null and enet.get_peer(id) != null:
-		enet.get_peer(id).set_timeout(PEER_TIMEOUT_MS / 2, PEER_TIMEOUT_MS / 2, PEER_TIMEOUT_MS)
+	if transport != null:
+		transport.on_peer_connected(id)
 
 
 # Network sends, skipped when the session isn't live (unit tests drive the host logic directly).
@@ -401,8 +569,8 @@ func _send_kick(id: int, reason: String) -> void:
 
 
 func _drop_peer(id: int) -> void:
-	if _live() and multiplayer.multiplayer_peer is ENetMultiplayerPeer:
-		(multiplayer.multiplayer_peer as ENetMultiplayerPeer).disconnect_peer(id)
+	if _live() and transport != null:
+		transport.disconnect_peer(id)
 
 
 ## Lobby: next unused player number. Mid-match: an absent player's slot, preferring the same name.
@@ -524,7 +692,17 @@ func _commit_host(action: Dictionary) -> void:
 	_apply(action)
 	if _live():
 		_commit.rpc(_seq, action, _checksum())
+	if _seq == drop_client_at:
+		_drop_first_client.call_deferred()
 	_queue_absent_turns()
+
+
+func _drop_first_client() -> void:
+	for id in lobby:
+		if id != 1:
+			print("[net] test: cutting off player %d" % (lobby[id].player + 1))
+			_drop_peer(id)
+			return
 
 
 @rpc("authority", "reliable")
@@ -581,6 +759,10 @@ func _sync(config: Dictionary, snapshot: Dictionary, seq: int, run_dict: Diction
 	_seq = seq
 	_waiting = false
 	in_match = true
+	if _reconnect_attempt > 0:
+		_reconnect_attempt = 0
+		print("[net] reconnected at action %d" % seq)
+		reconnected.emit()
 	if not run_dict.is_empty():
 		run = RunState.from_dict(run_dict)
 		state = null

@@ -6,6 +6,7 @@ extends Node
 ##   --host[=port]  --join=address[:port]  --name=Name  --autostart=N (host starts at N players)
 ##   --autoplay / --screenshot=... with neither host nor join start a local hot-seat match directly.
 ##   --run=N starts a local run for N players (1 = solo); --autostart-run makes --autostart start a run.
+##   --drop-client-at=N (host) cuts the first client off after action N, to test reconnecting.
 
 const MISSION := preload("res://scenes/main.tscn")
 const MainMenu := preload("res://ui/main_menu.gd")
@@ -67,7 +68,22 @@ func _ready() -> void:
 	menu.start_run_requested.connect(_start_net_run)
 	menu.leave_requested.connect(_leave)
 	menu.class_picked.connect(net.pick_class)
+	menu.steam_host_requested.connect(_host_steam)
+	menu.steam_invite_requested.connect(func() -> void:
+		if not net.invite_friends():
+			menu.show_status("The Steam overlay isn't available. Friends can still pick Join game on you in their friends list."))
+	net.reconnecting.connect(func(attempt: int, of: int) -> void:
+		if view: view.hud.toast("Connection lost, reconnecting (%d/%d)..." % [attempt, of]))
+	net.reconnected.connect(func() -> void: if view: view.hud.toast("Reconnected"))
+	var plat := _platform()
+	if plat != null:
+		plat.lobby_join_requested.connect(_join_steam)
+		if plat.crash_report != "":
+			menu.show_status("Carriers closed unexpectedly last time. A crash report was saved to %s" % ProjectSettings.globalize_path(plat.crash_report))
 	_handle_args()
+	var launch_lobby: int = plat.take_launch_lobby() if plat != null else 0
+	if launch_lobby != 0:
+		_join_steam.call_deferred(launch_lobby)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--menu-shot="):
 			_menu_shot = a.trim_prefix("--menu-shot=")
@@ -97,6 +113,7 @@ func _handle_args() -> void:
 	var nm: String = args.get("name", "Player")
 	_autostart = int(args.get("autostart", "0"))
 	_autostart_run = args.has("autostart-run")
+	net.drop_client_at = int(args.get("drop-client-at", "-1"))
 	if args.has("host"):
 		_host(nm, int(args.host) if args.host.is_valid_int() else NetSession.DEFAULT_PORT)
 	elif args.has("join"):
@@ -131,6 +148,44 @@ func _join(nm: String, address: String, port: int) -> void:
 		return
 	session = net
 	menu.show_status("Connecting to %s:%d..." % [address, port])
+
+
+func _host_steam(nm: String) -> void:
+	var plat := _platform()
+	if plat == null or not plat.steam_ready():
+		menu.show_status("Steam isn't available: %s" % (plat.steam_status if plat else "not installed"))
+		return
+	var err := net.host_steam(plat.steam, nm)
+	if err != "":
+		menu.show_status(err)
+		return
+	session = net
+	menu.show_lobby(net)
+
+
+## Joins a friend's Steam lobby (invite accepted, Join game in the friends list, +connect_lobby).
+func _join_steam(lobby_id: int) -> void:
+	var plat := _platform()
+	if plat == null or not plat.steam_ready():
+		return
+	if session != null:
+		_leave()
+	var err := net.join_steam(plat.steam, lobby_id, plat.player_name())
+	if err != "":
+		menu.show_status(err)
+		return
+	session = net
+	menu.show_status("Joining your friend's game on Steam...")
+
+
+func _platform() -> Node:
+	return get_node_or_null("/root/Platform")
+
+
+func _presence() -> void:
+	var plat := _platform()
+	if plat != null:
+		plat.update_presence(session)
 
 
 func _local(players: int) -> void:
@@ -202,6 +257,7 @@ func _update_screens() -> void:
 	run_view.visible = true
 	run_view.refresh()
 	_menu_layer.visible = false
+	_presence()
 
 
 func _wait_for_debrief() -> void:
@@ -246,6 +302,7 @@ func _fade_to(alpha: float, secs: float, then: Callable = Callable()) -> void:
 
 
 func _on_lobby_changed() -> void:
+	_presence()
 	if view == null and session == net:
 		menu.show_lobby(net)
 	elif view != null:
@@ -271,6 +328,7 @@ func _show_mission(s: Node, state: GameState, begin: bool) -> void:
 		view.left_match.connect(_leave)
 	view.start(state, begin)
 	_menu_layer.visible = false
+	_presence()
 	if run_view != null:
 		run_view.visible = false
 
@@ -282,6 +340,7 @@ func _on_disconnected(reason: String) -> void:
 	session = null
 	menu.show_menu(reason)
 	_menu_layer.visible = true
+	_presence()
 	if OS.get_cmdline_user_args().has("--autoplay"):
 		print("[autoplay] disconnected: ", reason)
 		get_tree().quit(0)
@@ -298,6 +357,7 @@ func _leave() -> void:
 	_close_run_view()
 	menu.show_menu()
 	_menu_layer.visible = true
+	_presence()
 
 
 func _reset_fade() -> void:
