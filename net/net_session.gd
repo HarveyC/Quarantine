@@ -140,7 +140,6 @@ func _watch_host() -> void:
 
 func _on_connected_to_host() -> void:
 	_hello.rpc_id(1, my_name, client_id)
-	_share_packs.rpc_id(1, Profile.packs())
 
 
 func leave() -> void:
@@ -375,27 +374,9 @@ func class_picks() -> Dictionary:
 	return out
 
 
-## The host's profile meta for a new run, with every lobby player's Field Data packs pooled.
+## The meta for a new run: the host's profile, so everyone plays with the host's unlocks.
 func run_meta() -> Dictionary:
-	var meta := Profile.meta()
-	var lists: Array = [meta.get("packs", [])]
-	for v in lobby.values():
-		lists.append(v.get("packs", []))
-	meta["packs"] = MetaUnlocks.pool(lists)
-	return meta
-
-
-@rpc("any_peer", "reliable")
-func _share_packs(packs: Array) -> void:
-	if is_host:
-		handle_packs(multiplayer.get_remote_sender_id(), packs)
-
-
-## Host: a lobby peer told us which Field Data packs its profile owns.
-func handle_packs(id: int, packs: Array) -> void:
-	if lobby.has(id):
-		lobby[id]["packs"] = MetaUnlocks.pool([packs])
-		_broadcast_lobby()
+	return Profile.meta()
 
 
 ## Picks the class of this player's soldier for the next match or run.

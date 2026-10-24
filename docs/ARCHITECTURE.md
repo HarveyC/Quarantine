@@ -665,7 +665,7 @@ Module-owned fields (opaque to the framework, saved and synced as-is):
 - **`MetaUnlocks`**: Field Data packs. Content listed in an unowned pack is locked: `bind(meta)`
   runs in `RunRules.new_run` and `RunState.from_dict`, and the draws (GearDraw, the Doctrine vote,
   MutationData pools) skip `is_locked(id)`. Unlisted content is always available; a meta with no
-  `packs` key (tests, tools) locks nothing. Online, the host pools every lobby player's packs.
+  `packs` key (tests, tools) locks nothing. Online, every player uses the host's packs (`NetSession.run_meta`).
 - **`Severity`** 0-10 (the doc's "Outbreak levels"): stacking rules applied in `new_run`,
   `MatchConfig.for_fight`, depot prices, fight income and the boss Outbreak drop.
 - **`Achievements`**: `DEFS`, `unlocked()`, `is_unlocked(id)`, `on_unlocked(cb)`, `stats()` for

@@ -1,10 +1,13 @@
 class_name MetaUnlocks
 extends RefCounted
 ## Field Data unlocks bought between runs (design doc, "Economy and rewards"): gear, Doctrine and
-## mutation packs plus two starting perks. Packs live on each player's profile and pool across
-## the lobby, so the run's `meta.packs` is the union of everyone's.
+## mutation packs plus two starting perks. Packs live on each player's profile; in co-op the run
+## uses the host's (Harvey, 2026-10-24), so `meta.packs` is the host's list.
 ##
-## Content listed in a pack is locked until someone in the run owns that pack; everything not
+## Gear pack I is cheap and holds the build basics: with it every tag has a gadget and at least 3
+## pieces, enough for its set bonus. Later packs add keystones and Prototypes.
+##
+## Content listed in a pack is locked until the run's host owns that pack; everything not
 ## listed is available from the start, so new content is unlocked by default. To make new gear,
 ## Doctrines or mutations a pack reward, append their ids to the pack's `content`.
 ##
@@ -14,15 +17,15 @@ extends RefCounted
 
 ## id -> {name, cost, needs (pack bought first), kind, about, content (locked ids)}.
 const PACKS := {
-	"gear_1": {"name": "Gear pack I: Firestarter", "short": "Firestarter", "cost": 200, "needs": "", "kind": "gear",
-		"about": "Fire, reach and Strain tools",
-		"content": ["phosphor_rounds", "thermite_charge", "grapple", "adrenal_pump", "feral_grip"]},
-	"gear_2": {"name": "Gear pack II: Spotter", "short": "Spotter", "cost": 350, "needs": "gear_1", "kind": "gear",
-		"about": "Overwatch, marking and crowd control",
-		"content": ["sentry_turret", "rangefinder", "suppressor", "concussion_launcher", "crossfire"]},
-	"gear_3": {"name": "Gear pack III: Containment", "short": "Containment", "cost": 500, "needs": "gear_2", "kind": "gear",
-		"about": "Shields, cover and cleansing rounds",
-		"content": ["riot_shield", "deployable_cover", "purifier_rounds", "choke", "quarantine_field"]},
+	"gear_1": {"name": "Gear pack I: Field issue", "short": "Field issue", "cost": 50, "needs": "", "kind": "gear",
+		"about": "Build basics: a gadget for every tag",
+		"content": ["thermite_charge", "concussion_launcher", "grapple", "adrenal_pump", "deployable_cover"]},
+	"gear_2": {"name": "Gear pack II: Specialist", "short": "Specialist", "cost": 200, "needs": "gear_1", "kind": "gear",
+		"about": "A second weapon or ammo pick for five tags",
+		"content": ["phosphor_rounds", "suppressor", "rangefinder", "choke", "purifier_rounds", "feral_grip"]},
+	"gear_3": {"name": "Gear pack III: Prototype", "short": "Prototype", "cost": 350, "needs": "gear_2", "kind": "gear",
+		"about": "Keystone Rares and combo Prototypes",
+		"content": ["sentry_turret", "riot_shield", "crossfire", "quarantine_field"]},
 	"doctrine_1": {"name": "Doctrine pack", "short": "Doctrines", "cost": 300, "needs": "", "kind": "doctrine",
 		"about": "4 new squad Doctrines after act bosses",
 		"content": ["scavengers", "supply_drop", "triage_drills", "serum_cache"]},
@@ -80,7 +83,7 @@ static func is_locked(id: String) -> bool:
 	return _locked.has(id)
 
 
-## Union of several players' pack lists (co-op pools packs across the lobby).
+## Known pack ids from several lists, deduplicated and sorted.
 static func pool(lists: Array) -> Array:
 	var out: Array = []
 	for l in lists:
