@@ -152,6 +152,9 @@ func _init() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	# Keep the Bloom's reach in step with the board (the parent can size us after a refresh).
+	if run != null and absf(_veins.size.x - (bloom_edge() + position.x + 30.0)) > 2.0:
+		_layout()
 	var p := 0.5 + 0.5 * sin(_t * 3.0)
 	for id in dots:
 		var d: NodeDot = dots[id]

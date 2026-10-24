@@ -117,7 +117,7 @@ func _build_menu(body: Control) -> void:
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_menu_box = row
 	body.add_child(row)
-	var col := Styles.vbox(10)
+	var col := Styles.vbox(8)
 	col.custom_minimum_size.x = COLUMN_W
 	row.add_child(col)
 	_continue_btn = _menu_button(col, "Continue run", "continue", func() -> void: continue_requested.emit(), "primary")
@@ -138,7 +138,7 @@ func _build_menu(body: Control) -> void:
 	hot.tooltip_text = "Two players, one screen, one soldier each."
 	var quick := _menu_button(col, "Quick mission", "quick", func() -> void: local_requested.emit(2))
 	quick.tooltip_text = "A single hot-seat fight, no run."
-	col.add_child(_gap(10))
+	col.add_child(_gap(4))
 	var hq := _menu_button(col, "Field HQ", "doctrine", open_field_hq, "ghost")
 	hq.tooltip_text = "Unlocks, Severity, run record and achievements."
 	var archive := _menu_button(col, "Archive", "intel", func() -> void: add_child(preload("res://ui/story/archive_screen.gd").new()), "ghost")
@@ -222,7 +222,7 @@ func _gap(px: float) -> Control:
 
 ## One button in a menu column: icon, caps text, full column width.
 func _menu_button(parent: Control, text: String, icon: String, cb: Callable, kind := "secondary") -> Button:
-	var b := Styles.icon_button(text, icon, kind, 19 if kind != "ghost" else 17, 50.0 if kind != "ghost" else 38.0)
+	var b := Styles.icon_button(text, icon, kind, 19 if kind != "ghost" else 17, 46.0 if kind != "ghost" else 34.0)
 	b.pressed.connect(cb)
 	parent.add_child(b)
 	return b
