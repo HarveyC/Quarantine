@@ -5,6 +5,7 @@ extends RefCounted
 ##   Tips.terms(control, ["infection", "lapse"])    first term's card, the rest as links
 ##   Tips.chip("lapse")                       a small hoverable term chip to put in a layout
 ##   Tips.auto(label)                         tags a label whose text is a term ("Half cover")
+##   Tips.soldier_class(tile, "medic")        the full class card (stats, gun, abilities, passive)
 ## Plain `tooltip_text` works too: it is drawn in the same card, with any glossary term in it
 ## turned into a hoverable link. Hold Shift (or rest the gamepad pointer) for the detailed view.
 
@@ -24,6 +25,16 @@ static func terms(c: Control, keys: Array, ctx := {}) -> Control:
 	if known.is_empty():
 		return c
 	c.set_meta(META, {"terms": known, "ctx": ctx})
+	if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		c.mouse_filter = Control.MOUSE_FILTER_PASS
+	return c
+
+
+## Hovering `c` shows the soldier class card for `kind` (ClassTip): stats, gun, abilities,
+## passive, and how to unlock it when `locked`.
+static func soldier_class(c: Control, kind: String, locked := false) -> Control:
+	c.set_meta(META, {"terms": [], "ctx": {"class": kind, "locked": locked}})
+	c.tooltip_text = ""
 	if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
 		c.mouse_filter = Control.MOUSE_FILTER_PASS
 	return c

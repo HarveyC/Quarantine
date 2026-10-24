@@ -5,7 +5,7 @@ extends RefCounted
 const CLASS_ICON := {"trooper": "trooper", "marksman": "marksman", "medic": "medic", "breacher": "breacher",
 	"hazmat": "hazmat", "vector": "vector", "reaper": "reaper", "warden": "warden"}
 const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "breach": "breach",
-	"lunge": "lunge", "bash": "bash", "guard": "guard", "shield_charge": "shield_charge",
+	"incinerate": "incinerate", "siphon": "siphon", "lunge": "lunge", "bash": "bash", "guard": "guard", "shield_charge": "shield_charge",
 	"shoot_barrel": "barrel", "item:frag_grenade": "grenade", "item:demo_charge": "charge"}
 
 
@@ -414,6 +414,16 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 		"purge":
 			line.call([[12, 3], [17, 11], [18, 15], [16, 19], [12, 21], [8, 19], [6, 15], [7, 11], [12, 3]])
 			line.call([[8, 15], [16, 15]])
+		"incinerate":
+			# A flame over the nozzle.
+			line.call([[12, 3], [16, 9], [17, 13], [15, 17], [12, 18], [9, 17], [7, 13], [8, 9], [10, 11], [12, 3]])
+			line.call([[12, 11], [14, 14], [12, 16], [10, 14], [12, 11]])
+			line.call([[8, 21], [16, 21]])
+		"siphon":
+			# Infection drawn out of a drop and into the user.
+			line.call([[7, 4], [11, 10], [11, 13], [9, 15], [5, 15], [3, 13], [3, 10], [7, 4]])
+			line.call([[11, 15], [16, 20], [20, 20]])
+			line.call([[17, 17], [20, 20], [17, 23]])
 		"train":
 			line.call([[4, 12], [20, 12]])
 			line.call([[4, 8], [4, 16]])
