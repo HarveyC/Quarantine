@@ -1,6 +1,6 @@
 extends Control
-## Loadout screen (from the map, or during REWARD): squad bar, the selected soldier's 4 gear
-## slots and pockets, their tag strip with 3 pips per tag and the set bonuses, and the shared
+## Loadout screen (from the map, or during REWARD): squad bar, the selected soldier's guns
+## (click one to carry it), 4 gear slots and pockets, their tag strip with 3 pips per tag and the set bonuses, and the shared
 ## 4-item stash. Drag a stash item onto a slot to equip it (the old item swaps into the stash),
 ## drag a slot onto the stash to store it, or click a stash item then a slot. While dragging or
 ## hovering a stash item, the tag strip previews the change (2→3 in gold) and the slots that
@@ -20,6 +20,7 @@ var _dirty := false
 var _squad_bar: HBoxContainer
 var _name: Label
 var _sub: Label
+var _guns: HBoxContainer
 var _slots: GridContainer
 var _pockets: HBoxContainer
 var _tags: VBoxContainer
@@ -117,6 +118,10 @@ func _build() -> void:
 	_sub.size_flags_vertical = Control.SIZE_SHRINK_END
 	name_row.add_child(_sub)
 	left.add_child(name_row)
+	left.add_child(UI.caps("Gun", 13, UI.DIM))
+	_guns = HBoxContainer.new()
+	_guns.add_theme_constant_override("separation", 12)
+	left.add_child(_guns)
 	left.add_child(UI.caps("Gear", 13, UI.DIM))
 	_slots = GridContainer.new()
 	_slots.columns = 4
@@ -170,7 +175,7 @@ func _refresh() -> void:
 		_held = -1
 	_supplies.text = "%d Supplies" % run.supplies
 	_build_squad_bar()
-	for n in [_slots, _pockets, _tags, _stash_row, _build_box]:
+	for n in [_guns, _slots, _pockets, _tags, _stash_row, _build_box]:
 		for c in n.get_children():
 			c.queue_free()
 	if r.is_empty():
@@ -180,6 +185,8 @@ func _refresh() -> void:
 	_sub.text = ("%s%s · %s" % ["Rank %d " % int(rank) if rank != null else "", UI.class_name_of(r), _player_name(r.owner)]).to_upper()
 	if not _can_edit(r):
 		_sub.text += "  ·  VIEW ONLY"
+	for id in [Weapons.id_for(r.kind)] + Loadout.guns(r):
+		_guns.add_child(_gun_tile(r, id))
 	var feeding := _preview_tags()
 	for slot in GearData.SLOTS:
 		_slots.add_child(_slot_tile(r, slot, feeding))
@@ -316,6 +323,48 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 		if editable and _held >= 0 and GearData.slot_of(Loadout.stash(run)[_held].id) == slot:
 			_equip_from_stash(_held)
 	t.drag_state = func(on: bool, d) -> void: _set_preview(d.get("id", "") if on and d is Dictionary and d.get("from") == "stash" else "")
+	return t
+
+
+## One gun the soldier owns; the one in hand is framed amber. Click another to carry it.
+func _gun_tile(r: Dictionary, id: String) -> Control:
+	var g := Weapons.get_gun(id)
+	var carried := Loadout.gun_id(r) == id
+	var t := DropTile.new()
+	t.custom_minimum_size = Vector2(0, 96)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.add_theme_stylebox_override("panel", UI.box(Color("#17170f") if carried else UI.PANEL_SOFT, UI.AMBER if carried else UI.BORDER, 2 if carried else 1, 0, 10))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	var head := HBoxContainer.new()
+	head.add_child(UI.label("IN HAND" if carried else "SPARE", 11, UI.AMBER if carried else UI.FAINT, "mono"))
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(sp)
+	var rar: String = g.get("rarity", "")
+	head.add_child(UI.caps(GearData.RARITY_NAMES[rar] if rar != "" else "Signature", 12, UI.rarity_color(rar) if rar != "" else UI.DIM))
+	v.add_child(head)
+	v.add_child(UI.caps(g.name, 19))
+	if g.get("tag", "") != "":
+		var tags := HBoxContainer.new()
+		tags.add_child(UI.tag_chip(g.tag))
+		v.add_child(tags)
+	t.tooltip_text = "%s\n%s" % [g.name, g.desc]
+	for n in v.find_children("*", "Control", true, false):
+		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.add_child(v)
+	if _can_edit(r) and not carried:
+		var sid: int = r.id
+		t.clicked = func() -> void:
+			var msg := "%s now carries the %s" % [UI.short_name(r), g.name]
+			for p in GearTags.preview_gun(r, "" if id == Weapons.id_for(r.kind) else id):
+				if p.unlocks:
+					msg += ". %s set bonus on!" % p.tag
+				elif p.loses:
+					msg += ". %s set bonus off" % p.tag
+			_submit({"type": "gear_gun", "player": run.controller_of(r), "soldier": sid, "gun": "" if id == Weapons.id_for(r.kind) else id})
+			_show_toast(msg)
 	return t
 
 

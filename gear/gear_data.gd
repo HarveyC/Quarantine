@@ -194,6 +194,14 @@ const CONSUMABLES := {
 	"containment_foam": {"name": "Containment foam", "price": 30, "desc": "Restrains a Lapsed or Turned soldier for 2 turns without killing them"},
 }
 const CONSUMABLE_CHARGES := 2  # a consumable reward card gives 2 charges
+## Every soldier starts a run (or joins as a recruit) with one charge of a class consumable.
+## A class not listed here gets a random one from STARTER_FALLBACK.
+const STARTER_CONSUMABLES := {
+	"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit",
+	"breacher": "flashbang", "hazmat": "suppressant_shot", "vector": "stim",
+}
+const STARTER_FALLBACK: Array[String] = ["medkit", "flashbang", "smoke_grenade"]
+const STARTER_CHARGES := 1
 
 ## Squad-wide passives voted on after each act boss (stored in run.modifiers.doctrines).
 const DOCTRINES := {
@@ -203,6 +211,11 @@ const DOCTRINES := {
 	"hazard_pay": {"name": "Hazard pay", "desc": "+10 Supplies per fight"},
 	"spore_filters": {"name": "Spore filters", "desc": "-25% Infection from spore zones"},
 	"steady_nerves": {"name": "Steady nerves", "desc": "Talking down a Lapse costs no action"},
+	# Doctrine pack (Field Data unlock, see MetaUnlocks); effects live in RunRules.
+	"scavengers": {"name": "Scavengers", "desc": "+1 Intel at the start of each act"},
+	"supply_drop": {"name": "Supply drop", "desc": "+25 Supplies at the start of each act"},
+	"triage_drills": {"name": "Triage drills", "desc": "Heal 2 more HP after every fight"},
+	"serum_cache": {"name": "Serum cache", "desc": "+1 Serum sample per soldier after each boss"},
 }
 
 ## Natural tag lanes per class (starting kit and the "on build" card before a soldier has tags).

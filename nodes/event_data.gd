@@ -41,6 +41,7 @@ extends RefCounted
 ##   serum {samples, to: "player"|"least_serum"}
 ##   recruit {count, infection, to: "player"|"fewest", carrier}   (carrier: one of them is a hidden carrier)
 ##   item {count, rarity, who}   (drawn and equipped on that soldier)
+##   gun {rarity, who}           an alternate gun for that soldier's class, carried at once
 ##   modifier {key, value}       next-fight/map effects, see docs/ARCHITECTURE.md
 ##   mark {key, who}             adds the soldier's id to the list modifiers[key]
 ##   sit_out {who}               the soldier misses the next fight (held at the Checkpoint)
@@ -222,6 +223,29 @@ const EVENTS := {
 						"effects": [{"op": "mark", "key": "first_turn_action_loss", "who": "subject"}],
 						"outcome": "{subject} bites down until they taste blood. The voice goes quiet. It isn't gone."},
 				],
+			},
+		},
+	},
+	"arms_locker": {
+		"title": "Cordon arms locker",
+		"acts": [1, 2, 3],
+		"text": "A Cordon patrol made its last stand in a bus shelter. Their arms locker is still chained to the frame, and something has grown over the padlock in pale, warm ropes.",
+		"start": "locker",
+		"steps": {
+			"locker": {
+				"kind": "volunteer",
+				"prompt": "The guns inside are good ones. Someone has to get through the growth first.",
+				"options": [
+					{"id": "cut", "label": "Cut it open", "desc": "One of your soldiers gains 10 Infection and takes a new gun for their class",
+						"target": "own_soldier",
+						"effects": [{"op": "infection", "amount": 10, "who": "soldier"}, {"op": "gun", "rarity": "uncommon", "who": "soldier"}],
+						"outcome": "{soldier} hacks through the ropes. They bleed something thin and bright, and the locker swings open."},
+					{"id": "burn", "label": "Burn it off", "desc": "Free with a Hazmat, otherwise -20 Supplies of fuel. One of your soldiers takes a new gun",
+						"target": "own_soldier", "requires": {"supplies": 20, "waived_by": "hazmat"},
+						"effects": [{"op": "supplies", "amount": -20, "unless_class": "hazmat"}, {"op": "gun", "rarity": "uncommon", "who": "soldier"}],
+						"outcome": "The growth curls back from the flame. {soldier} takes their pick of what's inside."},
+				],
+				"nobody": {"outcome": "Nobody touches it. The ropes on the lock pulse once as you leave."},
 			},
 		},
 	},

@@ -1,0 +1,13 @@
+"lang"
+{
+	"english"
+	{
+		"tokens"
+		{
+			"#Menu"		"In the menus"
+			"#Lobby"	"Gathering a squad (%players%/4)"
+			"#Run"		"On a run: Act %act%, row %row%"
+			"#Fight"	"Fighting: Act %act%, row %row%"
+		}
+	}
+}

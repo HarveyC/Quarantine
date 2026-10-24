@@ -528,6 +528,9 @@ func _refresh_screen() -> void:
 		RunState.Phase.REWARD:
 			key = "reward:%d" % run.fights_won
 			script = RunHooks.call_static("GearRun", "reward_screen", [])
+			if RunHooks.call_static("Story", "has_pending", [run], false):
+				key = "ending"
+				script = RunHooks.call_static("Story", "screen", [])
 		RunState.Phase.ENDED:
 			key = "end"
 	if key == _screen_key:
@@ -594,7 +597,9 @@ func _summary() -> Control:
 	box.add_theme_constant_override("separation", 12)
 	p.add_child(box)
 	var win := run.result == Types.Result.VICTORY
-	var title := Styles.label("THE SOURCE IS BURNING" if win else "LANTERN COMPANY IS LOST", 34, Palette.TEAL if win else Palette.DANGER)
+	var ending: String = run.story.get("ending", "") if win else "lost"
+	var headline: String = StoryData.SUMMARY_TITLES.get(ending, StoryData.SUMMARY_TITLES.burn)
+	var title := Styles.label(headline.to_upper(), 34, Palette.TEAL if win else Palette.DANGER)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	var lost := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status in [RunSoldier.DEAD, RunSoldier.TURNED]).size()
@@ -605,8 +610,30 @@ func _summary() -> Control:
 		"Final Outbreak: %d (%s)" % [run.outbreak, RunRules.OUTBREAK_NAMES[RunRules.outbreak_stage(run.outbreak)]],
 		"Supplies left: %d" % run.supplies,
 	]
+	if not run.story.is_empty():
+		lines.insert(0, "Wave %d" % run.story.get("wave", 0))
+		var laid: int = run.story.get("echoes", []).filter(func(e: Dictionary) -> bool: return e.laid).size()
+		if laid > 0:
+			lines.append("Echoes laid to rest: %d" % laid)
+		for id in run.story.get("lore", []):
+			lines.append("Intel recovered: %s" % StoryData.lore_entry(id).get("title", id))
+	if Severity.level(run) > 0:
+		lines.push_front("Severity %d" % Severity.level(run))
 	for l in lines:
 		box.add_child(Styles.label(l, 18, Styles.TEXT))
+	var fd := Styles.hbox(10)
+	fd.add_child(W.Icon.new("intel", Palette.AMBER, 26))
+	fd.add_child(Styles.mono("+%d" % MetaProgress.field_data(run), 30, Palette.AMBER))
+	fd.add_child(Styles.label("Field Data for every player", 16, Styles.DIM))
+	box.add_child(fd)
+	var earned := Achievements.earned_by(run)
+	if not earned.is_empty():
+		var chips := HFlowContainer.new()
+		chips.add_theme_constant_override("h_separation", 6)
+		chips.add_theme_constant_override("v_separation", 6)
+		for id in earned:
+			chips.add_child(W.chip(Achievements.DEFS[id].name, Palette.AMBER, false, 13))
+		box.add_child(chips)
 	var b := Button.new()
 	b.text = "MAIN MENU"
 	b.custom_minimum_size = Vector2(0, 48)
@@ -633,6 +660,8 @@ func _on_run_event(ev: Dictionary) -> void:
 			var r := run.get_soldier(ev.sid)
 			line = "%s %s joins the squad" % [UnitData.SOLDIERS[r.kind].name, r.name]
 		"recruit": line = "New recruit in reserve"
+		"echo_laid": line = "Echo %s laid to rest" % ev.name
+		"lore": line = "Intel recovered: %s" % StoryData.lore_entry(ev.id).get("title", ev.id)
 		"act_start": line = "Act %d begins" % ev.act
 		"bench": line = "P%d %s" % [ev.player + 1, "benched" if ev.on else "is back"]
 		"rejected": if session != null and session.is_local(ev.action.get("player", -1)): line = ev.reason

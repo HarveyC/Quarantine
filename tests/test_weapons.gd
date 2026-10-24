@@ -90,10 +90,60 @@ func test_every_gun_sound_exists() -> void:
 	var GunFeel := load("res://view/gun_feel.gd")
 	var Sfx := load("res://view/sfx.gd")
 	for id in Weapons.TABLE:
-		assert_true(GunFeel.FEEL.has(id), "%s has a gun feel" % id)
-	for id in GunFeel.FEEL:
-		var feel: Dictionary = GunFeel.FEEL[id]
+		if Weapons.is_alternate(id):
+			assert_true(GunFeel.FEEL.has(Weapons.look_of(id)) and GunFeel.VARIANTS.has(id), "%s has a gun feel" % id)
+		else:
+			assert_true(GunFeel.FEEL.has(id), "%s has a gun feel" % id)
+	for id in Weapons.TABLE:
+		var feel: Dictionary = GunFeel.for_weapon(id)
 		for key in ["sound", "tail", "mech"]:
 			if feel.has(key):
 				assert_true(Sfx.SOUNDS.has(feel[key]), "%s %s listed" % [id, feel[key]])
 				assert_true(ResourceLoader.exists("res://audio/%s.wav" % feel[key]), "%s %s file" % [id, feel[key]])
+
+
+func test_alternate_guns_are_well_formed() -> void:
+	var GunModels := load("res://view/gun_models.gd")
+	for id in Weapons.TABLE:
+		if not Weapons.is_alternate(id):
+			continue
+		var g: Dictionary = Weapons.TABLE[id]
+		assert_true(g.rarity in ["uncommon", "rare"], "%s rarity" % id)
+		assert_true(GearData.TAGS.has(g.tag), "%s tag" % id)
+		assert_true(Weapons.TABLE.has(g.look) and not Weapons.is_alternate(g.look), "%s look is a signature gun" % id)
+		assert_true(GunModels.GUNS.has(g.look), "%s look has a model" % id)
+		for k in g.classes:
+			assert_true(UnitData.SOLDIERS.has(k) or k in ["reaper", "warden"], "%s class %s" % [id, k])
+	for kind in ["trooper", "marksman", "medic", "breacher", "hazmat", "vector"]:
+		assert_true(Weapons.alternates_for(kind).size() >= 2, "%s has at least 2 alternate guns" % kind)
+
+
+func test_alternate_gun_changes_the_shot() -> void:
+	var s := make_blank(PackedStringArray(OPEN))
+	var m := _add(s, "marksman", Types.Team.PLAYER, Vector2i(0, 0))
+	var aim := m.aim
+	var dmg := m.damage
+	var mob := m.mobility
+	Weapons.equip_unit(m, "anti_materiel")
+	assert_eq(Weapons.id_of(m), "anti_materiel", "carries the alternate")
+	assert_eq(m.damage, dmg + Vector2i(2, 2), "+2 damage")
+	assert_eq(m.mobility, mob - 1, "-1 movement")
+	assert_eq(m.aim, aim, "aim unchanged")
+	var near := _add(s, "runner", Types.Team.ENEMY, Vector2i(3, 0))
+	var far := _add(s, "runner", Types.Team.ENEMY, Vector2i(15, 0))
+	assert_eq(_term(Combat.hit_chance(s, m, near), "Too close to scope"), -20, "scope penalty out to 3")
+	assert_eq(_term(Combat.hit_chance(s, m, far), "Long range"), null, "no falloff to 16")
+	var t := _add(s, "trooper", Types.Team.PLAYER, Vector2i(0, 1))
+	Weapons.equip_unit(t, "dmr")
+	assert_eq(Weapons.id_of(t), "rifle", "a gun the class can't carry is ignored")
+
+
+func test_auto_shotgun_pins_on_a_miss() -> void:
+	var s := make_blank(PackedStringArray(OPEN))
+	var b := _add(s, "breacher", Types.Team.PLAYER, Vector2i(0, 0))
+	var t := _add(s, "runner", Types.Team.ENEMY, Vector2i(2, 0))
+	assert_true(not Weapons.has_trait(b, "pin"), "signature shotgun doesn't pin")
+	Weapons.equip_unit(b, "auto_shotgun")
+	assert_true(Weapons.has_trait(b, "pin"), "auto shotgun pins")
+	Weapons.after_miss(s, b, t)
+	assert_true(t.status.has("suppressed"), "pinned")

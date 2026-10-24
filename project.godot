@@ -10,7 +10,9 @@ config/features=PackedStringArray("4.4", "Forward Plus")
 
 [autoload]
 
+SettingsHost="*res://view/settings_host.gd"
 Soundscape="*res://view/soundscape.gd"
+Platform="*res://platform/platform.gd"
 
 [display]
 
@@ -23,3 +25,8 @@ window/stretch/aspect="expand"
 
 anti_aliasing/quality/msaa_3d=2
 textures/vram_compression/import_etc2_astc=true
+
+[carriers]
+
+steam/app_id=480
+crash_reports/url=""
