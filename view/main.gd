@@ -61,7 +61,10 @@ func _ready() -> void:
 	if auto_start:
 		var seed := 0
 		var objective := ""
+		var biome := "wall"
 		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--biome="):   # dev aid: which act's parcels --objective uses
+				biome = arg.trim_prefix("--biome=")
 			if arg.begins_with("--seed="):
 				seed = int(arg.trim_prefix("--seed="))
 			elif arg.begins_with("--objective="):   # dev aid: a generated act 1 map of this fight type
@@ -70,7 +73,7 @@ func _ready() -> void:
 		for arg in OS.get_cmdline_user_args():
 			if arg.begins_with("--fight="):
 				fight = arg.trim_prefix("--fight=")
-		start(fight_mission(fight, seed) if fight != "" else default_mission(seed, objective))
+		start(fight_mission(fight, seed) if fight != "" else default_mission(seed, objective, biome))
 
 
 func _exit_tree() -> void:
@@ -78,14 +81,14 @@ func _exit_tree() -> void:
 		session.free()
 
 
-static func default_mission(seed: int = 0, objective: String = "") -> GameState:
+static func default_mission(seed: int = 0, objective: String = "", biome := "wall") -> GameState:
 	var squad := [
 		{"kind": "trooper", "player": 0}, {"kind": "marksman", "player": 0},
 		{"kind": "medic", "player": 1}, {"kind": "breacher", "player": 1},
 	]
 	var enemies: Array[String] = ["runner", "runner", "spitter", "runner", "spitter"]
 	if objective != "":
-		var grid := MapGen.generate({"biome": "wall", "objective": objective, "seed": seed})
+		var grid := MapGen.generate({"biome": biome, "objective": objective, "seed": seed})
 		return Rules.new_mission_on_grid(grid, squad, enemies, seed)
 	return Rules.new_mission(MAP, squad, enemies, seed)
 
@@ -368,7 +371,7 @@ func _process(_delta: float) -> void:
 		_screenshot_step()
 
 
-## Dev aid: `--screenshot-action=shoot|fire|ready|overview|scout` sets up a scene before the capture
+## Dev aid: `--screenshot-action=shoot|fire|ready|overview|scout|map` sets up a scene before the capture
 ## (scout: a soldier walks out and back, leaving explored-but-not-visible fog behind);
 ## `--screenshot-frame=N` picks the frame (default 150). With Godot's `--write-movie`
 ## and `--fixed-fps`, `fire` records a whole shot cinematic.
@@ -379,7 +382,14 @@ func _screenshot_step() -> void:
 	for a in args:
 		if a.begins_with("--screenshot-frame="):
 			shot_frame = int(a.trim_prefix("--screenshot-frame="))
-	if _frames == 60 and (args.has("--screenshot-action=overview") or args.has("--screenshot-action=scout")):   # whole map from high up
+	if _frames == 2 and args.has("--screenshot-action=map"):   # whole map, fog off, from high up
+		Vision.disable(state)
+		show_vision(FogOverlay.annotate(state, {"type": "start"}), true)
+	if _frames == 60 and args.has("--screenshot-action=map"):
+		camera_rig._target_dist = CameraRig.MAX_DIST
+		camera_rig._dist = CameraRig.MAX_DIST
+		camera_rig.focus(board.center())
+	elif _frames == 60 and (args.has("--screenshot-action=overview") or args.has("--screenshot-action=scout")):   # whole map from high up
 		camera_rig._target_dist = CameraRig.MAX_DIST
 		camera_rig.focus(board.center())
 		if args.has("--screenshot-action=scout"):

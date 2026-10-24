@@ -181,8 +181,9 @@ func _apply() -> void:
 func screen_to_world(screen: Vector2) -> Variant:
 	var origin := camera.project_ray_origin(screen)
 	var dir := camera.project_ray_normal(screen)
-	# High ground first: a roof hides the ground behind it.
-	var roof: Variant = Plane(Vector3.UP, Board.RAISE).intersects_ray(origin, dir)
-	if roof != null and Board.lift(Board.world_to_cell(roof)) > 0.0:
-		return roof
+	# Highest level first: a roof hides what is behind and below it.
+	for lvl in range(Grid.MAX_LEVEL, 0, -1):
+		var roof: Variant = Plane(Vector3.UP, Board.RAISE * lvl).intersects_ray(origin, dir)
+		if roof != null and Board.lift(Board.world_to_cell(roof)) >= Board.RAISE * lvl - 0.01:
+			return roof
 	return Plane(Vector3.UP, 0.0).intersects_ray(origin, dir)
