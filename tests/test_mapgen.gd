@@ -143,9 +143,10 @@ func test_landmark_plots_place_a_big_building() -> void:
 	var data := MapGen.parse(FileAccess.get_file_as_string("res://maps/biome_wall.txt"))
 	assert_true(data.parcels.get("landmark", []).size() >= 3, "act 1 has landmark buildings")
 	for lm in data.parcels.landmark:
-		assert_eq(lm.rows.size(), 8, lm.name + " is 8 rows")
+		# Parcels are kept at double resolution (cells plus the borders between them).
+		assert_eq(lm.rows.size(), 17, lm.name + " is 8 rows")
 		for r in lm.rows:
-			assert_eq(r.length(), 8, lm.name + " is 8 wide")
+			assert_eq(r.length(), 17, lm.name + " is 8 wide")
 	var with_l := 0
 	for p in data.plots:
 		if Array(p.rows).any(func(r: String) -> bool: return r.contains("L")):

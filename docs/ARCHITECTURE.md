@@ -353,8 +353,9 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 - **Checks** (`_validate`, rerolled up to 30 times, then `maps/mission_01.txt`): every spawn and
   marker reachable from the drop zone, sealed pockets walled in, each pod's nearest cell 6 to 20 steps
   out, evac 12+ and other objectives 5+ steps out, nests 5+ apart, the cordon wall keeps 2+ gaps,
-  cover density in band. Fix-up passes add half cover to dead ground and full cover to long open
-  sightlines without ever sealing a path. `tests/test_mapgen.gd` asserts no fallback across seeds;
+  cover density in band (an edge wall counts as half a tile). Fix-up passes add half cover to dead
+  ground and a two-cell blast wall (T-wall, edge walls) across long open sightlines, never a lone
+  wall block, and never seal a path or touch a cell beside an edge wall (doorways, rooms). `tests/test_mapgen.gd` asserts no fallback across seeds;
   `godot --headless -s tests/dump_maps.gd -- all 300` prints maps and the fallback rate.
 - **Output** (`Grid`): `player_spawns` (4+ deploy cells, row-major), `enemy_spawns` (8+ cells,
   round-robin across pods so the first N spread out), `biome`, and `markers` (`grid.marker(key)`):
@@ -371,6 +372,33 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 
 The view paints `evac` and `beacon` zones on the floor (`Board._build_zones`). For a look at a
 generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --screenshot-action=overview --screenshot=x.png`.
+
+## Edge walls (core/grid.gd)
+
+Thin walls on the borders between cells, so buildings have rooms, doors and windows instead of
+being made of solid wall tiles. `grid.edges` maps `Grid.edge_key(cell, dir)` (a `Vector3i`: x, y,
+0 = east border / 1 = south border) to a kind; read them with `grid.edge(c, d)`.
+
+| kind | moving across | sight | cover | explosives |
+|---|---|---|---|---|
+| `EDGE_WALL` | blocked | blocked (one storey: units on a higher level see over) | full | 2 hits, then gone |
+| `EDGE_WINDOW` | +1 move (`VAULT_COST`) | open | half | 2 hits, then gone |
+| `EDGE_LOW` (low wall, railing) | +1 move | open | half | 1 hit |
+| `EDGE_DOOR` (open doorway) | free | open | none | never |
+
+- **Where the rules live**: `Grid.step_cost` (walls block, vaults cost, no diagonal ever passes an
+  edge), `Grid.cover_toward(c, d)` (tile or edge cover on a side; `cover_sides`, `Combat.cover_against`
+  and the enemy AI use it), `Combat.line_clear` / `peek_cells` (sight, leaning out along an edge
+  wall), `Grid.touching(a, b)` (melee needs no wall between: claw, Bash, Leech Bite, Lunge landings,
+  the AI's runners), `Destruction._hit_edges` (a border takes the larger hit of its two cells; the
+  change rides in `cover_destroyed` with an `edge` key).
+- **Sync**: edges and `edge_wear` are in `Grid.to_dict` and `Grid.fingerprint`, so snapshots and the
+  online checksum carry them. Old snapshots load with no edges.
+- **Maps**: parcels drawn at double resolution (header of `maps/biome_wall.txt`); handmade maps can
+  use `Grid.from_edge_rows`. `tests/dump_maps.gd` prints edges between cells.
+- **View**: `Board._build_edges` draws walls, windows (glass, frame), low walls and door frames with
+  corner posts; ground cells shut in by edges get an indoor floor (`BiomeLook` "indoor"), and the shot
+  camera treats edge walls as solid.
 
 ## High ground (elevation/)
 

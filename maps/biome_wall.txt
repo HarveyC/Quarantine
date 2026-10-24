@@ -18,6 +18,21 @@
 ;   pods)    H  reinforced wall (never breaks; the map edge never breaks either)
 ;   Anyone can drop off a ledge (1 move per level, one way), so roofs never strand a unit, but the
 ;   way UP needs stairs or a ladder. Keep each roof joined to its way up inside the parcel.
+;
+; Edge walls (thin walls on the borders between cells, XCOM-style; see Grid.EDGE_*): draw the parcel
+; at double resolution, 9 rows of 9 characters (17x17 for a landmark). Cells sit at odd positions,
+; the borders between them in the gaps, '+' at the corners:
+;     + +-+-+ +        - | #  wall (blocks movement and sight, full cover, 2 hits to breach)
+;      .|. .o.         o      window (half cover, see-through, climbing through costs 1 extra move)
+;     + + + + +        = :    low wall / railing (half cover, see-through, vaulting costs 1 extra)
+;      .|= .|.         d      doorway (open: no cover, nothing blocked)
+;     + +d+-+ +        space  nothing
+;      . . . .
+;     ...
+; The outer ring is the parcel's rim (shared with the next parcel or lane). Rooms need a doorway
+; or a window, and no doorway should open onto a crate. Use edge walls for buildings, rooms,
+; blast walls (T-walls) and railings on roofs; keep full '#' tiles for solid mass (containers,
+; the cordon wall), never as lone pillars. Plain 4-row parcels still work (no edge walls).
 ; Roles: deploy, breach (the cordon wall, always on row 1, only mirrored left-right),
 ;        pod, filler, tower (high ground), landmark (8x8), evac, beacon, rescue, nest, hive.
 ;
@@ -184,10 +199,15 @@ E..E
 ....
 
 @tower water_tank
-.%%.
-.^^.
-./#.
-....
++ + + + +
+ . % % .
++ + + + +
+ . ^ ^ .
++ + + + +
+ . / = .
++ + + + +
+ . . . .
++ + + + +
 
 @tower catwalk
 .=..
@@ -309,11 +329,16 @@ ss..
 .=.=
 ....
 
-@filler guard_tower
-....
-.#=.
-.#..
-....
+@filler guard_hut
++ +-+-+ +
+ .|= .o.
++ + + + +
+ .|. .|.
++ +d+-+ +
+ . . . .
++ + + + +
+ = . . ?
++ + + + +
 
 @filler supply_crates
 .=..
@@ -333,11 +358,16 @@ ss..
 ....
 ..?.
 
-@filler fence_line
-#.#.
-....
-.?..
-=..=
+@filler fence_gate
++ + + + +
+ . . . .
++ + + + +
+ = . . .
++:+:+ +:+
+ . . . .:
++ + + + +
+ . . ? .
++ + + + +
 
 @filler cots
 =.=.
@@ -345,17 +375,27 @@ ss..
 =.=.
 ....
 
-@filler checkpoint
-.#..
-.#..
-.=..
-...=
+@filler checkpoint_booth
++ +-+ + +
+ .|.o. .
++ + + + +
+ .o.|. .
++ +d+ + +
+ . . = .
++ + + + +
+ . . . =
++ + + + +
 
 @filler debris
-?..?
-.#..
-..?.
-?...
++ + + + +
+ ? . . ?
++ + + + +
+ . = . .
++ + + + +
+ . . ? .
++ + + + +
+ ? . . .
++ + + + +
 
 ; ---------------------------------------------------------------- objectives
 @evac pad
@@ -383,16 +423,26 @@ OOO=
 =OOO
 
 @rescue clinic
-#.##
-#O.#
-#..#
-##.#
++-+-+-+-+
+|. . . .o
++ + + + +
+o. O . .|
++ + + + +
+|. = . .|
++-+-+d+-+
+ . . . .
++ + + + +
 
 @rescue shelter
-.##.
-#OO.
-#..=
-..=.
++-+-+-+ +
+|. . .|.
++ + + + +
+|. O .d.
++ + + + +
+|. O .|=
++o+-+-+ +
+ . . = .
++ + + + +
 
 @nest spore_pit
 .?..
@@ -417,6 +467,156 @@ OOO=
 ..O.
 =...
 ..=.
+
+; ---------------------------------------------------------------- buildings and set pieces (edge walls)
+; Buildings and set pieces drawn with edge walls (double resolution, see the header).
+@filler prefab_office
++ + + + +
+ . . . .
++o+-+o+ +
+|. . .d.
++ + + + +
+o. . =|.
++-+d+-+ +
+ . . . .
++ + + + +
+
+@filler blast_walls
++ + + + +
+ .|. . .
++ + + + +
+ .|. . =
++ + + + +
+ = . .|.
++ + + + +
+ . . .|.
++ + + + +
+
+@filler sandbag_pit
++ + + + +
+ ? . . .
++ + +:+ +
+ .:. .:.
++ + + + +
+ .:. .:.
++ +:+:+ +
+ . . . ?
++ + + + +
+
+@filler tent_pair
++-+ +-+-+
+|.o.o. .|
++ + + + +
+|.|.|. .|
++d+ +d+o+
+ . . . .
++ + + + +
+ ? . . =
++ + + + +
+
+@filler container_yard
++ + + + +
+ # # . .
++ + + +:+
+ . . . .
++ + + + +
+ . . # #
++:+ + + +
+ = . . .
++ + + + +
+
+@filler shower_block
++ +-+-+-+
+ .o.|.|.|
++ + + + +
+ .|.|.|.|
++ +d+d+d+
+ . . . .
++ + + + +
+ . = . .
++ + + + +
+
+@tower watch_platform
++ + + + +
+ . . . .
++ +:+:+ +
+ .:^ ^ .
++ + + + +
+ .:^ ^ s
++ + + + +
+ . . . =
++ + + + +
+
+@tower hesco_deck
++ + + + +
+ = . . .
++ + + + +
+ s ^ ^:.
++ + + + +
+ . ^ %:.
++ +:+:+ +
+ . . . .
++ + + + +
+
+@pod barracks_hut
++-+-+-+ +
+|E . Eo.
++ + + + +
+|. E .|.
++o+d+-+ +
+ . . . .
++ + + + +
+ . . = .
++ + + + +
+
+@pod blast_wall_pod
++ + + + +
+ E . . E
++ + + + +
+ . . E .
++-+-+ +-+
+ . . . .
++ + + + +
+ . = . .
++ + + + +
+
+@landmark checkpoint_station
++ + + + + + + + +
+ . .:^ ^ ^ / . .
++ + + + + + + + +
+ . .:^ % ^ . . .
++ +-+-+-+-+o+-+ +
+ .|. . .|. . .|.
++ + + + + + + + +
+ .o. = .d. . .d.
++ + + + + + + + +
+ .o. . .|. . =|.
++ + + + +-+d+-+ +
+ .|. . .|. . .o.
++ +-+d+-+-+o+-+ +
+ . = . . . . . .
++ + + + + + + + +
+ . . . . . . . .
++ + + + + + + + +
+
+@landmark field_hospital
++-+-+-+-+ +-+-+-+
+|. . . .|.|. . .|
++ + + + + + + + +
+|. = . .o.|. . .|
++ + + + + + + + +
+|. . . .|.d. = .|
++-+d+o+-+ + + + +
+ . . . . .|. . .|
++ + +-+d+-+-+o+d+
+ . .o. . .o. . .
++ + + + + + + + +
+ . .|. = .|. . .
++ + +-+-+d+ +:+:+
+ . . . . . . ^ ^
++ + + + + + + + +
+ . . . . . . s .
++ + + + + + + + +
 
 ; ---------------------------------------------------------------- plots
 @plot skirmish wall_breach lanes=1

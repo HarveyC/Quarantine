@@ -249,7 +249,7 @@ static func charge_lane(s: GameState, u: Unit, from: Vector2i, dir: Vector2i) ->
 		var n := c + dir
 		if not s.grid.in_bounds(n) or s.grid.tile(n) == Types.Tile.WALL:
 			break
-		if dir.x != 0 and dir.y != 0 and s.grid.blocks_los(c + Vector2i(dir.x, 0)) and s.grid.blocks_los(c + Vector2i(0, dir.y)):
+		if not s.grid.touching(c, n):
 			break
 		var o := s.unit_at(n)
 		if o != null and o != u:
@@ -510,6 +510,8 @@ static func _pull(s: GameState, u: Unit) -> void:
 				continue
 			if d.x != 0 and d.y != 0 and not (s.grid.is_walkable(c + Vector2i(d.x, 0)) and s.grid.is_walkable(c + Vector2i(0, d.y))):
 				continue
+			if not s.grid.touching(c, n):
+				continue
 			if n.distance_squared_to(u.pos) < best.distance_squared_to(u.pos):
 				best = n
 		if best == c:
@@ -546,6 +548,8 @@ static func knockback(s: GameState, t: Unit, dir: Vector2i, steps: int) -> void:
 		if not s.grid.is_walkable(n) or occ.has(n) or EnemyTerrain.level(s, n) > EnemyTerrain.level(s, c):
 			break   # a knock stops against a wall, a unit, or a step up
 		if dir.x != 0 and dir.y != 0 and not (s.grid.is_walkable(c + Vector2i(dir.x, 0)) and s.grid.is_walkable(c + Vector2i(0, dir.y))):
+			break
+		if not s.grid.touching(c, n):
 			break
 		c = n
 		path.append(c)

@@ -191,7 +191,7 @@ static func _choose_runner(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dict
 	# 1. Adjacent: claw (or shoot if claw is unavailable).
 	var adjacent: Array[Unit] = []
 	for h in hostiles:
-		if _cheb(u.pos, h.pos) == 1:
+		if s.grid.touching(u.pos, h.pos):
 			adjacent.append(h)
 	if not adjacent.is_empty():
 		adjacent.sort_custom(func(a: Unit, b: Unit) -> bool:
@@ -211,7 +211,7 @@ static func _choose_runner(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dict
 	for h in hostiles:
 		for d in Grid.DIRS8:
 			var c: Vector2i = h.pos + d
-			if c == u.pos or not reach.has(c):
+			if c == u.pos or not reach.has(c) or not s.grid.touching(c, h.pos):
 				continue
 			var steps: int = reach[c]
 			var score := _target_score(s, u, h, c) - steps * 0.1 - _guard_penalty(s, u, c)
@@ -391,7 +391,7 @@ static func _grid_cover(g: Grid, c: Vector2i, from: Vector2i) -> int:
 	var delta := from - c
 	for d in Grid.DIRS4:
 		if d.x * delta.x + d.y * delta.y > 0:
-			best = maxi(best, g.cover_value(c + d))
+			best = maxi(best, g.cover_toward(c, d))
 	return best
 
 
@@ -410,7 +410,9 @@ static func _distance_field(g: Grid, sources: Array[Vector2i]) -> Dictionary:
 				var n := c + d
 				if dist.has(n) or not g.is_walkable(n):
 					continue
-				if d.x != 0 and d.y != 0 and not (g.is_walkable(c + Vector2i(d.x, 0)) and g.is_walkable(c + Vector2i(0, d.y))):
+				if d.x != 0 and d.y != 0 and not (g.is_walkable(c + Vector2i(d.x, 0)) and g.is_walkable(c + Vector2i(0, d.y)) and g.corner_open(c, d)):
+					continue
+				if g.edge_blocks_los(c, d):
 					continue
 				dist[n] = dc + 1
 				next.append(n)

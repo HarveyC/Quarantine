@@ -557,8 +557,8 @@ func _miss_point(shooter: UnitView, target: UnitView, rng: RandomNumberGenerator
 		var best := Types.Cover.NONE
 		var cover_cell := tc
 		for step in [Vector2i(signi(sc.x - tc.x), 0), Vector2i(0, signi(sc.y - tc.y))]:
-			if step != Vector2i.ZERO and grid.cover_value(tc + step) > best:
-				best = grid.cover_value(tc + step)
+			if step != Vector2i.ZERO and grid.cover_toward(tc, step) > best:
+				best = grid.cover_toward(tc, step)
 				cover_cell = tc + step
 		if best != Types.Cover.NONE:
 			return _cover_face(grid, cover_cell, cover_cell - tc, best, rng)

@@ -38,8 +38,23 @@ var wear := {}
 var volatile := {}
 var hard := {}
 var rubble := {}
+## Thin walls on the borders between cells (XCOM-style): {Vector3i(x, y, side): EDGE_*}, side 0 is the
+## east border of (x, y), side 1 its south border. Read them with edge(c, d); see EDGE_* for the rules.
+## `edge_wear` counts hits on a cracked edge wall, keyed the same way (see Destruction).
+var edges := {}
+var edge_wear := {}
 
 const MAX_LEVEL := 2
+## Edge kinds. WALL: blocks movement and sight, full cover. WINDOW: a wall with a window, half cover,
+## see-through, climbing through costs VAULT_COST extra. LOW: a low wall or railing, same rules as
+## WINDOW. DOOR: an open doorway, no cover, nothing blocked (the view draws a frame).
+const EDGE_NONE := 0
+const EDGE_WALL := 1
+const EDGE_WINDOW := 2
+const EDGE_LOW := 3
+const EDGE_DOOR := 4
+## Extra steps to vault a low wall or climb through a window.
+const VAULT_COST := 1
 ## Steps a ladder climb costs (going up or down a ladder).
 const LADDER_COST := 2
 
@@ -58,6 +73,58 @@ static func from_rows(rows: PackedStringArray) -> Grid:
 				"E": g.enemy_spawns.append(c)
 			g.tiles[y * g.width + x] = g.read_glyph(c, rows[y][x])
 	return g
+
+
+## A map drawn at double resolution with edge walls (the format MapGen parcels use; see
+## maps/biome_wall.txt): rows of 2n+1 characters, cell glyphs at odd (x, y), border glyphs between
+## them, corners ignored. Border glyphs: - | # wall, o window, = : low wall, d doorway; anything
+## else (space, '.', '+') is open.
+static func from_edge_rows(rows: PackedStringArray) -> Grid:
+	var split := split_edge_rows(rows)
+	var g := from_rows(split.cells)
+	for e in split.edges:
+		g.set_edge(e[0], e[1], e[2])
+	return g
+
+
+## Splits double-resolution rows into {"cells": PackedStringArray, "edges": [[cell, dir, EDGE_*]]}.
+## Each border appears once, as the east or south side of a cell; a parcel's west and north rims
+## come out as borders of cells at x = -1 or y = -1 (set_edge drops whatever falls off the map).
+static func split_edge_rows(rows: PackedStringArray) -> Dictionary:
+	var w := rows[0].length()
+	var cells := PackedStringArray()
+	var out: Array = []
+	for y in range(1, rows.size(), 2):
+		var row := ""
+		for x in range(1, w, 2):
+			row += _at(rows, x, y)
+		cells.append(row)
+	for y in rows.size():
+		for x in w:
+			if (x + y) % 2 == 0:
+				continue   # a cell or a corner
+			var kind := edge_glyph(_at(rows, x, y))
+			if kind == EDGE_NONE:
+				continue
+			if x % 2 == 0:   # a vertical border: east side of cell ((x - 2) / 2, (y - 1) / 2)
+				out.append([Vector2i(x / 2 - 1, (y - 1) / 2), Vector2i(1, 0), kind])
+			else:            # a horizontal border: south side of cell ((x - 1) / 2, (y - 2) / 2)
+				out.append([Vector2i((x - 1) / 2, y / 2 - 1), Vector2i(0, 1), kind])
+	return {"cells": cells, "edges": out}
+
+
+static func _at(rows: PackedStringArray, x: int, y: int) -> String:
+	return rows[y][x] if y < rows.size() and x < rows[y].length() else " "
+
+
+## EDGE_* for a border glyph in a double-resolution map.
+static func edge_glyph(ch: String) -> int:
+	match ch:
+		"-", "|", "#": return EDGE_WALL
+		"o": return EDGE_WINDOW
+		"=", ":": return EDGE_LOW
+		"d": return EDGE_DOOR
+	return EDGE_NONE
 
 
 ## Loads a map text file. Lines starting with ';' and blank lines are ignored.
@@ -114,7 +181,8 @@ func to_dict() -> Dictionary:
 		"player_spawns": player_spawns.duplicate(), "enemy_spawns": enemy_spawns.duplicate(),
 		"biome": biome, "markers": markers.duplicate(true), "objective": objective,
 		"levels": levels.duplicate(), "ladders": ladders.keys(), "stairs": stairs.keys(), "fragile": fragile.keys(),
-		"wear": wear.duplicate(), "volatile": volatile.keys(), "hard": hard.keys(), "rubble": rubble.duplicate()}
+		"wear": wear.duplicate(), "volatile": volatile.keys(), "hard": hard.keys(), "rubble": rubble.duplicate(),
+		"edges": edges.duplicate(), "edge_wear": edge_wear.duplicate()}
 
 
 static func from_dict(d: Dictionary) -> Grid:
@@ -140,6 +208,8 @@ static func from_dict(d: Dictionary) -> Grid:
 	for c in d.get("hard", []):
 		g.hard[c] = true
 	g.rubble = d.get("rubble", {}).duplicate()
+	g.edges = d.get("edges", {}).duplicate()
+	g.edge_wear = d.get("edge_wear", {}).duplicate()
 	return g
 
 
@@ -153,6 +223,10 @@ func fingerprint() -> int:
 	var worn: Array = wear.keys()
 	worn.sort()
 	parts.append(str(worn.map(func(c: Vector2i) -> String: return "%s=%d" % [c, wear[c]])))
+	for group in [edges, edge_wear]:
+		var keys: Array = group.keys()
+		keys.sort()
+		parts.append(str(keys.map(func(k: Vector3i) -> String: return "%s=%d" % [k, group[k]])))
 	return "|".join(parts).hash()
 
 
@@ -225,6 +299,92 @@ func blocks_los(c: Vector2i) -> bool:
 	return tile(c) == Types.Tile.WALL
 
 
+# ---------------------------------------------------------------- edge walls
+
+## Dictionary key of the border between `c` and its orthogonal neighbour `c + d`.
+static func edge_key(c: Vector2i, d: Vector2i) -> Vector3i:
+	if d == Vector2i(1, 0):
+		return Vector3i(c.x, c.y, 0)
+	if d == Vector2i(-1, 0):
+		return Vector3i(c.x - 1, c.y, 0)
+	if d == Vector2i(0, 1):
+		return Vector3i(c.x, c.y, 1)
+	if d == Vector2i(0, -1):
+		return Vector3i(c.x, c.y - 1, 1)
+	return Vector3i(-1, -1, -1)
+
+
+## The two cells on either side of an edge key.
+static func edge_cells(k: Vector3i) -> Array[Vector2i]:
+	var a := Vector2i(k.x, k.y)
+	return [a, a + (Vector2i(1, 0) if k.z == 0 else Vector2i(0, 1))]
+
+
+## What stands on the border between `c` and `c + d` (EDGE_*); EDGE_NONE for diagonals.
+func edge(c: Vector2i, d: Vector2i) -> int:
+	return edges.get(edge_key(c, d), EDGE_NONE) if not edges.is_empty() else EDGE_NONE
+
+
+## Raw edge write for map building. In a fight, edges change only through Destruction.
+func set_edge(c: Vector2i, d: Vector2i, kind: int) -> void:
+	var k := edge_key(c, d)
+	if k.z < 0 or not in_bounds(c) or not in_bounds(c + d):
+		return
+	if kind == EDGE_NONE:
+		edges.erase(k)
+		edge_wear.erase(k)
+	else:
+		edges[k] = kind
+
+
+## A solid edge wall stands between `c` and `c + d` (orthogonal).
+func edge_blocks_los(c: Vector2i, d: Vector2i) -> bool:
+	return edge(c, d) == EDGE_WALL
+
+
+## Height an edge wall reaches: one storey above the higher of its two floors.
+func edge_top(c: Vector2i, d: Vector2i) -> int:
+	return maxi(level(c), level(c + d)) + 1
+
+
+## Cover the border between `c` and `c + d` gives to a unit at `c`.
+func edge_cover(c: Vector2i, d: Vector2i) -> int:
+	match edge(c, d):
+		EDGE_WALL: return Types.Cover.FULL
+		EDGE_WINDOW, EDGE_LOW: return Types.Cover.HALF
+	return Types.Cover.NONE
+
+
+## Nothing on any of the four borders around the corner a diagonal step from `c` by `d` cuts.
+func corner_open(c: Vector2i, d: Vector2i) -> bool:
+	if edges.is_empty():
+		return true
+	var a := Vector2i(d.x, 0)
+	var b := Vector2i(0, d.y)
+	return edge(c, a) == EDGE_NONE and edge(c, b) == EDGE_NONE \
+		and edge(c + d, -a) == EDGE_NONE and edge(c + d, -b) == EDGE_NONE
+
+
+## Units on `a` and `b` can reach each other in melee: next to each other with no wall between
+## (diagonally, at least one way around the corner is free of walls).
+func touching(a: Vector2i, b: Vector2i) -> bool:
+	var d := b - a
+	if maxi(absi(d.x), absi(d.y)) != 1:
+		return false
+	if d.x == 0 or d.y == 0:
+		return not edge_blocks_los(a, d)
+	var x := Vector2i(d.x, 0)
+	var y := Vector2i(0, d.y)
+	var via_x := not blocks_los(a + x) and not edge_blocks_los(a, x) and not edge_blocks_los(a + x, y)
+	var via_y := not blocks_los(a + y) and not edge_blocks_los(a, y) and not edge_blocks_los(a + y, x)
+	return via_x or via_y
+
+
+## Cover a unit at `c` gets on its side `d` (orthogonal): the tile there or the edge between.
+func cover_toward(c: Vector2i, d: Vector2i) -> int:
+	return maxi(cover_value(c + d), edge_cover(c, d))
+
+
 ## Cover provided by the tile at `c` to a unit standing next to it.
 func cover_value(c: Vector2i) -> int:
 	match tile(c):
@@ -238,7 +398,7 @@ func cover_sides(c: Vector2i) -> Dictionary:
 	var out := {}
 	for d in DIRS4:
 		if in_bounds(c + d):
-			out[d] = cover_value(c + d)
+			out[d] = cover_toward(c, d)
 	return out
 
 
@@ -246,7 +406,8 @@ func cover_sides(c: Vector2i) -> Dictionary:
 ## Flat steps cost 1. Changing level must be straight (not diagonal): up one level only from or
 ## onto stairs (cost 1) or a ladder (LADDER_COST); down the same way, or by dropping off any
 ## ledge (one way, 1 per level dropped, no damage). `ignore_levels` (leapers, flyers) changes level
-## anywhere for 1. Diagonals never cut a wall corner nor a ledge corner.
+## anywhere for 1. Diagonals never cut a wall corner nor a ledge corner, nor pass any edge.
+## Edge walls block; vaulting a low wall or a window costs VAULT_COST extra; doorways are free.
 func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_levels := false) -> int:
 	var to := from + d
 	if not is_walkable(to) or blocked.has(to):
@@ -255,19 +416,23 @@ func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_lev
 	if diagonal:
 		var a := from + Vector2i(d.x, 0)
 		var b := from + Vector2i(0, d.y)
-		if not is_walkable(a) or not is_walkable(b):
+		if not is_walkable(a) or not is_walkable(b) or not corner_open(from, d):
 			return -1
 		if not ignore_levels and (level(a) != level(from) or level(b) != level(from) or level(to) != level(from)):
 			return -1
 		return 1
+	var extra := 0
+	match edge(from, d):
+		EDGE_WALL: return -1
+		EDGE_WINDOW, EDGE_LOW: extra = VAULT_COST
 	var rise := level(to) - level(from)
 	if rise == 0 or ignore_levels:
-		return 1
+		return 1 + extra
 	if absi(rise) == 1 and (is_stairs(from) or is_stairs(to)):
-		return 1
+		return 1 + extra
 	if absi(rise) == 1 and (is_ladder(from) or is_ladder(to)):
-		return LADDER_COST
-	return -rise if rise < 0 else -1
+		return LADDER_COST + extra
+	return -rise + extra if rise < 0 else -1
 
 
 ## Compatibility wrapper: whether the step can be taken at all.
