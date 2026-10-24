@@ -55,6 +55,9 @@ static func apply_entry(s: GameState, u: Unit, entry: Dictionary) -> void:
 		Infection.add(s, u, entry.infection)
 	if entry.get("first_turn_action_loss", false):
 		u.status["first_turn_action_loss"] = true
+	# What the soldier walked in with, for the end-of-fight debrief.
+	u.status["start_hp"] = u.hp
+	u.status["start_infection"] = u.infection
 
 
 ## After a fight: copies the unit's end state back into the record. Returns what happened.

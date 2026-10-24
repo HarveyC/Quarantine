@@ -348,3 +348,48 @@ func test_turning_is_smooth() -> void:
 		uv.tick(0.05)
 	assert_true(uv.facing().dot(Vector3(-1, 0, 0)) > 0.99, "turn completes")
 	v.free()
+
+
+## A run fight ends on the debrief (not the restart overlay): kills, wounds and Infection per
+## soldier, a key shows it at once, the next continues and tells the app to move on.
+func test_run_fight_ends_on_debrief() -> void:
+	var l := LocalSession.new()
+	l.save_enabled = false
+	l.start_run(1, 31)
+	RunAutoplay.settle(l.run, l.submit_run)
+	l.submit_run({"type": RunRules.VOTE, "player": 0, "node": l.run.reachable_nodes()[0]})
+	var s := l.state
+	var v: MissionView = MAIN.instantiate()
+	v.session = l
+	v.start(s, true)
+	v.player.flush()
+	var soldier: Unit = s.living(Types.Team.PLAYER).filter(func(u: Unit) -> bool: return u.status.has("sid"))[0]
+	var foe: Unit = s.living(Types.Team.ENEMY)[0]
+	assert_eq(int(soldier.status.get("start_hp", -1)), soldier.hp, "start HP recorded")
+	Rules.deal_damage(s, foe, 999, soldier)
+	Rules.deal_damage(s, soldier, 2, foe)
+	Infection.add(s, soldier, 5)
+	var sum: Dictionary = v.hud.debrief.summarize(s)
+	var row: Dictionary = sum.soldiers.filter(func(r: Dictionary) -> bool: return r.unit == soldier.id)[0]
+	assert_eq(row.kills, 1, "kill credited")
+	assert_eq(row.wounds, 2, "wounds = HP lost this fight")
+	assert_true(row.infection_gained >= 5, "Infection gained")
+	assert_eq(row.fate, "wounded", "fate")
+	var finished := []
+	v.debrief_finished.connect(func() -> void: finished.append(true))
+	for u in s.living(Types.Team.ENEMY):
+		u.hp = 0
+	s.objective.result = Types.Result.VICTORY
+	Rules.check_end(s)
+	v.player.flush()
+	assert_true(v.hud.debrief.visible, "debrief up")
+	assert_true(not v.hud.end_overlay.visible, "no restart overlay in a run")
+	assert_true(not v.hud.debrief.shown, "holds on the final beat first")
+	v.hud.debrief.skip()
+	assert_true(v.hud.debrief.shown and finished.is_empty(), "first press shows the summary")
+	v.hud.debrief._t = 1.0
+	v.hud.debrief.skip()
+	assert_eq(finished.size(), 1, "second press continues")
+	assert_true(v.debrief_done, "view knows")
+	v.free()
+	l.free()

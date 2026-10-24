@@ -699,7 +699,11 @@ Infection, player-colour stripes on soldier cards).
 
 Sessions (`LocalSession`, `NetSession`) have `run: RunState`, `submit_run(action)` and a
 `run_changed` signal; `App` shows `RunView` (`ui/run/run_view.gd`) between fights and the mission
-view during one (held 3 s after the mission ends so the result plays).
+view during one. When a fight ends the mission stays up for the debrief (`ui/fight_debrief.gd`:
+a short beat on the last action, a "Mission complete" / "Squad lost" banner and each soldier's
+kills, wounds and Infection, read from `unit.status` `kills`, `start_hp`, `start_infection`), then
+fades into the run view. The debrief is local presentation: each peer builds it from its own
+identical GameState, and a player who skips it only moves themselves on.
 - **Solo / hot-seat** (`LocalSession.start_run(players)` / `resume_run(saved)`): no lobby, no
   network. A map click votes for every local player, so solo moves on at once.
 - **Online** (`NetSession.start_run()`, host): the host builds the run from a seed (or `resume`, a

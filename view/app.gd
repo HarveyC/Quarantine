@@ -9,6 +9,10 @@ extends Node
 
 const MISSION := preload("res://scenes/main.tscn")
 const MainMenu := preload("res://ui/main_menu.gd")
+## Longest a finished fight waits on its debrief before moving on anyway.
+const DEBRIEF_MAX := 20.0
+const FADE_OUT := 0.35
+const FADE_IN := 0.5
 
 var net: NetSession
 var session: Node      # LocalSession or NetSession
@@ -17,6 +21,9 @@ var menu: MainMenu
 var run_view: RunView
 var _run_layer: CanvasLayer
 var _closing_mission := false
+var _close_gen := 0
+var _fade: ColorRect
+var _fade_tween: Tween
 var _autostart_run := false
 var _autostart := 0
 var _autostart_armed := false
@@ -42,6 +49,15 @@ func _ready() -> void:
 	add_child(_menu_layer)
 	menu = MainMenu.new()
 	_menu_layer.add_child(menu)
+	# Black cover for the cut from a finished fight to the run view.
+	var fade_layer := CanvasLayer.new()
+	fade_layer.layer = 20
+	add_child(fade_layer)
+	_fade = ColorRect.new()
+	_fade.color = Color(0, 0, 0, 0)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fade_layer.add_child(_fade)
 	menu.host_requested.connect(_host)
 	menu.join_requested.connect(_join)
 	menu.local_requested.connect(_local)
@@ -157,7 +173,8 @@ func _start_net_run() -> void:
 
 
 ## Shows the run view between fights and the mission view during one. When a fight ends the
-## mission stays up a moment so its last beats and the result banner can play.
+## mission stays up until its last beats and the debrief have played (or the player skips), then
+## fades into the run view.
 func _update_screens() -> void:
 	var run: RunState = session.get("run") if session != null else null
 	if run == null:
@@ -168,12 +185,7 @@ func _update_screens() -> void:
 	if view != null and (not fighting or view.state != session.state):
 		if not _closing_mission:
 			_closing_mission = true
-			var hold := 0.5 if OS.get_cmdline_user_args().has("--autoplay") else 3.0
-			get_tree().create_timer(hold).timeout.connect(func() -> void:
-				_closing_mission = false
-				if view != null and (session == null or session.get("run") == null or session.run.phase != RunState.Phase.FIGHT or view.state != session.state):
-					_close_view()
-				_update_screens())
+			_wait_for_debrief()
 		return
 	if fighting and view != null:
 		if run_view != null:
@@ -189,6 +201,47 @@ func _update_screens() -> void:
 	run_view.visible = true
 	run_view.refresh()
 	_menu_layer.visible = false
+
+
+func _wait_for_debrief() -> void:
+	_close_gen += 1
+	var gen := _close_gen
+	var finish := func() -> void: _finish_mission(gen)
+	if OS.get_cmdline_user_args().has("--autoplay"):
+		get_tree().create_timer(0.5).timeout.connect(finish)
+		return
+	if view.debrief_done:
+		finish.call_deferred()
+		return
+	view.debrief_finished.connect(finish, CONNECT_ONE_SHOT)
+	# A fight that ends without a debrief (a new fight replaced it, a resync) still moves on.
+	get_tree().create_timer(DEBRIEF_MAX).timeout.connect(finish)
+
+
+func _finish_mission(gen: int) -> void:
+	if gen != _close_gen or not _closing_mission:
+		return
+	_close_gen += 1
+	var swap := func() -> void:
+		_closing_mission = false
+		if view != null and (session == null or session.get("run") == null or session.run.phase != RunState.Phase.FIGHT or view.state != session.state):
+			_close_view()
+		_update_screens()
+	if OS.get_cmdline_user_args().has("--autoplay"):
+		swap.call()
+		return
+	_fade_to(1.0, FADE_OUT, func() -> void:
+		swap.call()
+		_fade_to(0.0, FADE_IN))
+
+
+func _fade_to(alpha: float, secs: float, then: Callable = Callable()) -> void:
+	if _fade_tween != null:
+		_fade_tween.kill()
+	_fade_tween = create_tween()
+	_fade_tween.tween_property(_fade, "color:a", alpha, secs)
+	if then.is_valid():
+		_fade_tween.tween_callback(then)
 
 
 func _on_lobby_changed() -> void:
@@ -222,6 +275,7 @@ func _show_mission(s: Node, state: GameState, begin: bool) -> void:
 
 
 func _on_disconnected(reason: String) -> void:
+	_reset_fade()
 	_close_view()
 	_close_run_view()
 	session = null
@@ -233,6 +287,7 @@ func _on_disconnected(reason: String) -> void:
 
 
 func _leave() -> void:
+	_reset_fade()
 	if session == net:
 		net.leave()
 	elif session != null:
@@ -242,6 +297,14 @@ func _leave() -> void:
 	_close_run_view()
 	menu.show_menu()
 	_menu_layer.visible = true
+
+
+func _reset_fade() -> void:
+	_closing_mission = false
+	_close_gen += 1
+	if _fade_tween != null:
+		_fade_tween.kill()
+	_fade.color.a = 0.0
 
 
 func _close_run_view() -> void:
