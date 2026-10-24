@@ -7,11 +7,13 @@ extends RefCounted
 ## Dictionary with the same fields. Reads `supplies`, `act`, `rng`, `phase`, `soldiers` (records
 ## with `id`, `kind`, `owner`, `status`). Owns `run.gear`:
 ##   {"stash": [{id, mk}], "offers": {soldier id: {"source", "cards": [...]}},
-##    "pity": {player: int}, "fights_won": int, "doctrine_vote": {"options", "votes"}}
+##    "pity": {player: int}, "fights_won": int, "doctrine_vote": {"options", "votes"},
+##    "reward_source": what the open picks are for ("kit" | "skirmish" | "nest" | "boss")}
 ## and `record.gear` on each soldier (see Loadout). Doctrines go to `run.modifiers.doctrines`.
 ##
 ## Actions ({"type", "player", ...}; validate returns "" or a reason):
 ##   gear_pick        {"soldier", "card": index or -1 to skip, optional "to_stash": true}  REWARD
+##                    (the run-start deployment order can't be skipped)
 ##   gear_doctrine    {"doctrine": id}  vote after an act boss                               REWARD
 ##   gear_stash_take  {"soldier", "index"}  equip a stash item (swapped-out item takes its place)  MAP/REWARD
 ##   gear_unequip     {"soldier", "slot"}   move an item to the stash                        MAP/REWARD
@@ -147,32 +149,27 @@ static func has_pending(run) -> bool:
 	return not offers(run).is_empty() or not state(run).get("doctrine_vote", {}).is_empty()
 
 
-## Before the first fight each soldier picks 1 of 3 Common items with different tags,
-## at least one in the class's natural lanes (1 of 4 with the Field kit unlock).
+## Before the first fight each soldier picks 1 of 3 deployment orders (1 of 4 with the Field kit
+## unlock): build-defining bundles, some of which start the soldier infected. See DeployOrders.
 static func starting_kit_offers(run) -> void:
 	var rng := _rng(run)
 	var choices := 4 if MetaUnlocks.owns(_rget(run, "meta", {}), "field_kit") else 3
+	state(run).reward_source = "kit"
 	for r in squad(run):
-		var lanes: Array = GearData.CLASS_LANES.get(r.kind, [])
-		var cards: Array = []
-		var used_tags: Array = []
-		for i in choices:
-			var only: Array = []
-			if i == 0 and not lanes.is_empty():
-				only = lanes
-			var allowed := GearData.TAGS.filter(func(t): return not used_tags.has(t) and (only.is_empty() or only.has(t)))
-			var id := GearDraw.draw_item(rng, {}, "common", [], allowed)
-			if id == "":
-				continue
-			used_tags.append(GearData.ITEMS[id].tag)
-			cards.append(_gear_card(id))
-		offers(run)[int(r.id)] = {"source": "kit", "cards": cards}
+		offers(run)[int(r.id)] = {"source": "kit", "cards": DeployOrders.roll(rng, r, choices)}
+
+
+## What the open picks are for: "kit" before the first fight, else the fight kind that paid them.
+## Lasts until the next offers open, so screens waiting on teammates still read it.
+static func reward_source(run) -> String:
+	return str(state(run).get("reward_source", "skirmish"))
 
 
 ## After a won fight: one 1-of-3 offer per living soldier. fight_kind: "skirmish" | "nest" | "boss".
 static func on_fight_won(run, fight_kind: String = "skirmish") -> void:
 	var gs := state(run)
 	gs.fights_won += 1
+	gs.reward_source = fight_kind
 	for r in squad(run):
 		offers(run)[int(r.id)] = {"source": fight_kind, "cards": roll_offer(run, r, fight_kind)}
 	if doctrines(run).has("hazard_pay"):
@@ -408,19 +405,19 @@ static func validate(run, action: Dictionary) -> String:
 				return "No reward to pick"
 			var i := int(action.get("card", -1))
 			if i == -1:
-				return ""
+				return "Pick a deployment order" if offer.source == "kit" else ""
 			if i < 0 or i >= offer.cards.size():
 				return "No such card"
 			var card: Dictionary = offer.cards[i]
+			if card.kind == "order":
+				for c in card.contents:
+					var err := _card_error(r, c)
+					if err != "":
+						return err
+				return ""
 			if card.kind == "gear" and action.get("to_stash", false) and Loadout.stash_full(run):
 				return "Stash is full"
-			if card.kind == "consumable" and not Loadout.can_add_consumable(r, card.id):
-				return "Pockets are full"
-			if (card.kind == "perk" or card.kind == "mutation") and not GearTags.provides(GearTags.progression(), "apply_card"):
-				return "Can't take that card yet"
-			if card.kind == "gun" and not Weapons.can_carry(str(r.get("kind", "")), card.id):
-				return "Wrong class for that gun"
-			return ""
+			return _card_error(r, card)
 		"gear_stash_take", "gear_unequip", "gear_gun":
 			if not _phase_is(run, ["MAP", "REWARD"]):
 				return "Change gear from the map"
@@ -464,6 +461,17 @@ static func apply(run, action: Dictionary) -> bool:
 	return true
 
 
+## Why one reward card can't be granted to `r`, or "".
+static func _card_error(r, card: Dictionary) -> String:
+	if card.kind == "consumable" and not Loadout.can_add_consumable(r, card.id):
+		return "Pockets are full"
+	if (card.kind == "perk" or card.kind == "mutation") and not GearTags.provides(GearTags.progression(), "apply_card"):
+		return "Can't take that card yet"
+	if card.kind == "gun" and not Weapons.can_carry(str(r.get("kind", "")), card.id):
+		return "Wrong class for that gun"
+	return ""
+
+
 static func _pick(run, r, action: Dictionary) -> void:
 	var offer: Dictionary = offers(run)[int(r.id)]
 	offers(run).erase(int(r.id))
@@ -473,9 +481,19 @@ static func _pick(run, r, action: Dictionary) -> void:
 			add_supplies(run, SKIP_SUPPLIES, "Skipped a reward")
 		return
 	var card: Dictionary = offer.cards[i]
+	if card.kind == "order":
+		for c in card.contents:
+			_grant(run, r, c, false)
+		if int(card.get("infection", 0)) > int(r.get("infection", 0)):
+			r["infection"] = int(card.infection)
+		return
+	_grant(run, r, card, bool(action.get("to_stash", false)))
+
+
+static func _grant(run, r, card: Dictionary, to_stash: bool) -> void:
 	match card.kind:
 		"gear":
-			if action.get("to_stash", false):
+			if to_stash:
 				Loadout.stash_add(run, card.id, 2 if card.rarity == "prototype" else 1)
 			else:
 				Loadout.equip(run, r, card.id)

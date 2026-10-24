@@ -11,7 +11,8 @@ python3 tools/balance/report.py OUT_DIR                                    # Mar
 ```
 
 One fight by hand: `godot --headless -s tools/balance/balance_sim.gd -- squad=trooper,medic act=2 node=boss n=5`
-(also `enemies=brute,brute` to skip FightBuilder, `rank=`, `outbreak=`, `seed=`).
+(also `enemies=brute,brute` to skip FightBuilder, `rank=`, `outbreak=`, `seed=`, and `order=bloom_cache`
+to deploy every soldier with one of the run-start deployment orders from gear/deploy_orders.gd).
 
 Batches: real FightBuilder skirmishes and bosses for every act, squad size 1-4 and starter-class mix;
 duels (one soldier of each class vs two of each regular enemy); and threat (the starter squad vs

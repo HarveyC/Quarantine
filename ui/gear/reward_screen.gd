@@ -1,13 +1,18 @@
 extends Control
-## Post-fight reward screen (REWARD phase): one 1-of-3 pick per soldier each local player
-## controls (solo picks for all four), the Doctrine vote after an act boss, and rank-up picks
-## from Progression once the gear picks are done. Sends gear_pick / gear_doctrine through
-## session.submit_run. Keys: 1-3 pick a card, Enter take, S skip, Tab next soldier.
+## Reward screen (REWARD phase): the run-start deployment orders, then after each won fight one
+## 1-of-3 pick per soldier each local player controls (solo picks for all four), the Doctrine
+## vote after an act boss, and rank-up picks from Progression once the gear picks are done.
+## Sends gear_pick / gear_doctrine through session.submit_run. Keys: 1-4 pick a card, Enter
+## take, S skip (not for orders), Tab next soldier.
 
 const UI := preload("res://ui/gear/gear_ui.gd")
 const GearCard := preload("res://ui/gear/gear_card.gd")
 const W := preload("res://ui/widgets.gd")
 const Feel := preload("res://ui/ui_feel.gd")
+
+## Eyebrow over the title for each reward source (GearRun.reward_source).
+const HEADERS := {"kit": "Act %d · Deployment", "skirmish": "Act %d · Fight won",
+	"nest": "Act %d · Nest cleared", "boss": "Act %d · Boss down"}
 
 var run: RunState
 var session
@@ -28,6 +33,7 @@ var _take: Button
 var _squad: VBoxContainer
 var _cards: Array = []
 var _prog_box: Control
+var _backdrop: Control
 
 
 func setup(r: RunState, s) -> void:
@@ -56,6 +62,9 @@ func _build() -> void:
 	bg.color = Color(UI.BG, 0.93)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	_backdrop = DropZone.new()
+	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_backdrop)
 	var fit := W.FitBox.new()
 	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(fit)
@@ -163,11 +172,14 @@ func _refresh() -> void:
 			_card = -1
 			_to_stash = false
 	var vote := GearRun.doctrine_vote(run)
-	var kit := false
-	if _sid != -1:
-		kit = GearRun.offer_for(run, _sid).get("source", "") == "kit"
-	_sub.text = ("Act %d · before the first fight" % run.act).to_upper() if kit else ("Act %d · fight won" % run.act).to_upper()
-	_title.text = "PICK YOUR STARTING GEAR" if kit else "CHOOSE YOUR GEAR"
+	# Read from the run, not the soldier on screen: once this player's picks are done the
+	# header must still say what the squad is waiting on.
+	var source := GearRun.reward_source(run)
+	var kit := source == "kit"
+	_sub.text = (HEADERS.get(source, HEADERS.skirmish) % run.act).to_upper()
+	_sub.add_theme_color_override("font_color", UI.AMBER if kit else UI.GOOD)
+	_title.text = "DEPLOYMENT ORDERS" if kit else "CHOOSE YOUR GEAR"
+	_backdrop.visible = kit
 	_build_tabs()
 	_build_squad()
 	for c in _center.get_children():
@@ -271,7 +283,10 @@ func _build_squad() -> void:
 func _show_offer(r: Dictionary) -> void:
 	var offer := GearRun.offer_for(run, r.id)
 	var cards: Array = offer.get("cards", [])
-	_hint.text = "%s picks 1 of 3 for %s" % [_player_name(run.controller_of(r)), UI.soldier_name(r)]
+	if offer.get("source", "") == "kit":
+		_hint.text = "%s gives %s one order for the drop. It shapes their whole run." % [_player_name(run.controller_of(r)), UI.soldier_name(r)]
+	else:
+		_hint.text = "%s picks 1 of %d for %s" % [_player_name(run.controller_of(r)), cards.size(), UI.soldier_name(r)]
 	for i in cards.size():
 		var c: GearCard = GearCard.new()
 		c.setup(cards[i], r, i)
@@ -289,7 +304,8 @@ func _show_offer(r: Dictionary) -> void:
 
 func _show_doctrines(vote: Dictionary) -> void:
 	_title.text = "CHOOSE A DOCTRINE"
-	_sub.text = ("Act %d boss down" % (run.act - 1 if run.act > 1 else 1)).to_upper()
+	# Rewards come before the next act starts, so run.act is still the boss's act.
+	_sub.text = (HEADERS.boss % run.act).to_upper()
 	_hint.text = "Squad-wide for the rest of the run. Majority wins; the host breaks a tie."
 	var mine: Array = _local_players().filter(func(p): return not run.benched.get(p, false))
 	for i in vote.options.size():
@@ -396,16 +412,17 @@ func _update_take() -> void:
 	if not has_offer:
 		return
 	var kit: bool = GearRun.offer_for(run, _sid).get("source", "") == "kit"
-	_skip.text = ("SKIP" if kit else "SKIP FOR +%d SUPPLIES" % GearRun.SKIP_SUPPLIES) + "   [S]"
+	_skip.visible = not kit
+	_skip.text = "SKIP FOR +%d SUPPLIES   [S]" % GearRun.SKIP_SUPPLIES
 	if _card < 0 or _card >= _cards.size():
-		_take.text = "PICK A CARD   [1-3]"
+		_take.text = "%s   [1-%d]" % ["PICK AN ORDER" if kit else "PICK A CARD", maxi(1, _cards.size())]
 		_take.disabled = true
 		return
 	var c: GearCard = _cards[_card]
 	var is_gear: bool = c.card.get("kind") == "gear"
 	_stash.visible = is_gear and Loadout.preview_equip(c.record, c.card.id).mode != "upgrade"
 	_stash.set_pressed_no_signal(_to_stash)
-	var verb := "Stash" if _to_stash and _stash.visible else "Take"
+	var verb := "Stash" if _to_stash and _stash.visible else ("Deploy with" if kit else "Take")
 	_take.text = "%s %s   [Enter]" % [verb, c.title()]
 	var err := GearRun.validate(run, _action(_card))
 	_take.disabled = err != ""
@@ -438,7 +455,7 @@ func _take_pick() -> void:
 
 
 func _skip_pick() -> void:
-	if _sid == -1:
+	if _sid == -1 or not _skip.visible:
 		return
 	_took[_sid] = "Skipped"
 	UI.play(self, "ui_click")
@@ -449,7 +466,7 @@ func _unhandled_key_input(ev: InputEvent) -> void:
 	if not ev.pressed or ev.echo or _sid == -1:
 		return
 	match ev.keycode:
-		KEY_1, KEY_2, KEY_3:
+		KEY_1, KEY_2, KEY_3, KEY_4:
 			_select(ev.keycode - KEY_1)
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			_take_pick()
@@ -465,3 +482,30 @@ func _unhandled_key_input(ev: InputEvent) -> void:
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+
+## Behind the deployment orders: a faint landing grid and a drop-zone ring, so the run-start
+## pick reads as its own moment rather than another reward.
+class DropZone:
+	extends Control
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var g := Color(UI.AMBER, 0.035)
+		var step := 48.0
+		var x := fmod(size.x / 2, step)
+		while x < size.x:
+			draw_line(Vector2(x, 0), Vector2(x, size.y), g)
+			x += step
+		var y := fmod(size.y / 2, step)
+		while y < size.y:
+			draw_line(Vector2(0, y), Vector2(size.x, y), g)
+			y += step
+		var c := size / 2 + Vector2(0, size.y * 0.1)
+		var r := minf(size.x, size.y) * 0.36
+		for i in 3:
+			draw_arc(c, r * (1.0 - i * 0.28), 0, TAU, 96, Color(UI.AMBER, 0.07 - i * 0.015), 2.0, true)
+		for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+			draw_line(c + d * r * 1.04, c + d * r * 1.14, Color(UI.AMBER, 0.12), 2.0, true)

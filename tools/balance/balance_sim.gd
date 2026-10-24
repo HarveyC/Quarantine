@@ -7,7 +7,8 @@ extends SceneTree
 ## Args: squad (comma classes), act (1-3), node (skirmish|nest|boss), outbreak, n (fights),
 ## seed (first seed), enemies (comma enemy specs: overrides FightBuilder), rank (default by act),
 ## tag (free text echoed in every line), guns (comma weapon ids lined up with squad; "-" keeps
-## the signature gun).
+## the signature gun), order (a DeployOrders id every soldier deploys with, e.g. bloom_cache;
+## "none" or unset means no starting gear).
 
 const SquadBot := preload("res://tools/balance/squad_bot.gd")
 const TURN_CAP := 25
@@ -29,12 +30,12 @@ func _init() -> void:
 	for i in n:
 		var seed := seed0 + i
 		print(JSON.stringify(run_fight(squad_kinds, act, node, int(args.get("outbreak", 0)), seed, rank,
-			str(args.get("enemies", "")), str(args.get("tag", "")), str(args.get("guns", "")))))
+			str(args.get("enemies", "")), str(args.get("tag", "")), str(args.get("guns", "")), str(args.get("order", "")))))
 	quit(0)
 
 
 func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, seed: int, rank: int,
-		enemy_override: String, tag: String, guns: String = "") -> Dictionary:
+		enemy_override: String, tag: String, guns: String = "", order: String = "") -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed * 31 + 7
 	var squad: Array = []
@@ -51,6 +52,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 				break
 			prog.perks.append(pool.pop_at(rng.randi() % pool.size()))
 		squad.append({"kind": kinds[i], "player": i if kinds.size() < 4 else 0, "prog": prog})
+	var records := _deploy(rng, squad, order)
 	var objective := "boss" if node == "boss" else "skirmish"
 	var spec := {"act": act, "row": 2, "node": node, "objective": objective, "outbreak": outbreak,
 		"seed": seed, "players": kinds.size(), "squad": kinds.size(), "modifiers": {}}
@@ -69,6 +71,13 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		for i in mini(gl.size(), sq.size()):
 			if gl[i] != "-":
 				Weapons.equip_unit(sq[i], gl[i])
+	if not records.is_empty():
+		var sq := s.units.filter(func(u): return Kit.is_soldier(u))
+		for i in mini(records.size(), sq.size()):
+			GearRun.apply_to_unit(sq[i], records[i])
+			sq[i].hp = sq[i].max_hp
+			if int(records[i].infection) > 0:
+				Infection.add(s, sq[i], int(records[i].infection))
 	var stats := {}   # unit id -> {dealt, taken, kills}
 	for u in s.units:
 		stats[u.id] = {"dealt": 0, "taken": 0}
@@ -119,8 +128,28 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var res := "timeout"
 	if s.phase == Types.Phase.ENDED:
 		res = "win" if s.result == Types.Result.VICTORY else "loss"
-	return {"tag": tag, "act": act, "node": node, "squad": kinds.size(), "seed": seed, "result": res,
+	return {"tag": tag, "order": order, "act": act, "node": node, "squad": kinds.size(), "seed": seed, "result": res,
 		"turns": s.turn, "lapses": counter.lapses,
 		"terrain": {"explosions": counter.explosions, "barrels": counter.barrels, "walls": counter.walls,
 			"cover": counter.cover, "roofs": counter.roofs},
 		"soldiers": soldiers, "enemies": foes, "spawned": enemies}
+
+
+## Gives every soldier the deployment order `id`: a record carrying its gear, gun and
+## Infection (mutations graft straight into the squad entry's prog). [] when there's no order.
+func _deploy(rng: RandomNumberGenerator, squad: Array, id: String) -> Array:
+	if id == "" or id == "none":
+		return []
+	var holder := {"gear": {}}
+	var out: Array = []
+	for e in squad:
+		var rec := {"kind": e.kind, "prog": e.prog, "infection": 0, "hp": 10, "max_hp": 10}
+		var card := DeployOrders.build(rng, rec, id)
+		for c in card.get("contents", []):
+			match str(c.kind):
+				"gear": Loadout.equip(holder, rec, c.id)
+				"gun": Loadout.add_gun(rec, c.id)
+				"mutation": Progression.graft(rec, c.id)
+		rec.infection = maxi(int(rec.infection), int(card.get("infection", 0)))
+		out.append(rec)
+	return out

@@ -36,7 +36,7 @@ const PACKS := {
 		"about": "Late, dangerous Critical mutations",
 		"content": ["rampage", "hollow_voice", "overgrowth", "patient_zero"]},
 	"field_kit": {"name": "Field kit", "short": "Field kit", "cost": 150, "needs": "", "kind": "perk",
-		"about": "A 4th starting item choice per soldier", "content": []},
+		"about": "A 4th deployment order to choose from per soldier", "content": []},
 	"serum_reserve": {"name": "Serum reserve", "short": "Serum reserve", "cost": 250, "needs": "", "kind": "perk",
 		"about": "+1 starting Serum sample per soldier", "content": []},
 }
