@@ -21,9 +21,9 @@ const SMOKE_DEFENSE := 20
 const CLOSE := 3.0
 
 ## Items whose effect needs a system the game doesn't have yet (fire tiles, spore zones,
-## turrets, fog of war). They're kept out of reward and depot draws until they work.
+## fog of war). They're kept out of reward and depot draws until they work.
 const PENDING: Array[String] = [
-	"flame_coat", "smart_link", "motion_tracker", "sentry_turret", "filter_mask", "symbiotic_suit",
+	"flame_coat", "smart_link", "motion_tracker", "filter_mask", "symbiotic_suit",
 	"crossfire", "hold_position", "spotter_flare", "scorched_earth", "bloodletting",
 	"recon_drone", "containment_foam",
 ]
@@ -39,7 +39,10 @@ const GADGETS := {
 	"deployable_cover": {"targeting": "cell", "cost": 1, "uses": [1, 2], "cooldown": [0, 0], "range": 1.5},
 	"grapple": {"targeting": "cell", "cost": 1, "uses": [1, 2], "cooldown": [0, 0], "range": 5.0},
 	"containment_emitter": {"targeting": "none", "cost": 1, "uses": [0, 0], "cooldown": [3, 2]},
+	"sentry_turret": {"targeting": "cell", "cost": 1, "uses": [1, 1], "cooldown": [0, 0], "range": 3.0},
 }
+## Sentry turret per Mk: team phases it lasts, aim, damage (Deployables runs it).
+const TURRET := [{"turns": 3, "aim": 60, "damage": 2}, {"turns": 4, "aim": 70, "damage": 3}]
 const CONSUMABLE_USE := {
 	"medkit": {"targeting": "unit", "cost": 1},
 	"suppressant_shot": {"targeting": "unit", "cost": 1},
@@ -410,6 +413,12 @@ static func _cell_error(s: GameState, u: Unit, id: String, d: Dictionary, cell: 
 				return "Straight lines only"
 			if not s.grid.is_walkable(c) or s.unit_at(c) != null:
 				return "Can't land there"
+		"gear:sentry_turret":
+			var why := Deployables.can_place(s, "turret", c)
+			if why != "":
+				return why
+			if not Combat.can_see(s, u.pos, c):
+				return "No line of sight"
 		_:
 			if s.grid.blocks_los(c) or not Combat.can_see(s, u.pos, c):
 				return "No line of sight"
@@ -513,6 +522,14 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit(ev)
 			var path: Array[Vector2i] = [cell]
 			s.emit({"type": "move", "unit": u.id, "from": from, "path": path})
+			return
+		"sentry_turret":
+			var k: Dictionary = TURRET[clampi(mk(u, key), 1, 2) - 1]
+			s.emit(ev)
+			var tu := Deployables.spawn(s, "turret", cell, u, k.turns)
+			if tu != null:
+				tu.aim = k.aim
+				tu.damage = Vector2i(k.damage, k.damage)
 			return
 		"frag_grenade":
 			var hit: Array = (area.call(1) as Array).filter(func(o): return o != u)
