@@ -725,6 +725,30 @@ func _beat_hazard_end(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.0}
 
 
+func _beat_objective(ev: Dictionary) -> Dictionary:
+	if view.hud != null:
+		view.hud.refresh()
+	return {"dur": 0.0}
+
+
+func _beat_rescued(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	view.fx.floating_text(_head(uv), "SAFE", Color(0.45, 0.95, 0.55), 44)
+	_sfx("radio")
+	return {"dur": 0.5}
+
+
+func _beat_left_behind(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	_focus(uv)
+	view.fx.floating_text(_head(uv), "LEFT BEHIND", Palette.DANGER, 44)
+	return {"dur": 0.7}
+
+
 func _beat_unknown(ev: Dictionary) -> Dictionary:
 	print("[view] unhandled event: ", ev)
 	var uv := _uv(ev)

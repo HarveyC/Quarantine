@@ -29,6 +29,7 @@ static func new_mission_on_grid(grid: Grid, squad: Array, enemies: Array[String]
 		if s.unit_at(spawn) != null:
 			spawn = _nearest_free(s, spawn)
 		s.add_unit(UnitData.make(enemies[i], Types.Team.ENEMY), spawn)
+	Objectives.setup(s)
 	return s
 
 
@@ -113,6 +114,7 @@ static func set_ready(s: GameState, player: int, is_ready: bool) -> void:
 	s.emit({"type": "ready", "player": player, "ready": is_ready})
 	if s.ready.values().all(func(r): return r):
 		Hazards.on_team_phase_end(s)
+		Objectives.on_team_phase_end(s)
 		check_end(s)
 		if s.phase != Types.Phase.ENDED:
 			run_enemy_phase(s)
@@ -133,6 +135,7 @@ static func run_enemy_phase(s: GameState) -> void:
 		u.actions_left = 0
 	if s.phase != Types.Phase.ENDED:
 		Hazards.on_enemy_phase_end(s)
+		Objectives.on_enemy_phase_end(s)
 		check_end(s)
 	if s.phase != Types.Phase.ENDED:
 		start_team_phase(s)
@@ -194,11 +197,11 @@ static func check_end(s: GameState) -> void:
 	if s.phase == Types.Phase.ENDED:
 		return
 	var r := Types.Result.NONE
-	if s.living(Types.Team.ENEMY).is_empty():
-		r = Types.Result.VICTORY
-	elif Deployables.soldiers(s).is_empty():
+	if Objectives.soldiers(s).is_empty():
 		# Turned soldiers have switched teams; Lapsed ones are still ours and will recover.
 		r = Types.Result.DEFEAT
+	else:
+		r = Objectives.check(s)   # the fight's objective, or elimination where that wins
 	if r != Types.Result.NONE:
 		s.result = r
 		s.phase = Types.Phase.ENDED

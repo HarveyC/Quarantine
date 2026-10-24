@@ -23,6 +23,7 @@ func test_solo_run_needs_no_lobby_and_builds_fights() -> void:
 	Rules.start_mission(s)
 	for u in s.living(Types.Team.ENEMY):
 		u.hp = 0
+	s.objective.result = Types.Result.VICTORY   # extract / hold fights don't end on kills alone
 	Rules.check_end(s)
 	assert_true(l.run.phase != RunState.Phase.FIGHT, "mission end reported to the run")
 	assert_eq(l.run.fights_won, 1, "fight counted")

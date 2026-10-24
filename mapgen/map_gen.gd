@@ -60,10 +60,12 @@ static func generate(spec: Dictionary) -> Grid:
 		var g := _build(data, plots[rng.randi() % plots.size()], objective, rng)
 		if g != null:
 			g.biome = biome
+			g.objective = objective
 			return g
 	push_warning("MapGen: no valid layout for %s, using the fallback map" % [spec])
 	var fb := Grid.load_file(FALLBACK_MAP)
 	fb.biome = biome
+	fb.objective = "skirmish"
 	return fb
 
 
