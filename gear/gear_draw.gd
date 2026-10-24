@@ -60,7 +60,7 @@ static func draw_item(rng: RandomNumberGenerator, counts: Dictionary, rarity: St
 		for t in GearData.TAGS:
 			if not only_tags.is_empty() and not only_tags.has(t):
 				continue
-			var pool := GearData.items_with(t, r).filter(func(id): return not exclude.has(id))
+			var pool := GearData.items_with(t, r).filter(func(id): return not exclude.has(id) and not GearFx.is_pending(id))
 			if not pool.is_empty():
 				by_tag[t] = pool
 		if by_tag.is_empty():
@@ -77,7 +77,7 @@ static func draw_item(rng: RandomNumberGenerator, counts: Dictionary, rarity: St
 
 ## A Prototype the soldier qualifies for and doesn't hold, or "".
 static func draw_prototype(rng: RandomNumberGenerator, counts: Dictionary, exclude: Array = []) -> String:
-	var pool := GearTags.qualified_prototypes(counts).filter(func(id): return not exclude.has(id))
+	var pool := GearTags.qualified_prototypes(counts).filter(func(id): return not exclude.has(id) and not GearFx.is_pending(id))
 	if pool.is_empty():
 		return ""
 	pool.sort()
@@ -85,7 +85,7 @@ static func draw_prototype(rng: RandomNumberGenerator, counts: Dictionary, exclu
 
 
 static func draw_consumable(rng: RandomNumberGenerator) -> String:
-	var ids := GearData.CONSUMABLES.keys()
+	var ids := GearData.CONSUMABLES.keys().filter(func(id): return not GearFx.is_pending(id))
 	ids.sort()
 	return ids[rng.randi_range(0, ids.size() - 1)]
 

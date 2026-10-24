@@ -68,6 +68,8 @@ Rules for parallel work:
 | `lapse` / `recover` / `turned` | `unit` |
 | `alerted` | `unit` (an Infected wakes up; emitted once per unit, see Enemy AI) |
 | `mission_end` | `result` (`Types.Result`) |
+| `gear` | `unit`, `item` (gear effect that isn't a shot: `choke` splash `target`/`damage`, `feral_grip` `heal`/`hp`, `close_set` `actions`, `mark_set` `target`, `suppress` `target`) |
+| `burning` / `burn` | `unit`, `turns` / `damage` (set Burning; the start-of-phase tick, before its `damage` event) |
 
 New event types are fine; add them to this table.
 
@@ -132,15 +134,29 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   preview for cards). Set bonus at 3, Prototype at two tags at 2.
 - **Draws** (`GearDraw`): tag weight = 1 + 2 per point (max +6); rarity odds per act with +2% Rare pity per
   Common seen; `draw_item(rng, counts, rarity, exclude, only_tags)`; `depot_items(rng, squad_counts, act)`.
-- **Run hooks** (`GearRun`), reading `run.supplies`, `run.act`, `run.rng`, `run.soldiers` (records with
-  `id`, `kind`, `player`) and owning `run.gear`: `init_run(run)`, `starting_kit_offers(run)`,
-  `on_fight_won(run, "skirmish"|"nest"|"boss")` (one 1-of-3 offer per living soldier: gear 45%, perk 15%,
-  mutation 15%, consumable 15%, cache 10%; from the second fight an on-build card and a pivot card),
-  `all_picked(run)`, `apply_to_unit(unit, record)` when spawning a mission soldier (flat stats; stamps
-  `status["gear"]`, `["gear_tags"]`, `["pockets"]`, `["armor"]`), `sync_from_unit` after the mission.
-- **Run actions** (replicated like mission actions; `GearRun.handles(action)`, `validate`, `apply`):
-  `gear_pick {player, soldier, card (-1 = skip for +10 Supplies), to_stash?}`,
-  `gear_stash_take {player, soldier, index}`, `gear_unequip {player, soldier, slot}`. `player` -1 = anyone.
+- **Run hooks** (`GearRun`, the run framework's contract): `init_run`, `starting_kit_offers` (1 of 3
+  Commons per soldier), `on_fight_won(run, "skirmish"|"nest"|"boss")` (one 1-of-3 offer per squad soldier:
+  gear 45%, perk 15%, mutation 15% (Progression cards), consumable 15%, cache 10%; from the second fight
+  an on-build card and a pivot card; nest card 1 Rare in the lead tag; boss all Rare plus the Doctrine
+  vote; Hazard pay), `has_pending`, `apply_to_unit(unit, entry)` (flat stats, Bio-mesh, stamps
+  `status["gear"]`, `["gear_tags"]`, `["pockets"]`, `["armor"]`, `["doctrines"]`), `absorb(record, unit)`
+  (spent pocket charges), `squad_counts(run)`. Doctrines live in `run.modifiers.doctrines`; Field rations
+  sets `run.modifiers.heal_after_fight`.
+- **Run actions** (`gear_*`, routed by RunRules): `gear_pick {soldier, card (-1 = skip, +10 Supplies),
+  to_stash?}` and `gear_doctrine {doctrine}` in REWARD; `gear_stash_take {soldier, index}` and
+  `gear_unequip {soldier, slot}` in MAP or REWARD. The soldier's controller (`run.controller_of`) acts.
+- **In a mission** (`GearFx`): one-line hooks in `Combat.hit_chance` (`odds_terms`), `Combat.fire`
+  (`shot_damage`, `after_shot`), Combat's Suppress (`on_suppress`), `Rules.deal_damage` (`damage_taken`:
+  armor), `Rules.start_team_phase` (`on_team_phase_start`: Burning ticks, Close set mobility), `Rules._do_move`
+  (`on_move`) and `Infection.on_damaged` (`bite_infection`). Gadgets and pocket consumables are abilities
+  with ids `gear:<item>` / `item:<consumable>` that Combat delegates to GearFx (they appear in
+  `Combat.available_abilities` with `"gear": true`). Status keys: `burning` (ticks left), `suppress_extra`,
+  `smoked`, `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`.
+  `GearFx.PENDING` lists items whose systems don't exist yet (fire tiles, spore zones, turrets, fog);
+  they stay out of draws until they work.
+- **Screens** (`ui/gear/`): `GearRun.reward_screen()` and `GearRun.loadout_screen()` return Control
+  scripts with `setup(run, session)` (they send `session.submit_run`); the loadout screen emits `closed`.
+  `scenes/gear_demo.tscn` previews them on a seeded run (`-- --screen=reward|loadout|doctrine|kit`).
 
 ## Non-combat nodes (nodes/)
 
