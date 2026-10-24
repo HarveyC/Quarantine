@@ -127,7 +127,7 @@ func _header() -> Control:
 # --- Unlocks ------------------------------------------------------------------------------
 
 func _build_unlocks() -> void:
-	_section("Field Data unlocks", "Earned every run, win or lose. In co-op, packs pool across the lobby.")
+	_section("Field Data unlocks", "Earned every run, win or lose. In co-op, everyone plays with the host's unlocks.")
 	var grid := GridContainer.new()
 	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 12)
