@@ -4,6 +4,8 @@ extends RefCounted
 
 const Palette := preload("res://view/palette.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
+## Melee class abilities that roll to hit -> verb for the log.
+const MELEE := {"lunge": "lunges at", "riposte": "ripostes", "bash": "shield-bashes"}
 
 
 static func describe(ev: Dictionary, name_of: Callable) -> String:
@@ -38,6 +40,30 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return "%s goes on overwatch" % who.call("unit")
 		"hunker":
 			return "%s hunkers down" % who.call("unit")
+		"ability" when ev.get("ability") in MELEE:
+			var res := "misses"
+			if ev.get("hit", false):
+				res = "grazes" if ev.get("graze", false) else "hits"
+			var verb: String = MELEE[ev.ability]
+			if ev.get("cleave", false):
+				verb = "cleaves into"
+			elif ev.get("charge", false):
+				verb = "shield-charges"
+			elif ev.get("reaction", false):
+				verb = "guard-bashes"
+			return "%s %s %s: %s (%d%%)" % [who.call("unit"), verb, who.call("target"), res, int(ev.get("chance", 0))]
+		"guard":
+			return "%s raises their shield (Guard)" % who.call("unit")
+		"perk":
+			if ev.get("perk") == "bloodlust":
+				return _c("%s: Bloodlust, the kill refunds an action" % who.call("unit"), Palette.TEAL)
+			return "%s: %s" % [who.call("unit"), str(ev.get("perk", "?")).capitalize()]
+		"bleeding":
+			return _c("%s is bleeding (%d turns)" % [who.call("unit"), int(ev.get("turns", 0))], Palette.DANGER)
+		"bleed":
+			return "%s bleeds (%d)" % [who.call("unit"), int(ev.get("damage", 0))]
+		"stunned":
+			return "%s is stunned by %s" % [who.call("unit"), who.call("by")]
 		"ability":
 			return "%s uses %s%s" % [who.call("unit"), str(ev.get("name", str(ev.get("ability", "?")).capitalize())), _target_text(ev, who)]
 		"mutation":

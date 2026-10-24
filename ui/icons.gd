@@ -2,8 +2,10 @@ extends RefCounted
 ## Line icons drawn with CanvasItem primitives on a 24x24 grid, so the HUD needs no
 ## image assets. draw() scales the grid into `rect`.
 
-const CLASS_ICON := {"trooper": "trooper", "marksman": "marksman", "medic": "medic", "breacher": "breacher"}
-const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "breach": "breach"}
+const CLASS_ICON := {"trooper": "trooper", "marksman": "marksman", "medic": "medic", "breacher": "breacher",
+	"reaper": "reaper", "warden": "warden"}
+const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "breach": "breach",
+	"lunge": "lunge", "bash": "bash", "guard": "guard", "shield_charge": "shield_charge"}
 
 
 static func for_class(kind: String) -> String:
@@ -54,6 +56,39 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 			line.call([[9, 3], [15, 3], [15, 9], [21, 9], [21, 15], [15, 15], [15, 21], [9, 21], [9, 15], [3, 15], [3, 9], [9, 9], [9, 3]])
 		"breacher":
 			line.call([[12, 3], [20, 6], [20, 12], [17.5, 17.5], [12, 21], [6.5, 17.5], [4, 12], [4, 6], [12, 3]])
+		"reaper":   # a machete, saw teeth along its spine
+			line.call([[5, 20], [8, 17]])
+			line.call([[7, 21], [10, 18], [6, 14], [3, 17], [7, 21]])
+			line.call([[8, 15], [19, 4], [21, 5], [12, 18]])
+			line.call([[10, 13], [10.5, 11], [12, 11], [12.5, 9], [14, 9], [14.5, 7], [16, 7]])
+		"warden":   # a riot shield with its viewport slit
+			line.call([[7, 3], [17, 3], [20, 6], [20, 18], [17, 21], [7, 21], [4, 18], [4, 6], [7, 3]])
+			line.call([[8, 8], [16, 8]])
+			line.call([[7, 16], [9, 18]])
+			line.call([[11, 16], [13, 18]])
+			line.call([[15, 16], [17, 18]])
+		"lunge":   # a blade thrust forward with speed lines
+			line.call([[3, 21], [6, 18]])
+			line.call([[5, 16], [9, 20]])
+			line.call([[7, 18], [20, 5]])
+			line.call([[17, 4], [21, 4], [21, 8]])
+			line.call([[3, 10], [8, 10]])
+			line.call([[3, 14], [6, 14]])
+		"bash":   # a shield face-on, impact marks off its edge
+			line.call([[4, 4], [13, 4], [13, 20], [4, 20], [4, 4]])
+			line.call([[6, 8], [11, 8]])
+			line.call([[16, 7], [20, 4]])
+			line.call([[17, 12], [22, 12]])
+			line.call([[16, 17], [20, 20]])
+		"guard":   # a shield behind a raised bar
+			line.call([[6, 3], [18, 3], [18, 13], [12, 21], [6, 13], [6, 3]])
+			line.call([[2, 9], [22, 9]])
+		"shield_charge":   # a shield moving fast
+			line.call([[11, 4], [20, 4], [20, 20], [11, 20], [11, 4]])
+			line.call([[13, 8], [18, 8]])
+			line.call([[2, 8], [8, 8]])
+			line.call([[4, 12], [8, 12]])
+			line.call([[2, 16], [8, 16]])
 		"enemy":
 			line.call([[12, 3], [15.5, 8], [17, 12.5], [16, 16], [12, 18.5], [8, 16], [7, 12.5], [8.5, 8], [12, 3]])
 		"shoot":

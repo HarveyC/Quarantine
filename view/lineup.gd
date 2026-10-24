@@ -2,11 +2,13 @@ extends Node3D
 ## Dev aid: a model lineup for checking soldier / enemy art up close.
 ## `godot -- --lineup=out.png [--lineup-mode=classes|infection|action]` renders one
 ## frame and quits; without a path it stays open as a turntable viewer.
-##   classes:   the four classes (P1, P1, P2, P2) plus every enemy model
+##   classes:   the base classes and the melee pair (Reaper, Warden) plus every enemy model
 ##   infection: one soldier per infection tier, Clean to Turned
 ##   action:    the classes and enemies aiming / lunging mid-animation
 ##   hit:       everyone flinching from a non-lethal hit
-## `--lineup-kinds=runner,spitter` shows just those models, closer up.
+##   melee:     everyone mid-strike; every second Warden in its Guard stance instead
+## `--lineup-kinds=runner,spitter` shows just those models, closer up; `--lineup-yaw=90`
+## turns them (degrees) to check a pose side-on.
 
 const UnitView := preload("res://view/unit_view.gd")
 const PostFx := preload("res://view/post_fx.gd")
@@ -52,10 +54,10 @@ func _ready() -> void:
 					uv.set_turned()
 		_:
 			# squad (and a civilian) in front, the infected behind them
-			var kinds := ["trooper", "marksman", "medic", "breacher", "civilian"]
+			var kinds := ["trooper", "marksman", "medic", "breacher", "reaper", "warden", "civilian"]
 			for i in kinds.size():
-				var uv := _spawn(kinds[i], [0, 0, 1, 1, -1][i], 0)
-				uv.position = Vector3((i - 2) * 1.3, 0, 1.2)
+				var uv := _spawn(kinds[i], [0, 0, 1, 1, 0, 1, -1][i], 0)
+				uv.position = Vector3((i - 3) * 1.15, 0, 1.2)
 			var x := -6.2
 			for k in ENEMIES:
 				var w := 0.9 * ModelKit.size_of(k)
@@ -83,6 +85,9 @@ func _spawn(kind: String, player: int, infection: int) -> Node3D:
 	uv.set_overlays_visible(false)
 	add_child(uv)
 	uv.face_towards(uv.position + Vector3(0.75, 0, 1), true)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--lineup-yaw="):   # degrees: 90 shows everyone side-on
+			uv.set_yaw(deg_to_rad(float(a.trim_prefix("--lineup-yaw="))))
 	views.append(uv)
 	return uv
 
@@ -139,6 +144,11 @@ func _process(delta: float) -> void:
 		if mode == "action" and _frames == 5:
 			if uv.is_soldier:
 				uv.aim_now(1.0)
+			else:
+				uv.set_lunge(0.6)
+		if mode == "melee" and _frames == 5:
+			if uv.kind == "warden" and i % 2 == 1:
+				uv.set_guard(true)
 			else:
 				uv.set_lunge(0.6)
 		if mode == "hit" and _frames == 5:

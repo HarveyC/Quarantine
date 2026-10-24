@@ -7,6 +7,7 @@ extends RefCounted
 const Palette := preload("res://view/palette.gd")
 const SHADER := preload("res://view/character.gdshader")
 const GunModels := preload("res://view/gun_models.gd")
+const MeleeKit := preload("res://view/melee_kit.gd")
 
 const MODELS := {
 	"drifter": preload("res://assets/models/drifter.glb"),
@@ -62,6 +63,10 @@ static func instantiate(kind: String, is_soldier: bool) -> Node3D:
 		return CHARACTERS[kind].instantiate()
 	if MODELS.has(kind):
 		return MODELS[kind].instantiate()
+	if MeleeKit.is_melee(kind):   # borrowed body, melee props and a sidearm
+		var b: Node3D = CHARACTERS[MeleeKit.body_of(kind)].instantiate()
+		MeleeKit.dress(b, kind)
+		return b
 	var m: Node3D = (CHARACTERS.trooper if is_soldier else CHARACTERS.runner).instantiate()
 	if GunModels.has_gun(kind):   # borrowed body, own weapon
 		GunModels.swap(m, kind)
@@ -69,6 +74,8 @@ static func instantiate(kind: String, is_soldier: bool) -> Node3D:
 
 
 static func size_of(kind: String) -> float:
+	if MeleeKit.is_melee(kind):
+		return MeleeKit.size_of(kind)
 	return SIZE.get(kind, 1.0) if CHARACTERS.has(kind) else 1.0
 
 

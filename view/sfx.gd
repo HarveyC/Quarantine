@@ -13,11 +13,13 @@ const SOUNDS := [
 	"mutation", "heal", "lapse", "breach", "ui_click", "ui_hover", "ui_confirm", "ui_deny",
 	"radio", "sting_squad", "sting_enemy", "cinematic", "victory", "defeat", "step1", "step2", "step3",
 	"smg", "lmg", "carbine", "tail_rifle", "tail_heavy", "pump", "bolt",
+	"pistol", "revolver", "blade", "bash",
 ]
-## Gunfire and bullet impacts play on the Weapons bus (the music ducks under it).
+## Gunfire, bullet impacts and melee strikes play on the Weapons bus (the music ducks under it).
 const WEAPON := [
 	"rifle", "sniper", "shotgun", "smg", "lmg", "carbine", "tail_rifle", "tail_heavy", "pump", "bolt",
 	"whiz", "impact_flesh", "impact_armor", "ricochet", "concrete", "breach",
+	"pistol", "revolver", "blade", "bash",
 ]
 ## Mix levels in dB per sound (default 0).
 const LEVELS := {

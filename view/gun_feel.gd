@@ -29,6 +29,10 @@ const FEEL := {
 		"sound": "lmg", "tail": "tail_heavy", "bullet": 1.1, "casing": true},
 	"carbine": {"rounds": 2, "gap": 0.09, "flash": 0.9, "recoil": 0.7, "shake": 0.28, "kick": 0.5,
 		"sound": "carbine", "tail": "tail_rifle", "bullet": 1.0, "casing": true, "color": Color(0.75, 1.0, 0.6)},
+	"sidearm": {"rounds": 1, "gap": 0.0, "flash": 0.55, "recoil": 0.5, "shake": 0.15, "kick": 0.25,
+		"sound": "pistol", "tail": "tail_rifle", "bullet": 0.75, "casing": true},
+	"revolver": {"rounds": 1, "gap": 0.0, "flash": 1.1, "recoil": 1.1, "shake": 0.45, "kick": 0.8,
+		"sound": "revolver", "tail": "tail_heavy", "bullet": 1.1, "casing": false, "smoke": true},
 	"spit": {"rounds": 1, "gap": 0.0, "flash": 0.0, "recoil": 0.6, "shake": 0.2, "kick": 0.0,
 		"sound": "spit", "bullet": 1.6, "casing": false, "color": Palette.TEAL},
 }
