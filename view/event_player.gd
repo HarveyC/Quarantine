@@ -318,7 +318,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 			st.fired = true
 			st.from = shooter.muzzle_world()
 			view.fx.muzzle_flash(st.from, col)
-			view.fx.puff(st.from + dir * 0.2, Color(0.6, 0.6, 0.55), 0.45, 0.6, 0.3)
+			view.fx.puff(st.from + dir * 0.35, Color(0.6, 0.6, 0.55), 0.22, 0.5, 0.2)
 			if shooter.is_soldier:
 				view.fx.casing(st.from - dir * 0.3, right)
 			shooter.recoil(1.4 if shooter.kind in ["marksman", "breacher"] else 1.0)
@@ -372,10 +372,10 @@ func _impact(shooter: UnitView, target: UnitView, at: Vector3, hit: bool, crit: 
 		var glow := blood == Palette.TEAL
 		view.fx.burst(at, -normal * 0.3 + dir, blood, 22 if crit else 14, 4.5 if crit else 3.2, glow, 0.05)
 		view.fx.burst(at, normal, Color(1.0, 0.75, 0.4), 6, 5.0, true, 0.025)
-		view.fx.flash_light(at, blood.lightened(0.3), 4.0 if crit else 2.5, 0.25)
+		view.fx.flash_light(at, blood.lightened(0.3), 2.2 if crit else 1.4, 0.2, 3.0)
 		view.fx.decal(target.position + dir * 0.7, blood.darkened(0.3), 0.3 if graze else 0.42, glow)
 		target.hit_react(shooter.position, 1.6 if crit else (0.6 if graze else 1.0))
-		target.flash(Color(1, 1, 1) if crit else Palette.DANGER)
+		target.flash(Color(1.0, 0.85, 0.7) if crit else Palette.DANGER)
 		_sfx("impact_armor" if target.is_soldier else "impact_flesh", 2.0 if crit else 0.0)
 		view.camera_rig.shake(1.0 if crit else (0.4 if graze else 0.7))
 	else:

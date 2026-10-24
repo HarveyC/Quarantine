@@ -556,7 +556,7 @@ func _apply_flash() -> void:
 	for m in _flash_mats:
 		m.emission_enabled = _flash > 0.0
 		m.emission = _flash_color
-		m.emission_energy_multiplier = _flash * 2.5
+		m.emission_energy_multiplier = _flash * 0.9
 
 
 ## Death animation progress 0..1: fall away from the killing blow, then sink.
