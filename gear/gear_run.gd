@@ -145,14 +145,15 @@ static func has_pending(run) -> bool:
 
 
 ## Before the first fight each soldier picks 1 of 3 Common items with different tags,
-## at least one in the class's natural lanes.
+## at least one in the class's natural lanes (1 of 4 with the Field kit unlock).
 static func starting_kit_offers(run) -> void:
 	var rng := _rng(run)
+	var choices := 4 if MetaUnlocks.owns(_rget(run, "meta", {}), "field_kit") else 3
 	for r in squad(run):
 		var lanes: Array = GearData.CLASS_LANES.get(r.kind, [])
 		var cards: Array = []
 		var used_tags: Array = []
-		for i in 3:
+		for i in choices:
 			var only: Array = []
 			if i == 0 and not lanes.is_empty():
 				only = lanes
@@ -189,7 +190,7 @@ static func doctrine_vote(run) -> Dictionary:
 
 static func _open_doctrine_vote(run) -> void:
 	var have := doctrines(run)
-	var pool := GearData.DOCTRINES.keys().filter(func(d): return not have.has(d))
+	var pool := GearData.DOCTRINES.keys().filter(func(d): return not have.has(d) and not MetaUnlocks.is_locked(d))
 	pool.sort()
 	if pool.is_empty():
 		return

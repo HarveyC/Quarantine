@@ -64,6 +64,7 @@ static func for_fight(run: RunState, st: Dictionary) -> Dictionary:
 		if r.sit_out <= 0:
 			squad.append(RunSoldier.squad_entry(run, r))
 	spec["squad"] = squad.size()
+	Severity.adjust_fight_spec(run, spec)
 	var built: Dictionary = RunHooks.call_static("FightBuilder", "build", [spec], {})
 	var enemies: Array = built.get("enemies", default_enemies(spec))
 	return {
