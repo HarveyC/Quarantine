@@ -10,6 +10,7 @@ const SUPPORT_MIN := 6.0
 const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
+	"leaper", "drifter", "sharpshooter", "burrower",
 	"brood_mother", "colonel_hale", "the_source"]
 
 
@@ -30,6 +31,17 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 	if u.status.has("pinning"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "maul"})
 		return true
+	if u.status.has("leap_cell"):
+		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "leap"})
+		return true
+	if u.status.has("emerge_cell"):
+		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "erupt"})
+		return true
+	if u.status.has("sighted"):
+		if _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "snipe"}):
+			return true
+		u.status.erase("sighted")
+		s.emit({"type": "lock_lost", "unit": u.id})
 	if u.kind == "lurker" and u.status.get("hidden", false):
 		_ambush(s, u)
 		return true
@@ -48,6 +60,10 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"brute": return rush(s, u, hostiles, "slam")
 		"lurker": return _lurker(s, u, hostiles)
 		"shrieker": return support(s, u, hostiles)
+		"leaper": return _leaper(s, u, hostiles)
+		"drifter": return _drifter(s, u, hostiles)
+		"sharpshooter": return _sharpshooter(s, u, hostiles)
+		"burrower": return _burrower(s, u, hostiles)
 		"brood_mother": return _brood_mother(s, u, hostiles)
 		"colonel_hale": return _hale(s, u, hostiles)
 	return {}
@@ -62,6 +78,12 @@ static func end_turn(s: GameState, u: Unit) -> void:
 			u.status["swelling"] = s.turn
 			s.emit({"type": "telegraph", "unit": u.id, "kind": "burst",
 				"cells": EnemyAbilities.square(s.grid, u.pos, 1), "turn": s.turn + 1})
+	if u.kind == "leaper" and not u.status.has("leap_cell") and EnemyAI.is_alerted(u) and _adjacent(u.pos, hostiles) == 0:
+		var cell := _best_landing(s, u, hostiles)
+		if cell != Vector2i(-1, -1):
+			u.status["leap_cell"] = cell
+			s.emit({"type": "telegraph", "unit": u.id, "kind": "leap",
+				"cells": EnemyAbilities.square(s.grid, cell, 1), "turn": s.turn + 1})
 	if can_charge(u) and not u.status.has("charge_dir") and EnemyAI.is_alerted(u) and _adjacent(u.pos, hostiles) == 0:
 		var best := {}
 		var best_score := -INF
@@ -270,6 +292,136 @@ static func _support_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[U
 		if o != u and not EnemyRoster.is_static(o) and Vector2(c).distance_to(Vector2(o.pos)) <= EnemyAbilities.SCREAM_RADIUS:
 			score += 0.75
 	return score
+
+
+# --- vertical enemies ----------------------------------------------------------------------
+
+## Leaper: claws if adjacent; otherwise gets within leaping range and ends its turn so it can
+## mark a landing spot (end_turn). Prefers spots next to soldiers on high ground or in clusters.
+static func _leaper(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	for h in hostiles:
+		if EnemyAI._cheb(u.pos, h.pos) == 1:
+			var claw := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id})
+			if not claw.is_empty():
+				return claw
+	if _best_landing(s, u, hostiles) != Vector2i(-1, -1):
+		return {}
+	return EnemyAI._advance(s, u, hostiles)
+
+
+static func _best_landing(s: GameState, u: Unit, hostiles: Array[Unit]) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_score := -INF
+	for c in EnemyAbilities.landing_cells(s, u):
+		var score := 0.0
+		for h in hostiles:
+			if EnemyAI._cheb(c, h.pos) <= 1:
+				score += 3.0 + EnemyTerrain.level(s, h.pos) * 2.0   # knock them off their perch
+		score -= EnemyAI._dist(u.pos, c) * 0.1
+		if score > best_score:
+			best_score = score
+			best = c
+	return best
+
+
+## Drifter: floats over everything to hang above the most exposed soldier, then drops on them.
+static func _drifter(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	var target := _most_exposed(s, u, hostiles)
+	if target == null:
+		return {}
+	if EnemyAI._cheb(u.pos, target.pos) <= EnemyAbilities.DROP_RANGE:
+		var drop := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "spore_drop", "target": target.id})
+		if not drop.is_empty():
+			return drop
+	var best := u.pos
+	var best_score := -INF
+	for dy in range(-u.mobility, u.mobility + 1):
+		for dx in range(-u.mobility, u.mobility + 1):
+			var c := u.pos + Vector2i(dx, dy)
+			if not s.grid.in_bounds(c) or s.grid.tile(c) == Types.Tile.WALL or (c != u.pos and s.unit_at(c) != null):
+				continue
+			var d := EnemyAI._cheb(c, target.pos)
+			var score := -float(d)
+			if d <= EnemyAbilities.DROP_RANGE:
+				score += 10.0
+				if Combat.cover_against(s.grid, target.pos, c) == Types.Cover.NONE:
+					score += 2.0   # come at them from the open side
+			if score > best_score:
+				best_score = score
+				best = c
+	if best == u.pos:
+		return {}
+	return EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "drift", "cell": best})
+
+
+## Sharpshooter: climbs to the best perch (high ground first), then locks on with its laser.
+static func _sharpshooter(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	if u.actions_left >= 2:
+		var here := _perch_score(s, u, u.pos, hostiles)
+		var reach := Rules.move_range(s, u)
+		var best := u.pos
+		var best_score := here
+		for c in reach:
+			var score := _perch_score(s, u, c, hostiles) - int(reach[c]) * 0.05
+			if score > best_score:
+				best_score = score
+				best = c
+		if best != u.pos and best_score > here + 0.5:
+			var move := EnemyAI._check(s, {"type": Types.MOVE, "unit": u.id, "to": best})
+			if not move.is_empty():
+				return move
+	var target: Unit = null
+	var best_hit := -1
+	for t in Combat.visible_targets(s, u):
+		var hit: int = Combat.hit_chance(s, u, t).hit
+		if hit > best_hit:
+			best_hit = hit
+			target = t
+	if target != null:
+		var sight := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "sight", "target": target.id})
+		if not sight.is_empty():
+			return sight
+	if u.actions_left >= 2:
+		var adv := EnemyAI._advance(s, u, hostiles)
+		if not adv.is_empty():
+			return adv
+	return EnemyAI._check(s, {"type": Types.OVERWATCH, "unit": u.id})
+
+
+static func _perch_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Unit]) -> float:
+	return _cover_cell_score(s, u, c, hostiles) + EnemyTerrain.level(s, c) * 3.0
+
+
+## Burrower: claws if adjacent, otherwise tunnels toward the soldier on the highest ground.
+static func _burrower(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	for h in hostiles:
+		if EnemyAI._cheb(u.pos, h.pos) == 1:
+			var claw := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id})
+			if not claw.is_empty():
+				return claw
+	var target: Unit = null
+	var best := -INF
+	for h in hostiles:
+		var score := EnemyTerrain.level(s, h.pos) * 5.0 + EnemyAI._target_score(s, u, h, u.pos)
+		if score > best and u.pos.distance_to(h.pos) <= EnemyAbilities.BURROW_RANGE:
+			best = score
+			target = h
+	if target != null:
+		var b := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "burrow", "target": target.id})
+		if not b.is_empty():
+			return b
+	return EnemyAI._advance(s, u, hostiles)
+
+
+static func _most_exposed(s: GameState, u: Unit, hostiles: Array[Unit]) -> Unit:
+	var best: Unit = null
+	var best_score := -INF
+	for h in hostiles:
+		var score := EnemyAI._target_score(s, u, h, u.pos)
+		if score > best_score:
+			best_score = score
+			best = h
+	return best
 
 
 # --- bosses --------------------------------------------------------------------------------

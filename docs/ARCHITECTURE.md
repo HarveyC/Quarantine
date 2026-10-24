@@ -88,6 +88,9 @@ Rules for parallel work:
 | `untethered` | `unit` |
 | `boss_phase` | `unit`, `phase`, `boss`, `text`, plus `hp`/`max_hp` for Hale |
 | `boss_defeated` | `unit`, `boss` — the remaining enemies then die |
+| `burrowed` | `unit` (a Burrower goes underground: hidden until it erupts) |
+| `lock_lost` | `unit` (a Sharpshooter's target broke line of sight, or it was suppressed) |
+| `fell` | `unit`, `damage` — knocked off a ledge or its raised tile collapsed (before its `damage` event) |
 
 `move` may carry `knockback: true` (Brute slam/charge) and is also emitted for the Source's pull
 (the moved unit is the soldier). Enemy abilities (`slam`, `charge`, `burst`, `pounce`, `maul`,
@@ -592,6 +595,7 @@ Folder `enemies/`, owned by the enemy roster workstream. Design doc section "Ene
 | `Encounter` | Fight-level rules called by `Rules`: spawners, waves, spore zones (as `Hazards` spore tiles), telegraphs, affixes, bosses |
 | `EnemyAbilities` | Enemy-only abilities, routed by `Rules` instead of `Combat` |
 | `EnemyBehaviours` | AI behaviours Cover shooter, Seek cluster, Ambush, Support, the Brute charge and the bosses (`EnemyAI` dispatches to it) |
+| `EnemyTerrain` | Elevation reads for enemies (`Grid.level` when it exists), fall damage, collapsing raised tiles via `Elevation.set_level` |
 | `EnemyIntent` | Pure "what will it do" reads for the view's intent labels and danger tiles |
 
 View side: `view/enemy_beats.gd` (beats and log lines for the events above, placeholder scale per
@@ -614,7 +618,8 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
 - **Statuses** (enemy units unless noted): `elite`, `affixes`, `armour`, `hidden`, `boss`,
   `boss_phase`, `spawner` ({kinds, every, next, i}), `tether` (kind whose living units make it
   immune), `swelling`, `charge_dir`, `pinning`, soldier `pinned_by`, `frenzy`/`frenzy_mob`/`frenzy_aim`,
-  `pull_turn`. **`burned_turn`** (int turn) is read, not written: set it from a flame ability to stop
+  `pull_turn`, `leap_cell` (Leaper landing), `sighted` (Sharpshooter target id), `burrowed` +
+  `emerge_cell` (Burrower), `flying` (Drifter; Elevation reads it as height 1). **`burned_turn`** (int turn) is read, not written: set it from a flame ability to stop
   Regenerating that turn (GearFx `burning` also stops it).
 - **Static units** (`UnitData.ENEMIES[kind].static`: Hive node, egg sac, spore nest, Source root)
   never act; `Objectives` can count living `spore_nest` units for Purge.
@@ -623,5 +628,11 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
   2 patches, 2 elite affixes in nests; Collapse +10 starting Infection and waves every 3 turns.
   Budget past the 5-enemy cap buys affixes or an earlier wave. Objective pressure: Hold gets a wave
   every turn from 2 sides, Extract 2 enemies every 2 turns, Purge 3 spore nests on `markers.nest`.
+- **Vertical enemies**: Leaper (marks a 3x3 landing a turn ahead, jumps over terrain and height,
+  overwatch can't catch it, knocks soldiers off ledges), Drifter (flies over everything, drops from
+  above ignoring cover), Sharpshooter (claims high ground, telegraphed laser lock that fires next
+  turn unless line of sight breaks or it is suppressed), Burrower (act 3, hidden underground, erupts
+  next to the soldier on the highest ground, destroys cover and collapses raised tiles). Each act
+  weights its `EnemyRoster.SIGNATURE` enemies double.
 - **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
 - Dev aid: `-- --fight=<node>,<act>,<outbreak>` plays one built fight on the test map.

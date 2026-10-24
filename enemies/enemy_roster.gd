@@ -15,11 +15,17 @@ extends RefCounted
 ##   "charge_dir": Vector2i, "frenzy": int (turn it lasts through), "frenzy_mob"/"frenzy_aim": int.
 
 ## Threat budget each regular enemy spends when a fight is built.
-const COST := {"runner": 1, "spitter": 1, "fallen": 2, "bloater": 2, "lurker": 2, "shrieker": 2, "brute": 3}
+const COST := {"runner": 1, "spitter": 1, "fallen": 2, "bloater": 2, "lurker": 2, "shrieker": 2, "brute": 3,
+	"leaper": 2, "drifter": 2, "sharpshooter": 3, "burrower": 2}
 ## First act an enemy appears in as a regular.
-const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "brute": 2, "lurker": 2, "shrieker": 3}
+const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "leaper": 1, "brute": 2, "lurker": 2,
+	"drifter": 2, "sharpshooter": 2, "shrieker": 3, "burrower": 3}
+## Each act's signature enemies are twice as likely to be bought there, so acts feel different:
+## act 1 the cordon (Fallen, Leaper), act 2 the port (Drifter, Sharpshooter, Brute), act 3 the bore.
+const SIGNATURE := {1: ["fallen", "leaper"], 2: ["drifter", "sharpshooter", "brute"], 3: ["burrower", "shrieker", "lurker"]}
 ## First act an enemy can be an elite in.
-const ELITE_FROM_ACT := {"brute": 1, "lurker": 1, "fallen": 1, "bloater": 2, "shrieker": 2}
+const ELITE_FROM_ACT := {"brute": 1, "lurker": 1, "fallen": 1, "leaper": 1, "bloater": 2, "shrieker": 2,
+	"sharpshooter": 2, "burrower": 3}
 const AFFIXES: Array[String] = ["armoured", "regenerating", "splitting", "virulent", "hasted", "tethered"]
 const AFFIX_INFO := {
 	"armoured": {"name": "Armoured", "desc": "Takes 2 less damage per hit (min 1)."},
@@ -59,6 +65,10 @@ static func make(spec: String) -> Unit:
 		u.status["alerted"] = true
 	if parsed.kind == "the_source":
 		u.status["tether"] = "source_root"
+	if parsed.kind == "brood_mother":
+		u.status["tether"] = "egg_sac"
+	if stats.get("flying", false):
+		u.status["flying"] = true
 	return u
 
 
@@ -82,6 +92,10 @@ static func spec(kind: String, elite := false, affixes: Array[String] = []) -> S
 
 static func is_static(u: Unit) -> bool:
 	return UnitData.ENEMIES.get(u.kind, {}).get("static", false)
+
+
+static func is_flying(u: Unit) -> bool:
+	return u.status.get("flying", false)
 
 
 static func is_boss(u: Unit) -> bool:

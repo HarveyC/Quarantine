@@ -460,7 +460,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 
 func _beat_ability(ev: Dictionary) -> Dictionary:
 	match str(ev.get("ability", "")):
-		"claw", "slam", "pounce", "maul":
+		"claw", "slam", "pounce", "maul", "spore_drop":
 			return _melee_beat(ev)
 		"charge":
 			if int(ev.get("target", -1)) >= 0:

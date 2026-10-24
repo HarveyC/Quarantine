@@ -10,7 +10,8 @@ const Board := preload("res://view/board.gd")
 const ICON_TEXT := {
 	"claw": "CLAW", "shoot": "SHOOT", "spit": "SPIT", "burst": "BURST", "charge": "CHARGE",
 	"scream": "SCREAM", "spawn": "SPAWN", "strike": "AIRSTRIKE", "pull": "PULL", "pulse": "PULSE",
-	"hide": "HIDE", "seek": "SEEK", "dormant": "zz", "pinning": "MAUL",
+	"hide": "HIDE", "seek": "SEEK", "dormant": "zz", "pinning": "MAUL", "leap": "LEAP",
+	"snipe": "AIMING", "drop": "DROP",
 }
 
 var view: Node
