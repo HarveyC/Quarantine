@@ -427,6 +427,60 @@ func test_burrower_tunnels_hidden_and_erupts() -> void:
 	assert_true(a.hp < a.max_hp, "eruption damage")
 
 
+func test_burrower_collapses_high_ground_under_soldiers() -> void:
+	var s := make_blank(_open(14, 5))
+	var a := _soldier(s, "trooper", Vector2i(2, 2))
+	for c in EnemyAbilities.square(s.grid, a.pos, 1):
+		s.grid.set_level(c, 1)
+	var bu := _enemy(s, "burrower", Vector2i(9, 2))
+	s.turn = 1
+	_enemy_turn(s, bu)
+	s.turn = 2
+	_enemy_turn(s, bu)
+	assert_eq(s.grid.level(a.pos), 0, "roof collapsed")
+	assert_true(_events(s, "level_changed").size() > 0, "Elevation.set_level announced it")
+	assert_eq(_events(s, "fell").size(), 1, "the soldier fell")
+	assert_true(a.hp <= a.max_hp - EnemyAbilities.ERUPT_DAMAGE - EnemyTerrain.FALL_DAMAGE_PER_LEVEL, "eruption plus fall")
+
+
+func test_knockback_off_a_ledge_hurts_and_stops_at_a_step_up() -> void:
+	var s := make_blank(_open(10, 3))
+	var a := _soldier(s, "trooper", Vector2i(3, 1))
+	s.grid.set_level(Vector2i(3, 1), 1)
+	EnemyAbilities.knockback(s, a, Vector2i(1, 0), 2)
+	assert_eq(a.pos, Vector2i(5, 1), "pushed off the roof")
+	assert_eq(a.hp, a.max_hp - EnemyTerrain.FALL_DAMAGE_PER_LEVEL, "fall damage")
+	s.grid.set_level(Vector2i(6, 1), 1)
+	EnemyAbilities.knockback(s, a, Vector2i(1, 0), 2)
+	assert_eq(a.pos, Vector2i(5, 1), "can't be knocked up onto high ground")
+
+
+func test_leaper_goes_for_the_soldier_on_the_watchtower() -> void:
+	var s := make_blank(_open(14, 7))
+	var low := _soldier(s, "trooper", Vector2i(6, 1))
+	var high := _soldier(s, "marksman", Vector2i(6, 5))
+	s.grid.set_level(high.pos, 1)
+	var le := _enemy(s, "leaper", Vector2i(9, 3))
+	s.turn = 1
+	_enemy_turn(s, le)
+	assert_true(le.status.has("leap_cell"), "marks a landing")
+	var landing: Vector2i = le.status.leap_cell
+	assert_true(EnemyAI._cheb(landing, high.pos) <= 1 and EnemyAI._cheb(landing, low.pos) > 1, "picks the high soldier")
+
+
+func test_sharpshooter_on_high_ground_beats_full_cover() -> void:
+	var s := make_blank(_open(14, 5))
+	var a := _soldier(s, "trooper", Vector2i(2, 2))
+	EnemyAbilities.set_tile(s.grid, Vector2i(3, 2), Types.Tile.WALL)
+	assert_eq(Combat.cover_against(s.grid, a.pos, Vector2i(10, 2)), Types.Cover.FULL, "full cover on flat ground")
+	var sh := _enemy(s, "sharpshooter", Vector2i(10, 2))
+	s.grid.set_level(sh.pos, 1)
+	sh.status["sighted"] = a.id
+	EnemyAbilities.apply(s, sh, {"type": Types.ABILITY, "unit": sh.id, "ability": "snipe", "target": a.id})
+	var shot: Dictionary = _events(s, "shot")[-1]
+	assert_true(not shot.graze, "height drops full cover to half, so no halving")
+
+
 func test_act_signature_enemies_show_up_more() -> void:
 	var counts := {1: {}, 2: {}, 3: {}}
 	for act in [1, 2, 3]:
