@@ -1,9 +1,10 @@
 extends "res://ui/nodes/node_screen.gd"
-## Field hospital: one card per soldier with their HP pips, Infection bar and mutations, and the
-## four treatments as icon tiles (cost on each tile, details on hover). Each player treats their
-## own soldiers; one treatment each.
+## Field hospital: one card per soldier with their HP pips, Infection bar, mutations and gear,
+## and the four treatments as icon tiles (cost on each tile, details on hover). Hovering a
+## treatment previews it on the card. Each player treats their own soldiers; one treatment each.
 
 const Icons := preload("res://ui/icons.gd")
+const SoldierCard := preload("res://ui/nodes/soldier_card.gd")
 const ICON_COLORS := {"patch": NodeUi.HEALTH, "purge": NodeUi.TEAL, "train": NodeUi.AMBER, "cure": NodeUi.TEAL}
 
 
@@ -33,49 +34,9 @@ func _card(rec: Dictionary) -> Control:
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var v := NodeUi.vbox(12)
 	card.add_child(v)
-	var head := NodeUi.hbox(12)
-	var face := W.Portrait.new(56.0)
-	face.setup(rec.kind, pcol, rec.infection)
-	head.add_child(face)
-	var names := NodeUi.vbox(2)
-	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	names.add_child(NodeUi.title(rec.name, 24))
-	var sub := "%s · %s" % [UnitData.SOLDIERS.get(rec.kind, {}).get("name", rec.kind), NodeUi.player_name(session, rec.owner)]
-	names.add_child(NodeUi.label(sub, 13, NodeUi.DIM))
-	head.add_child(names)
-	var rank := NodeUi.chip("rank", str(rec.get("prog", {}).get("rank", 1)), NodeUi.DIM, 13, "Rank")
-	rank.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	head.add_child(rank)
-	v.add_child(head)
-	# Health as pips, Infection as the tiered bar.
-	var hp := NodeUi.hbox(8)
-	hp.add_child(W.Icon.new("health", NodeUi.HEALTH, 16, 1.7))
-	var pips := W.Pips.new(Vector2(14, 7))
-	pips.set_values(rec.max_hp, rec.hp, 0, Styles.DANGER if rec.hp * 3 <= rec.max_hp else Styles.HP)
-	pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hp.add_child(pips)
-	hp.add_child(Styles.spacer())
-	hp.add_child(Styles.mono("%d/%d" % [rec.hp, rec.max_hp], 12, NodeUi.TEXT))
-	if rec.injuries > 0:
-		hp.add_child(NodeUi.chip("wound", str(rec.injuries), NodeUi.BAD, 12, "Injuries"))
-	v.add_child(hp)
-	var inf := NodeUi.hbox(8)
-	inf.add_child(W.Icon.new("infection", NodeUi.TEAL, 16, 1.7))
-	var bar := W.InfBar.new(7.0)
-	bar.set_value(rec.infection)
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	inf.add_child(bar)
-	inf.add_child(Styles.mono(NodeUi.infection_text(rec.infection).to_upper(), 11, NodeUi.TEAL))
-	v.add_child(inf)
-	var muts := RunAccess.mutations_of(rec)
-	if not muts.is_empty():
-		var mrow := HFlowContainer.new()
-		mrow.add_theme_constant_override("h_separation", 6)
-		mrow.add_theme_constant_override("v_separation", 6)
-		for m in muts:
-			mrow.add_child(NodeUi.chip("mutation", RunAccess.mutation_name(m).to_upper(), NodeUi.TEAL, 12))
-		v.add_child(mrow)
+	var sc := SoldierCard.new()
+	sc.setup(run, session, rec)
+	v.add_child(sc)
 	var done: String = ns().treated.get(rec.id, "")
 	if done != "":
 		var d := NodeUi.hbox(10)
@@ -103,6 +64,17 @@ func _card(rec: Dictionary) -> Control:
 		var b := NodeUi.tile_button(t, info.name, ICON_COLORS[t], NodeUi.cost_chip(info.cost), why == "", tip)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(submit.bind(action))
+		_hook(b, sc, FieldHospital.preview(rec, t))
 		tiles.add_child(b)
 	v.add_child(tiles)
 	return card
+
+
+## Hovering or focusing a treatment tile shows `delta` on the soldier's card.
+func _hook(b: Control, card, delta: Dictionary) -> void:
+	var on := func() -> void: card.show_delta(delta)
+	var off := func() -> void: card.show_delta({})
+	b.mouse_entered.connect(on)
+	b.focus_entered.connect(on)
+	b.mouse_exited.connect(off)
+	b.focus_exited.connect(off)

@@ -15,11 +15,13 @@ const KIND_ICON := {"vote": "vote", "secret": "lock", "per_player": "solo", "vol
 func _build(into: VBoxContainer) -> void:
 	var s := ns()
 	into.add_child(header("Event · Act %d" % run.act, EventRules.title(s), NodeUi.DIM, wallet(), "event"))
+	var main := NodeUi.vbox(22)
+	into.add_child(with_squad(main))
 	var scene := NodeUi.panel()
 	var text := NodeUi.label(EventRules.scene(run, s), 19, NodeUi.TEXT, true)
-	text.custom_minimum_size.x = 900
+	text.custom_minimum_size.x = 520
 	scene.add_child(text)
-	into.add_child(scene)
+	main.add_child(scene)
 	if not s.results.is_empty():
 		var res := NodeUi.vbox(8)
 		for line in s.results:
@@ -31,17 +33,17 @@ func _build(into: VBoxContainer) -> void:
 			e.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(e)
 			res.add_child(row)
-		into.add_child(res)
+		main.add_child(res)
 	if s.finished:
 		var fight: Dictionary = s.get("fight", {})
 		if not fight.is_empty():
 			var fr := NodeUi.hbox(10)
 			fr.add_child(W.Icon.new("skirmish", NodeUi.BAD, 22, 1.9))
 			fr.add_child(NodeUi.caption("Fight ahead: %s" % str(fight.objective).capitalize(), NodeUi.BAD, 18))
-			into.add_child(fr)
+			main.add_child(fr)
 		into.add_child(footer("", true, "Continue"))
 		return
-	into.add_child(_choice())
+	main.add_child(_choice())
 	_arm_timer()
 
 
@@ -49,15 +51,19 @@ func _choice() -> Control:
 	var s := ns()
 	var box := NodeUi.vbox(14)
 	var head := NodeUi.hbox(16)
-	head.add_child(NodeUi.label(EventRules.prompt(run, s), 22))
+	var prompt := NodeUi.label(EventRules.prompt(run, s), 22, NodeUi.TEXT, true)
+	prompt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	prompt.custom_minimum_size.x = 320
+	head.add_child(prompt)
 	var kind: String = EventRules.step_def(s).kind
 	var kl := EventRules.kind_label(run, s)
 	if kl != "":
 		var chip := NodeUi.chip(KIND_ICON.get(kind, "event"), kl.to_upper(), NodeUi.AMBER, 14)
 		chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		head.add_child(chip)
-	head.add_child(Styles.spacer())
-	head.add_child(_status())
+	var status := _status()
+	status.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(status)
 	box.add_child(head)
 	var deciders := EventRules.deciders(run, s)
 	var cols := HFlowContainer.new()
@@ -153,6 +159,7 @@ func _player_options(p: int) -> Control:
 				var b := NodeUi.button(rec.name, true, false, NodeUi.soldier_title(rec), Icons.for_class(rec.kind))
 				b.custom_minimum_size.x = 170
 				b.pressed.connect(submit.bind({"type": "node_choose", "player": p, "option": o.id, "soldier": rec.id}))
+				_hook(b, "%s · %s" % [o.label, rec.name], p, o.id, rec.id)
 				act.add_child(b)
 		else:
 			var voted: bool = step.kind == "vote" and s.choices.get(p, {}).get("option", "") == o.id
@@ -160,6 +167,7 @@ func _player_options(p: int) -> Control:
 				"check" if voted else ("vote" if step.kind == "vote" else "arrow_right"))
 			b.custom_minimum_size.x = 150
 			b.pressed.connect(submit.bind({"type": "node_choose", "player": p, "option": o.id}))
+			_hook(b, o.label, p, o.id, -1)
 			act.add_child(b)
 		row.add_child(act)
 		v.add_child(row)
@@ -169,6 +177,14 @@ func _player_options(p: int) -> Control:
 		pass_b.pressed.connect(submit.bind({"type": "node_pass", "player": p}))
 		v.add_child(pass_b)
 	return card
+
+
+## Hovering `b` previews option `id` (for soldier `sid`, or -1) on the squad panel.
+func _hook(b: Control, what: String, p: int, id: String, sid: int) -> void:
+	if squad_panel == null:
+		return
+	var s := ns()
+	squad_panel.hook(b, what, func() -> Dictionary: return EventRules.preview(run, s, id, p, sid))
 
 
 ## Soldiers of `p` the rules accept for option `id` (checked with validate, so the screen and
