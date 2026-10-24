@@ -105,9 +105,9 @@ func test_range_modifiers_and_breakdown_labels() -> void:
 	var near := _add(s, "runner", Types.Team.ENEMY, Vector2i(2, 0))
 	var far := _add(s, "runner", Types.Team.ENEMY, Vector2i(13, 0))
 	var n := Combat.hit_chance(s, a, near)
-	assert_eq(n.hit, 65 + Combat.CLOSE_BONUS, "close range bonus")
+	assert_eq(n.hit, 65 + 15, "close range bonus")
 	var f := Combat.hit_chance(s, a, far)
-	assert_eq(f.hit, 65 - 3 * Combat.LONG_PENALTY_PER_TILE, "long range penalty")
+	assert_eq(f.hit, 65 - 3 * 3, "long range penalty")
 	var labels: Array = f.breakdown.map(func(x): return x[0])
 	assert_true(labels.has("Aim") and labels.has("Long range"), "breakdown labels: %s" % str(labels))
 
