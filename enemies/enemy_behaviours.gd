@@ -33,6 +33,14 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 		return true
 	if u.status.has("leap_cell"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "leap"})
+		# It lands ready to fight: claws anyone next to it that the impact didn't throw clear.
+		if u.is_alive() and s.phase != Types.Phase.ENDED:
+			u.actions_left = 1
+			for h in s.living():
+				if u.is_enemy_of(h) and EnemyAI._cheb(u.pos, h.pos) == 1 \
+						and _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id}):
+					break
+			u.actions_left = 0
 		return true
 	if u.status.has("emerge_cell"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "erupt"})
@@ -296,14 +304,21 @@ static func _support_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[U
 
 # --- vertical enemies ----------------------------------------------------------------------
 
-## Leaper: claws if adjacent; otherwise gets within leaping range and ends its turn so it can
-## mark a landing spot (end_turn). Prefers spots next to soldiers on high ground or in clusters.
+## Leaper: claws if adjacent, and runs in to claw when a soldier is within one move; otherwise
+## gets within leaping range and ends its turn so it can mark a landing spot (end_turn).
+## Prefers spots next to soldiers on high ground or in clusters.
 static func _leaper(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 	for h in hostiles:
 		if EnemyAI._cheb(u.pos, h.pos) == 1:
 			var claw := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id})
 			if not claw.is_empty():
 				return claw
+	if u.actions_left >= 2:
+		var reach := Rules.move_range(s, u)
+		for h in hostiles:
+			for d in Grid.DIRS8:
+				if reach.has(h.pos + d) and h.pos + d != u.pos:
+					return EnemyAI._choose_runner(s, u, hostiles)
 	if _best_landing(s, u, hostiles) != Vector2i(-1, -1):
 		return {}
 	return EnemyAI._advance(s, u, hostiles)

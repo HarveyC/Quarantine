@@ -36,7 +36,7 @@ const ABILITIES := {
 		"desc": "Hit an enemy within 2 tiles for 4-6, ignoring cover. Never misses. Ends turn."},
 	"claw": {"name": "Claw", "targeting": "unit", "cost": -1, "cooldown": 0,
 		"desc": "Melee attack on an adjacent enemy. Only half cover counts. Ends turn."},
-	"spit": {"name": "Spit", "targeting": "cell", "cost": -1, "cooldown": 2,
+	"spit": {"name": "Spit", "targeting": "cell", "cost": -1, "cooldown": 3,
 		"desc": "Lob a glob at a cell within 7 tiles: 2 damage to every unit within 1 tile. Ends turn."},
 }
 
