@@ -56,7 +56,8 @@ def main():
             out.append([f"act {key[0]}", key[1], n, pct(win), f"{turns:.1f}", pct(lost), f"{deaths:.2f}"])
         table(title, ["act", "squad", "fights", "win", "turns", "squad HP lost", "deaths/fight"], out)
 
-    # Destruction per fight: explosions, barrels set off, walls broken, cover cleared, roof cells dropped.
+    # Destruction per fight: explosions, barrels set off, barrel shots (and how many hit), walls broken,
+    # cover cleared, roof cells dropped.
     out = []
     for kind in ("fight", "boss"):
         g = collections.defaultdict(list)
@@ -66,10 +67,14 @@ def main():
         for act in sorted(g):
             ts = g[act]
             n = len(ts)
-            avg = lambda k: f"{sum(t[k] for t in ts) / n:.2f}"
-            out.append([kind, f"act {act}", n, avg("explosions"), avg("barrels"), avg("walls"), avg("cover"), avg("roofs")])
+            avg = lambda k: f"{sum(t.get(k, 0) for t in ts) / n:.2f}"
+            shots = sum(t.get("barrel_shots", 0) for t in ts)
+            hits = sum(t.get("barrel_hits", 0) for t in ts)
+            out.append([kind, f"act {act}", n, avg("explosions"), avg("barrels"), avg("barrel_shots"),
+                        pct(hits / shots) if shots else "-", avg("walls"), avg("cover"), avg("roofs")])
     if out:
-        table("Destruction per fight", ["fights", "act", "n", "explosions", "barrels", "walls down", "cover cleared", "roof cells dropped"], out)
+        table("Destruction per fight", ["fights", "act", "n", "explosions", "barrels", "barrel shots", "barrel hit",
+                                        "walls down", "cover cleared", "roof cells dropped"], out)
 
     # Classes inside real fights.
     c = collections.defaultdict(lambda: collections.Counter())

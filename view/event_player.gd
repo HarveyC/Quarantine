@@ -132,7 +132,7 @@ func _start(ev: Dictionary) -> void:
 			view.show_vision(ev)
 	beat.merge({"dur": 0.0, "pad": 0.0, "update": null, "finish": null, "t": 0.0})
 	beat["ev"] = ev
-	if enemy_phase and beat.dur > 0.0 and ev.get("type") in ["move", "shot", "ability", "mutation", "overwatch", "hunker"]:
+	if enemy_phase and beat.dur > 0.0 and ev.get("type") in ["move", "shot", "barrel_shot", "ability", "mutation", "overwatch", "hunker"]:
 		beat.pad += ENEMY_PAD
 	_cur = beat
 
@@ -958,8 +958,6 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return _breach_beat(ev)
 		"item:frag_grenade", "item:demo_charge":
 			return _throw_beat(ev)
-		"shoot_barrel":
-			return _barrel_shot_beat(ev)
 		"spit":
 			return _spit_beat(ev)
 		"suppress":
@@ -1159,8 +1157,9 @@ func _throw_beat(ev: Dictionary) -> Dictionary:
 	return {"dur": dur, "update": update, "finish": finish}
 
 
-## Shoot barrel: one aimed shot at the drum (the explosion event follows straight after).
-func _barrel_shot_beat(ev: Dictionary) -> Dictionary:
+## A Shoot at a fuel barrel: one aimed shot at the drum. On a hit the explosion event follows
+## straight after; a miss sails past it and kicks up dirt behind.
+func _beat_barrel_shot(ev: Dictionary) -> Dictionary:
 	var uv := _uv(ev)
 	if uv == null or not (ev.get("cell") is Vector2i):
 		return {}
@@ -1169,12 +1168,20 @@ func _barrel_shot_beat(ev: Dictionary) -> Dictionary:
 	uv.face_towards(w)
 	var feel := _feel(uv)
 	var from := uv.muzzle_world()
+	var hit: bool = ev.get("hit", false)
+	if ev.get("reaction", false):
+		view.fx.floating_text(_head(uv), "REACTION", Palette.AMBER, 40)
+	var end := w if hit else w + (w - from).normalized() * 1.6 + Vector3(0.35, -0.4, 0.0)
 	view.fx.muzzle_flash(from, Color(1.0, 0.8, 0.45), (w - from).normalized(), float(feel.get("flash", 1.0)), str(feel.get("flash_style", "star")))
-	view.fx.tracer(from, w, Palette.AMBER, 0.25)
+	view.fx.tracer(from, end, Palette.AMBER, 0.25)
 	uv.recoil(float(feel.get("recoil", 1.0)))
 	_sfx(str(feel.get("sound", "rifle")))
-	view.fx.burst(w, (from - w).normalized(), Color(1.0, 0.7, 0.3), 10, 3.0, true, 0.03)
-	return {"dur": 0.3}
+	if hit:
+		view.fx.burst(w, (from - w).normalized(), Color(1.0, 0.7, 0.3), 10, 3.0, true, 0.03)
+		return {"dur": 0.3}
+	view.fx.burst(end, Vector3.UP, Color(0.55, 0.5, 0.42), 8, 2.0, false, 0.03)
+	view.fx.floating_text(w + Vector3(0, 0.9, 0), "MISS", Color(0.78, 0.8, 0.76), 34)
+	return {"dur": 0.5}
 
 
 ## Destruction: a blast at a cell. Debris, fire and smoke from Fx.explosion, camera shake by size.

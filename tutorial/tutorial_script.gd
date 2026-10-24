@@ -22,6 +22,8 @@ const NEST_CELL := Vector2i(7, 4)
 ## The Runner for the fog lesson appears at the first of these the squad can't see.
 const SCOUT_SPAWNS: Array[Vector2i] = [Vector2i(5, 8), Vector2i(4, 7), Vector2i(10, 7), Vector2i(12, 6), Vector2i(7, 2)]
 const WAVE_CELLS: Array[Vector2i] = [Vector2i(5, 1), Vector2i(10, 1)]
+## The fuel barrel the last Runner lesson points at (a Shoot target like any enemy).
+const BARREL_CELL := Vector2i(13, 6)
 ## A hidden spore nest walled into the corner: a fight with no enemies left is won, so this
 ## keeps the training open between lessons. It dies when the last lesson is done.
 const ANCHOR_CELL := Vector2i(15, 0)
@@ -51,7 +53,8 @@ const STEPS: Array[Dictionary] = [
 		"text": "Climb the ladder. From a roof you get +10 aim and +2 sight, and targets lose a step of cover."},
 	{"id": "overwatch", "title": "Overwatch", "hud": "overwatch", "keys": ["2", "Space"],
 		"text": "Runners incoming. Overwatch fires at the first enemy that moves in sight. Set it, then Ready."},
-	{"id": "clear", "title": "Finish them", "text": "Clear the Runners."},
+	{"id": "clear", "title": "Finish them", "cells": [BARREL_CELL], "keys": ["1", "Tab"],
+		"text": "Clear the Runners. The red fuel barrel is a target too: Shoot, then Tab to it. A hit blows everything next to it."},
 	{"id": "concealment", "title": "Concealment", "info": true, "visual": "stealth",
 		"text": "In the field most missions start Concealed. Red tiles near sleeping Infected give you away, and so does any shot. Set overwatch first, then open fire."},
 	{"id": "infection", "title": "Infection", "hud": "mutation",
