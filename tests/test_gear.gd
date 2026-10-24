@@ -200,6 +200,7 @@ func test_offers_are_deterministic_for_peers() -> void:
 func test_consumable_pockets_stack_and_fill() -> void:
 	var run := make_run()
 	var r: Dictionary = run.soldiers[2]
+	Loadout.of(r).pockets = [null, null]  # drop the starting medkit
 	assert_true(Loadout.add_consumable(r, "medkit", 2), "first pocket")
 	assert_true(Loadout.add_consumable(r, "medkit", 1), "stacks")
 	assert_true(Loadout.add_consumable(r, "frag_grenade", 2), "second pocket")
@@ -303,3 +304,82 @@ func test_max_hp_gear_moves_record_hp() -> void:
 	Loadout.equip(run, r, "kevlar_vest", 2)
 	Loadout.unequip(run, r, "armor")
 	assert_eq(r.hp, 1, "never drops below 1")
+
+
+func test_gun_cards_pick_and_swap() -> void:
+	var run := make_run()
+	var r: Dictionary = run.soldiers[0]
+	run.gear.offers[1] = {"source": "skirmish", "cards": [{"kind": "gun", "id": "battle_rifle", "rarity": "uncommon", "tags": ["Suppress"]}]}
+	var wrong: Dictionary = run.soldiers[3]
+	run.gear.offers[4] = {"source": "skirmish", "cards": [{"kind": "gun", "id": "battle_rifle", "rarity": "uncommon", "tags": ["Suppress"]}]}
+	assert_eq(GearRun.validate(run, {"type": "gear_pick", "player": 1, "soldier": 4, "card": 0}), "Wrong class for that gun", "class lock")
+	assert_true(GearRun.apply(run, {"type": "gear_pick", "player": 0, "soldier": 1, "card": 0}), "take the gun")
+	assert_eq(Loadout.gun(r), "battle_rifle", "carried at once")
+	assert_eq(Loadout.gun_id(r), "battle_rifle", "fires it")
+	assert_eq(GearTags.counts(r).get("Suppress"), 1, "its tag counts")
+	assert_eq(Loadout.gun_pool(r).has("battle_rifle"), false, "not offered again")
+	assert_eq(GearTags.preview_gun(r, "")[0], {"tag": "Suppress", "from": 1, "to": 0, "unlocks": false, "loses": false}, "swap preview")
+	assert_true(GearRun.apply(run, {"type": "gear_gun", "player": 0, "soldier": 1, "gun": ""}), "back to the signature rifle")
+	assert_eq(Loadout.gun(r), "", "signature")
+	assert_eq(GearTags.counts(r).get("Suppress", 0), 0, "tag off with the gun")
+	assert_eq(Loadout.guns(r), ["battle_rifle"], "still owned")
+	assert_eq(GearRun.validate(run, {"type": "gear_gun", "player": 0, "soldier": 1, "gun": "pump_shotgun"}), "Not one of their guns", "must own it")
+	assert_true(GearRun.apply(run, {"type": "gear_gun", "player": 0, "soldier": 1, "gun": "battle_rifle"}), "swap back")
+	assert_eq(wrong.gear.get("gun", ""), "", "untouched")
+
+
+func test_gun_stamps_onto_the_unit_and_survives_a_save() -> void:
+	var run := make_run()
+	var r: Dictionary = run.soldiers[1]
+	Loadout.add_gun(r, "anti_materiel")
+	var u := UnitData.make("marksman", Types.Team.PLAYER)
+	var dmg := u.damage
+	GearRun.apply_to_unit(u, r)
+	assert_eq(u.status.weapon, "anti_materiel", "weapon on the unit")
+	assert_eq(u.damage, dmg + Vector2i(2, 2), "gun damage")
+	assert_eq(u.status.gear_tags, {"Mark": 1}, "gun tag stamped")
+	assert_eq(Weapons.id_of(Unit.from_dict(u.to_dict())), "anti_materiel", "survives a snapshot (online sync)")
+	var rs := RunRules.new_run(1, 5)
+	RunRules.start_run(rs)
+	var rec: Dictionary = rs.squad()[0]
+	var alt: String = Weapons.alternates_for(rec.kind)[0]
+	Loadout.add_gun(rec, alt)
+	var back := RunState.from_save_string(rs.save_string())
+	assert_eq(Loadout.gun(back.get_soldier(rec.id)), alt, "carried gun saved")
+	assert_eq(Loadout.guns(back.get_soldier(rec.id)), [alt], "owned guns saved")
+
+
+func test_bosses_drop_a_gun() -> void:
+	var run := make_run()
+	GearRun.on_fight_won(run, "boss")
+	for r in run.soldiers:
+		var guns: Array = GearRun.offer_for(run, r.id).cards.filter(func(c): return c.kind == "gun")
+		assert_eq(guns.size(), 1, "%s gets a gun card" % r.kind)
+		assert_true(Weapons.can_carry(r.kind, guns[0].id), "for their class")
+	# Once a soldier owns every gun of their class, offers stop showing guns.
+	run.gear.offers.clear()
+	for id in Weapons.alternates_for("trooper"):
+		Loadout.add_gun(run.soldiers[0], id, false)
+	GearRun.on_fight_won(run, "boss")
+	assert_true(GearRun.offer_for(run, 1).cards.all(func(c): return c.kind != "gun"), "nothing left to offer")
+
+
+func test_everyone_starts_with_a_consumable() -> void:
+	var run := make_run()
+	var want := {"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit", "breacher": "flashbang"}
+	for r in run.soldiers:
+		assert_eq(Loadout.pockets(r)[0], {"id": want[r.kind], "charges": 1}, "%s starter" % r.kind)
+		assert_eq(Loadout.pockets(r)[1], null, "one pocket used")
+	var odd := {"id": 9, "kind": "mystery", "player": 0}
+	run.soldiers.append(odd)
+	GearRun.on_recruit(run, odd)
+	assert_true(GearData.STARTER_FALLBACK.has(Loadout.pockets(odd)[0].id), "random fallback for other classes")
+
+
+func test_run_recruits_get_a_starter() -> void:
+	var run := RunRules.new_run(1, 3)
+	RunRules.start_run(run)
+	for r in run.soldiers:
+		assert_true(Loadout.pockets(r)[0] != null, "%s (%s) has a starter" % [r.kind, r.status])
+	var rec := RunRules.add_recruit(run, 0, "medic")
+	assert_eq(Loadout.pockets(rec)[0].id, "medkit", "mid-run recruit too")

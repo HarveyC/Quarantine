@@ -38,8 +38,39 @@ const FEEL := {
 }
 
 
+## Alternate guns: their look's feel with these keys changed (null removes a key).
+const VARIANTS := {
+	"battle_rifle": {"rounds": 2, "gap": 0.11, "flash": 1.3, "recoil": 1.25, "shake": 0.45, "kick": 0.8, "tail": "tail_heavy", "bullet": 1.2},
+	"burst_carbine": {"rounds": 3, "gap": 0.06, "color": null},
+	"anti_materiel": {"flash": 2.3, "recoil": 2.4, "shake": 1.15, "kick": 2.0, "bullet": 1.9, "mech_delay": 0.65},
+	"scout_carbine": {"rounds": 3, "gap": 0.07, "sound": "carbine"},
+	"flechette_smg": {"rounds": 6, "gap": 0.04, "bullet": 0.6, "recoil": 0.4},
+	"dart_rifle": {"sound": "carbine", "flash": 0.6, "recoil": 0.8, "shake": 0.3, "kick": 0.6, "smoke": null, "bullet": 0.9,
+		"color": Color(0.7, 0.95, 1.0)},
+	"slug_gun": {"pellets": null, "bullet": 1.5},
+	"auto_shotgun": {"rounds": 3, "gap": 0.16, "pellets": 6, "mech": null, "recoil": 1.4, "shake": 0.7},
+	"pump_shotgun": {"pellets": 8},
+	"heavy_mg": {"rounds": 7, "gap": 0.1, "flash": 1.6, "recoil": 1.1, "shake": 0.6, "kick": 0.9, "bullet": 1.3},
+	"spore_rifle": {"rounds": 1, "flash": 1.1, "recoil": 1.0, "kick": 0.8, "bullet": 1.5, "color": Palette.TEAL},
+}
+
+
 static func for_kind(kind: String) -> Dictionary:
-	return FEEL.get(Weapons.id_for(kind), FEEL.rifle)
+	return for_weapon(Weapons.id_for(kind))
+
+
+## Feel for a weapon id; alternates build theirs from their look's.
+static func for_weapon(id: String) -> Dictionary:
+	if FEEL.has(id):
+		return FEEL[id]
+	var base: Dictionary = FEEL.get(Weapons.look_of(id), FEEL.rifle).duplicate()
+	var v: Dictionary = VARIANTS.get(id, {})
+	for k in v:
+		if v[k] == null:
+			base.erase(k)
+		else:
+			base[k] = v[k]
+	return base
 
 
 ## Tracer / round colour for a shooter: amber for the squad, red for hostile guns,

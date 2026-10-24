@@ -1,7 +1,8 @@
 class_name Depot
 extends RefCounted
-## Supply depot: a 7-slot shop paid from shared Supplies (design doc, Economy and rewards).
-## Stock: 2 gear, 3 consumables, 1 Serum dose and 1 service (recruit, Scar removal or Armorer).
+## Supply depot: an 8-slot shop paid from shared Supplies (design doc, Economy and rewards).
+## Stock: 2 gear, 1 alternate gun, 3 consumables, 1 Serum dose and 1 service (recruit, Scar
+## removal or Armorer).
 ## Anyone buys for their own soldiers; there is no vote. OWNER: nodes workstream.
 
 const SERUM_PRICE := 50
@@ -42,6 +43,9 @@ static func _roll_goods(run, ns: Dictionary) -> void:
 	var r2 := "rare" if run.act >= 2 and run.rng.randf() < 0.4 else "uncommon"
 	var g2 := GearDraw.draw_item(run.rng, {}, r2, [g1])
 	goods.append({"type": "gear", "id": g2, "price": GearData.price(g2), "sold": false})
+	var gun := _roll_gun(run)
+	if gun != "":
+		goods.append({"type": "gun", "id": gun, "price": Weapons.price(gun), "sold": false})
 	var ids: Array = GearData.CONSUMABLES.keys()
 	ids.sort()
 	for i in CONSUMABLE_SLOTS:
@@ -49,6 +53,17 @@ static func _roll_goods(run, ns: Dictionary) -> void:
 		goods.append({"type": "consumable", "id": id, "price": GearData.price(id), "sold": false})
 	var kept: Array = ns.stock.filter(func(e): return e.type in ["serum", "service"])
 	ns.stock = goods + kept
+
+
+## An alternate gun for one of the squad's soldiers (Rare from act 2 sometimes). "" when
+## every soldier already owns every gun their class can carry.
+static func _roll_gun(run) -> String:
+	var squad: Array = RunAccess.active_soldiers(run).filter(func(r): return not Loadout.gun_pool(r).is_empty())
+	if squad.is_empty():
+		return ""
+	var rec = squad[run.rng.randi_range(0, squad.size() - 1)]
+	var rarity := "rare" if run.act >= 2 and run.rng.randf() < 0.4 else "uncommon"
+	return GearRun.gun_card(run.rng, rec, rarity).get("id", "")
 
 
 static func _roll_service(run) -> String:
@@ -66,7 +81,7 @@ static func _roll_service(run) -> String:
 
 
 static func _mult(run) -> float:
-	return QUARTERMASTER_MULT if RunAccess.has_doctrine(run, "quartermaster") else 1.0
+	return (QUARTERMASTER_MULT if RunAccess.has_doctrine(run, "quartermaster") else 1.0) * Severity.depot_mult(run)
 
 
 ## What a stock entry costs right now. The Armorer's price depends on the item upgraded.
@@ -109,6 +124,13 @@ static func validate(run, ns: Dictionary, action: Dictionary) -> String:
 				["gear", _]:
 					if rec == null:
 						return "pick one of your soldiers"
+				["gun", _]:
+					if rec == null:
+						return "pick one of your soldiers"
+					if not Weapons.can_carry(rec.kind, entry.id):
+						return "%s can't use it" % UnitData.SOLDIERS.get(rec.kind, {}).get("name", rec.kind)
+					if Loadout.owns_gun(rec, entry.id):
+						return "already has one"
 				["consumable", _]:
 					if rec == null:
 						return "pick one of your soldiers"
@@ -153,6 +175,8 @@ static func apply(run, ns: Dictionary, action: Dictionary) -> void:
 			match [entry.type, entry.id]:
 				["gear", _]:
 					Loadout.equip(run, rec, entry.id)
+				["gun", _]:
+					Loadout.add_gun(rec, entry.id)
 				["consumable", _]:
 					Loadout.add_consumable(rec, entry.id)
 				["serum", _]:

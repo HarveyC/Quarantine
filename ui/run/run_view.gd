@@ -14,6 +14,8 @@ const Palette := preload("res://view/palette.gd")
 const W := preload("res://ui/widgets.gd")
 const MapBoard := preload("res://ui/run/map_board.gd")
 const NodeInfo := preload("res://ui/run/node_info.gd")
+const Feel := preload("res://ui/ui_feel.gd")
+const PauseMenu := preload("res://ui/pause_menu.gd")
 const BIOME_NAMES: Array[String] = ["The Wall", "The Port", "The Bore"]
 const ROMAN: Array[String] = ["I", "II", "III"]
 const PANEL_BG := Color(0.05, 0.06, 0.06, 0.82)
@@ -130,7 +132,10 @@ func _build() -> void:
 	_outbreak = Styles.caps("", 15, Styles.TEAL)
 	ob_row.add_child(_outbreak)
 	_outbreak_tier = Styles.label("", 13, Styles.MUTED)
+	_outbreak_tier.visible = false
 	ob_row.add_child(_outbreak_tier)
+	ob.mouse_filter = Control.MOUSE_FILTER_PASS
+	ob.tooltip_text = "Outbreak rises by 1 at every node and drops by %d when an act boss dies.\nHigher stages make fights harder." % RunRules.BOSS_OUTBREAK_DROP
 	ob.add_child(ob_row)
 	_outbreak_bar = OutbreakBar.new()
 	_outbreak_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -145,7 +150,8 @@ func _build() -> void:
 	top.add_child(res)
 	var btns := Styles.hbox(10)
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
-	_reveal_btn = _top_button("Reveal ?")
+	_reveal_btn = _top_button("Reveal", "reveal")
+	_reveal_btn.tooltip_text = "Spend 1 Intel to see what a hidden node is."
 	_reveal_btn.toggle_mode = true
 	_reveal_btn.toggled.connect(func(on: bool) -> void:
 		_reveal_mode = on
@@ -153,11 +159,11 @@ func _build() -> void:
 		_map.refresh()
 		_refresh_vote_panel())
 	btns.add_child(_reveal_btn)
-	_loadout_btn = _top_button("Loadout")
+	_loadout_btn = _top_button("Loadout", "loadout")
 	_loadout_btn.pressed.connect(_open_loadout)
 	btns.add_child(_loadout_btn)
-	var menu := _top_button("Menu")
-	menu.pressed.connect(func() -> void: leave_requested.emit())
+	var menu := _top_button("Menu", "menu")
+	menu.pressed.connect(_toggle_pause)
 	btns.add_child(menu)
 	top.add_child(btns)
 
@@ -220,13 +226,24 @@ func _resource(parent: Control, icon: String, col: Color, caption: String) -> La
 	return v
 
 
-func _top_button(text: String) -> Button:
-	var b := Button.new()
-	b.text = text.to_upper()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, 40)
+func _top_button(text: String, icon: String) -> Button:
+	var b := Styles.icon_button(text, icon, "secondary", 15, 40)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return b
+
+
+var _pause: Control
+
+
+func _toggle_pause() -> void:
+	if _pause != null and is_instance_valid(_pause):
+		_pause.queue_free()
+		_pause = null
+		return
+	_pause = PauseMenu.new()
+	_pause.closed.connect(_toggle_pause)
+	_pause.leave_requested.connect(func() -> void: leave_requested.emit())
+	add_child(_pause)
 
 
 static func _corner_marks(c: Control) -> void:
@@ -264,7 +281,7 @@ func refresh() -> void:
 	_reveal_btn.disabled = run.intel < 1 or not run.map.any(func(n: Dictionary) -> bool: return n.hidden)
 	if _reveal_btn.disabled and _reveal_btn.button_pressed:
 		_reveal_btn.button_pressed = false
-	_reveal_btn.text = "REVEAL ? · 1 INTEL"
+	_reveal_btn.text = "REVEAL  1"
 	_map.names = session.player_names if session != null else {}
 	_map.refresh()
 	_node_buttons = _map.dots
@@ -499,6 +516,8 @@ func _on_node_pressed(id: int) -> void:
 
 
 func _vote(id: int) -> void:
+	if run.phase == RunState.Phase.MAP:
+		Feel.sound("vote")
 	for p in session.local_players():
 		if run.phase == RunState.Phase.MAP and not run.benched.get(p, false):
 			session.submit_run({"type": RunRules.VOTE, "player": p, "node": id})
@@ -528,6 +547,9 @@ func _refresh_screen() -> void:
 		RunState.Phase.REWARD:
 			key = "reward:%d" % run.fights_won
 			script = RunHooks.call_static("GearRun", "reward_screen", [])
+			if RunHooks.call_static("Story", "has_pending", [run], false):
+				key = "ending"
+				script = RunHooks.call_static("Story", "screen", [])
 		RunState.Phase.ENDED:
 			key = "end"
 	if key == _screen_key:
@@ -546,10 +568,18 @@ func _refresh_screen() -> void:
 		_add_full(_screen)
 		if _screen.has_method("setup"):
 			_screen.setup(run, session)
+		Feel.enter(_full_holder, 0.0, 0.0, 0.3)
+		Feel.sound("node" if run.phase == RunState.Phase.NODE else "page")
 		return
 	else:
 		_screen = _waiting_panel("Waiting for the squad..." if run.phase == RunState.Phase.REWARD else RunMap.NAMES.get(RunMap.shown_type(run.current_node()), ""))
+	if key == "end":
+		_add_full(_screen)
+		Feel.enter(_full_holder, 0.0, 0.0, 0.5)
+		Feel.deal(end_cards, 0.07, 0.2)
+		return
 	_screen_holder.add_child(_screen)
+	Feel.enter(_screen, 0.0, 0.0)
 
 
 func _add_full(c: Control) -> void:
@@ -569,6 +599,8 @@ func _open_loadout() -> void:
 		_loadout.connect("closed", _close_loadout)
 	_add_full(_loadout)
 	_loadout.setup(run, session)
+	Feel.enter(_full_holder, 0.0, 0.0, 0.2)
+	Feel.sound("open")
 
 
 func _close_loadout() -> void:
@@ -585,34 +617,159 @@ func _waiting_panel(text: String) -> Control:
 	return p
 
 
+## The headline for the run's end: [title, colour]. A story ending can change it here.
+func _summary_title() -> Array:
+	if run.result == Types.Result.VICTORY:
+		return [StoryData.SUMMARY_TITLES.get(run.story.get("ending", ""), StoryData.SUMMARY_TITLES.burn), Styles.HP]
+	return [StoryData.SUMMARY_TITLES.lost, Styles.DANGER]
+
+
+## Run end: a full-screen board with the headline, how far the squad got (act and row pips),
+## stat tiles with icons, and each soldier's fate.
+var end_cards: Array[Control] = []
+
+
 func _summary() -> Control:
-	var p := PanelContainer.new()
-	p.custom_minimum_size = Vector2(520, 0)
-	p.add_theme_stylebox_override("panel", Styles.panel_box(Color(0.03, 0.04, 0.04, 0.95), Palette.AMBER.darkened(0.3), 2))
-	p.draw.connect(func() -> void: _corner_marks(p))
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	p.add_child(box)
+	end_cards.clear()
+	var root := MarginContainer.new()
+	for side in ["left", "right"]:
+		root.add_theme_constant_override("margin_" + side, 120)
+	root.add_theme_constant_override("margin_top", 80)
+	root.add_theme_constant_override("margin_bottom", 70)
+	var v := Styles.vbox(30)
+	root.add_child(v)
+	var head: Array = _summary_title()
 	var win := run.result == Types.Result.VICTORY
-	var title := Styles.label("THE SOURCE IS BURNING" if win else "LANTERN COMPANY IS LOST", 34, Palette.TEAL if win else Palette.DANGER)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
+	var top := Styles.vbox(6)
+	var kick := "Run complete" if win else "Run over"
+	if not run.story.is_empty():
+		kick += " · Wave %d" % run.story.get("wave", 0)
+	if Severity.level(run) > 0:
+		kick += " · Severity %d" % Severity.level(run)
+	top.add_child(Styles.caps(kick, 16, Styles.DIM))
+	top.add_child(Styles.caps(head[0], 76, head[1]))
+	v.add_child(top)
+	v.add_child(_progress_track())
+	var tiles := Styles.hbox(16)
 	var lost := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status in [RunSoldier.DEAD, RunSoldier.TURNED]).size()
-	var lines := [
-		"Reached act %d, row %d" % [run.act, run.row],
-		"Fights won: %d" % run.fights_won,
-		"Soldiers lost: %d (%d Turned)" % [lost, run.echoes.size()],
-		"Final Outbreak: %d (%s)" % [run.outbreak, RunRules.OUTBREAK_NAMES[RunRules.outbreak_stage(run.outbreak)]],
-		"Supplies left: %d" % run.supplies,
-	]
-	for l in lines:
-		box.add_child(Styles.label(l, 18, Styles.TEXT))
-	var b := Button.new()
-	b.text = "MAIN MENU"
-	b.custom_minimum_size = Vector2(0, 48)
+	var stage := RunRules.outbreak_stage(run.outbreak)
+	tiles.add_child(_stat_tile("skirmish", str(run.fights_won), "Fights won", Styles.AMBER))
+	tiles.add_child(_stat_tile("skull", str(lost), "Soldiers lost", Styles.DANGER_TEXT, "%d Turned" % run.echoes.size() if run.echoes.size() > 0 else ""))
+	tiles.add_child(_stat_tile("outbreak", str(run.outbreak), "Outbreak", Styles.TEAL, RunRules.OUTBREAK_NAMES[stage]))
+	tiles.add_child(_stat_tile("supplies", str(run.supplies), "Supplies left", NodeInfo.DEPOT_GOLD))
+	tiles.add_child(_stat_tile("intel", "+%d" % MetaProgress.field_data(run), "Field Data", Styles.AMBER, "For every player"))
+	v.add_child(tiles)
+	var earned := Achievements.earned_by(run)
+	var laid: int = run.story.get("echoes", []).filter(func(e: Dictionary) -> bool: return e.laid).size()
+	var lore: Array = run.story.get("lore", [])
+	if not earned.is_empty() or laid > 0 or not lore.is_empty():
+		var chips := HFlowContainer.new()
+		chips.add_theme_constant_override("h_separation", 8)
+		chips.add_theme_constant_override("v_separation", 8)
+		for id in earned:
+			var c := W.Frame.new(Vector4(10, 6, 12, 6))
+			c.set_look(Color(Styles.AMBER, 0.08), Color(Styles.AMBER, 0.5), Styles.AMBER, false)
+			var h := Styles.hbox(8)
+			h.add_child(W.Icon.new("trophy", Styles.AMBER, 16, 1.7))
+			h.add_child(Styles.caps(Achievements.DEFS[id].name, 13, Styles.AMBER))
+			c.add_child(h)
+			chips.add_child(c)
+		if laid > 0:
+			chips.add_child(_story_chip("turned", "Echoes laid to rest: %d" % laid))
+		for id in lore:
+			chips.add_child(_story_chip("intel", StoryData.lore_entry(id).get("title", id)))
+		v.add_child(chips)
+	v.add_child(Styles.caps("Lantern Company", 15, Styles.DIM))
+	var fates := HFlowContainer.new()
+	fates.add_theme_constant_override("h_separation", 12)
+	fates.add_theme_constant_override("v_separation", 12)
+	for r in run.soldiers:
+		fates.add_child(_fate_card(r))
+	v.add_child(fates)
+	var grow := Control.new()
+	grow.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	grow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(grow)
+	var bar := Styles.hbox(12)
+	bar.add_child(Styles.spacer())
+	var b := Styles.icon_button("Main menu", "arrow_right", "primary", 20, 56)
+	b.custom_minimum_size.x = 300
 	b.pressed.connect(func() -> void: leave_requested.emit())
-	box.add_child(b)
-	return p
+	bar.add_child(b)
+	v.add_child(bar)
+	return root
+
+
+## A teal chip for story finds on the run board: Echoes laid to rest and intel recovered.
+func _story_chip(icon: String, text: String) -> Control:
+	var c := W.Frame.new(Vector4(10, 6, 12, 6))
+	c.set_look(Color(Styles.TEAL, 0.08), Color(Styles.TEAL, 0.45), Styles.TEAL, false)
+	var h := Styles.hbox(8)
+	h.add_child(W.Icon.new(icon, Styles.TEAL, 16, 1.7))
+	h.add_child(Styles.caps(text, 13, Styles.TEAL))
+	c.add_child(h)
+	return c
+
+
+## Three acts of five rows as pips, lit up to where the run ended.
+func _progress_track() -> Control:
+	var row := Styles.hbox(18)
+	for a in 3:
+		var col := Styles.vbox(8)
+		col.add_child(Styles.caps("Act %s · %s" % [ROMAN[a], BIOME_NAMES[a]], 13, Styles.TEXT if a + 1 <= run.act else Styles.MUTED))
+		var pips := W.Pips.new(Vector2(44, 8))
+		var reached := 0
+		if a + 1 < run.act:
+			reached = 5
+		elif a + 1 == run.act:
+			reached = run.row
+		pips.set_values(5, mini(reached, 5), 0, Styles.AMBER if run.result != Types.Result.VICTORY else Styles.HP)
+		col.add_child(pips)
+		row.add_child(col)
+	return row
+
+
+func _stat_tile(icon: String, value: String, caption: String, col: Color, sub := "") -> Control:
+	var f := W.Frame.new(Vector4(20, 16, 20, 16))
+	end_cards.append(f)
+	f.set_look(Color(0.05, 0.065, 0.055, 0.92), Styles.BORDER, Styles.AMBER, false)
+	f.custom_minimum_size = Vector2(230, 0)
+	var h := Styles.hbox(14)
+	f.add_child(h)
+	var ic := W.Icon.new(icon, col, 36, 2.0)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	var v := Styles.vbox(0)
+	v.add_child(Styles.mono(value, 34, Styles.TEXT))
+	v.add_child(Styles.caps(caption, 12, Styles.DIM))
+	if sub != "":
+		v.add_child(Styles.caps(sub, 11, col))
+	h.add_child(v)
+	return f
+
+
+## One soldier's fate: class glyph in the owner's colour, name, and Alive / Fallen / Turned.
+func _fate_card(r: Dictionary) -> Control:
+	var f := W.Frame.new(Vector4(14, 10, 16, 10))
+	end_cards.append(f)
+	var pcol := Styles.player_color(r.owner)
+	f.stripe = pcol
+	var dead: bool = r.status == RunSoldier.DEAD
+	var turned: bool = r.status == RunSoldier.TURNED
+	f.set_look(Color(0.05, 0.065, 0.055, 0.9), Styles.BORDER_SOFT, Styles.AMBER, false)
+	var h := Styles.hbox(10)
+	f.add_child(h)
+	h.add_child(W.glyph(r.kind, pcol if not (dead or turned) else Styles.MUTED, 40.0))
+	var v := Styles.vbox(2)
+	v.add_child(Styles.caps(r.name, 17, Styles.TEXT if not (dead or turned) else Styles.DIM))
+	var state := "Turned" if turned else ("Fallen" if dead else ("Reserve" if r.status == RunSoldier.RESERVE else "Alive"))
+	var scol := Styles.TEAL if turned else (Styles.DANGER_TEXT if dead else Styles.HP)
+	var sr := Styles.hbox(5)
+	sr.add_child(W.Icon.new("turned" if turned else ("skull" if dead else "check"), scol, 13, 1.6))
+	sr.add_child(Styles.caps(state, 12, scol))
+	v.add_child(sr)
+	h.add_child(v)
+	return f
 
 
 # --- events and autoplay ------------------------------------------------------------------
@@ -633,6 +790,8 @@ func _on_run_event(ev: Dictionary) -> void:
 			var r := run.get_soldier(ev.sid)
 			line = "%s %s joins the squad" % [UnitData.SOLDIERS[r.kind].name, r.name]
 		"recruit": line = "New recruit in reserve"
+		"echo_laid": line = "Echo %s laid to rest" % ev.name
+		"lore": line = "Intel recovered: %s" % StoryData.lore_entry(ev.id).get("title", ev.id)
 		"act_start": line = "Act %d begins" % ev.act
 		"bench": line = "P%d %s" % [ev.player + 1, "benched" if ev.on else "is back"]
 		"rejected": if session != null and session.is_local(ev.action.get("player", -1)): line = ev.reason

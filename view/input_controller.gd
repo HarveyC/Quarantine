@@ -1,6 +1,6 @@
 extends Node
-## Mouse/keyboard input for the squad phase: selection, move preview, action
-## targeting. Only ever calls Rules.apply / read-only queries; never touches state.
+## Mouse/keyboard/gamepad input for the squad phase: selection, move preview, action
+## targeting. Keys and pad buttons are InputMap actions (view/game_settings.gd). Only ever calls Rules.apply / read-only queries; never touches state.
 ## Hot-seat: whoever is at the keyboard may command any player's soldiers.
 
 signal changed   # selection, mode or target changed; HUD should refresh
@@ -15,6 +15,7 @@ const Board := preload("res://view/board.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const EventPlayer := preload("res://view/event_player.gd")
 const Sfx := preload("res://view/sfx.gd")
+const QuickMenu := preload("res://ui/quick_menu.gd")
 
 var view: MissionView
 var selected_id := -1
@@ -160,6 +161,12 @@ func _process(_delta: float) -> void:
 
 
 func _mouse_cell() -> Vector2i:
+	if _forced_cell != NO_CELL:
+		# The d-pad parked the pointer on a cell; keep it until the mouse really moves.
+		if not is_inside_tree() or DisplayServer.get_name() == "headless" \
+				or get_viewport().get_mouse_position().distance_to(_forced_at) < 3.0:
+			return _forced_cell
+		_forced_cell = NO_CELL
 	if not is_inside_tree() or view.camera_rig == null:
 		return NO_CELL
 	var hit: Variant = view.camera_rig.screen_to_world(get_viewport().get_mouse_position())
@@ -371,40 +378,118 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.button_index:
 			MOUSE_BUTTON_LEFT: click_cell(_mouse_cell())
 			MOUSE_BUTTON_RIGHT: cancel()
-	elif event is InputEventKey and event.pressed and not event.echo:
-		_key(event as InputEventKey)
+	elif (event is InputEventKey or event is InputEventJoypadButton) and event.is_pressed() and not event.is_echo():
+		GameSettings.ensure_input_map()
+		_action_input(event)
 
 
-func _key(k: InputEventKey) -> void:
-	match k.keycode:
-		KEY_TAB:
-			if mode == Mode.SHOOT:
-				cycle_target(-1 if k.shift_pressed else 1)
-			elif can_act():
-				cycle(-1 if k.shift_pressed else 1)
-		KEY_ESCAPE: cancel()
-		KEY_ENTER, KEY_KP_ENTER:
-			if mode == Mode.SHOOT:
-				confirm_shot()
-		KEY_SPACE:
-			# Space fires while aiming, otherwise it's the READY button's shortcut.
-			if mode == Mode.SHOOT:
-				confirm_shot()
-			elif view.hud != null:
-				view.hud.toggle_ready()
-		KEY_C:
-			EventPlayer.cinematics = not EventPlayer.cinematics
-			view.hud.toast("Shot cameras " + ("on" if EventPlayer.cinematics else "off"))
-		KEY_M:
-			view.sfx.set_muted(not Sfx.muted)
-			view.hud.toast("Sound " + ("off" if Sfx.muted else "on"))
-		KEY_F:
-			var uv := view.view_for(selected_id)
-			if uv != null:
-				view.camera_rig.focus(uv.position)
-		_:
-			if k.keycode >= KEY_1 and k.keycode <= KEY_9:
+## Keys and gamepad buttons go through InputMap actions (rebindable in Settings > Controls).
+func _action_input(e: InputEvent) -> void:
+	var back := e is InputEventKey and (e as InputEventKey).shift_pressed
+	if e.is_action_pressed("next_soldier") or e.is_action_pressed("prev_soldier"):
+		var dir := -1 if back or e.is_action_pressed("prev_soldier") else 1
+		if mode == Mode.SHOOT:
+			cycle_target(dir)
+		elif can_act():
+			cycle(dir)
+	elif e.is_action_pressed("cancel"):
+		if mode == Mode.MOVE and selected_id < 0:
+			view.toggle_pause()
+		else:
+			cancel()
+	elif e.is_action_pressed("confirm"):
+		if mode == Mode.SHOOT:
+			confirm_shot()
+	elif e.is_action_pressed("ready"):
+		# Ready fires while aiming, otherwise it's the READY button's shortcut.
+		if mode == Mode.SHOOT:
+			confirm_shot()
+		elif view.hud != null:
+			view.hud.toggle_ready()
+	elif e.is_action_pressed("shot_cams"):
+		GameSettings.set_value("gameplay", "shot_cams", not EventPlayer.cinematics)
+		view.hud.toast("Shot cameras " + ("on" if EventPlayer.cinematics else "off"))
+	elif e.is_action_pressed("mute"):
+		view.sfx.set_muted(not Sfx.muted)
+		view.hud.toast("Sound " + ("off" if Sfx.muted else "on"))
+	elif e.is_action_pressed("focus"):
+		var uv := view.view_for(selected_id)
+		if uv != null:
+			view.camera_rig.focus(uv.position)
+	elif e.is_action_pressed("quick_menu"):
+		open_quick_menu()
+	elif e.is_action_pressed("cell_left"): step_cursor(Vector2i(-1, 0))
+	elif e.is_action_pressed("cell_right"): step_cursor(Vector2i(1, 0))
+	elif e.is_action_pressed("cell_up"): step_cursor(Vector2i(0, -1))
+	elif e.is_action_pressed("cell_down"): step_cursor(Vector2i(0, 1))
+	else:
+		for i in 9:
+			if e.is_action_pressed("action_%d" % (i + 1)):
 				var list := actions()
-				var i := int(k.keycode - KEY_1)
 				if i < list.size():
 					trigger(list[i].key)
+				return
+		return
+	if is_inside_tree():
+		get_viewport().set_input_as_handled()
+
+
+# --- gamepad -----------------------------------------------------------------
+
+## D-pad: moves the pointer one cell in screen terms (up is away from the camera) and
+## parks it on that cell, so a gamepad can pick cells precisely.
+func step_cursor(screen_dir: Vector2i) -> void:
+	if view.camera_rig == null or view.state == null:
+		return
+	var from := hover_cell
+	if from == NO_CELL:
+		var u := selected_unit()
+		from = u.pos if u != null else Vector2i(view.state.grid.width / 2, view.state.grid.height / 2)
+	# Pick the grid step whose on-screen direction best matches the d-pad direction.
+	var basis := (view.camera_rig.transform * view.camera_rig.camera.transform).basis
+	var right := Vector2(basis.x.x, basis.x.z).normalized()
+	var up := -Vector2(basis.z.x, basis.z.z).normalized()   # away from the camera
+	var best := Vector2i.ZERO
+	var best_dot := -2.0
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var dot := Vector2(d).dot(right * screen_dir.x - up * screen_dir.y)
+		if dot > best_dot:
+			best_dot = dot
+			best = d
+	var to: Vector2i = from + best
+	if not view.state.grid.in_bounds(to):
+		to = from
+	var at := Vector2.ZERO
+	if is_inside_tree():
+		at = view.camera_rig.camera.unproject_position(Board.cell_to_world(to, Board.lift(to)))
+	view.camera_rig.focus(Board.cell_to_world(to))
+	if is_inside_tree() and DisplayServer.get_name() != "headless":
+		get_viewport().warp_mouse(at)
+	hover_cell = NO_CELL
+	_forced_cell = to
+	_forced_at = at
+	_update_hover(true)
+
+
+var _forced_cell := NO_CELL
+var _forced_at := Vector2.ZERO
+
+
+## Quick action menu (Y on a gamepad, R on keys): the selected soldier's actions as a
+## focusable list, so a gamepad never has to reach the action bar.
+func open_quick_menu() -> void:
+	if not can_act():
+		return
+	var u := selected_unit()
+	if u == null:
+		cycle(1)
+		u = selected_unit()
+		if u == null:
+			return
+	var parent := view.hud.get_parent() if view.hud != null else null
+	if parent == null:
+		return
+	var menu := QuickMenu.new()
+	menu.setup(u.display_name if u.display_name != "" else u.kind.capitalize(), actions())
+	menu.picked.connect(trigger)
+	parent.add_child(menu)

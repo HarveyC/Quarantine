@@ -638,6 +638,7 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 					var c := cell + Vector2i(dx, dy)
 					if s.grid.in_bounds(c) and s.grid.tile(c) == Types.Tile.LOW:
 						s.grid.tiles[c.y * s.grid.width + c.x] = Types.Tile.FLOOR
+			Elevation.blast(s, cell, 1, u)   # scaffolds and catwalks come down
 			return
 		"recon_drone":
 			s.emit(ev)

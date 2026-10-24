@@ -105,6 +105,7 @@ func _build_stage() -> void:
 	env.glow_enabled = true
 	env.glow_intensity = 0.8
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
+	GameSettings.apply_environment(env)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
