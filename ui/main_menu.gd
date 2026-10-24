@@ -69,7 +69,7 @@ func _build_menu(root: VBoxContainer) -> void:
 	_menu_box = VBoxContainer.new()
 	_menu_box.add_theme_constant_override("separation", 10)
 	root.add_child(_menu_box)
-	var steam_name := _platform().player_name() if _platform() != null else ""
+	var steam_name: String = _platform().player_name() if _platform() != null else ""
 	_name = _field(_menu_box, "Your name", steam_name if steam_name != "" else (OS.get_environment("USER").capitalize() if OS.has_environment("USER") else "Player"))
 	_continue_btn = _button(_menu_box, "Continue run")
 	_continue_btn.pressed.connect(func() -> void: continue_requested.emit())

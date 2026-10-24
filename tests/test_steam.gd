@@ -186,3 +186,10 @@ func test_crash_reporter_notices_unclean_exit() -> void:
 	assert_true(text.contains("SCRIPT ERROR: boom"), "includes the end of the log")
 	assert_true(text.contains("version="), "includes the version")
 	c.stop()
+
+
+## The menu and app read the Platform autoload; make sure they still compile.
+func test_menu_and_app_scripts_compile() -> void:
+	assert_true(load("res://ui/main_menu.gd") != null, "main menu")
+	assert_true(load("res://view/app.gd") != null, "app")
+	assert_true(load("res://platform/platform.gd") != null, "platform")
