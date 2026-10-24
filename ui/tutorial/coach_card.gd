@@ -21,7 +21,7 @@ var _dots: Control
 func _init() -> void:
 	super(Vector4(18, 14, 18, 14))
 	name = "CoachCard"
-	set_look(Color(0.035, 0.045, 0.04, 0.94), Styles.BORDER_STRONG)
+	set_look(Color(0.035, 0.05, 0.085, 0.95), Styles.BORDER_STRONG)
 	custom_minimum_size = Vector2(WIDTH, 0)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var box := Styles.vbox(8)
@@ -82,17 +82,12 @@ func show_card(kicker: String, title: String, text: String, keys: Array = [], vi
 
 func _button(id: String, label: String, primary: bool) -> Button:
 	var b := Button.new()
-	b.text = label.to_upper()
+	b.text = label
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, 34)
-	if primary:
-		b.add_theme_stylebox_override("normal", Styles.panel_box(Color("2a2613"), Styles.AMBER))
-		b.add_theme_stylebox_override("hover", Styles.panel_box(Color("3a3418"), Styles.AMBER))
-		b.add_theme_color_override("font_color", Styles.AMBER)
-		b.add_theme_color_override("font_hover_color", Styles.AMBER)
-	else:
-		b.add_theme_stylebox_override("normal", Styles.panel_box(Color(0, 0, 0, 0), Color(0, 0, 0, 0)))
-		b.add_theme_color_override("font_color", Styles.DIM)
+	b.custom_minimum_size = Vector2(0, 36)
+	b.add_theme_font_override("font", Styles.FONT_DISPLAY if primary else Styles.FONT_DISPLAY_MEDIUM)
+	b.add_theme_font_size_override("font_size", 12)
+	Styles.style_button(b, "primary" if primary else "ghost", 18)
 	b.pressed.connect(func() -> void: pressed.emit(id))
 	return b
 
@@ -163,7 +158,7 @@ class Diagram extends Control:
 	func _height() -> void:
 		var ground := 62.0
 		draw_line(Vector2(10, ground), Vector2(WIDTH - 50, ground), Styles.BORDER_STRONG, 1.0)
-		draw_rect(Rect2(14, ground - 30, 70, 30), Color("2a322b"))
+		draw_rect(Rect2(14, ground - 30, 70, 30), Color("1e2737"))
 		draw_line(Vector2(14, ground - 30), Vector2(84, ground - 30), Styles.AMBER, 2.0)
 		for i in 4:
 			draw_line(Vector2(88, ground - 6 - i * 7), Vector2(96, ground - 6 - i * 7), Styles.DIM, 1.5)
@@ -180,7 +175,7 @@ class Diagram extends Control:
 		var x0 := 4.0
 		var w := size.x - 8.0
 		var y := 20.0
-		draw_rect(Rect2(x0, y, w, 8), Color("10201c"))
+		draw_rect(Rect2(x0, y, w, 8), Color("0e2026"))
 		var names := ["Clean", "Exposed", "Mutating", "Critical", "Turned"]
 		for i in 4:
 			var a := x0 + w * Infection.THRESHOLDS[i] / 100.0
