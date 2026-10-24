@@ -475,12 +475,19 @@ in an online match plays the same thing.
   and hold through the following `damage` / `died` / `infection` / `turned` / `alerted` beats
   (`CINE_FOLLOW`). Any other event, or the queue draining, cuts back to the tactical camera.
   Skipped when `EventPlayer.cinematics` is false (C key) or playback is sped up (autoplay).
-- **Unit rigs** (`view/unit_view.gd`): generated models (`assets/models/*.glb` from
-  `tools/gen_models.py`, loaded by `view/model_kit.gd`) on a jointed rig, posed procedurally in
-  `tick` (idle, walk, aim with two-bone arm IK onto the weapon, recoil, hit, hunker, lunge,
-  death). Two rigs so far: soldier (all classes, also Turned) and infected humanoid (Runner,
-  Spitter; new enemies of that build reuse it). `view/character.gdshader` adds grime, rim light,
-  spreading infection veins and hit flash; growth meshes `grow1..3_*` appear per infection tier.
+- **Unit models** (`view/unit_view.gd`, `view/skinned_body.gd`, `view/model_kit.gd`): every
+  unit but the props is a skinned character (`assets/characters/*.glb`, built by
+  `tools/build_characters.py` from CC0 Quaternius base bodies plus our gear and growths; the
+  Lurker and Burrower are on the Quaternius spider rig). Humanoids share one skeleton and play
+  clips from `anims_ual1/2.glb` (Universal Animation Library), advanced from `tick` so slow
+  motion slows them: idle / jog / crouch loops, hit, melee and spit one-shots, death seeked by
+  progress. Armed units carry the weapon on a "gun" bone that is posed procedurally (low ready
+  to shouldered, recoil, chest bladed when aiming) and both arms are bent onto its grips by
+  two-bone IK. Turned soldiers switch to the infected clips. Props and the Drifter
+  (`assets/models`, `tools/gen_models.py`) are static and breathe. Per-kind body size is
+  `ModelKit.SIZE`. `view/character.gdshader` adds grime, camo, rim light, spreading infection
+  veins and hit flash (skinned meshes read rest positions from vertex colours so the noise
+  stays put); growth meshes `grow1..3_*` appear per infection tier.
   Calls: `set_moving`, `set_aim`, `recoil`, `hit_react`, `set_lunge`, `muzzle_world`, `chest_world`.
 - **Facing**: `face_towards` turns units smoothly (`TURN_SPEED`) toward their path and targets;
   after every playback drain `MissionView.face_threats` turns each unit to its nearest hostile

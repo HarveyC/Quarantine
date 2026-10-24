@@ -1,23 +1,18 @@
-"""Generates the soldier and enemy models as .glb files in assets/models/.
-
-Every model is built from code in Blender (no third-party meshes), so the whole
-cast shares one look and the infection growths can be authored per rig.
+"""Generates the Drifter and the Bloom's static props (hive node, egg sac, spore nest,
+Source root, the Source) as .glb files in assets/models/, and holds the mesh
+primitives, material roles and weapon builder that tools/build_characters.py uses
+to dress the CC0 character bodies.
 
 Run with Blender 4.2+ (or the `bpy` pip module, Python 3.11/3.13):
     blender --background --python tools/gen_models.py
     python3 tools/gen_models.py            # with `pip install bpy`
-Optional: pass model names after `--` to rebuild only some, e.g. `-- runner spitter`.
+Optional: pass model names after `--` to rebuild only some, e.g. `-- drifter egg_sac`.
 
 How a model is laid out (the game relies on these names, see view/model_kit.gd):
-  * Empties are joints: hips, leg_l/leg_r, knee_l/knee_r, torso, head, arm_l/arm_r,
-    elbow_l/elbow_r, plus gun, gun/support, gun/muzzle on soldiers and sac,
-    head/muzzle on enemies. The game rotates these procedurally; there is no
-    skinning or baked animation.
+  * Empties are joints: "body" (the game makes it breathe) and optionally "muzzle".
   * Each joint owns one mesh named "<joint>_mesh" with one material per surface.
     Material names are roles the game swaps for its character shader
     (cloth_team, armor_team, mark_team, strap, metal, skin, visor, glow, ...).
-  * Infection growths are separate meshes named "grow<N>_<joint>" (N = 1 Exposed,
-    2 Mutating, 3 Critical) that the game shows as a soldier's infection rises.
 Coordinates: Blender Z up, the character faces -Y and its right hand is at -X,
 which the glTF exporter turns into Godot's Y up / +Z forward.
 """
@@ -59,6 +54,10 @@ MATS = {
     "bone": ((0.50, 0.47, 0.38), 0.5, 0.0, 0.0),
     "rags": ((0.20, 0.17, 0.12), 1.0, 0.0, 0.0),
     "sac": ((0.08, 0.45, 0.38), 0.25, 0.0, 2.2),
+    "chitin": ((0.07, 0.08, 0.075), 0.4, 0.1, 0.0),
+    "denim": ((0.08, 0.10, 0.13), 0.95, 0.0, 0.0),
+    "shirt": ((0.30, 0.12, 0.09), 0.95, 0.0, 0.0),
+    "hair": ((0.05, 0.04, 0.035), 0.8, 0.0, 0.0),
 }
 
 
@@ -302,109 +301,7 @@ def fresh_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
 
-# --- soldier rig -------------------------------------------------------------------
-# Chunky stylised proportions: big helmet, hands and boots, broad shoulders.
-HIP_Z = 0.80
-TORSO_Z = 0.88
-SHOULDER_Z = 1.40
-HEAD_Z = 1.52
-ARM_X = 0.27
-UPPER = 0.27
-FORE = 0.25
-
-
-def soldier_joints(m, heavy=False):
-    ax = ARM_X + (0.04 if heavy else 0.0)
-    m.joint("hips", (0, 0, HIP_Z))
-    m.joint("torso", (0, 0, TORSO_Z), "hips")
-    m.joint("head", (0, 0, HEAD_Z), "torso")
-    for s, side in ((-1, "r"), (1, "l")):
-        m.joint("leg_" + side, (0.115 * s, 0, HIP_Z), "hips")
-        m.joint("knee_" + side, (0.115 * s, 0, 0.43), "leg_" + side)
-        m.joint("arm_" + side, (ax * s, 0, SHOULDER_Z), "torso")
-        m.joint("elbow_" + side, (ax * s, 0, SHOULDER_Z - UPPER), "arm_" + side)
-    return ax
-
-
-def soldier_body(m, kind):
-    heavy = kind == "breacher"
-    ax = soldier_joints(m, heavy)
-    # pelvis and belt
-    m.add("hips", box((0.31, 0.22, 0.17), (0, 0, 0.80), 0.05), "cloth_team")
-    m.add("hips", box((0.35, 0.25, 0.06), (0, 0, 0.875), 0.02), "strap")
-    m.add("hips", box((0.07, 0.03, 0.05), (0, -0.13, 0.875), 0.01), "metal")
-    for s in (-1, 1):
-        m.add("hips", box((0.07, 0.10, 0.09), (0.17 * s, 0.02, 0.85), 0.015), "strap")
-    m.add("hips", box((0.16, 0.07, 0.08), (0, 0.14, 0.85), 0.015), "strap")
-    # legs
-    for s, side in ((-1, "r"), (1, "l")):
-        x = 0.115 * s
-        leg, knee = "leg_" + side, "knee_" + side
-        m.add(leg, cyl(0.078, 0.092, 0.40, (x, 0, 0.62), segs=12), "cloth_team")
-        m.add(leg, box((0.05, 0.12, 0.13), (x + 0.085 * s, -0.01, 0.6), 0.02), "cloth_team")   # cargo pocket
-        m.add(leg, box((0.055, 0.125, 0.03), (x + 0.088 * s, -0.01, 0.67), 0.01), "strap")     # flap
-        m.add(leg, cyl(0.094, 0.094, 0.035, (x, 0, 0.72), segs=12), "strap")                    # thigh strap
-        if heavy:
-            m.add(leg, box((0.17, 0.06, 0.2), (x + 0.02 * s, -0.08, 0.63), 0.025, rot=(0.12, 0, 0)), "armor_team")
-        m.add(knee, cyl(0.06, 0.072, 0.32, (x, 0, 0.29), segs=12), "cloth_team")
-        m.add(knee, box((0.13, 0.08, 0.12), (x, -0.07, 0.43), 0.035, rot=(0.15, 0, 0)), "armor_team")   # knee pad
-        m.add(knee, box((0.14, 0.25, 0.13), (x, -0.035, 0.08), 0.04), "leather")                        # boot
-        m.add(knee, box((0.15, 0.27, 0.04), (x, -0.04, 0.02), 0.012), "strap")                          # sole
-        m.add(knee, cyl(0.075, 0.075, 0.05, (x, 0, 0.16), segs=12), "strap")                            # boot cuff
-    # torso
-    m.add("torso", cyl(0.15, 0.17, 0.26, (0, 0, 1.0), segs=14), "cloth_team")
-    chest = (0.52, 0.34, 0.40) if heavy else (0.46, 0.30, 0.36)
-    m.add("torso", box(chest, (0, -0.01, 1.24), 0.06), "armor_team")
-    m.add("torso", box((chest[0] * 0.72, 0.05, 0.22), (0, -0.01 - chest[1] / 2, 1.27), 0.02), "plate")
-    for i in range(3):
-        m.add("torso", box((0.085, 0.06, 0.1), ((i - 1) * 0.1, -0.19 - (0.02 if heavy else 0), 1.11), 0.015), "strap")
-    m.add("torso", cyl(0.13, 0.12, 0.07, (0, 0, 1.44), segs=14), "strap")                     # collar
-    # shoulder pads sit on the torso so they stay put while the arms aim
-    for s in (-1, 1):
-        if heavy:
-            m.add("torso", pauldron(0.17, (0.29 * s, 0, 1.42), s), "armor_team")
-            m.add("torso", box((0.17, 0.24, 0.05), (0.33 * s, 0, 1.34), 0.02, rot=(0, -0.5 * s, 0)), "plate")
-            m.add("torso", box((0.04, 0.16, 0.05), (0.43 * s, 0, 1.41), 0.01, rot=(0, -0.5 * s, 0)), "mark_team")
-        else:
-            m.add("torso", pauldron(0.135, (0.27 * s, 0, 1.425), s), "armor_team")
-            m.add("torso", box((0.03, 0.12, 0.04), (0.375 * s, 0, 1.40), 0.01, rot=(0, -0.6 * s, 0)), "mark_team")
-    # arms: upper arm, elbow pad, forearm, big glove
-    for s, side in ((-1, "r"), (1, "l")):
-        x = ax * s
-        arm, elbow = "arm_" + side, "elbow_" + side
-        m.add(arm, cyl(0.06, 0.068, UPPER, (x, 0, SHOULDER_Z - UPPER / 2), segs=10), "cloth_team")
-        m.add(elbow, sphere(0.068, (x, 0, SHOULDER_Z - UPPER), (1, 1, 0.9)), "strap")
-        fz = SHOULDER_Z - UPPER - FORE / 2
-        m.add(elbow, cyl(0.056, 0.064, FORE, (x, 0, fz), segs=10), "armor_team" if heavy else "cloth_team")
-        m.add(elbow, cyl(0.068, 0.068, 0.07, (x, 0, fz - 0.05), segs=10), "strap")                 # glove cuff
-        m.add(elbow, box((0.085, 0.1, 0.11), (x, -0.01, SHOULDER_Z - UPPER - FORE - 0.04), 0.03), "strap")
-    # head: neck, face; helmets per class below
-    m.add("head", cyl(0.065, 0.06, 0.1, (0, 0, 1.5), segs=10), "skin")
-    m.add("head", sphere(0.13, (0, -0.005, 1.61), (0.95, 1.0, 1.08)), "skin")
-    m.add("head", box((0.04, 0.05, 0.05), (0, -0.13, 1.6), 0.015), "skin")                       # nose
-
-
-def pauldron(r, at, side):
-    """Domed shoulder plate tilted down over the arm."""
-    bm = sphere(r, (0, 0, 0), (1.0, 1.15, 0.62), segs=16, rings=10)
-    cut(bm, (0, 0, -r * 0.18), (0, 0, 1))
-    return _place(bm, at, rot=(0, -0.35 * side, 0))
-
-
-def helmet(m, z=1.66, r=0.178, brim=True, flat=0.82):
-    bm = sphere(r, (0, 0.005, z), (1.0, 1.06, flat), segs=18, rings=10)
-    cut(bm, (0, 0, z - 0.035), (0, 0, 1))
-    m.add("head", bm, "armor_team")
-    if brim:
-        m.add("head", cyl(r + 0.012, r + 0.004, 0.03, (0, 0.005, z - 0.03), segs=18), "plate")
-
-
-def goggles(m, z=1.625, w=0.25):
-    m.add("head", box((w, 0.06, 0.065), (0, -0.115, z), 0.025), "visor")
-    m.add("head", box((w + 0.03, 0.04, 0.025), (0, -0.1, z + 0.045), 0.008), "strap")
-
-
-# --- weapons (authored around the grip, barrel along -Y) ------------------------------
+# --- weapons (used by tools/build_characters.py) ------------------------------------
 GUN_AT = Vector((-0.13, -0.17, 1.24))
 
 
@@ -465,306 +362,126 @@ def weapon(m, kind):
 
 # --- classes ----------------------------------------------------------------------------
 
-def build_trooper():
-    m = Model("trooper")
-    soldier_body(m, "trooper")
-    helmet(m)
-    goggles(m)
-    m.add("head", box((0.05, 0.05, 0.06), (-0.17, -0.02, 1.66), 0.012), "metal")              # helmet torch / radio
-    m.add("head", box((0.10, 0.05, 0.035), (0, -0.14, 1.71), 0.01), "plate")                  # NVG mount
-    # radio pack with tall antenna: the trooper's silhouette marker
-    m.add("torso", box((0.32, 0.16, 0.34), (0, 0.24, 1.22), 0.04), "strap")
-    m.add("torso", box((0.22, 0.06, 0.24), (0, 0.33, 1.23), 0.02), "metal")
-    m.add("torso", box((0.06, 0.02, 0.03), (-0.05, 0.36, 1.3), 0.005), "lens")
-    m.add("torso", tube((0.11, 0.30, 1.36), (0.15, 0.36, 1.95), 0.008, 0.004, segs=6), "metal")
-    m.add("torso", sphere(0.014, (0.15, 0.36, 1.95)), "metal")
-    m.add("torso", capsule(0.05, 0.22, (0, 0.2, 1.43), rot=(0, math.pi / 2, 0)), "cloth_team")  # bedroll
-    weapon(m, "trooper")
-    growths(m)
-    return m
+
+# --- props and the Drifter: static bodies with one "body" joint (it breathes) ----------
+
+def tendril(m, joint, start, direction, length, r, segs, rnd, role="flesh", curl=0.25):
+    p = Vector(start)
+    d = Vector(direction).normalized()
+    for i in range(segs):
+        d = (d + Vector((rnd.uniform(-curl, curl), rnd.uniform(-curl, curl), rnd.uniform(-curl, curl) * 0.5))).normalized()
+        q = p + d * (length / segs)
+        rr = r * (1.0 - i / segs) + 0.004
+        m.add(joint, tube(tuple(p), tuple(q), rr, rr * 0.85, segs=8), role)
+        m.add(joint, sphere(rr, tuple(q), segs=8, rings=5), role)
+        p = q
+    return p
 
 
-def build_marksman():
-    m = Model("marksman")
-    soldier_body(m, "marksman")
-    # hood over a soft cap, open at the face, with a stiff peak; monocular instead of goggles
-    m.add("head", sphere(0.14, (0, 0.01, 1.67), (1.0, 1.05, 0.6)), "cloth_team")
-    hood = sphere(0.178, (0, 0.025, 1.625), (1.0, 1.08, 1.08), segs=18, rings=10)
-    cut(hood, (0, -0.06, 0), (0, 1, -0.25))      # open at the face
-    cut(hood, (0, 0, 1.47), (0, 0, 1))
-    m.add("head", hood, "cloak_team")
-    m.add("head", box((0.24, 0.1, 0.025), (0, -0.12, 1.74), 0.01, rot=(-0.25, 0, 0)), "cloak_team")
-    m.add("head", tube((-0.055, -0.12, 1.62), (-0.055, -0.2, 1.62), 0.028, segs=12), "metal")
-    m.add("head", tube((-0.055, -0.199, 1.62), (-0.055, -0.205, 1.62), 0.022, segs=12), "lens")
-    m.add("head", box((0.2, 0.05, 0.08), (0, -0.115, 1.52), 0.025), "cloak_team")                 # face scarf
-    # cape over the shoulders and back, ragged ghillie strips
-    cape = cyl(0.33, 0.22, 0.62, (0, 0.05, 1.12), segs=16)
-    cut(cape, (0, -0.02, 0), (0, 1, 0))
-    bend_noise(cape, 0.03, seed=3)
-    m.add("torso", cape, "cloak_team")
-    rnd = random.Random(7)
-    for i in range(14):
-        a = rnd.uniform(-1.4, 1.4)
-        z = rnd.uniform(0.82, 1.4)
-        r = 0.22 + (z - 0.82) / 0.62 * -0.09 + 0.12
-        p = (math.sin(a) * r, 0.05 + math.cos(a) * r * 0.9, z)
-        m.add("torso", box((0.05, 0.012, rnd.uniform(0.12, 0.22)), p, 0.004, rot=(rnd.uniform(-0.3, 0.3), 0, a)),
-              "cloak_team" if i % 3 else "leather")
-    m.add("torso", box((0.1, 0.05, 0.5), (0.0, 0.2, 1.1), 0.02, rot=(0, 0.6, 0)), "leather")        # rifle case strap
-    weapon(m, "marksman")
-    growths(m, hood=True)
-    return m
+def glow_cluster(m, joint, base, n, length, rnd, up=(0, 0, 1), spread=0.5, r=0.16):
+    base = Vector(base)
+    for i in range(n):
+        d = Vector(up) + Vector((rnd.uniform(-spread, spread), rnd.uniform(-spread, spread), rnd.uniform(-spread, spread) * 0.4))
+        m.add(joint, shard(tuple(base + Vector((rnd.uniform(-0.05, 0.05), rnd.uniform(-0.05, 0.05), 0))), tuple(d),
+                           rnd.uniform(length * 0.55, length), length * r), "glow")
 
 
-def build_medic():
-    m = Model("medic")
-    soldier_body(m, "medic")
-    helmet(m, r=0.172, flat=0.86)
-    goggles(m)
-    m.add("head", box((0.07, 0.04, 0.05), (0, -0.165, 1.70), 0.015), "metal")                       # headlamp
-    m.add("head", box((0.05, 0.01, 0.035), (0, -0.188, 1.70), 0.008), "lamp")
-    for s in (-1, 1):                                                                                 # helmet crosses
-        m.add("head", box((0.01, 0.08, 0.025), (0.175 * s, 0.0, 1.67), 0.004), "red")
-        m.add("head", box((0.01, 0.025, 0.08), (0.175 * s, 0.0, 1.67), 0.004), "red")
-    # big white trauma pack: the medic's silhouette marker
-    m.add("torso", box((0.40, 0.22, 0.46), (0, 0.27, 1.22), 0.05), "white")
-    m.add("torso", box((0.34, 0.06, 0.12), (0, 0.39, 1.05), 0.03), "white")
-    m.add("torso", box((0.16, 0.012, 0.05), (0, 0.385, 1.3), 0.005), "red")
-    m.add("torso", box((0.05, 0.012, 0.16), (0, 0.385, 1.3), 0.005), "red")
-    for s in (-1, 1):
-        m.add("torso", tube((0.21 * s, 0.25, 1.0), (0.21 * s, 0.25, 1.44), 0.04, segs=10), "white")  # side canisters
-        m.add("torso", box((0.03, 0.10, 0.10), (0.375 * s, 0, 1.42), 0.01, rot=(0, -0.6 * s, 0)), "white")
-    for s in (-1, 1):                                                                                  # arm bands
-        m.add("arm_" + ("r" if s < 0 else "l"), cyl(0.072, 0.072, 0.06, (ARM_X * s, 0, 1.26), segs=10), "white")
-    m.add("arm_l", box((0.02, 0.05, 0.015), (ARM_X + 0.072, 0, 1.26), 0.003), "red")
-    m.add("arm_l", box((0.02, 0.015, 0.05), (ARM_X + 0.072, 0, 1.26), 0.003), "red")
-    m.add("hips", box((0.12, 0.08, 0.10), (0.1, -0.13, 0.84), 0.02), "white")                          # belt kit
-    weapon(m, "medic")
-    growths(m)
-    return m
+def blob(r, at, scale, seed, wobble=0.04):
+    bm = sphere(r, at, scale, segs=16, rings=10)
+    bend_noise(bm, wobble, seed=seed)
+    return bm
 
 
-def build_breacher():
-    m = Model("breacher")
-    soldier_body(m, "breacher")
-    # full-face helmet with a slit visor and chin guard
-    m.add("head", sphere(0.19, (0, 0.0, 1.645), (1.0, 1.06, 0.95), segs=18, rings=10), "armor_team")
-    m.add("head", box((0.28, 0.08, 0.20), (0, -0.14, 1.59), 0.05), "plate")
-    m.add("head", box((0.22, 0.03, 0.035), (0, -0.183, 1.63), 0.01), "visor")
-    m.add("head", box((0.2, 0.06, 0.07), (0, -0.15, 1.5), 0.025), "strap")
-    m.add("head", box((0.05, 0.25, 0.04), (0, 0.0, 1.83), 0.015), "plate")                           # crest ridge
-    for s in (-1, 1):
-        m.add("head", box((0.03, 0.08, 0.08), (0.18 * s, -0.02, 1.62), 0.01), "metal")
-    # breaching charges on the chest, tank-like back plate
-    for s in (-1, 1):
-        m.add("torso", box((0.08, 0.06, 0.12), (0.13 * s, -0.215, 1.3), 0.012), "amber")
-    m.add("torso", box((0.40, 0.14, 0.38), (0, 0.24, 1.22), 0.04), "plate")
-    m.add("torso", tube((0, 0.31, 1.05), (0, 0.31, 1.42), 0.07, segs=12), "metal")
-    # forearm shield on the left arm, strapped along the outside of the forearm
-    x = (ARM_X + 0.04) + 0.09
-    fz = SHOULDER_Z - UPPER - FORE / 2 - 0.02
-    m.add("elbow_l", box((0.05, 0.42, 0.62), (x, -0.06, fz), 0.03), "plate")
-    m.add("elbow_l", box((0.055, 0.40, 0.05), (x + 0.004, -0.06, fz + 0.2), 0.01), "amber")
-    m.add("elbow_l", box((0.055, 0.12, 0.035), (x + 0.004, -0.12, fz + 0.12), 0.008), "visor")     # view port
-    for dz in (-0.2, 0.0):
-        m.add("elbow_l", box((0.06, 0.02, 0.06), (x - 0.03, 0.08, fz + dz), 0.005), "metal")
-    weapon(m, "breacher")
-    growths(m, heavy=True)
-    return m
-
-
-def growths(m, hood=False, heavy=False):
-    """Infection stages. grow1 Exposed blisters, grow2 Mutating crystal outbreak on the
-    shoulder, grow3 Critical spines through the back, head and arm."""
-    ax = ARM_X + (0.04 if heavy else 0.0)
-    rnd = random.Random(hash(m.name) & 0xffff)
-    fz = SHOULDER_Z - UPPER - FORE * 0.5
-    # 1: blisters on the left forearm and neck
-    m.add("elbow_l", sphere(0.07, (ax, -0.01, fz), (1.05, 1.1, 1.3)), "flesh_raw", "grow1")
-    for i in range(6):
-        a = rnd.uniform(-2.0, 1.5)
-        m.add("elbow_l", sphere(rnd.uniform(0.016, 0.026), (ax + math.cos(a) * 0.072, math.sin(a) * 0.072, fz + rnd.uniform(-0.08, 0.08))), "glow", "grow1")
-    for i in range(3):
-        m.add("head", sphere(0.018, (0.06 + i * 0.012, 0.03 - i * 0.02, 1.49 + i * 0.01)), "glow", "grow1")
-    # 2: crystals burst through the left shoulder pad
-    sx = 0.29 if not heavy else 0.31
-    m.add("torso", sphere(0.10, (sx, 0.02, 1.47), (1.1, 1.0, 0.7)), "flesh_raw", "grow2")
-    for i in range(6):
-        d = Vector((rnd.uniform(0.2, 1.0), rnd.uniform(-0.6, 0.6), rnd.uniform(0.5, 1.3)))
-        m.add("torso", shard((sx + rnd.uniform(-0.03, 0.04), rnd.uniform(-0.04, 0.05), 1.48), d, rnd.uniform(0.1, 0.2), 0.03), "glow", "grow2")
-    for i in range(4):
-        m.add("leg_r", sphere(rnd.uniform(0.018, 0.028), (-0.115 - 0.085, rnd.uniform(-0.06, 0.04), rnd.uniform(0.52, 0.7))), "glow", "grow2")
-    # 3: spines through the back, growth on the head, swollen arm
-    for i in range(5):
-        base = (rnd.uniform(-0.12, 0.12), 0.30, rnd.uniform(1.15, 1.45))
-        d = Vector((base[0] * 2.0, 1.0, rnd.uniform(0.4, 1.2)))
-        m.add("torso", shard(base, d, rnd.uniform(0.18, 0.3), rnd.uniform(0.035, 0.05)), "glow", "grow3")
-        m.add("torso", sphere(0.05, base), "flesh_raw", "grow3")
-    hz = 1.7 if not hood else 1.72
-    m.add("head", sphere(0.07, (0.13, 0.03, hz - 0.04), (1, 1, 0.8)), "flesh_raw", "grow3")
-    for i in range(3):
-        d = Vector((1.0, rnd.uniform(-0.5, 0.5), rnd.uniform(0.6, 1.4)))
-        m.add("head", shard((0.15, rnd.uniform(-0.02, 0.06), hz), d, rnd.uniform(0.1, 0.16), 0.025), "glow", "grow3")
-    m.add("elbow_l", sphere(0.1, (ax + 0.02, 0.0, fz + 0.03), (1.0, 1.1, 1.4)), "flesh_raw", "grow3")
-    for i in range(3):
-        d = Vector((1.0, rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.8)))
-        m.add("elbow_l", shard((ax + 0.08, rnd.uniform(-0.05, 0.05), fz + rnd.uniform(-0.05, 0.1)), d, 0.12, 0.022), "glow", "grow3")
-
-
-# --- infected humanoid rig (Runner, Spitter; Shrieker / Bloater later) ---------------------
-E_HIP = 0.64
-E_KNEE = 0.33
-E_TORSO = 0.68
-
-
-def infected_joints(m, shoulder_x, shoulder_z, upper, head_at):
-    m.joint("hips", (0, 0, E_HIP))
-    m.joint("torso", (0, 0, E_TORSO), "hips")
-    m.joint("head", head_at, "torso")
-    for s, side in ((-1, "r"), (1, "l")):
-        m.joint("leg_" + side, (0.11 * s, 0, E_HIP), "hips")
-        m.joint("knee_" + side, (0.11 * s, -0.02, E_KNEE), "leg_" + side)
-        m.joint("arm_" + side, (shoulder_x * s, -0.06, shoulder_z), "torso")
-        m.joint("elbow_" + side, (shoulder_x * s, -0.06, shoulder_z - upper), "arm_" + side)
-
-
-def infected_legs(m, thick, seed):
-    for s, side in ((-1, "r"), (1, "l")):
-        x = 0.11 * s
-        leg, knee = "leg_" + side, "knee_" + side
-        m.add(leg, skin([(x, 0, E_HIP + 0.02), (x, -0.025, 0.54), (x, -0.02, 0.43), (x, -0.02, E_KNEE)], [(0, 1), (1, 2), (2, 3)],
-                        [0.075 * thick, 0.085 * thick, 0.065 * thick, 0.048 * thick], wobble=0.014, seed=seed + s), "flesh")
-        m.add(knee, skin([(x, -0.02, E_KNEE), (x, 0.03, 0.24), (x, 0.03, 0.13), (x, 0.04, 0.05), (x, -0.06, 0.02)],
-                         [(0, 1), (1, 2), (2, 3), (3, 4)], [0.048 * thick, 0.055 * thick, 0.038 * thick, 0.032, 0.04],
-                         wobble=0.01, seed=seed + 2 * s), "flesh")
-        for k in range(3):   # clawed toes
-            m.add(knee, shard((x + (k - 1) * 0.025, -0.08, 0.02), (0.0, -1.0, -0.25), 0.07, 0.012, 4), "bone")
-        m.add(knee, cyl(0.058 * thick, 0.05 * thick, 0.05, (x, -0.02, E_KNEE + 0.02), segs=9), "rags")
-        m.add(knee, sphere(0.056 * thick, (x, -0.025, E_KNEE), (1, 1.1, 1)), "flesh")              # knee joint
-        m.add(leg, sphere(0.08 * thick, (x, 0, E_HIP + 0.01)), "flesh")                            # hip joint
-
-
-def rags(m, r, z, seed):
-    """Torn remains of quarantine coveralls: a waistband and hanging strips."""
-    m.add("hips", cyl(r * 1.05, r * 1.1, 0.06, (0, 0, z - 0.14), segs=12), "rags")
-    rnd = random.Random(seed + 99)
-    for i in range(9):
-        a = i / 9.0 * math.tau + rnd.uniform(-0.2, 0.2)
-        ln = rnd.uniform(0.1, 0.24)
-        p = (math.sin(a) * r * 1.1, math.cos(a) * r * 1.0, z - 0.14 - ln * 0.5)
-        m.add("hips", box((0.06, 0.012, ln), p, 0.004, rot=(rnd.uniform(-0.25, 0.25), rnd.uniform(-0.2, 0.2), -a)), "rags")
-    for i in range(4):   # shreds stuck to the chest
-        a = rnd.uniform(-1.2, 1.2) + (math.pi if i % 2 else 0)
-        m.add("torso", box((0.08, 0.012, 0.1), (math.sin(a) * r * 1.15, math.cos(a) * r * 0.95, z + rnd.uniform(0.05, 0.18)),
-                           0.004, rot=(rnd.uniform(-0.3, 0.3), 0, -a)), "rags")
-
-
-def build_runner():
-    m = Model("runner")
-    seed = 11
-    infected_joints(m, 0.2, 1.17, 0.31, (0, -0.1, 1.27))
-    infected_legs(m, 1.0, seed)
-    # pelvis in torn coveralls
-    m.add("hips", skin([(0, 0, 0.6), (0, 0, 0.72)], [(0, 1)], [(0.14, 0.1), (0.13, 0.09)], wobble=0.008), "flesh")
-    # gaunt, hunched torso: spine curves forward, ribcage shows through tears
-    spine = [(0, 0.0, 0.70), (0, 0.02, 0.86), (0, 0.0, 1.02), (0, -0.05, 1.15), (0, -0.08, 1.22)]
-    m.add("torso", skin(spine, [(i, i + 1) for i in range(4)], [(0.11, 0.08), (0.12, 0.09), (0.16, 0.11), (0.15, 0.1), (0.07, 0.06)],
-                        wobble=0.012, seed=seed), "flesh")
-    rags(m, 0.13, 0.84, seed)
-    for s in (-1, 1):
-        for i in range(4):   # ribs
-            z = 0.96 + i * 0.05
-            m.add("torso", tube((0.05 * s, -0.115, z), (0.14 * s, -0.02, z + 0.02), 0.011, segs=6), "bone")
-    rnd = random.Random(seed)
-    # crystals erupting along the spine: silhouette marker for Infected
+def build_drifter():
+    m = Model("drifter")
+    rnd = random.Random(31)
+    m.joint("body", (0, 0, 1.1))
+    m.add("body", blob(0.34, (0, 0, 1.15), (1.0, 1.0, 0.9), 3), "sac")
     for i in range(7):
-        z = 0.9 + i * 0.055
-        base = (rnd.uniform(-0.05, 0.05), 0.09 + 0.03 * math.sin(i), z)
-        m.add("torso", shard(base, (rnd.uniform(-0.6, 0.6), 1.0, rnd.uniform(0.3, 1.0)), rnd.uniform(0.1, 0.22), 0.03), "glow")
-    for i in range(6):
-        a = rnd.uniform(-3.0, 3.0)
-        m.add("torso", sphere(rnd.uniform(0.02, 0.035), (math.sin(a) * 0.15, math.cos(a) * 0.1, rnd.uniform(0.85, 1.12))), "glow")
-    # head: elongated skull, split jaw, glowing eyes
-    hx, hy, hz = 0, -0.1, 1.27
-    m.add("head", skin([(0, -0.06, 1.17), (0, -0.1, 1.27), (0, -0.16, 1.31), (0, -0.22, 1.30)], [(0, 1), (1, 2), (2, 3)],
-                       [0.05, 0.09, 0.1, 0.06], wobble=0.008, seed=seed + 5), "flesh")
-    m.add("head", skin([(0, -0.13, 1.24), (0, -0.25, 1.19)], [(0, 1)], [(0.06, 0.03), (0.04, 0.02)]), "flesh_raw")   # lower jaw
-    for s in (-1, 1):
-        m.add("head", sphere(0.018, (0.045 * s, -0.27, 1.31), (1.2, 0.8, 0.8)), "glow")
-        for k in range(3):
-            m.add("head", shard((0.03 * s * (k - 1) * 0.6, -0.23, 1.255), (0, -0.2, -1), 0.03, 0.006, 4), "bone")
-    m.add("head", sphere(0.03, (0, -0.21, 1.25)), "glow")                                                        # throat glow
-    for i in range(3):
-        m.add("head", shard((rnd.uniform(-0.04, 0.04), -0.08, 1.35), (rnd.uniform(-0.5, 0.5), 0.6, 1.0), 0.09, 0.018), "glow")
-    m.joint("muzzle", (0, -0.27, 1.24), "head")
-    # long arms ending in bone blades
-    for s, side in ((-1, "r"), (1, "l")):
-        x = 0.2 * s
-        arm, elbow = "arm_" + side, "elbow_" + side
-        m.add(arm, skin([(x, -0.06, 1.18), (x, -0.05, 1.03), (x, -0.06, 0.86)], [(0, 1), (1, 2)], [0.06, 0.058, 0.042],
-                        wobble=0.012, seed=seed + 7 * s), "flesh")
-        m.add(elbow, skin([(x, -0.06, 0.86), (x, -0.055, 0.76), (x, -0.06, 0.6), (x, -0.07, 0.55)], [(0, 1), (1, 2), (2, 3)],
-                          [0.042, 0.048, 0.032, 0.042], wobble=0.012, seed=seed + 9 * s), "flesh")
-        for k in range(3):
-            m.add(elbow, shard((x + (k - 1) * 0.022, -0.07, 0.54), ((k - 1) * 0.15, -0.35, -1.0), 0.22, 0.014, 4), "bone")
-        m.add(elbow, sphere(0.022, (x + 0.03 * s, -0.04, 0.72)), "glow")
-        m.add(arm, cyl(0.07, 0.065, 0.08, (x, -0.06, 1.06), segs=9), "rags")
-        m.add(elbow, sphere(0.05, (x, -0.06, 0.86)), "flesh")
-        m.add(arm, sphere(0.065, (x, -0.06, 1.18)), "flesh")
+        a = i * 0.8976
+        m.add("body", sphere(0.12, (math.cos(a) * 0.3, math.sin(a) * 0.3, 1.06), (1, 1, 0.7)), "flesh")
+        tendril(m, "body", (math.cos(a) * 0.22, math.sin(a) * 0.22, 0.92), (math.cos(a) * 0.3, math.sin(a) * 0.3, -1), 0.55, 0.025, 6, rnd)
+    m.add("body", blob(0.2, (0, 0, 0.9), (1.2, 1.2, 0.6), 5), "flesh_raw")
+    glow_cluster(m, "body", (0, 0, 1.4), 5, 0.2, rnd, spread=0.6)
+    m.joint("muzzle", (0, 0, 0.8), "body")
     return m
 
 
-def build_spitter():
-    m = Model("spitter")
-    seed = 23
-    infected_joints(m, 0.24, 1.14, 0.26, (0, -0.16, 1.24))
-    infected_legs(m, 1.3, seed)
-    m.add("hips", skin([(0, 0, 0.6), (0, 0, 0.74)], [(0, 1)], [(0.17, 0.13), (0.18, 0.13)], wobble=0.01), "flesh")
-    # swollen torso, translucent glowing sac on the back
-    spine = [(0, 0.0, 0.70), (0, 0.03, 0.85), (0, 0.02, 1.0), (0, -0.06, 1.14), (0, -0.12, 1.2)]
-    m.add("torso", skin(spine, [(i, i + 1) for i in range(4)], [(0.15, 0.13), (0.2, 0.17), (0.22, 0.18), (0.17, 0.14), (0.09, 0.08)],
-                        wobble=0.02, seed=seed), "flesh")
-    m.joint("sac", (0, 0.2, 1.08), "torso")
-    sac = sphere(0.24, (0, 0.2, 1.08), (1.0, 0.85, 1.1), segs=18, rings=12)
-    bend_noise(sac, 0.04, scale=9.0, seed=5)
-    m.add("sac", sac, "sac")
-    rnd = random.Random(seed)
-    for i in range(7):   # veins over the sac
-        a = rnd.uniform(-1.2, 1.2)
-        b = rnd.uniform(-0.8, 0.9)
-        p = Vector((math.sin(a) * 0.24 * math.cos(b), 0.2 + math.cos(a) * 0.2 * math.cos(b), 1.08 + math.sin(b) * 0.26))
-        m.add("sac", tube(p, p + Vector((0, 0, 0.12)).normalized() * 0.1 + (p - Vector((0, 0.2, 1.08))) * 0.08, 0.012, 0.006, segs=5), "flesh_raw")
-    for i in range(10):
-        a = rnd.uniform(-2.6, 2.6)
-        m.add("torso", sphere(rnd.uniform(0.025, 0.05), (math.sin(a) * 0.21, math.cos(a) * 0.16 - 0.02, rnd.uniform(0.78, 1.1))), "glow")
-    rags(m, 0.19, 0.82, seed)
-    # head sunk into the shoulders, huge distended jaw and throat sac
-    m.add("head", skin([(0, -0.08, 1.16), (0, -0.16, 1.24), (0, -0.23, 1.27)], [(0, 1), (1, 2)],
-                       [0.08, 0.1, 0.07], wobble=0.01, seed=seed + 3), "flesh")
-    m.add("head", skin([(0, -0.14, 1.17), (0, -0.29, 1.12)], [(0, 1)], [(0.08, 0.05), (0.07, 0.04)], wobble=0.006), "flesh_raw")
-    m.add("head", sphere(0.075, (0, -0.17, 1.1), (1.1, 1.0, 0.9)), "sac")                                        # throat sac
-    m.add("head", sphere(0.04, (0, -0.25, 1.2)), "glow")
-    for s in (-1, 1):
-        m.add("head", sphere(0.016, (0.05 * s, -0.29, 1.29), (1.2, 0.8, 0.8)), "glow")
-        m.add("head", sphere(0.013, (0.025 * s, -0.27, 1.32), (1.2, 0.8, 0.8)), "glow")
-    m.joint("muzzle", (0, -0.31, 1.2), "head")
-    for s, side in ((-1, "r"), (1, "l")):
-        x = 0.24 * s
-        arm, elbow = "arm_" + side, "elbow_" + side
-        m.add(arm, skin([(x, -0.06, 1.15), (x, -0.06, 0.88)], [(0, 1)], [0.07, 0.055], wobble=0.01, seed=seed + 7 * s), "flesh")
-        m.add(elbow, skin([(x, -0.06, 0.88), (x, -0.07, 0.68), (x, -0.08, 0.64)], [(0, 1), (1, 2)], [0.055, 0.045, 0.055],
-                          wobble=0.01, seed=seed + 9 * s), "flesh")
-        for k in range(3):
-            m.add(elbow, shard((x + (k - 1) * 0.025, -0.08, 0.63), ((k - 1) * 0.2, -0.3, -1.0), 0.11, 0.013, 4), "bone")
-        m.add(arm, sphere(0.03, (x + 0.05 * s, -0.04, 1.04)), "glow")
-        m.add(elbow, sphere(0.06, (x, -0.06, 0.88)), "flesh")
-        m.add(arm, sphere(0.08, (x, -0.06, 1.15)), "flesh")
+def build_hive_node():
+    m = Model("hive_node")
+    rnd = random.Random(7)
+    m.joint("body", (0, 0, 0.4))
+    m.add("body", blob(0.5, (0, 0, 0.25), (1.0, 1.0, 0.7), 1, 0.07), "flesh")
+    for i in range(6):
+        a = i * 1.047 + 0.3
+        m.add("body", blob(0.2, (math.cos(a) * 0.42, math.sin(a) * 0.42, 0.1), (1.2, 1.0, 0.7), 10 + i), "flesh_raw")
+        tendril(m, "body", (math.cos(a) * 0.45, math.sin(a) * 0.45, 0.05), (math.cos(a), math.sin(a), -0.15), 0.6, 0.05, 5, rnd)
+    m.add("body", sphere(0.2, (0, -0.1, 0.55), (1, 1, 1.2)), "sac")
+    glow_cluster(m, "body", (0, 0, 0.5), 9, 0.65, rnd, spread=0.55)
+    return m
+
+
+def build_egg_sac():
+    m = Model("egg_sac")
+    rnd = random.Random(11)
+    m.joint("body", (0, 0, 0.25))
+    m.add("body", blob(0.35, (0, 0, 0.05), (1.2, 1.1, 0.35), 2, 0.05), "flesh")
+    for i, (x, y, r) in enumerate(((0, 0, 0.22), (0.2, 0.12, 0.16), (-0.18, 0.14, 0.15), (0.05, -0.2, 0.14))):
+        m.add("body", sphere(r, (x, y, 0.12 + r), (1, 1, 1.25)), "sac")
+        m.add("body", tube((x, y, 0.08), (x, y, 0.12 + r * 0.6), r * 0.45, r * 0.2, segs=8), "flesh_raw")
+    return m
+
+
+def build_spore_nest():
+    m = Model("spore_nest")
+    rnd = random.Random(13)
+    m.joint("body", (0, 0, 0.3))
+    m.add("body", blob(0.45, (0, 0, 0.1), (1.0, 1.0, 0.45), 4, 0.05), "flesh")
+    for i in range(5):
+        a = i * 1.2566
+        base = (math.cos(a) * 0.25, math.sin(a) * 0.25, 0.18)
+        m.add("body", cyl(0.09, 0.06, 0.3, (base[0], base[1], 0.32), segs=10), "flesh_raw")
+        m.add("body", cyl(0.055, 0.055, 0.02, (base[0], base[1], 0.48), segs=10), "glow")
+    m.add("body", sphere(0.14, (0, 0, 0.32)), "sac")
+    m.joint("muzzle", (0, 0, 0.55), "body")
+    return m
+
+
+def build_source_root():
+    m = Model("source_root")
+    rnd = random.Random(17)
+    m.joint("body", (0, 0, 0.5))
+    m.add("body", blob(0.45, (0, 0, 0.0), (1.3, 1.3, 0.4), 6, 0.06), "flesh")
+    for i in range(5):
+        a = i * 1.2566 + 0.4
+        tendril(m, "body", (math.cos(a) * 0.15, math.sin(a) * 0.15, 0.05), (math.cos(a) * 0.35, math.sin(a) * 0.35, 1), 1.1 + rnd.uniform(0, 0.4), 0.09, 7, rnd, curl=0.3)
+    glow_cluster(m, "body", (0, 0, 0.1), 6, 0.45, rnd, spread=0.8)
+    m.add("body", sphere(0.12, (0, 0, 0.35)), "glow")
+    return m
+
+
+def build_the_source():
+    m = Model("the_source")
+    rnd = random.Random(23)
+    m.joint("body", (0, 0, 1.4))
+    m.add("body", blob(1.0, (0, 0, 0.1), (1.4, 1.4, 0.35), 8, 0.1), "flesh")
+    for i in range(9):
+        a = i * 0.698
+        tendril(m, "body", (math.cos(a) * 0.5, math.sin(a) * 0.5, 0.15), (math.cos(a), math.sin(a), 0.25), 1.5, 0.16, 6, rnd, curl=0.2)
+    m.add("body", blob(0.55, (0, 0, 1.4), (1.0, 1.0, 1.25), 9, 0.06), "sac")
+    m.add("body", sphere(0.3, (0, -0.1, 1.45)), "glow")
+    for i in range(4):
+        a = i * 1.5708 + 0.5
+        tendril(m, "body", (math.cos(a) * 0.4, math.sin(a) * 0.4, 0.3), (math.cos(a) * 0.4, math.sin(a) * 0.4, 1), 1.6, 0.14, 6, rnd, curl=0.15)
+    glow_cluster(m, "body", (0, 0, 1.9), 12, 1.1, rnd, spread=0.7, r=0.12)
+    glow_cluster(m, "body", (0, 0, 0.3), 10, 0.8, rnd, spread=1.0, r=0.12)
+    m.joint("muzzle", (0, -0.4, 1.5), "body")
     return m
 
 
 MODELS = {
-    "trooper": build_trooper, "marksman": build_marksman, "medic": build_medic,
-    "breacher": build_breacher, "runner": build_runner, "spitter": build_spitter,
+    "drifter": build_drifter, "hive_node": build_hive_node, "egg_sac": build_egg_sac,
+    "spore_nest": build_spore_nest, "source_root": build_source_root, "the_source": build_the_source,
 }
 
 

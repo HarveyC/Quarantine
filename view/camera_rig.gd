@@ -19,7 +19,7 @@ var edge_pan := true
 
 var _target_pos := Vector3.ZERO
 var _target_yaw := deg_to_rad(45.0)
-var _target_dist := 17.0
+var _target_dist := 13.0
 var _yaw := _target_yaw
 var _dist := _target_dist
 
