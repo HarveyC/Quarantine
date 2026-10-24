@@ -55,7 +55,13 @@ order during the squad phase; the enemy phase runs when both press READY.
 | WASD, Q/E, wheel, F | Pan, rotate, zoom, focus selected |
 | C | Toggle shot cameras (cinematic over-the-shoulder shots) |
 | M | Mute / unmute sound |
-| F10 | Sound settings (volume per channel) |
+| R | Quick action menu |
+| F10 | Settings (graphics, audio, gameplay, accessibility, key rebinding) |
+
+Every key above can be rebound in Settings > Controls. **Gamepad** (Xbox layout, Steam Deck):
+left stick moves the pointer, d-pad steps it one cell, A clicks / moves / fires, B cancels, X shoots,
+Y opens the quick action menu, LB/RB cycle soldiers or targets, Start is Ready, right stick pans,
+LT/RT rotate, L3/R3 zoom, Back opens Settings. Outside fights the stick drives the pointer on every screen.
 
 Dev flags: `godot --headless -- --autoplay` plays a mission headlessly;
 `xvfb-run godot --rendering-driver opengl3 -- --screenshot=out.png [--screenshot-action=shoot|fire|ready] [--screenshot-frame=N] [--seed=N]` saves a frame.

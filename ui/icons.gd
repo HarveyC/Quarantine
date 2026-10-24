@@ -2,7 +2,8 @@ extends RefCounted
 ## Line icons drawn with CanvasItem primitives on a 24x24 grid, so the HUD needs no
 ## image assets. draw() scales the grid into `rect`.
 
-const CLASS_ICON := {"trooper": "trooper", "marksman": "marksman", "medic": "medic", "breacher": "breacher"}
+const CLASS_ICON := {"trooper": "trooper", "marksman": "marksman", "medic": "medic", "breacher": "breacher",
+	"hazmat": "hazmat", "vector": "vector"}
 const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "breach": "breach"}
 
 
@@ -163,5 +164,238 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 				var d := Vector2(cos(a), sin(a))
 				line.call([[12 + d.x * 6, 12 + d.y * 6], [12 + d.x * 9.5, 12 + d.y * 9.5]])
 				dot.call(12 + d.x * 10, 12 + d.y * 10, 1.1)
+		# Classes added after the first four.
+		"hazmat":
+			line.call([[6, 10], [6, 7], [9, 4], [15, 4], [18, 7], [18, 10]])
+			line.call([[4, 10], [20, 10], [18, 15], [6, 15], [4, 10]])
+			circle.call(9, 18.5, 2.5)
+			circle.call(15, 18.5, 2.5)
+		"vector":
+			for k in 3:
+				var y0 := 3.0 + k * 6.5
+				line.call([[7, y0], [17, y0 + 3.2], [7, y0 + 6.5]])
+			dot.call(17, 6.2, 1.3)
+			dot.call(17, 19.2, 1.3)
+		# Gear slots.
+		"weapon":
+			circle.call(12, 12, 7)
+			circle.call(12, 12, 2.5)
+			line.call([[12, 1.5], [12, 6]])
+			line.call([[12, 18], [12, 22.5]])
+			line.call([[1.5, 12], [6, 12]])
+			line.call([[18, 12], [22.5, 12]])
+		"ammo":
+			for bx in [6.5, 12, 17.5]:
+				line.call([[bx - 2, 21], [bx - 2, 9], [bx, 4], [bx + 2, 9], [bx + 2, 21], [bx - 2, 21]])
+		"armor":
+			line.call([[12, 3], [20, 6], [20, 12], [17.5, 17.5], [12, 21], [6.5, 17.5], [4, 12], [4, 6], [12, 3]])
+			line.call([[12, 7], [12, 17]])
+		"gadget", "consumable":
+			line.call([[12, 2.5], [20.5, 7.25], [20.5, 16.75], [12, 21.5], [3.5, 16.75], [3.5, 7.25], [12, 2.5]])
+			line.call([[13, 6.5], [9.5, 12.5], [14.5, 12.5], [11, 18]])
+		# Menus.
+		"solo":
+			circle.call(12, 7.5, 3.5)
+			arc.call(12, 21, 7.5, PI, TAU)
+		"coop":
+			circle.call(8, 8, 3)
+			arc.call(8, 20, 6, PI, TAU)
+			circle.call(16.5, 8, 3)
+			arc.call(16.5, 20, 6, PI, 1.75 * PI)
+		"online":
+			circle.call(12, 12, 9)
+			line.call([[3, 12], [21, 12]])
+			line.call([[12, 3], [9, 7], [8, 12], [9, 17], [12, 21]])
+			line.call([[12, 3], [15, 7], [16, 12], [15, 17], [12, 21]])
+		"hotseat":
+			line.call([[3, 5], [21, 5], [21, 16], [3, 16], [3, 5]])
+			line.call([[9, 20], [15, 20]])
+			line.call([[12, 16], [12, 20]])
+			circle.call(9, 10.5, 1.8)
+			circle.call(15, 10.5, 1.8)
+		"join":
+			line.call([[13, 4], [20, 4], [20, 20], [13, 20]])
+			line.call([[3, 12], [15, 12]])
+			line.call([[11, 8], [15, 12], [11, 16]])
+		"leave":
+			line.call([[11, 4], [4, 4], [4, 20], [11, 20]])
+			line.call([[9, 12], [21, 12]])
+			line.call([[17, 8], [21, 12], [17, 16]])
+		"continue":
+			line.call([[6, 4], [18, 12], [6, 20], [6, 4]])
+		"play":
+			line.call([[7, 4], [19, 12], [7, 20], [7, 4]])
+		"pause":
+			line.call([[8, 5], [8, 19]])
+			line.call([[16, 5], [16, 19]])
+		"quick":
+			line.call([[13, 2], [5, 13], [11, 13], [10, 22], [19, 10], [13, 10], [13, 2]])
+		"settings":
+			circle.call(12, 12, 3.5)
+			for k in 8:
+				var a := k * TAU / 8.0 + TAU / 16.0
+				var d := Vector2(cos(a), sin(a))
+				line.call([[12 + d.x * 6.5, 12 + d.y * 6.5], [12 + d.x * 9.5, 12 + d.y * 9.5]])
+			circle.call(12, 12, 6.5)
+		"sound", "master":
+			line.call([[3, 9], [7, 9], [12, 4], [12, 20], [7, 15], [3, 15], [3, 9]])
+			arc.call(12, 12, 5, -0.9, 0.9)
+			arc.call(12, 12, 9, -0.9, 0.9)
+		"mute":
+			line.call([[3, 9], [7, 9], [12, 4], [12, 20], [7, 15], [3, 15], [3, 9]])
+			line.call([[15, 9], [21, 15]])
+			line.call([[21, 9], [15, 15]])
+		"music":
+			line.call([[9, 18], [9, 4], [20, 2], [20, 16]])
+			circle.call(6.5, 18, 2.5)
+			circle.call(17.5, 16, 2.5)
+			line.call([[9, 8], [20, 6]])
+		"ambience":
+			line.call([[3, 9], [6, 7], [9, 9], [12, 11], [15, 9], [18, 7], [21, 9]])
+			line.call([[3, 15], [6, 13], [9, 15], [12, 17], [15, 15], [18, 13], [21, 15]])
+		"effects":
+			line.call([[12, 3], [14, 10], [21, 12], [14, 14], [12, 21], [10, 14], [3, 12], [10, 10], [12, 3]])
+		"interface":
+			line.call([[6, 3], [6, 18], [10, 14.5], [13, 21], [15.5, 20], [12.5, 13.5], [18, 13.5], [6, 3]])
+		"keyboard":
+			line.call([[2, 6], [22, 6], [22, 18], [2, 18], [2, 6]])
+			for x in [6, 10, 14, 18]:
+				dot.call(x, 10, 1.1)
+			line.call([[7, 14], [17, 14]])
+		"close", "cross":
+			line.call([[5, 5], [19, 19]])
+			line.call([[19, 5], [5, 19]])
+		"copy":
+			line.call([[8, 8], [20, 8], [20, 21], [8, 21], [8, 8]])
+			line.call([[4, 16], [4, 3], [16, 3]])
+		"plus":
+			line.call([[12, 4], [12, 20]])
+			line.call([[4, 12], [20, 12]])
+		"minus":
+			line.call([[4, 12], [20, 12]])
+		"arrow_right":
+			line.call([[4, 12], [20, 12]])
+			line.call([[14, 6], [20, 12], [14, 18]])
+		"arrow_left":
+			line.call([[20, 12], [4, 12]])
+			line.call([[10, 6], [4, 12], [10, 18]])
+		"reveal":
+			line.call([[2, 12], [5, 8.5], [8.5, 6], [12, 5], [15.5, 6], [19, 8.5], [22, 12], [19, 15.5], [15.5, 18], [12, 19], [8.5, 18], [5, 15.5], [2, 12]])
+			line.call([[10.2, 10.5], [10.8, 9.2], [12, 8.8], [13.2, 9.2], [13.8, 10.5], [12, 12.5], [12, 13.5]])
+			dot.call(12, 15.5, 0.9)
+		"loadout":
+			line.call([[8, 3], [16, 3], [16, 6], [20, 8], [20, 21], [4, 21], [4, 8], [8, 6], [8, 3]])
+			line.call([[4, 12], [20, 12]])
+			line.call([[10, 12], [10, 15], [14, 15], [14, 12]])
+		"menu":
+			line.call([[4, 6], [20, 6]])
+			line.call([[4, 12], [20, 12]])
+			line.call([[4, 18], [20, 18]])
+		# Stats and effects.
+		"health", "heart":
+			line.call([[12, 20], [4, 12], [3, 8.5], [4.5, 5.5], [8, 4.5], [12, 7.5], [16, 4.5], [19.5, 5.5], [21, 8.5], [20, 12], [12, 20]])
+		"infection":
+			circle.call(12, 12, 3)
+			for k in 6:
+				var a := k * TAU / 6.0
+				var d := Vector2(cos(a), sin(a))
+				circle.call(12 + d.x * 7.5, 12 + d.y * 7.5, 1.7)
+		"kill":
+			circle.call(12, 12, 8)
+			line.call([[12, 2], [12, 8]])
+			line.call([[12, 16], [12, 22]])
+			line.call([[2, 12], [8, 12]])
+			line.call([[16, 12], [22, 12]])
+			dot.call(12, 12, 1.4)
+		"wound":
+			line.call([[5, 19], [10, 12], [8, 10], [14, 4]])
+			line.call([[11, 20], [15, 14], [13, 12.5], [19, 6]])
+		"skull":
+			line.call([[5, 11], [5, 8], [8, 4], [16, 4], [19, 8], [19, 11], [16, 15], [16, 20], [8, 20], [8, 15], [5, 11]])
+			dot.call(9.5, 10.5, 1.8)
+			dot.call(14.5, 10.5, 1.8)
+		"turned":
+			circle.call(12, 9, 5)
+			line.call([[12, 14], [12, 21]])
+			line.call([[7, 17], [12, 21], [17, 17]])
+			dot.call(10, 8.5, 1.1)
+			dot.call(14, 8.5, 1.1)
+		"rank":
+			line.call([[5, 10], [12, 5], [19, 10]])
+			line.call([[5, 15], [12, 10], [19, 15]])
+			line.call([[5, 20], [12, 15], [19, 20]])
+		"perk", "star":
+			line.call([[12, 3], [14.6, 9], [21, 9.4], [16, 13.6], [17.6, 20], [12, 16.5], [6.4, 20], [8, 13.6], [3, 9.4], [9.4, 9], [12, 3]])
+		"route":
+			circle.call(5, 18, 2.2)
+			circle.call(19, 6, 2.2)
+			line.call([[7, 17], [11, 15], [9, 11], [13, 9], [17, 7]])
+		"turn":
+			arc.call(12, 12, 8, -PI * 0.5, PI * 1.25)
+			line.call([[3.5, 7], [6.3, 6.4], [6, 3.5]])
+		"vote":
+			line.call([[4, 10], [20, 10], [20, 21], [4, 21], [4, 10]])
+			line.call([[8, 14], [16, 14]])
+			line.call([[9, 10], [9, 3], [15, 3], [15, 10]])
+		"cart", "buy":
+			line.call([[2, 4], [5, 4], [8, 16], [19, 16], [21, 8], [6.2, 8]])
+			circle.call(9, 19.5, 1.6)
+			circle.call(18, 19.5, 1.6)
+		"reroll":
+			arc.call(12, 12, 7.5, PI * 0.1, PI * 1.6)
+			line.call([[15, 3.5], [18.5, 5.5], [16.5, 9]])
+			arc.call(12, 12, 7.5, PI * 1.1, PI * 1.25)
+		"sell":
+			line.call([[3, 12], [12, 3], [21, 3], [21, 12], [12, 21], [3, 12]])
+			line.call([[14, 14], [10, 10]])
+			line.call([[10, 14], [14, 14], [14, 10]])
+		"recruit":
+			circle.call(10, 8, 3.5)
+			arc.call(10, 21, 7, PI, TAU)
+			line.call([[19, 6], [19, 14]])
+			line.call([[15, 10], [23, 10]])
+		"patch":
+			line.call([[7, 4], [20, 17], [17, 20], [4, 7], [7, 4]])
+			dot.call(10.5, 12, 0.9)
+			dot.call(12, 10.5, 0.9)
+			dot.call(13.5, 12, 0.9)
+			dot.call(12, 13.5, 0.9)
+		"purge":
+			line.call([[12, 3], [17, 11], [18, 15], [16, 19], [12, 21], [8, 19], [6, 15], [7, 11], [12, 3]])
+			line.call([[8, 15], [16, 15]])
+		"train":
+			line.call([[4, 12], [20, 12]])
+			line.call([[4, 8], [4, 16]])
+			line.call([[7, 6], [7, 18]])
+			line.call([[17, 6], [17, 18]])
+			line.call([[20, 8], [20, 16]])
+		"cure":
+			line.call([[9, 3], [15, 3]])
+			line.call([[10, 3], [10, 9], [5, 19], [7, 21], [17, 21], [19, 19], [14, 9], [14, 3]])
+			line.call([[9, 15.5], [11.5, 18], [15.5, 13]])
+		"lock":
+			line.call([[5, 11], [19, 11], [19, 21], [5, 21], [5, 11]])
+			arc.call(12, 11, 5, PI, TAU)
+			dot.call(12, 16, 1.3)
+		"doctrine":
+			line.call([[4, 4], [20, 4], [20, 16], [12, 21], [4, 16], [4, 4]])
+			line.call([[8, 9], [12, 13], [16, 9]])
+		"squad":
+			circle.call(12, 6.5, 2.6)
+			circle.call(5.5, 10, 2.2)
+			circle.call(18.5, 10, 2.2)
+			arc.call(12, 20, 5.5, PI, TAU)
+			arc.call(5.5, 20.5, 4, PI, 1.7 * PI)
+			arc.call(18.5, 20.5, 4, 1.3 * PI, TAU)
+		"waiting":
+			dot.call(6, 12, 1.6)
+			dot.call(12, 12, 1.6)
+			dot.call(18, 12, 1.6)
+		"trophy", "victory":
+			line.call([[7, 3], [17, 3], [17, 9], [15, 13], [12, 14], [9, 13], [7, 9], [7, 3]])
+			line.call([[7, 5], [3, 5], [4, 9], [7, 10]])
+			line.call([[17, 5], [21, 5], [20, 9], [17, 10]])
+			line.call([[12, 14], [12, 18]])
+			line.call([[7, 21], [17, 21], [16, 18], [8, 18], [7, 21]])
 		_:
 			circle.call(12, 12, 8)

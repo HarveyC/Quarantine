@@ -10,13 +10,18 @@ extends RefCounted
 
 const SECTION := "onboarding"
 
-## Tests point this at a scratch file so they never touch the player's profile.
-static var path := Profile.PATH
+## Tests point this at a scratch file so they never touch the player's profile; empty means
+## the profile's own file (Profile.path).
+static var path := ""
+
+
+static func _file() -> String:
+	return path if path != "" else Profile.path
 
 
 static func _load() -> ConfigFile:
 	var cf := ConfigFile.new()
-	cf.load(path)
+	cf.load(_file())
 	return cf
 
 
@@ -29,7 +34,7 @@ static func set_flag(key: String, on := true) -> void:
 	if bool(cf.get_value(SECTION, key, false)) == on:
 		return
 	cf.set_value(SECTION, key, on)
-	cf.save(path)
+	cf.save(_file())
 
 
 static func training_done() -> bool:
@@ -69,4 +74,4 @@ static func reset_hints() -> void:
 	for k in cf.get_section_keys(SECTION):
 		if k.begins_with("hint_") or k == "hints_off":
 			cf.erase_section_key(SECTION, k)
-	cf.save(path)
+	cf.save(_file())

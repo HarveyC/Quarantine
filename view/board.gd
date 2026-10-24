@@ -163,18 +163,34 @@ func _build_tiles() -> void:
 	var deck_mat := grimy(Color("8a8f86"), 0.6, 0.35, 0.4)   # steel decking: roofs read lighter than the ground
 	var lip_mat := Palette.emissive(Palette.AMBER, 0.6)
 	var ladder_mat := Palette.mat(Palette.AMBER.darkened(0.3), 0.6, 0.5)
+	var deck2_mat := grimy(Color("a3a89c"), 0.55, 0.35, 0.45)  # upper roofs read lighter still
+	var plank_mat := grimy(Color("7a5a36"), 0.95, 0.5)        # scaffold planks: wood says "breaks"
+	var pole_mat := Palette.mat(Color("8c8a80"), 0.5, 0.7)
+	var tarp_mat := grimy(Color("4f5a44"), 1.0, 0.4)
+	var stair_mat := grimy(Color("77786f"), 0.85, 0.4, 0.2)
 	for y in grid.height:
 		for x in grid.width:
 			var c := Vector2i(x, y)
 			var h := _hash(c)
 			var shade := (h % 3) + (1 if (x + y) % 2 == 0 else 0)
-			var tile := Palette.box(Vector3(0.97, 0.2, 0.97), deck_mat if grid.level(c) > 0 else floor_mats[shade % floor_mats.size()])
+			var top_mat: Material = floor_mats[shade % floor_mats.size()]
+			if grid.is_fragile(c):
+				top_mat = plank_mat
+			elif grid.level(c) > 1:
+				top_mat = deck2_mat
+			elif grid.level(c) > 0:
+				top_mat = deck_mat
+			var tile := Palette.box(Vector3(0.97, 0.2, 0.97), top_mat)
 			tile.position = cell_to_world(c, -0.1)
 			_tiles.add_child(tile)
-			if grid.level(c) > 0:
+			if grid.is_fragile(c):
+				_add_scaffold(c, h, pole_mat, tarp_mat, lip_mat)
+			elif grid.level(c) > 0:
 				_add_platform(c, h, roof_mat, lip_mat)
 			if grid.is_ladder(c):
 				_add_ladder(c, ladder_mat)
+			if grid.is_stairs(c):
+				_add_stairs(c, stair_mat, lip_mat)
 			match grid.tile(c):
 				Types.Tile.WALL: _add_wall(c, h, wall_mat, trim_mat, rib_mat, hazard)
 				Types.Tile.LOW:
@@ -185,7 +201,7 @@ func _build_tiles() -> void:
 						_: _add_barrels(c, h, barrel_mats)
 				_:
 					if h % 23 == 0:
-						_add_goo(c, h, goo_mat, goo_lights < 8)
+						_add_goo(c, h, goo_mat, goo_lights < GameSettings.puddle_lights())
 						goo_lights += 1
 					elif h % 5 == 0:
 						_add_rubble(c, h, rubble)
@@ -307,11 +323,58 @@ func _add_platform(c: Vector2i, h: int, body: Material, trim: Material) -> void:
 			_tiles.add_child(rib)
 
 
+## A fragile scaffold: poles, cross braces and a tarp skirt instead of a solid block, under a
+## plank deck, so it reads as something explosives can bring down.
+func _add_scaffold(c: Vector2i, h: int, pole: Material, tarp: Material, trim: Material) -> void:
+	var top := lift(c)
+	for k in [Vector2(-0.44, -0.44), Vector2(0.44, -0.44), Vector2(-0.44, 0.44), Vector2(0.44, 0.44)]:
+		var p := Palette.box(Vector3(0.07, top + 0.2, 0.07), pole)
+		p.position = Vector3(c.x + k.x, top * 0.5 - 0.2, c.y + k.y)
+		_tiles.add_child(p)
+	var skirt := Palette.box(Vector3(0.9, top * 0.75, 0.9), tarp)
+	skirt.position = Vector3(c.x, top * 0.45 - 0.2, c.y)
+	_tiles.add_child(skirt)
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n: Vector2i = c + d
+		if grid.in_bounds(n) and grid.level(n) >= grid.level(c):
+			continue
+		var along := Vector3(absf(d.y), 0, absf(d.x))
+		var brace := Palette.box(Vector3(0.04, 0.04, 0.04) + along * 1.2, pole)
+		brace.position = Vector3(c.x, top * 0.5 - 0.1, c.y) + Vector3(d.x, 0, d.y) * 0.47
+		brace.rotate(Vector3(d.x, 0, d.y).abs(), deg_to_rad(35.0 if (h + d.x + d.y) % 2 == 0 else -35.0))
+		_tiles.add_child(brace)
+		var lip := Palette.box(Vector3(0.02, 0.05, 0.02) + along * 1.0, trim)
+		lip.position = Vector3(c.x, top + 0.02, c.y) + Vector3(d.x, 0, d.y) * 0.49
+		_tiles.add_child(lip)
+
+
+## Stairs on a cell, rising towards the higher neighbour(s) they lead to.
+func _add_stairs(c: Vector2i, m: Material, trim: Material) -> void:
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n: Vector2i = c + d
+		if not grid.in_bounds(n) or grid.level(n) != grid.level(c) + 1 or not grid.is_walkable(n):
+			continue
+		var base := lift(c)
+		var out := Vector3(d.x, 0, d.y)
+		var along := Vector3(absf(d.y), 0, absf(d.x))
+		const STEPS := 4
+		for i in STEPS:
+			var hgt := RAISE * float(i + 1) / STEPS
+			var depth := 1.0 / STEPS
+			var step := Palette.box(along * 0.8 + out.abs() * depth + Vector3(0, hgt, 0), m)
+			step.position = Vector3(c.x, base + hgt * 0.5, c.y) + out * (-0.5 + depth * (i + 0.5))
+			_tiles.add_child(step)
+			var nose := Palette.box(along * 0.8 + Vector3(0.02, 0.02, 0.02), trim)
+			nose.position = Vector3(c.x, base + hgt + 0.01, c.y) + out * (-0.5 + depth * i)
+			_tiles.add_child(nose)
+		return
+
+
 ## A ladder on a ground cell, against the raised neighbour(s) it climbs to.
 func _add_ladder(c: Vector2i, m: Material) -> void:
 	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var n: Vector2i = c + d
-		if not grid.in_bounds(n) or grid.level(n) == grid.level(c):
+		if not grid.in_bounds(n) or grid.level(n) != grid.level(c) + 1:
 			continue
 		var lo := minf(lift(c), lift(n))
 		var hi := maxf(lift(c), lift(n))

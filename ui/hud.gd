@@ -165,10 +165,25 @@ func _build_bottom() -> void:
 	target_panel.build()
 	target_panel.visible = false
 	right.add_child(target_panel)
-	var help := Styles.label("LMB select/move · 1-9 actions · Tab next · RMB/Esc cancel\nWASD pan · Q/E rotate · wheel zoom · F focus · C shot cams · M mute", 11, Styles.MUTED)
-	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	right.add_child(help)
+	right.add_child(_key_legend())
 	_corner(Control.PRESET_BOTTOM_RIGHT, right, Control.GROW_DIRECTION_BEGIN, Control.GROW_DIRECTION_BEGIN)
+
+
+## Four keys worth knowing, as keycaps; Esc opens the menu with the full list.
+func _key_legend() -> Control:
+	var row := Styles.hbox(6)
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.size_flags_horizontal = Control.SIZE_SHRINK_END
+	for k in [["1-9", "Actions"], ["Tab", "Next"], ["Space", "Ready"], ["Esc", "Menu"]]:
+		row.add_child(W.keycap(k[0], 11))
+		var l := Styles.caps(k[1], 11, Styles.MUTED)
+		row.add_child(l)
+		if k[0] != "Esc":
+			var gap := Control.new()
+			gap.custom_minimum_size.x = 6
+			gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(gap)
+	return row
 
 
 func _build_overlays() -> void:

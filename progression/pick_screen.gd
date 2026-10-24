@@ -5,11 +5,8 @@ extends PanelContainer
 ## teal = Infection, a player-colour stripe marks whose soldier it is.
 
 const Styles := preload("res://ui/styles.gd")
-const Palette := preload("res://view/palette.gd")
-
-const PANEL := Color(0.05, 0.06, 0.055, 0.82)
-const CARD := Color(0.09, 0.1, 0.09, 0.9)
-const CARD_HOVER := Color(0.16, 0.14, 0.09, 0.95)
+const W := preload("res://ui/widgets.gd")
+const Feel := preload("res://ui/ui_feel.gd")
 
 var run: RunState
 var session
@@ -21,14 +18,15 @@ var _partner := {}
 func setup(p_run: RunState, p_session) -> void:
 	run = p_run
 	session = p_session
-	add_theme_stylebox_override("panel", Styles.panel_box(PANEL, Color(0.2, 0.22, 0.2, 0.6), 2))
+	theme = Styles.make_theme()
+	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(scroll)
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_list.add_theme_constant_override("separation", 10)
+	_list.add_theme_constant_override("separation", 18)
 	scroll.add_child(_list)
 	if run.has_signal("event"):
 		run.event.connect(func(_ev): rebuild())
@@ -48,79 +46,134 @@ func rebuild() -> void:
 		c.queue_free()
 	var any := false
 	for p in _players():
-		var rows: Array = []
 		for r in run.soldiers_of(p):
 			if Progression.pending_picks(r) > 0 or not r.prog.get("offers", []).is_empty():
-				rows.append(r)
-		if rows.is_empty():
-			continue
-		any = true
-		_list.add_child(Styles.label("Player %d" % (p + 1), 16, Palette.player_ui(p)))
-		for r in rows:
-			_list.add_child(_soldier_row(p, r))
+				any = true
+				_list.add_child(_soldier_row(p, r))
 	if not any:
-		_list.add_child(Styles.label("No rank-ups waiting.", 15, Styles.MUTED))
+		_list.add_child(Styles.caps("No rank-ups waiting", 18, Styles.MUTED))
+	if is_inside_tree():
+		Feel.deal(_list.get_children(), 0.06)
 
 
+## A soldier on the left, their three cards to the right (and Skip for a mutation offer).
 func _soldier_row(p: int, r: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var stripe := ColorRect.new()
-	stripe.color = Palette.player_ui(p)
-	stripe.custom_minimum_size = Vector2(4, 0)
-	row.add_child(stripe)
-	var info := VBoxContainer.new()
-	info.custom_minimum_size = Vector2(170, 0)
-	info.add_child(Styles.label("%s %s" % [UnitData.SOLDIERS.get(r.kind, {}).get("name", r.kind), r.get("name", "")], 16))
-	info.add_child(Styles.label("Rank %d" % int(r.prog.get("rank", 1)), 14, Styles.MUTED))
+	var pcol := Styles.player_color(p)
+	var row := Styles.hbox(14)
+	var who := W.Frame.new(Vector4(18, 14, 16, 14))
+	who.stripe = pcol
+	who.set_look(Color(0.05, 0.065, 0.055, 0.92), Styles.BORDER_SOFT, Styles.AMBER, false)
+	who.custom_minimum_size = Vector2(250, 0)
+	var info := Styles.vbox(8)
+	who.add_child(info)
+	var head := Styles.hbox(10)
+	head.add_child(W.glyph(r.kind, pcol, 44.0))
+	var names := Styles.vbox(0)
+	names.add_child(Styles.caps(str(r.get("name", "")), 22))
+	names.add_child(Styles.label(UnitData.SOLDIERS.get(r.kind, {}).get("name", r.kind), 13, Styles.DIM))
+	head.add_child(names)
+	info.add_child(head)
 	var inf := int(r.get("infection", 0))
-	info.add_child(Styles.label("Infection %d (%s)" % [inf, Infection.tier_name(Infection.tier(inf))], 13, Palette.TEAL))
-	row.add_child(info)
-	if Progression.pending_picks(r) > 0:
-		var picks := Progression.pending_picks(r)
-		info.add_child(Styles.label("Pick a perk%s" % (" (%d waiting)" % picks if picks > 1 else ""), 13, Palette.AMBER))
+	var ir := Styles.hbox(8)
+	ir.add_child(W.Icon.new("infection", Styles.TEAL, 15, 1.7))
+	var bar := W.InfBar.new(6.0)
+	bar.set_value(inf)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ir.add_child(bar)
+	ir.add_child(Styles.mono("%d %s" % [inf, Infection.tier_name(Infection.tier(inf)).to_upper()], 10, Styles.TEAL))
+	info.add_child(ir)
+	var what := Styles.hbox(8)
+	var picks := Progression.pending_picks(r)
+	if picks > 0:
+		what.add_child(W.Icon.new("rank", Styles.AMBER, 18, 1.8))
+		what.add_child(Styles.caps("Rank %d · pick a perk" % int(r.prog.get("rank", 1)), 14, Styles.AMBER))
+		if picks > 1:
+			what.add_child(W.chip("%d waiting" % picks, Styles.AMBER, false, 11))
+	else:
+		what.add_child(W.Icon.new("mutation", Styles.TEAL, 18, 1.8))
+		what.add_child(Styles.caps("Graft a mutation", 14, Styles.TEAL))
+	info.add_child(what)
+	row.add_child(who)
+	if picks > 0:
 		for id in Progression.perk_offer(run, r):
 			var perk: Dictionary = PerkData.PERKS[id]
-			var tag: String = perk.tag if perk.tag != "" else "No tag"
-			var title := "%s%s" % [perk.name, "  (rare)" if perk.rare else ""]
-			row.add_child(_card(title, tag, perk.desc, Styles.MUTED,
+			var chips: Array = []
+			if perk.tag != "":
+				chips.append(GearUiTag.new(perk.tag))
+			if perk.rare:
+				chips.append(W.chip("Rare", Styles.AMBER, true, 11))
+			row.add_child(_card("perk", perk.name, Styles.AMBER, chips, perk.desc,
 				func(): _submit({"type": "prog_perk_pick", "player": p, "sid": r.id, "perk": id})))
 	else:
 		var offer: Dictionary = r.prog.offers[0]
-		info.add_child(Styles.label("Graft a mutation", 13, Palette.AMBER))
 		for id in offer.cards:
 			var c := Progression.mutation_card_for(id)
-			var sub := "%s  ·  %s tier  ·  +%d Infection" % [c.tag, Infection.tier_name(c.tier), c.graft]
-			var card := _card(c.name, sub, c.desc, Palette.TEAL, func(): _graft(p, r, id))
+			var chips: Array = [GearUiTag.new(c.tag), _cost(c.graft), W.chip("%s tier" % Infection.tier_name(c.tier), Styles.TEAL_DIM, false, 11)]
+			var card := _card("mutation", c.name, Styles.TEAL, chips, c.desc, func(): _graft(p, r, id))
 			if c.bonded:
 				card.get_child(0).add_child(_partner_picker(r))
 			row.add_child(card)
-		var skip := Button.new()
-		skip.text = "Skip"
+		var skip := Styles.icon_button("Skip", "close", "ghost", 15, 44)
+		skip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		skip.pressed.connect(func(): _submit({"type": "prog_skip_offer", "player": p, "sid": r.id}))
 		row.add_child(skip)
 	return row
 
 
-func _card(title: String, sub: String, desc: String, sub_color: Color, on_pick: Callable) -> Control:
+## "+15" next to the Infection icon: what grafting costs.
+func _cost(n: int) -> Control:
+	var h := Styles.hbox(4)
+	h.add_child(W.Icon.new("infection", Styles.TEAL, 14, 1.6))
+	h.add_child(Styles.mono("+%d" % n, 12, Styles.TEAL))
+	return h
+
+
+## A pick card: kind icon and name, chips (tag, cost, tier), then the effect in a line or two.
+func _card(icon: String, title: String, col: Color, chips: Array, desc: String, on_pick: Callable) -> Control:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(210, 120)
+	b.custom_minimum_size = Vector2(250, 150)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.add_theme_stylebox_override("normal", Styles.panel_box(CARD, Palette.AMBER.darkened(0.35), 2))
-	b.add_theme_stylebox_override("hover", Styles.panel_box(CARD_HOVER, Palette.AMBER, 2))
-	b.add_theme_stylebox_override("pressed", Styles.panel_box(CARD_HOVER, Palette.AMBER.lightened(0.2), 2))
-	var box := VBoxContainer.new()
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.focus_mode = Control.FOCUS_NONE
+	Styles.style_button(b, "secondary")
+	var box := Styles.vbox(8)
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 14)
 	b.add_child(box)
-	box.add_child(Styles.label(title, 15, Palette.AMBER))
-	box.add_child(Styles.label(sub, 12, sub_color))
-	var d := Styles.label(desc, 12, Styles.TEXT)
+	var head := Styles.hbox(10)
+	head.add_child(W.Icon.new(icon, col, 24, 1.8))
+	head.add_child(Styles.caps(title, 20))
+	box.add_child(head)
+	var cr := Styles.hbox(6)
+	for c in chips:
+		if c is Control:
+			cr.add_child(c)
+	box.add_child(cr)
+	var d := Styles.label(desc, 14, Styles.DIM)
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	d.custom_minimum_size = Vector2(190, 0)
 	box.add_child(d)
-	b.pressed.connect(on_pick)
+	b.pressed.connect(func():
+		Feel.sound("pick")
+		on_pick.call())
 	return b
+
+
+## A tag chip in the tag's own colour (Mark, Guard...).
+class GearUiTag extends PanelContainer:
+	const Styles := preload("res://ui/styles.gd")
+
+	func _init(tag: String) -> void:
+		var c := GearData.tag_color(tag) if tag != "" else Styles.DIM
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(c, 0.1)
+		sb.border_color = c
+		sb.set_border_width_all(1)
+		sb.content_margin_left = 6
+		sb.content_margin_right = 6
+		sb.content_margin_top = 1
+		sb.content_margin_bottom = 1
+		add_theme_stylebox_override("panel", sb)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(Styles.caps(tag if tag != "" else "No tag", 12, c))
 
 
 ## Bonded mutations pick a partner soldier of another player.
