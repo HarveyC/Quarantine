@@ -42,7 +42,8 @@ static func _roll_goods(run, ns: Dictionary) -> void:
 	var r2 := "rare" if run.act >= 2 and run.rng.randf() < 0.4 else "uncommon"
 	var g2 := GearDraw.draw_item(run.rng, {}, r2, [g1])
 	goods.append({"type": "gear", "id": g2, "price": GearData.price(g2), "sold": false})
-	var ids: Array = GearData.CONSUMABLES.keys()
+	# Consumables whose effect isn't built yet (GearFx.PENDING) stay off the shelf.
+	var ids: Array = GearData.CONSUMABLES.keys().filter(func(id): return not RunHooks.call_static("GearFx", "is_pending", [id], false))
 	ids.sort()
 	for i in CONSUMABLE_SLOTS:
 		var id: String = ids.pop_at(run.rng.randi_range(0, ids.size() - 1))
