@@ -196,6 +196,37 @@ func _send(action: Dictionary) -> void:
 
 # --- lobby --------------------------------------------------------------------
 
+## The class each lobby player picked for their soldier (co-op is one soldier per player).
+func class_picks() -> Dictionary:
+	var out := {}
+	for v in lobby.values():
+		if v.get("class", "") != "":
+			out[v.player] = v["class"]
+	return out
+
+
+## Picks the class of this player's soldier for the next match or run.
+func pick_class(kind: String) -> void:
+	if is_host:
+		handle_pick(1, kind)
+	elif _live():
+		_pick_class.rpc_id(1, kind)
+
+
+@rpc("any_peer", "reliable")
+func _pick_class(kind: String) -> void:
+	if is_host:
+		handle_pick(multiplayer.get_remote_sender_id(), kind)
+
+
+## Host: a lobby peer picked a class. Ignored mid-match and for classes the host hasn't unlocked.
+func handle_pick(id: int, kind: String) -> void:
+	if in_match or not lobby.has(id) or not Progression.unlocked_classes(Profile.meta()).has(kind):
+		return
+	lobby[id]["class"] = kind
+	_broadcast_lobby()
+
+
 ## Host: begin (or restart) the mission with everyone currently connected.
 func start_match() -> void:
 	if not is_host:
@@ -207,7 +238,7 @@ func start_match() -> void:
 	for i in ids.size():
 		lobby[ids[i]].player = i
 	_broadcast_lobby()
-	var config := MatchConfig.make(lobby.size())
+	var config := MatchConfig.make(lobby.size(), 0, class_picks())
 	if _live():
 		_start.rpc(config)
 	_start(config)
@@ -235,7 +266,7 @@ func start_run() -> void:
 			if p != run.host_player and not here.has(p):
 				RunRules.apply(run, {"type": RunRules.BENCH, "player": run.host_player, "target": p, "on": true})
 	else:
-		run = RunRules.new_run(lobby.size(), 0, Profile.meta())
+		run = RunRules.new_run(lobby.size(), 0, Profile.meta(), class_picks())
 		RunRules.start_run(run)
 	var snap := run.fight_snapshot if run.phase == RunState.Phase.FIGHT else {}
 	if _live():

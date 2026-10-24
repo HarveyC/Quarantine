@@ -16,7 +16,6 @@ const ROUTES := {"gear_": "GearRun", "prog_": "Progression", "node_": "NodeRules
 const START_SUPPLIES := 60
 const START_INTEL := 1
 const START_RESERVE := 1           # recruits per player
-const START_CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
 const RESERVE_CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
 const HEAL_AFTER_FIGHT := 0.25
 const BOSS_OUTBREAK_DROP := 3
@@ -31,8 +30,9 @@ const BONUS_SUPPLIES := 10
 # --- setup -------------------------------------------------------------------------
 
 ## A new run for `num_players` (1 = solo: one player commands all four soldiers).
-## The squad is always 4, split like MatchConfig.make. `meta` is the profile's unlock flags.
-static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}) -> RunState:
+## Solo is a squad of 4; co-op is one soldier per player (MatchConfig.squad_plan), with `picks`
+## mapping player -> class. `meta` is the profile's unlock flags.
+static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}, picks: Dictionary = {}) -> RunState:
 	var run := RunState.new()
 	var n := clampi(num_players, 1, 4)
 	run.seed = seed if seed != 0 else randi() % 1000000 + 1
@@ -44,10 +44,9 @@ static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}) -> R
 	run.meta = meta.duplicate(true)
 	run.supplies = START_SUPPLIES
 	run.intel = START_INTEL
-	for i in START_CLASSES.size():
-		var owner := i * n / START_CLASSES.size()
-		run.soldiers.append(RunSoldier.make(run, START_CLASSES[i], owner))
-		run.serum[owner] += 1   # 1 sample per soldier you control
+	for e in MatchConfig.squad_plan(n, picks):
+		run.soldiers.append(RunSoldier.make(run, e.kind, e.player))
+		run.serum[e.player] += 1   # 1 sample per soldier you control
 	for p in n:
 		for k in START_RESERVE:
 			run.soldiers.append(RunSoldier.make(run, random_class(run), p, RunSoldier.RESERVE))

@@ -55,7 +55,7 @@ static func start_team_phase(s: GameState) -> void:
 	s.phase = Types.Phase.TEAM
 	s.ready.clear()
 	for p in s.players:
-		s.ready[p] = false
+		s.ready[p] = not commands_a_soldier(s, p)   # a co-op player whose soldier is down just watches
 	for u in s.living(Types.Team.PLAYER):
 		u.actions_left = Types.ACTIONS_PER_TURN
 		if s.turn == 1 and u.status.get("first_turn_action_loss", false):
@@ -145,13 +145,18 @@ static func _expose_attacker(s: GameState, u: Unit, action: Dictionary) -> void:
 		Vision.expose(s, u)
 
 
+## Whether `player` still has a living soldier to give orders to (deployables and civilians aside).
+static func commands_a_soldier(s: GameState, player: int) -> bool:
+	return Objectives.soldiers(s).any(func(u: Unit) -> bool: return u.owner_player == player)
+
+
 ## Player readiness for the simultaneous team phase. When everyone is ready the enemy phase runs.
 static func set_ready(s: GameState, player: int, is_ready: bool) -> void:
 	if s.phase != Types.Phase.TEAM:
 		return
 	s.ready[player] = is_ready
 	s.emit({"type": "ready", "player": player, "ready": is_ready})
-	if s.ready.values().all(func(r): return r):
+	if s.ready.keys().all(func(p): return s.ready[p] or not commands_a_soldier(s, p)):
 		Hazards.on_team_phase_end(s)
 		Objectives.on_team_phase_end(s)
 		check_end(s)

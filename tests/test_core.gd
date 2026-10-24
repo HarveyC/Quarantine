@@ -51,6 +51,18 @@ func test_all_ready_runs_enemy_phase_and_next_turn() -> void:
 	assert_true(s.turn == 2 or s.phase == Types.Phase.ENDED, "advanced to turn 2")
 
 
+func test_player_with_no_soldier_left_does_not_block_ready() -> void:
+	var s := make_state()
+	Rules.start_mission(s)
+	for u in s.living(Types.Team.PLAYER):
+		if u.owner_player == 1:
+			u.hp = 0
+	Rules.set_ready(s, 0, true)
+	assert_true(s.turn == 2 or s.phase == Types.Phase.ENDED, "player 2 is down, so player 1 alone ends the phase")
+	if s.phase == Types.Phase.TEAM:
+		assert_true(s.ready[1], "next phase starts with the soldierless player ready")
+
+
 func test_unit_round_trips_through_dict() -> void:
 	var u := UnitData.make("medic", Types.Team.PLAYER)
 	u.pos = Vector2i(3, 4)

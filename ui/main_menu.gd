@@ -10,6 +10,7 @@ signal continue_requested
 signal start_requested
 signal start_run_requested
 signal leave_requested
+signal class_picked(kind: String)
 
 const Styles := preload("res://ui/styles.gd")
 const Palette := preload("res://view/palette.gd")
@@ -23,6 +24,7 @@ var _lobby_box: VBoxContainer
 var _lobby_title: Label
 var _lobby_list: VBoxContainer
 var _lobby_hint: Label
+var _class_row: HBoxContainer
 var _start_btn: Button
 var _start_run_btn: Button
 var _continue_btn: Button
@@ -94,6 +96,10 @@ func _build_lobby(root: VBoxContainer) -> void:
 	_lobby_box.add_child(_lobby_title)
 	_lobby_list = VBoxContainer.new()
 	_lobby_box.add_child(_lobby_list)
+	_lobby_box.add_child(Styles.label("Your soldier", 14, Styles.MUTED))
+	_class_row = HBoxContainer.new()
+	_class_row.add_theme_constant_override("separation", 6)
+	_lobby_box.add_child(_class_row)
 	_lobby_hint = Styles.label("", 14, Styles.MUTED)
 	_lobby_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_lobby_box.add_child(_lobby_hint)
@@ -132,19 +138,36 @@ func show_lobby(net: NetSession) -> void:
 		c.queue_free()
 	var entries := net.lobby.values()
 	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.player < b.player)
+	# Who plays what if the match started now (a solo host gets the full squad of 4).
+	var plan := MatchConfig.squad_plan(net.lobby.size(), net.class_picks())
+	var mine := ""
 	for e in entries:
 		var you := " (you)" if e.player == net.my_player else ""
-		_lobby_list.add_child(Styles.label("Player %d  ·  %s%s" % [e.player + 1, e.name, you], 18, Palette.player_ui(e.player)))
-	var soldiers := MatchConfig.make(net.lobby.size())
-	var split := PackedStringArray()
-	for p in net.lobby.size():
-		split.append("P%d: %d" % [p + 1, soldiers.squad.filter(func(s: Dictionary) -> bool: return s.player == p).size()])
+		var kinds := PackedStringArray()
+		for sq in plan:
+			if sq.player == e.player:
+				kinds.append(UnitData.SOLDIERS[sq.kind].name)
+				if e.player == net.my_player:
+					mine = sq.kind
+		_lobby_list.add_child(Styles.label("Player %d  ·  %s%s  ·  %s" % [e.player + 1, e.name, you, ", ".join(kinds)], 18, Palette.player_ui(e.player)))
+	for c in _class_row.get_children():
+		c.queue_free()
+	_class_row.visible = net.lobby.size() > 1
+	for k in Progression.unlocked_classes(Profile.meta()):
+		var b := Button.new()
+		b.text = UnitData.SOLDIERS[k].name
+		b.toggle_mode = true
+		b.button_pressed = k == mine
+		b.focus_mode = Control.FOCUS_NONE
+		b.pressed.connect(func() -> void: class_picked.emit(k))
+		_class_row.add_child(b)
+	var split := "solo runs field all 4 soldiers" if net.lobby.size() == 1 else "one soldier each"
 	if net.is_host:
 		var addrs := NetSession.local_addresses()
-		_lobby_hint.text = "Friends join with your address: %s (port %d). Over the internet they need your public IP and port %d forwarded, or a shared LAN tool like Tailscale.\nSquad split: %s" % [
-			", ".join(addrs) if not addrs.is_empty() else "?", int(_port_value()), int(_port_value()), ", ".join(split)]
+		_lobby_hint.text = "Friends join with your address: %s (port %d). Over the internet they need your public IP and port %d forwarded, or a shared LAN tool like Tailscale.\nSquad: %s." % [
+			", ".join(addrs) if not addrs.is_empty() else "?", int(_port_value()), int(_port_value()), split]
 	else:
-		_lobby_hint.text = "Waiting for the host to start. Squad split: %s" % ", ".join(split)
+		_lobby_hint.text = "Waiting for the host to start. Squad: %s." % split
 	_start_btn.visible = net.is_host
 	_start_run_btn.visible = net.is_host
 	_lobby_continue.visible = net.is_host and RunSave.exists()

@@ -6,9 +6,14 @@ const OPS := ["supplies", "intel", "outbreak", "infection", "heal_pct", "hurt_pc
 
 
 ## A 2-player run in the NODE phase: trooper + marksman for player 0, medic + breacher for player 1,
-## one reserve recruit each, 2 Serum samples each.
+## one reserve recruit each, 2 Serum samples each. Co-op squads are one soldier per player, so
+## the second soldier each is added by hand to cover owner-vs-other-soldier rules.
 func _run(seed: int = 7) -> RunState:
-	var run := RunRules.new_run(2, seed)
+	var run := RunRules.new_run(2, seed, {}, {0: "trooper", 1: "medic"})
+	run.soldiers.insert(1, RunSoldier.make(run, "marksman", 0))
+	run.soldiers.insert(3, RunSoldier.make(run, "breacher", 1))
+	for i in run.soldiers.size():   # sids in squad order: 1-4 squad, 5-6 reserves
+		run.soldiers[i].id = i + 1
 	GearRun.init_run(run)
 	run.phase = RunState.Phase.NODE
 	run.serum = {0: 2, 1: 2}

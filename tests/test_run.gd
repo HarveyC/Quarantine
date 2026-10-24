@@ -287,3 +287,34 @@ func test_bridge_removes_a_column_and_keeps_the_map_connected() -> void:
 		for n in run.map:
 			if n.row > 2:
 				assert_true(incoming.has(n.id), "every later node is reachable")
+
+
+func test_coop_is_one_soldier_per_player_and_solo_is_four() -> void:
+	var solo := RunRules.new_run(1, 5)
+	assert_eq(solo.squad().size(), 4, "solo fields 4")
+	assert_eq(solo.serum[0], 4, "a sample per soldier")
+	for n in [2, 3, 4]:
+		var run := RunRules.new_run(n, 5)
+		assert_eq(run.squad().size(), n, "%d players, %d soldiers" % [n, n])
+		for p in n:
+			assert_eq(run.soldiers_of(p).filter(func(r): return r.status == RunSoldier.ACTIVE).size(), 1, "one each")
+			assert_eq(run.reserve_of(p).size(), RunRules.START_RESERVE, "reserve per player")
+	var picked := RunRules.new_run(2, 5, {}, {0: "medic", 1: "medic"})
+	assert_eq(picked.squad().map(func(r): return r.kind), ["medic", "medic"], "picks are honoured, repeats allowed")
+	var partial := MatchConfig.squad_plan(3, {1: "trooper"})
+	assert_eq(partial.map(func(e): return e.kind), ["marksman", "trooper", "medic"], "defaults skip picked classes")
+
+
+func test_fights_scale_with_squad_size() -> void:
+	for act in [1, 2, 3]:
+		for seed in [3, 11, 29]:
+			var spec := {"act": act, "row": 2, "node": "skirmish", "objective": "extract", "outbreak": 4, "seed": seed}
+			var full: Dictionary = FightBuilder.build(spec.merged({"squad": 4}))
+			var duo: Dictionary = FightBuilder.build(spec.merged({"squad": 2}))
+			assert_true(duo.enemies.size() <= 3, "a duo faces at most 3 at the start")
+			assert_true(duo.enemies.size() <= full.enemies.size(), "never more than a full squad")
+	var boss: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3, "squad": 2})
+	assert_eq(boss.encounter.get("boss_health_mult", 1.0), 0.7, "smaller squads face a weaker boss")
+	var run := RunRules.new_run(3, 9)
+	var cfg := MatchConfig.for_fight(run, {"kind": "skirmish", "objective": "hold", "seed": 4})
+	assert_eq(cfg.fight.squad, 3, "the fight spec carries the squad size")
