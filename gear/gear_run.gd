@@ -500,3 +500,23 @@ static func reward_screen() -> Script:
 ## Control script for the map's loadout button: `setup(run, session)`, emits `closed`.
 static func loadout_screen() -> Script:
 	return load("res://ui/gear/loadout_screen.gd")
+
+
+## Actions that settle every open pick and vote, for headless autoplay: the first card when it's
+## legal (else a skip) for each pending offer, and the first Doctrine for each voter who hasn't voted.
+static func autoplay_actions(run) -> Array:
+	var out: Array = []
+	for sid in offers(run).keys():
+		var r = soldier(run, int(sid))
+		if r == null:
+			continue
+		var a := {"type": "gear_pick", "player": controller_of(run, r), "soldier": int(sid), "card": 0}
+		if validate(run, a) != "":
+			a.card = -1
+		out.append(a)
+	var v := doctrine_vote(run)
+	if not v.is_empty():
+		for p in _voters(run):
+			if not v.votes.has(p):
+				out.append({"type": "gear_doctrine", "player": p, "doctrine": v.options[0]})
+	return out
