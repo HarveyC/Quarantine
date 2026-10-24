@@ -12,11 +12,13 @@ const Draw := preload("res://ui/bloom_draw.gd")
 
 
 ## Segmented bar: `filled` of `count` segments, optionally a hatched range that a
-## preview says will be lost (last `lose` filled segments).
+## preview says will be lost (last `lose` filled segments) or a ghost range it would refill
+## (the `gain` empty segments after the fill).
 class Pips extends Control:
 	var count := 5
 	var filled := 5
 	var lose := 0
+	var gain := 0
 	var color := Styles.HP
 	var off := Styles.HP_OFF
 	var seg := Vector2(12, 5)
@@ -26,10 +28,11 @@ class Pips extends Control:
 		seg = seg_size
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	func set_values(c: int, f: int, l := 0, col := Styles.HP) -> void:
+	func set_values(c: int, f: int, l := 0, col := Styles.HP, g := 0) -> void:
 		count = maxi(c, 0)
 		filled = clampi(f, 0, count)
 		lose = clampi(l, 0, filled)
+		gain = clampi(g, 0, count - filled)
 		color = col
 		custom_minimum_size = Vector2(count * seg.x + maxf(0, count - 1) * gap, seg.y)
 		queue_redraw()
@@ -38,8 +41,11 @@ class Pips extends Control:
 		var y := (size.y - seg.y) * 0.5
 		for i in count:
 			var r := Rect2(i * (seg.x + gap), y, seg.x, seg.y)
-			if i >= filled:
+			if i >= filled + gain:
 				Draw.capsule(self, r, off)
+			elif i >= filled:
+				Draw.capsule(self, r, Color(color, 0.28))
+				Draw.capsule(self, r.grow(-1.2), Color(color, 0.5))
 			elif i >= filled - lose:
 				Draw.capsule(self, r, Color(Styles.DANGER, 0.3))
 				Draw.capsule(self, r.grow(-1.2), Color(Styles.DANGER, 0.55))
@@ -89,18 +95,29 @@ class InfBar extends Control:
 		custom_minimum_size = Vector2(60, h)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	func set_value(v: int) -> void:
+	func set_value(v: int, to := -1) -> void:
 		value = clampi(v, 0, 100)
+		preview = clampi(to, -1, 100)
 		queue_redraw()
 
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
 		Draw.capsule(self, r, Color(Styles.TEAL, 0.1))
-		var w := size.x * value / 100.0
-		if value > 0:
+		var shown := mini(value, preview) if preview >= 0 else value
+		var w := size.x * shown / 100.0
+		if preview > value:
+			# The rise as a brighter ghost past the current fill.
+			var gr := Rect2(0, 0, maxf(size.x * preview / 100.0, size.y), size.y)
+			Draw.capsule(self, gr.grow(2.0), Color(Styles.TEAL, 0.22))
+			Draw.capsule(self, gr, Color(Styles.TEAL.lightened(0.25), 0.5))
+		elif preview >= 0 and preview < value:
+			# The drop as a hollow stretch where the fill used to be.
+			var dr := Rect2(0, 0, maxf(size.x * value / 100.0, size.y), size.y)
+			Draw.capsule(self, dr, Color(Styles.TEAL, 0.18))
+		if shown > 0:
 			var fr := Rect2(0, 0, maxf(w, size.y), size.y)
 			Draw.capsule(self, fr.grow(1.5), Color(Styles.TEAL, 0.2))
-			Draw.capsule(self, fr, Styles.TEAL if value >= 25 else Styles.TEAL.darkened(0.25))
+			Draw.capsule(self, fr, Styles.TEAL if shown >= 25 else Styles.TEAL.darkened(0.25))
 		for t in [25, 50, 75]:
 			var x: float = size.x * t / 100.0
 			draw_rect(Rect2(x - 0.75, -1, 1.5, size.y + 2), Styles.GROUND)
@@ -152,6 +169,7 @@ class Portrait extends Control:
 	var infection := 0
 	var lit := false
 	var dim := false
+	var preview := -1   # Infection a hover preview would leave, drawn as a ghost arc
 
 	func _init(px := 64.0) -> void:
 		custom_minimum_size = Vector2(px, px)
@@ -175,8 +193,15 @@ class Portrait extends Control:
 			Draw.glow(self, c, R * 1.35, Styles.TEAL, 0.8)
 		var r := R - ring * 0.5 - 1.0
 		draw_arc(c, r, 0, TAU, 64, Color(1, 1, 1, 0.1), ring, true)
-		if infection > 0:
-			var a1 := -PI * 0.5 + TAU * infection / 100.0
+		var shown := mini(infection, preview) if preview >= 0 else infection
+		if preview > infection:
+			var g1 := -PI * 0.5 + TAU * preview / 100.0
+			draw_arc(c, r, -PI * 0.5, g1, 64, Color(Styles.TEAL, 0.45), ring, true)
+		elif preview >= 0 and preview < infection:
+			var g1 := -PI * 0.5 + TAU * infection / 100.0
+			draw_arc(c, r, -PI * 0.5, g1, 64, Color(Styles.TEAL, 0.18), ring, true)
+		if shown > 0:
+			var a1 := -PI * 0.5 + TAU * shown / 100.0
 			draw_arc(c, r, -PI * 0.5, a1, 64, Color(Styles.TEAL, 0.3), ring + 4.0, true)
 			draw_arc(c, r, -PI * 0.5, a1, 64, Styles.TEAL, ring, true)
 		var inner := r - ring * 0.5 - 2.0

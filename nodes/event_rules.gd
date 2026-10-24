@@ -547,3 +547,75 @@ static func _fill(run, ns: Dictionary, text: String, ctx: Dictionary = {}) -> St
 		var rec = ctx.get("soldier")
 		text = text.replace("{soldier}", rec.name if rec != null else "Someone")
 	return text
+
+
+# --- previews ------------------------------------------------------------------------------
+
+## What picking option `id` would do to each soldier, without touching the run, for the squad
+## panel's hover preview: {soldier id: {"infection": new value, "hp": new value, "mutation": +n,
+## "lose_mutation": n, "perk": n, "items": n, "gun": n, "sit_out": n, "leaves": true,
+## "maybe": true}}. Walks the same effect list as _run_effects; a chance roll previews its
+## hit branch, marked "maybe".
+static func preview(run, ns: Dictionary, id: String, player: int, soldier_id := -1) -> Dictionary:
+	var out := {}
+	var opt := _option(ns, id)
+	if opt.is_empty():
+		return out
+	var ctx := {"player": player, "soldier": RunAccess.soldier(run, soldier_id) if soldier_id != -1 else null}
+	if opt.get("generated", false):
+		if ctx.soldier != null:
+			out[ctx.soldier.id] = {"items": 1}
+		return out
+	_preview_effects(run, ns, opt.get("effects", []), ctx, out, false)
+	return out
+
+
+static func _preview_effects(run, ns: Dictionary, effects: Array, ctx: Dictionary, out: Dictionary, maybe: bool) -> void:
+	for e in effects:
+		if e.has("unless_class") and RunAccess.has_class(run, e.unless_class):
+			continue
+		match e.op:
+			"chance":
+				_preview_effects(run, ns, e.then, ctx, out, true)
+			"if_infected":
+				var recs := _targets(run, ns, e.who, ctx)
+				var yes: bool = not recs.is_empty() and _previewed(out, recs[0], "infection", recs[0].infection) >= e.at_least
+				_preview_effects(run, ns, e.then if yes else e.get("else", []), ctx, out, maybe)
+			_:
+				if not e.has("who"):
+					continue
+				for rec in _targets(run, ns, e.who, ctx):
+					var d: Dictionary = out.get(rec.id, {})
+					match e.op:
+						"infection":
+							var from: int = d.get("infection", rec.infection)
+							d.infection = clampi(from + e.amount, 0, RunAccess.MAX_INFECTION_OUT_OF_FIGHT)
+						"heal_pct":
+							var from: int = d.get("hp", rec.hp)
+							d.hp = clampi(from + ceili(rec.max_hp * e.pct / 100.0), 1, rec.max_hp)
+						"hurt_pct":
+							var from: int = d.get("hp", rec.hp)
+							d.hp = maxi(1, from - ceili(rec.max_hp * e.pct / 100.0))
+						"mutation":
+							d.mutation = d.get("mutation", 0) + 1
+						"remove_mutation":
+							d.lose_mutation = d.get("lose_mutation", 0) + 1
+						"perk_pick":
+							d.perk = d.get("perk", 0) + 1
+						"item":
+							d.items = d.get("items", 0) + int(e.get("count", 1))
+						"gun":
+							d.gun = d.get("gun", 0) + 1
+						"sit_out":
+							d.sit_out = d.get("sit_out", 0) + 1
+						"send_home":
+							d.leaves = true
+						_:
+							continue
+					if maybe:
+						d.maybe = true
+					out[rec.id] = d
+
+
+static func _previewed(out: Dictionary, rec: Dictionary, key: String, now: int) -> int:
+	return out.get(rec.id, {}).get(key, now)

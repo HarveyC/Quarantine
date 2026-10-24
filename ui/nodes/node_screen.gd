@@ -7,12 +7,15 @@ extends Control
 const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 const Feel := preload("res://ui/ui_feel.gd")
+const SquadPanel := preload("res://ui/nodes/squad_panel.gd")
 
 var run: RunState
 var session
 var _dirty := false
 var _body: VBoxContainer
 var _scroll: ScrollContainer
+## The squad column beside the choices, on screens that call with_squad() (else null).
+var squad_panel: SquadPanel
 
 
 func setup(r: RunState, s) -> void:
@@ -62,6 +65,7 @@ func _rebuild_later() -> void:
 
 func rebuild() -> void:
 	NodeUi.clear(_body)
+	squad_panel = null
 	if run.node_state.is_empty():
 		return
 	_build(_body)
@@ -108,6 +112,18 @@ func header(kicker: String, title: String, kicker_color: Color, right: Control =
 	if right != null:
 		right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(right)
+	return row
+
+
+## `main` with the squad panel to its right, so choices that depend on a soldier's state sit
+## next to that state. Hook choices to it with squad_panel.hook().
+func with_squad(main: Control) -> Control:
+	var row := NodeUi.hbox(28)
+	main.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(main)
+	squad_panel = SquadPanel.new()
+	squad_panel.setup(run, session)
+	row.add_child(squad_panel)
 	return row
 
 

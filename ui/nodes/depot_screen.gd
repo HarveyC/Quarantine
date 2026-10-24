@@ -8,14 +8,16 @@ const SLOT_LABELS := {"weapon": "Weapon mod", "ammo": "Ammo", "armor": "Armor", 
 
 func _build(into: VBoxContainer) -> void:
 	into.add_child(header("Supply depot · Act %d" % run.act, "Quartermaster's cage", NodeUi.SUPPLY, wallet(), "depot"))
-	var grid := GridContainer.new()
-	grid.columns = 4
+	var main := NodeUi.vbox(22)
+	into.add_child(with_squad(main))
+	# Wraps to the width left beside the squad panel.
+	var grid := HFlowContainer.new()
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 16)
 	for i in ns().stock.size():
 		grid.add_child(_card(i))
-	into.add_child(grid)
-	into.add_child(_services())
+	main.add_child(grid)
+	main.add_child(_services())
 	var note := footer("", true, "Leave depot")
 	note.tooltip_text = "Anyone can buy; every purchase comes out of the squad's Supplies."
 	into.add_child(note)
@@ -24,7 +26,7 @@ func _build(into: VBoxContainer) -> void:
 func _card(i: int) -> Control:
 	var e: Dictionary = ns().stock[i]
 	var card := NodeUi.panel()
-	card.custom_minimum_size = Vector2(300, 0)
+	card.custom_minimum_size = Vector2(280, 0)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.marks = not e.sold
 	var v := NodeUi.vbox(10)
@@ -68,6 +70,7 @@ func _card(i: int) -> Control:
 	for a in _buy_actions(i):
 		var b := NodeUi.button(a.text, a.ok, false, a.reason, a.get("icon", "buy"))
 		b.pressed.connect(submit.bind(a.action))
+		_hook(b, "%s · %s" % [info.name, a.text], a.action)
 		buys.add_child(b)
 	v.add_child(buys)
 	return card
@@ -127,6 +130,34 @@ func _buy_actions(i: int) -> Array:
 	return out
 
 
+## Hovering a buy or sell button shows the item landing on (or leaving) that soldier.
+func _hook(b: Control, what: String, action: Dictionary) -> void:
+	if squad_panel == null or not action.has("soldier"):
+		return
+	squad_panel.hook(b, what, func() -> Dictionary:
+		var rec = RunAccess.soldier(run, action.soldier)
+		if rec == null:
+			return {}
+		var d := {}
+		if action.type == "node_sell":
+			d = {"gear": {"slot": action.slot, "mode": "remove"}}
+		else:
+			var e: Dictionary = ns().stock[action.index]
+			match e.type:
+				"gear":
+					d = {"gear": Loadout.preview_equip(rec, e.id).merged({"id": e.id})}
+				"gun":
+					d = {"gun": 1}
+				"consumable":
+					d = {"pocket": GearData.CONSUMABLES[e.id].name}
+				"service":
+					if e.id == "armorer":
+						d = {"gear": {"slot": action.slot, "mode": "upgrade"}}
+					else:
+						d = {"scar": -1}
+		return {rec.id: d})
+
+
 func _entry(text: String, action: Dictionary, icon := "buy") -> Dictionary:
 	var why := NodeRules.validate(run, action)
 	return {"text": text, "action": action, "ok": why == "", "reason": why, "icon": icon}
@@ -169,6 +200,7 @@ func _services() -> Control:
 					{"type": "node_sell", "player": p, "soldier": rec.id, "slot": it.slot}, it.slot)
 				var b := NodeUi.button(a.text, a.ok, false, a.reason, it.slot)
 				b.pressed.connect(submit.bind(a.action))
+				_hook(b, "Sell " + GearData.item_name(it.id), a.action)
 				flow.add_child(b)
 	if flow.get_child_count() == 0:
 		sv.add_child(NodeUi.label("Nothing equipped to sell", 14, NodeUi.FAINT))

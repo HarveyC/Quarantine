@@ -79,3 +79,18 @@ static func apply(run, ns: Dictionary, action: Dictionary) -> void:
 	if t != "train" and not ns.outbreak_paid:
 		ns.outbreak_paid = true
 		RunAccess.add_outbreak(run, OUTBREAK_COST)
+
+
+## What treatment `t` would do to `rec`, in the squad panel's preview shape (see
+## EventRules.preview).
+static func preview(rec, t: String) -> Dictionary:
+	match t:
+		"patch":
+			return {"hp": rec.max_hp, "injuries": maxi(0, rec.injuries - 1)}
+		"purge":
+			return {"infection": maxi(0, rec.infection - PURGE_AMOUNT)}
+		"train":
+			return {"perk": 1}
+		"cure":
+			return {"infection": 0, "lose_mutation": RunAccess.mutations_of(rec).size()}
+	return {}

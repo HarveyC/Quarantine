@@ -124,9 +124,17 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 			run.phase = RunState.Phase.NODE
 			run.supplies = 140
 			run.intel = 2
-			for r in run.squad():
-				r.hp = maxi(1, r.max_hp - 2)
-				r.infection = 30
+			# A squad in mixed shape, so the squad panel has something to say.
+			var hurt := [2, 3, 0, 4]
+			var inf := [30, 12, 52, 41]
+			for i in run.squad().size():
+				var r: Dictionary = run.squad()[i]
+				r.hp = maxi(1, r.max_hp - hurt[i % 4])
+				r.infection = inf[i % 4]
+				if i % 4 == 2:
+					RunAccess.add_random_mutation(run, r)
+				if i % 4 == 0:
+					Loadout.equip(run, r, GearData.items_with("", "uncommon", "armor")[0])
 			NodeRules.enter(run, screen, "the_trial" if screen == "event" else "")
 			_full_screen(root, NodeRules.screen(screen).new(), run)
 		"reward", "loadout", "doctrine", "kit":
