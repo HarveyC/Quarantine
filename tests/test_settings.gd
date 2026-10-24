@@ -168,3 +168,27 @@ func test_quick_menu_lists_actions() -> void:
 	m._first.pressed.emit()
 	assert_eq(picked, ["shoot"], "A on the first enabled action uses it")
 	m.free()
+
+
+func test_gameplay_tab_toggles_tips() -> void:
+	_fresh()
+	var old := Onboarding.path
+	Onboarding.path = "user://test_onboarding_settings.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Onboarding.path))
+	var menu: Control = SettingsMenu.new()
+	menu._build()
+	menu.show_tab("gameplay")
+	var boxes: Array = menu._content.find_children("*", "CheckBox", true, false)
+	var tips: CheckBox = boxes.back()
+	assert_true(tips.button_pressed, "tips on by default")
+	tips.button_pressed = false
+	assert_true(not Onboarding.hints_enabled(), "toggle turns tips off")
+	Onboarding.mark_hint("x")
+	var reset: Button = menu._content.find_children("*", "Button", true, false).filter(
+		func(b: Button) -> bool: return b.text == "Show all tips again")[0]
+	reset.pressed.emit()
+	assert_true(Onboarding.hints_enabled() and not Onboarding.hint_seen("x"), "reset shows every tip again")
+	menu.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Onboarding.path))
+	Onboarding.path = old
+	_restore()
