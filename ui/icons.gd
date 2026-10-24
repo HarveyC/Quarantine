@@ -150,6 +150,30 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 			dot.call(12, 16.5, 1.2)
 		"dot":
 			dot.call(12, 12, 10)
+		# Co-op pings (coop/marks.gd).
+		"ping":   # a map pin over a ripple
+			line.call([[12, 16], [8, 11.5], [7.2, 8.5], [8.5, 5], [12, 3.5], [15.5, 5], [16.8, 8.5], [16, 11.5], [12, 16]])
+			circle.call(12, 8.5, 1.8)
+			line.call([[5, 18.5], [8, 20], [12, 20.5], [16, 20], [19, 18.5]])
+		"move":   # a chevron coming down onto a ground ring
+			line.call([[7, 4], [12, 9], [17, 4]])
+			line.call([[7, 9], [12, 14], [17, 9]])
+			line.call([[3, 18], [6, 16], [12, 15.2], [18, 16], [21, 18], [18, 20], [12, 20.8], [6, 20], [3, 18]])
+		"attack":   # a reticle with a strike through it
+			circle.call(12, 12, 7.5)
+			line.call([[12, 1.5], [12, 6]])
+			line.call([[12, 18], [12, 22.5]])
+			line.call([[1.5, 12], [6, 12]])
+			line.call([[18, 12], [22.5, 12]])
+			line.call([[9, 15], [15, 9]])
+		"danger":   # a warning triangle
+			line.call([[12, 3], [22, 20.5], [2, 20.5], [12, 3]])
+			line.call([[12, 9], [12, 14.5]])
+			dot.call(12, 17.5, 1.2)
+		"draw":   # a marker pen and its stroke
+			line.call([[14, 4], [20, 10], [10, 20], [5.5, 20], [4, 18.5], [4, 14], [14, 4]])
+			line.call([[11.5, 6.5], [17.5, 12.5]])
+			line.call([[3, 22], [9, 22]])
 		"cover_half":
 			line.call([[3, 20], [21, 20]])
 			line.call([[6, 20], [6, 14], [18, 14], [18, 20]])

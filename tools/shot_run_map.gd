@@ -1,7 +1,8 @@
 extends SceneTree
 ## Renders the run's node map screen mid-act to a PNG (dev check):
-##   godot -s tools/shot_run_map.gd -- out.png [players=2] [hover=1] [start]
-## With "start" the squad is still at the drop point.
+##   godot -s tools/shot_run_map.gd -- out.png [players=2] [hover=1] [start] [marks]
+## With "start" the squad is still at the drop point; "marks" adds co-op pings, a stroke and
+## the ping wheel.
 ## Row 1 is cleared, the squad is hurt and infected, in co-op the host has voted, and the first
 ## open route is hovered.
 
@@ -45,6 +46,8 @@ func _init() -> void:
 	if hover:
 		var target: int = run.reachable_nodes()[0]
 		view._map.set_hover(target)
+	if args.has("marks"):
+		view._shot_marks()
 	for i in 8:
 		await process_frame
 	root.get_texture().get_image().save_png(out)

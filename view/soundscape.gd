@@ -42,8 +42,9 @@ const SPOTS := {
 }
 const STINGERS := ["st_win", "st_lose", "st_contact", "st_boss", "st_node", "st_rank"]
 const UI_SOUNDS := {"hover": "res://audio/ui_hover.wav", "click": "res://audio/ui_click.wav",
-	"open": "res://audio/ui/open.ogg", "close": "res://audio/ui/close.ogg", "tick": "res://audio/ui/tick.ogg"}
-const UI_DB := {"hover": -16.0, "click": -9.0, "open": -10.0, "close": -10.0, "tick": -14.0}
+	"open": "res://audio/ui/open.ogg", "close": "res://audio/ui/close.ogg", "tick": "res://audio/ui/tick.ogg",
+	"deny": "res://audio/ui_deny.wav"}
+const UI_DB := {"hover": -16.0, "click": -9.0, "open": -10.0, "close": -10.0, "tick": -14.0, "deny": -12.0}
 ## Linear gain change per second for track fades and layer fades.
 const FADE_IN := 0.7
 const FADE_OUT := 0.45

@@ -25,6 +25,8 @@ signal run_changed(run: RunState)
 signal reconnecting(attempt: int, of: int)
 ## Client: back in the match after a drop.
 signal reconnected
+## A ping, map stroke or clear (see coop/marks.gd) from anyone, this player included.
+signal marked(m: Dictionary)
 
 const DEFAULT_PORT := 24680
 const MAX_PLAYERS := 4
@@ -65,6 +67,9 @@ var _reconnect_attempt := 0
 var _host_said_bye := false
 ## Dev/test aid (--drop-client-at=N): the host cuts the first client off after action N.
 var drop_client_at := -1
+## Pings and strokes: this player's own sends, and (host) everyone's relays.
+var _mark_limit := Marks.Limiter.new()
+var _relay_limit := Marks.Limiter.new()
 
 
 # --- connecting --------------------------------------------------------------
@@ -190,6 +195,8 @@ func _attach(t: NetTransport, name: String, start: Callable) -> String:
 	var err: String = start.call()
 	if err != "":
 		return err
+	if not marked.is_connected(_log_mark) and OS.get_cmdline_user_args().has("--autoplay-marks"):
+		marked.connect(_log_mark)   # test aid for tests/net_playtest.sh
 	transport = t
 	if t.peer != null:
 		multiplayer.multiplayer_peer = t.peer
@@ -345,6 +352,60 @@ func submit_run(action: Dictionary) -> void:
 func restart() -> void:
 	if is_host:
 		start_match()
+
+
+## Pings and map strokes. They skip the action pipeline entirely (no sequence number, no checksum)
+## because they never touch the game state: shown here at once, sent to the host, and the host
+## checks and rate-limits them again before passing them on to everyone else.
+func mark(m: Dictionary) -> bool:
+	var d := m.duplicate()
+	d.player = my_player
+	var clean := Marks.sanitize(d)
+	if clean.is_empty() or not in_match or not _mark_limit.allow(clean.player, clean.type, Marks.now()):
+		return false
+	marked.emit(clean)
+	if is_host:
+		relay_mark(1, clean)
+	elif _live() and not is_reconnecting():
+		_mark_up.rpc_id(1, clean)
+	return true
+
+
+@rpc("any_peer", "reliable")
+func _mark_up(m: Dictionary) -> void:
+	if is_host:
+		relay_mark(multiplayer.get_remote_sender_id(), m)
+
+
+## Host: a mark from `sender` (1 = the host itself, already shown here). Stamps the sender's own
+## player on it, drops it if it's malformed or over the rate limit, and passes it to the others.
+## Returns the mark as relayed, or {} if it was dropped.
+func relay_mark(sender: int, m: Dictionary) -> Dictionary:
+	if not is_host or not in_match or not lobby.has(sender):
+		return {}
+	var d := m.duplicate()
+	d.player = lobby[sender].player
+	var clean := Marks.sanitize(d)
+	if clean.is_empty() or not _relay_limit.allow(clean.player, clean.type, Marks.now()):
+		return {}
+	if sender != 1:
+		marked.emit(clean)
+	if _live():
+		for id in lobby:
+			if id != 1 and id != sender:
+				_mark_down.rpc_id(id, clean)
+	return clean
+
+
+func _log_mark(m: Dictionary) -> void:
+	print("[marks] player %d sees a %s from player %d" % [my_player + 1, m.type, m.player + 1])
+
+
+@rpc("authority", "reliable")
+func _mark_down(m: Dictionary) -> void:
+	var clean := Marks.sanitize(m)
+	if not clean.is_empty():
+		marked.emit(clean)
 
 
 func status_text() -> String:

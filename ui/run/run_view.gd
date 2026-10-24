@@ -17,6 +17,8 @@ const MapBoard := preload("res://ui/run/map_board.gd")
 const NodeInfo := preload("res://ui/run/node_info.gd")
 const Feel := preload("res://ui/ui_feel.gd")
 const PauseMenu := preload("res://ui/pause_menu.gd")
+const MarkLayer := preload("res://ui/marks/mark_layer.gd")
+const RouteSurface := preload("res://ui/marks/route_surface.gd")
 const BIOME_NAMES: Array[String] = ["The Wall", "The Port", "The Bore"]
 const ROMAN: Array[String] = ["I", "II", "III"]
 const PANEL_BG := Color(0.043, 0.06, 0.095, 0.82)
@@ -36,6 +38,8 @@ var _supplies: Label
 var _intel: Label
 var _serum: Label
 var _map: MapBoard
+## Co-op pings and drawing on the route map.
+var marks: MarkLayer
 var _squad_row: HBoxContainer
 var _vote_title: Label
 var _vote_box: VBoxContainer
@@ -99,6 +103,7 @@ func setup(s: Node) -> void:
 	_log.text = ""
 	_screen_key = ""
 	_map.set_run(run)
+	marks.setup(RouteSurface.new(_map, self), s)
 	refresh()
 
 
@@ -114,6 +119,9 @@ func _build() -> void:
 	_map.node_pressed.connect(_on_node_pressed)
 	_map.node_hovered.connect(func(_id: int) -> void: _refresh_vote_panel())
 	add_child(_map)
+	# Co-op pings and drawing sit on the board, under the full-screen node and loadout panels.
+	marks = MarkLayer.new()
+	_map.add_child(marks)
 
 	# Top bar: act and biome, Outbreak, currencies and buttons.
 	var top := Styles.hbox(28)
@@ -915,6 +923,28 @@ func _process(delta: float) -> void:
 
 var _ended_printed := false
 var _shot_frames := 0
+
+
+## Dev aid for tools/shot_run_map.gd `marks`: two players' pings and a stroke on the route map, wheel open.
+func _shot_marks() -> void:
+	var opts := run.reachable_nodes()
+	var send := func(m: Dictionary) -> void:
+		marks._on_marked(Marks.sanitize(m))
+	send.call({"type": "ping", "player": 0, "where": "route", "kind": "move", "node": opts[0]})
+	if opts.size() > 1:
+		send.call({"type": "ping", "player": 1, "where": "route", "kind": "danger", "node": opts[1]})
+	var r := _map.get_global_rect()
+	var a: Dictionary = run.get_node(opts[0])
+	var from := (_map.node_pos(a) + Vector2(40, 0)) / r.size
+	var pts := PackedVector2Array()
+	for i in 16:
+		var k := i / 15.0
+		pts.append(from + Vector2(k * 0.16, -sin(k * PI) * 0.12 + k * 0.05))
+	send.call({"type": "stroke", "player": 1, "where": "route", "id": 1, "points": pts})
+	var c: Variant = marks.surface.ping_screen({"node": opts[0]})
+	marks.wheel.size = marks.size
+	marks.wheel.open_at(marks._to_local(c) + Vector2(560, 200), Marks.color(0), "")
+	marks.wheel.point_at(Vector2(0, -80))
 
 
 ## Dev aid: `-- --run=1 --run-shot=<path.png>` saves the map screen and quits.

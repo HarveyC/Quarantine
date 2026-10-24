@@ -639,6 +639,28 @@ The determinism this relies on: all randomness is `state.rng`, and the enemy/inf
 ever reads `state`. The two-process check in `tests/net_playtest.sh` asserts a host and client play a
 whole match and end on the same checksum.
 
+### Pings and map drawing (coop/, ui/marks/)
+
+Co-op callouts on the tactical map and the route map. They never touch `GameState` or `RunState`, so
+they skip the action pipeline: no sequence number, no checksum, nothing saved.
+
+- **`coop/marks.gd` (`Marks`)**: the mark vocabulary (`ping` with a kind from `Marks.KINDS`, `stroke`
+  chunks of points), `sanitize()` for anything off the network, the quick ping's kind from what's under
+  it (`fight_context`, `quick_kind`: enemy = attack, barrel or hazard = danger, objective marker = loot,
+  route node = move), live limits and token-bucket rate limits (`Marks.Limiter`, `Marks.LIMITS`).
+- **Sessions**: `mark(m)` and a `marked(m)` signal on both `LocalSession` and `NetSession`. Online, the
+  sender shows its own mark at once and sends it to the host; the host stamps the sender's own player
+  on it, sanitizes and rate-limits it again (`relay_mark`), then passes it to everyone else.
+  A stroke goes out in chunks every `CHUNK_SECONDS` (at most `MAX_CHUNK` points) with one id.
+- **`ui/marks/mark_layer.gd`**: one per screen (the fight's UI layer, a child of the route map board).
+  Reads input (Ping: G / middle mouse / L3, tap = quick ping, hold = `ping_wheel.gd`; Draw: V / R3
+  held), sends marks, and draws what comes back: a player-coloured badge with the kind's icon and a
+  label, ripples, an arrow on the screen edge for pings out of view, fading strokes. The screen
+  specifics are a surface: `fight_surface.gd` (cells, units, world points, a world beacon per ping)
+  and `route_surface.gd` (nodes, points as fractions of the board so window sizes agree).
+- A tap of R3 without drawing steps the camera zoom (`CameraRig.zoom_cycle`), since the stick
+  clicks used to zoom. `tests/net_playtest.sh` scenario 5 checks marks cross a real ENet connection.
+
 ## Run framework (roguelike run)
 
 A run is 3 acts of 5-row node maps (design doc, "Run structure" and "Run map and events").
