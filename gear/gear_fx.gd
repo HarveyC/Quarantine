@@ -117,6 +117,11 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 				breakdown.append(["Breach and clear", Combat.COVER_FULL if cover == Types.Cover.FULL else Combat.COVER_HALF])
 		if mk(a, "suppressor") >= 2 and not t.status.get("alerted", true):
 			breakdown.append(["Suppressor", 10])
+	if a.team == Types.Team.PLAYER and a.status.get("doctrines", []).has("buddy_system"):
+		for o in s.living(Types.Team.PLAYER):
+			if o != a and _cheb(o.pos, from) == 1 and not o.is_enemy_of(a):
+				breakdown.append(["Buddy system", 10])
+				break
 	if Combat.has_status(s, a, "suppressed") and a.status.get("suppress_extra", 0) > 0:
 		breakdown.append(["Suppressed (gear)", -int(a.status.suppress_extra)])
 	if t.status.has("gear") and has(t, "riot_shield") and cover == Types.Cover.NONE:

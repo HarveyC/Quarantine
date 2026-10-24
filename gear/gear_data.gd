@@ -195,6 +195,16 @@ const CONSUMABLES := {
 }
 const CONSUMABLE_CHARGES := 2  # a consumable reward card gives 2 charges
 
+## Squad-wide passives voted on after each act boss (stored in run.modifiers.doctrines).
+const DOCTRINES := {
+	"buddy_system": {"name": "Buddy system", "desc": "+10 aim while next to a teammate"},
+	"field_rations": {"name": "Field rations", "desc": "Heal 40% after fights instead of 25%"},
+	"quartermaster": {"name": "Quartermaster", "desc": "Depot prices -15%"},
+	"hazard_pay": {"name": "Hazard pay", "desc": "+10 Supplies per fight"},
+	"spore_filters": {"name": "Spore filters", "desc": "-25% Infection from spore zones"},
+	"steady_nerves": {"name": "Steady nerves", "desc": "Talking down a Lapse costs no action"},
+}
+
 ## Natural tag lanes per class (starting kit and the "on build" card before a soldier has tags).
 const CLASS_LANES := {
 	"trooper": ["Guard", "Suppress"], "marksman": ["Mark", "Overwatch"], "medic": ["Purge", "Guard"],
