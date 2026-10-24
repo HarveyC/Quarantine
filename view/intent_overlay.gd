@@ -2,7 +2,9 @@ extends Node3D
 ## Team-phase readability layer for enemies (design doc, Enemy AI and readability): an intent
 ## label over each enemy with a thin line to its likely target, red tiles for everything that
 ## hits next enemy phase, amber vents for incoming reinforcements,
-## and a faint ripple over hidden Lurkers. Reads GameState through EnemyIntent; never mutates it.
+## and a faint ripple over hidden Lurkers in sight. Fog of war markers: a dim red "?" where an
+## enemy was last seen, and a pulsing red contact for Motion tracker blips.
+## Reads GameState through EnemyIntent and Vision; never mutates it.
 
 const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
@@ -20,6 +22,9 @@ var _m_spore: StandardMaterial3D
 var _m_vent: StandardMaterial3D
 var _m_line: StandardMaterial3D
 var _m_ripple: StandardMaterial3D
+var _m_ghost: StandardMaterial3D
+var _m_blip: StandardMaterial3D
+var _blips: Array[Node3D] = []
 
 
 func _ready() -> void:
@@ -29,6 +34,8 @@ func _ready() -> void:
 	_m_vent = Palette.overlay(Color(Palette.AMBER, 0.5))
 	_m_line = Palette.overlay(Color(Palette.DANGER, 0.55))
 	_m_ripple = Palette.overlay(Color(Palette.TEAL, 0.25))
+	_m_ghost = Palette.overlay(Color(Palette.DANGER, 0.22))
+	_m_blip = Palette.overlay(Color(Palette.DANGER, 0.7))
 
 
 func refresh() -> void:
@@ -37,6 +44,7 @@ func refresh() -> void:
 	for c in get_children():
 		remove_child(c)
 		c.queue_free()
+	_blips.clear()
 	var s: GameState = view.state if view != null else null
 	if s == null or s.phase != Types.Phase.TEAM or (view.player != null and view.player.is_busy()):
 		return
@@ -49,6 +57,24 @@ func refresh() -> void:
 		var r := Palette.ring(0.25, 0.42, _m_ripple)
 		r.position = Board.cell_to_world(c, 0.04)
 		add_child(r)
+	for id in Vision.last_seen(s):
+		var c: Vector2i = Vision.last_seen(s)[id]
+		var r := Palette.ring(0.3, 0.4, _m_ghost)
+		r.position = Board.cell_to_world(c, 0.04)
+		add_child(r)
+		var q := Palette.label3d("?", 40, Color(Palette.DANGER, 0.55))
+		q.position = Board.cell_to_world(c, 0.9)
+		add_child(q)
+	var blips := Vision.blips(s)
+	for id in blips:
+		var b := Palette.ring(0.12, 0.2, _m_blip)
+		b.position = Board.cell_to_world(blips[id], 0.05)
+		add_child(b)
+		_blips.append(b)
+		var wave := Palette.ring(0.36, 0.42, _m_ghost)
+		wave.position = b.position
+		add_child(wave)
+		_blips.append(wave)
 	for it in EnemyIntent.intents(s):
 		var uv: Node3D = view.view_for(it.unit)
 		if uv == null or not uv.visible:
@@ -83,3 +109,11 @@ func _line(a: Vector3, b: Vector3) -> void:
 	beam.position = (a + b) * 0.5
 	beam.basis = Basis.looking_at(b - a, Vector3.UP)
 	add_child(beam)
+
+
+func _process(_delta: float) -> void:
+	var k := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 4.0)
+	for i in _blips.size():
+		var b := _blips[i]
+		if is_instance_valid(b):
+			b.scale = Vector3.ONE * (1.0 + (k * 0.25 if i % 2 == 0 else (1.0 - k) * 0.8))

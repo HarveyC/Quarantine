@@ -18,6 +18,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `ai/` | `EnemyAI` | **ai** | Enemy and Lapsed-soldier decisions |
 | `objectives/` | `Objectives` | **maps** | Fight objectives: win/lose rules, civilians, bonus objective, HUD line |
 | `hazards/` | `Hazards` | **maps** | Fire, spore and acid tiles: placement, hits, ageing |
+| `vision/` | `Vision` | **fog of war** | Squad vision, explored cells, hidden enemies, exposure, senses |
 | `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
 | `elevation/` | `Elevation` | **maps** | High ground: aim and cover from height, in-fight level changes |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
@@ -100,6 +101,7 @@ Rules for parallel work:
 | `burrowed` | `unit` (a Burrower goes underground: hidden until it erupts) |
 | `lock_lost` | `unit` (a Sharpshooter's target broke line of sight, or it was suppressed) |
 | `fell` | `unit`, `damage` — knocked off a ledge or its raised tile collapsed (before its `damage` event) |
+| `revealed_area` | `cell`, `radius` — a Recon drone shows an area from above for the rest of the fight |
 
 `move` may carry `knockback: true` (Brute slam/charge) and is also emitted for the Source's pull
 (the moved unit is the soldier). Enemy abilities (`slam`, `charge`, `burst`, `pounce`, `maul`,
@@ -193,11 +195,12 @@ Run actions (`prog_*`, need `player` = the soldier's controller, not during a fi
 `prog_graft` {`sid`, `mutation`, `partner` for Bonded}, `prog_skip_offer` {`sid`}, `prog_serum` {`sid`}.
 Run events: `perk_pick` (`sid`, `perk`), `graft` (`sid`, `mutation`), `cured` (`sid`), `class_unlocked` (`kind`).
 
-**Simplifications vs the doc** (worth a later pass): Spore Sense is data-only until there is fog of war; Hive Hush
+**Simplifications vs the doc** (worth a later pass): Hive Hush
 only stops dormant Infected spotting you beyond 4 tiles; Lure Scent's aim bonus applies to reaction shots at enemies
 within 6 tiles of you; Hollow Voice makes the target attack its nearest ally now and skip its next turn; Rampage moves
 without triggering overwatch; Overgrowth turns empty cells into walls (the view doesn't draw zones yet); Firewall
-is just the line shape (the AI already avoids fire through Hazards); Spore Sense's double spore Infection isn't applied.
+is just the line shape (the AI already avoids fire through Hazards). Spore Sense is live through `Vision.sense_radius`
+(and its double spore Infection in `Hazards`).
 
 ## Equipment (gear/)
 
@@ -239,7 +242,7 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   `burn_source`, `gear_fire_mobility`. Fire from gear (Thermite line, Igniter barrel, Burn set spread)
   goes through `GearFx.set_fire` -> `Hazards.add(..., "fire", turns, unit.id)`, and `Hazards._hit` asks
   `GearFx.hazard_hit` (Flame-retardant coat, Filter mask, Scorched earth, Spotter flare). Sentry turret
-  spawns a Deployables turret. `GearFx.PENDING` lists items whose systems don't exist yet (fog of war,
+  spawns a Deployables turret. `GearFx.PENDING` lists items whose systems don't exist yet (
   restraint, mutation costs); they stay out of draws until they work.
 - **Gear max HP** (Kevlar vest etc.): `Loadout.equip / unequip / upgrade` move the run record's
   `max_hp` and `hp` by the change, so the record always holds HP including gear.
@@ -355,7 +358,7 @@ a roof) and `/` (ladder: a ground cell that climbs to the raised cell beside it)
 - **Shooting** (`Combat.hit_chance` calls `Elevation`): from higher ground +10 aim ("High ground" in
   the breakdown) and the target's cover counts one step lower (full to half, half to none). Shooting
   up at a higher target, it has at least half cover. Height never makes a shot a flank (no flank
-  crit). LOS ignores height. `Elevation.height(s, u)` is the cell's level, or 1 for status `flying`.
+  crit). Line of sight by height is in `Combat.can_see` (see Fog of war). `Elevation.height(s, u)` is the cell's level, or 1 for status `flying`.
 - **Changing levels** in a fight: `Elevation.set_level(s, cell, n)` only (emits `level_changed`,
   drops ladders that join nothing; units on the cell stay and stand at the new level).
   `Grid.set_level` is the raw write for map building. `Elevation.is_ledge(grid, c)`: a raised cell
@@ -388,6 +391,58 @@ The objective comes with the map: `grid.objective` (set by MapGen, saved with th
   behind; hold the beacon never contested; rescue every civilian saved; skirmish / elite / purge
   won by the end of turn 5; boss none.
 - **HUD**: `Objectives.describe(s)` is the objective line under the turn banner.
+
+## Fog of war (vision/)
+
+Owned by the fog of war workstream. `Vision` is pure rules like `Combat`; the view only reads it.
+
+- **Shared squad vision**: a cell is visible when any living squad unit (soldiers and deployables, not
+  Lapsed soldiers) is within its sight radius and `Combat.can_see` it. Sight: soldiers 8, Marksman 10,
+  turret 6, enemies 8 (`Vision.KIND_SIGHT`), +2 on high ground (`Elevation.height` > 0), plus
+  `status["sight_bonus"]` for perks or gear. Queries: `sight(s, u)`, `cell_visible(s, team, c)` (cheap),
+  `sees_unit(s, team, t)`, `visible_cells(s)`, `fog_grid(s)` (per cell `UNEXPLORED`/`EXPLORED`/`VISIBLE`),
+  `is_explored`, `visible_enemies`. `Vision.disable(s)` turns fog off for a fight (other modules' tests).
+- **Line of sight by height** (`Combat.can_see`): between two ground-level cells a raised cell blocks
+  like a wall; if either end is high (raised cell, or a flying unit on it) roofs don't block.
+- **Shooting**: squad units can only target enemies the squad sees (`Combat.visible_targets` adds
+  `Combat.in_squad_sight`), still within their own line of sight and weapon range (14): spotting for
+  each other matters. Suppress, Tag and Breach need it too. `Combat.shot_targets(s, u)` adds Smart-link
+  shots; the HUD and input use it. **Enemy targeting and activation are unchanged** (fog is the
+  players' information problem; the AI keeps its own rules, which keeps the roster's balance).
+- **Hidden enemies** act exactly as before. Their intents and danger tiles are hidden
+  (`EnemyIntent` filters by `Vision`; telegraphed strikes and Burrower eruptions still show), and
+  hidden Lurkers only show their ripple inside vision (`EnemyIntent.ripples`). `status["hidden"]`
+  units (Lurker, burrowed Burrower) are never seen and never trigger overwatch.
+- **Firing gives you away**: an attacker (SHOOT or a unit ability at a hostile, the cell attacks in
+  `Rules.EXPOSING_CELL_ABILITIES`, or any damage through `Rules.deal_damage`) is exposed for 2
+  half-turns (`Vision.expose`): an enemy that shoots from the dark stays visible through the next
+  squad phase and can be shot back.
+- **Overwatch** covers the watcher's own sight radius (+ Rangefinder 2/3), not the squad's
+  (`Vision.overwatch_sees`); Twin Sight (`Kit.shared_sight`) adds the partner's vision.
+- **State** `GameState.vision` (saved, resynced, checksummed): `explored` (PackedByteArray),
+  `exposed` {id: phase index}, `last_seen` {id: cell}, `blips` {id: {cell, until}}, `reveals`
+  [{cell, radius, until}]. `Rules` calls `Vision.refresh` after every action, at team-phase start
+  (before the `team_phase` event, so run snapshots carry it) and after each enemy's turn, and
+  `Vision.on_step` for every step of a move (soldiers explore as they walk).
+- **Senses**: Spore Sense (awake mutation, or `status["sense_radius"]`) senses infected enemies within
+  6 tiles through walls: `Vision.sensed(s)`, drawn as see-through ghosts with intents, not targetable.
+  Motion tracker: an enemy moving within 8/12 tiles in the enemy phase leaves a blip until the end of
+  the next squad phase (`Vision.blips`). Recon drone (pocket, range 10, no line of sight needed):
+  `Vision.add_reveal(s, cell, 6)` shows that radius from above for the fight. `Vision.last_seen(s)`:
+  where enemies out of sight were last seen.
+- **Online: full state, fog drawn view-side.** Every peer runs the same `Rules.apply` on the same
+  actions (lockstep, checksums, snapshot resync), so every peer must hold the whole state, and vision is
+  computed from it identically. Filtering would mean replacing lockstep with host-sent state diffs. The
+  game is co-op, so nobody has an opponent to cheat against; a client reading memory only spoils
+  their own game.
+- **View** (`view/fog_overlay.gd`): a full-screen pass rebuilds world position from depth and darkens
+  by a one-texel-per-cell fog texture (visible clear, explored dim and desaturated, unexplored near
+  black with drifting haze), cross-fading as soldiers move. `MissionView._on_state_event` tags each
+  event with what the squad saw at that moment (`FogOverlay.annotate`: `_unseen`, `_sensed`, `_fog`,
+  `_seen` per path cell of an enemy move, `_hidden`); the event player applies it as the beat plays,
+  so enemies appear and vanish mid-walk, unseen enemies' beats and log lines are skipped, and hidden
+  views can't be hovered (`unit_view_at`). `IntentOverlay` draws last-seen "?" markers and blips.
+- Dev aid: `-- --screenshot-action=scout` (a soldier walks out, leaving explored fog behind).
 
 ## Tile hazards (hazards/)
 

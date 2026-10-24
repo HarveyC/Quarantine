@@ -17,7 +17,7 @@ const USE_COST := {"exposed": 5, "mutating": 10, "critical": 15}
 
 const MUTATIONS := {
 	# --- Exposed (25+): graft +10, actives cost 5
-	"spore_sense": {"name": "Spore Sense", "slot": "exposed", "active": false, "tag": "Mark", "pending": true,
+	"spore_sense": {"name": "Spore Sense", "slot": "exposed", "active": false, "tag": "Mark",
 		"desc": "See infected enemies through walls within 6 tiles; teammates see them as ghost outlines.",
 		"drawback": "Spore zones give you double Infection."},
 	"adrenal_surge": {"name": "Adrenal Surge", "slot": "exposed", "active": true, "tag": "Strain", "targeting": "none", "actions": 0,

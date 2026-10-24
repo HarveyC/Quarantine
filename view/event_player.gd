@@ -95,8 +95,17 @@ func _start(ev: Dictionary) -> void:
 	if in_cinematic and not CINE_FOLLOW.has(str(ev.get("type", ""))):
 		_end_cinematic()
 	beat_started.emit(ev)
+	var squad_move: bool = ev.get("type") == "move" and not ev.has("_seen")
+	if not squad_move:
+		view.show_vision(ev)
 	var method := "_beat_" + str(ev.get("type", ""))
-	var beat: Dictionary = call(method, ev) if has_method(method) else _beat_unknown(ev)
+	var beat: Dictionary = {} if ev.get("_hidden", false) else (call(method, ev) if has_method(method) else _beat_unknown(ev))
+	if squad_move:   # the fog lifts as the soldier arrives
+		var fin: Variant = beat.get("finish")
+		beat["finish"] = func() -> void:
+			if fin != null:
+				(fin as Callable).call()
+			view.show_vision(ev)
 	beat.merge({"dur": 0.0, "pad": 0.0, "update": null, "finish": null, "t": 0.0})
 	if enemy_phase and beat.dur > 0.0 and ev.get("type") in ["move", "shot", "ability", "mutation", "overwatch", "hunker"]:
 		beat.pad += ENEMY_PAD
@@ -127,7 +136,7 @@ func _head(uv: UnitView) -> Vector3:
 
 
 func _focus(uv: UnitView) -> void:
-	if enemy_phase and uv != null and not in_cinematic:
+	if enemy_phase and uv != null and uv.visible and not in_cinematic:
 		view.camera_rig.focus(uv.position)
 
 
@@ -246,9 +255,18 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 		pts.append(Board.cell_to_world(c))
 	if pts.size() < 2:
 		return {}
-	_focus(uv)
 	var last: Vector2i = ev.path[ev.path.size() - 1]
 	var steps := pts.size() - 1
+	# Fog of war: an enemy is only drawn on the cells of its path the squad can see.
+	var seen: Array = ev.get("_seen", [])
+	if not seen.is_empty() and not seen.has(true):
+		uv.set_cell(last)
+		uv.visible = false
+		return {}
+	var shown := func(i: int) -> bool:
+		return seen.is_empty() or bool(seen[mini(i, seen.size() - 1)]) or (i > 0 and bool(seen[i - 1]))
+	if shown.call(0):
+		_focus(uv)
 	uv.set_moving(true)
 	uv.set_aim(0.0)
 	var update := func(t: float) -> void:
@@ -256,11 +274,15 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 		var i := mini(int(f), steps - 1)
 		uv.position = pts[i].lerp(pts[i + 1], f - i)
 		uv.face_towards(pts[i + 1])
-		if enemy_phase:
+		if not seen.is_empty():
+			uv.visible = shown.call(i)
+		if enemy_phase and uv.visible:
 			view.camera_rig.focus(uv.position)
 	var finish := func() -> void:
 		uv.set_cell(last)
 		uv.set_moving(false)
+		if not seen.is_empty():
+			uv.visible = bool(seen[seen.size() - 1])
 	return {"dur": STEP_TIME * steps, "update": update, "finish": finish}
 
 

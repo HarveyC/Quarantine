@@ -9,13 +9,16 @@ extends RefCounted
 ## dangers(s) -> Array of {kind, cells: Array[Vector2i], unit, turn}: tiles that get hit next
 ##   enemy phase (bursts, charges, airstrikes, core slams). Paint them red.
 ## Spore zones are Hazards tiles, drawn by the Board. incoming(s) -> vent cells glowing for a wave.
-## ripples(s) -> Array[Vector2i] cells of hidden Lurkers (a faint ripple is always shown).
+## ripples(s) -> Array[Vector2i] cells of hidden Lurkers inside the squad's vision (a faint ripple).
+## Fog of war: only enemies the squad sees (or senses, Spore Sense) show an intent, and only their
+## dangers show; telegraphed strikes (airstrikes, core slams) always show.
 
 
 static func intents(s: GameState) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	var sensed := Vision.sensed(s)
 	for u in s.living(Types.Team.ENEMY):
-		if u.status.get("hidden", false):
+		if u.status.get("hidden", false) or not (Vision.sees_unit(s, Types.Team.PLAYER, u) or sensed.has(u.id)):
 			continue
 		var it := _intent(s, u)
 		it["unit"] = u.id
@@ -81,6 +84,8 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 	for t in s.encounter.get("telegraphs", []):
 		out.append({"kind": t.kind, "cells": t.cells, "unit": int(t.get("unit", -1)), "turn": int(t.turn)})
 	for u in s.living(Types.Team.ENEMY):
+		if not Vision.sees_unit(s, Types.Team.PLAYER, u) and not u.status.has("emerge_cell"):
+			continue
 		if u.status.has("swelling"):
 			out.append({"kind": "burst", "cells": EnemyAbilities.square(s.grid, u.pos, 1), "unit": u.id, "turn": s.turn})
 		if u.status.has("leap_cell"):
@@ -108,7 +113,7 @@ static func incoming(s: GameState) -> Array[Vector2i]:
 static func ripples(s: GameState) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for u in s.living(Types.Team.ENEMY):
-		if u.status.get("hidden", false):
+		if u.status.get("hidden", false) and not u.status.has("burrowed") and Vision.cell_visible(s, Types.Team.PLAYER, u.pos):
 			out.append(u.pos)
 	return out
 

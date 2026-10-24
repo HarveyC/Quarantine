@@ -99,22 +99,34 @@ static func _sweep(s: GameState) -> void:
 
 ## True if a unit at `from` can see `to`. Walls block, low cover and units do not.
 ## A viewer standing next to a wall may "step out" to the open cells beside it.
+## Height (fog of war workstream): between two ground-level cells, raised cells block like walls;
+## if either end is high (a raised cell, or a flying unit on it) you look over the roofs.
 static func can_see(s: GameState, from: Vector2i, to: Vector2i) -> bool:
 	if from == to:
 		return true
 	if from.distance_to(to) > SIGHT_RANGE:
 		return false
-	if line_clear(s.grid, from, to):
+	var g := s.grid
+	var low := not g.levels.is_empty() and not _is_high(s, from) and not _is_high(s, to)
+	if line_clear(g, from, to, low):
 		return true
-	for p in peek_cells(s.grid, from):
-		if line_clear(s.grid, p, to):
+	for p in peek_cells(g, from):
+		if line_clear(g, p, to, low):
 			return true
 	return false
 
 
-## Supercover line between cell centers; true if no WALL lies strictly between `a` and `b`.
+static func _is_high(s: GameState, c: Vector2i) -> bool:
+	if s.grid.level(c) > 0:
+		return true
+	var u := s.unit_at(c)
+	return u != null and u.status.get("flying", false)
+
+
+## Supercover line between cell centers; true if no WALL lies strictly between `a` and `b`
+## (nor a raised cell, with `block_raised`).
 ## When the line passes exactly through a corner it is blocked only if both side cells block.
-static func line_clear(g: Grid, a: Vector2i, b: Vector2i) -> bool:
+static func line_clear(g: Grid, a: Vector2i, b: Vector2i, block_raised := false) -> bool:
 	var nx := absi(b.x - a.x)
 	var ny := absi(b.y - a.y)
 	var sx := signi(b.x - a.x)
@@ -126,7 +138,7 @@ static func line_clear(g: Grid, a: Vector2i, b: Vector2i) -> bool:
 		var lhs := (1 + 2 * ix) * ny
 		var rhs := (1 + 2 * iy) * nx
 		if lhs == rhs:
-			if g.blocks_los(Vector2i(c.x + sx, c.y)) and g.blocks_los(Vector2i(c.x, c.y + sy)):
+			if _blocks(g, Vector2i(c.x + sx, c.y), block_raised) and _blocks(g, Vector2i(c.x, c.y + sy), block_raised):
 				return false
 			c += Vector2i(sx, sy)
 			ix += 1
@@ -137,9 +149,13 @@ static func line_clear(g: Grid, a: Vector2i, b: Vector2i) -> bool:
 		else:
 			c.y += sy
 			iy += 1
-		if c != b and g.blocks_los(c):
+		if c != b and _blocks(g, c, block_raised):
 			return false
 	return true
+
+
+static func _blocks(g: Grid, c: Vector2i, block_raised: bool) -> bool:
+	return g.blocks_los(c) or (block_raised and g.level(c) > 0)
 
 
 ## Open cells a unit at `c` can lean out to: beside each orthogonally adjacent wall.
@@ -156,11 +172,27 @@ static func peek_cells(g: Grid, c: Vector2i) -> Array[Vector2i]:
 	return out
 
 
-## Hostile living units `u` can currently shoot at.
+## Hostile living units `u` can currently shoot at. Squad units also need the target inside
+## the squad's shared vision (fog of war, see Vision); enemy targeting is unchanged.
 static func visible_targets(s: GameState, u: Unit) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for t in s.units:
-		if t.is_alive() and u.is_enemy_of(t) and not t.status.get("hidden", false) and can_see(s, u.pos, t.pos):
+		if t.is_alive() and u.is_enemy_of(t) and not t.status.get("hidden", false) and can_see(s, u.pos, t.pos) \
+				and in_squad_sight(s, u, t):
+			out.append(t)
+	return out
+
+
+## Fog of war gate for squad units: the target must be seen by the squad. Always true for enemies.
+static func in_squad_sight(s: GameState, u: Unit, t: Unit) -> bool:
+	return u.team != Types.Team.PLAYER or Vision.sees_unit(s, u.team, t)
+
+
+## Everything `u` may SHOOT: visible targets plus Smart-link shots at Marked enemies an ally sees.
+static func shot_targets(s: GameState, u: Unit) -> Array[Unit]:
+	var out := visible_targets(s, u)
+	for t in s.living():
+		if not out.has(t) and u.is_enemy_of(t) and GearFx.smart_link_shot(s, u, t):
 			out.append(t)
 	return out
 
@@ -186,7 +218,8 @@ static func cover_against(g: Grid, target: Vector2i, from: Vector2i) -> int:
 ## "graze" is the width of the graze band (rolls in hit+1..hit+graze graze); "crit" is the
 ## chance that a hit is critical. `reaction` applies the overwatch penalty.
 static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2i = attacker.pos, reaction: bool = false) -> Dictionary:
-	var los := can_see(s, from, target.pos) or Kit.shared_sight(s, attacker, target.pos)
+	var los := can_see(s, from, target.pos) or Kit.shared_sight(s, attacker, target.pos) \
+		or GearFx.smart_link_shot(s, attacker, target)
 	var flat_cover := Kit.cover_against(s, attacker, target, cover_against(s.grid, target.pos, from))
 	var cover := Elevation.adjust_cover(s, attacker, target, from, flat_cover)
 	var flanked := flat_cover == Types.Cover.NONE and cover == Types.Cover.NONE
@@ -300,7 +333,7 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 		return "No such target"
 	match id:
 		"suppress", "tag":
-			if not u.is_enemy_of(t) or not can_see(s, u.pos, t.pos):
+			if not u.is_enemy_of(t) or not can_see(s, u.pos, t.pos) or not in_squad_sight(s, u, t):
 				return "No line of sight"
 		"stim":
 			if u.is_enemy_of(t):
@@ -312,7 +345,7 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 				return "Not an enemy"
 			if _cheb(u.pos, t.pos) > Kit.ability_range(u, "breach", BREACH_RANGE):
 				return "Too far"
-			if not can_see(s, u.pos, t.pos):
+			if not can_see(s, u.pos, t.pos) or not in_squad_sight(s, u, t):
 				return "No line of sight"
 		"claw":
 			if not u.is_enemy_of(t):
@@ -431,7 +464,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			if UnitData.is_melee_only(u.kind):
 				return "Melee only"
 			var t := s.get_unit(action.get("target", -1))
-			if t == null or not visible_targets(s, u).has(t):
+			if t == null or not shot_targets(s, u).has(t):
 				return "No line of sight"
 		Types.ABILITY:
 			return _validate_ability(s, u, action)
@@ -477,11 +510,12 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 
 
 ## Units on overwatch that would react to `mover` entering `cell`. Must not change state.
+## Overwatch covers the watcher's own sight radius (Vision.overwatch_sees), not the squad's.
 static func reactions_to_move(s: GameState, mover: Unit, cell: Vector2i) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for w in s.units:
 		if w != mover and is_overwatching(s, w) and w.is_enemy_of(mover) and Kit.can_react(w, mover) \
-				and (can_see(s, w.pos, cell) or Kit.shared_sight(s, w, cell)):
+				and (Vision.overwatch_sees(s, w, mover, cell) or (not mover.status.get("hidden", false) and Kit.shared_sight(s, w, cell))):
 			out.append(w)
 	return out
 

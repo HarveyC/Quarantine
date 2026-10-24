@@ -50,7 +50,7 @@ func refresh() -> void:
 		target = view.input.current_target()
 		shooter = view.input.selected_unit()
 	for uv in view.unit_views.values():
-		if uv.dead:
+		if uv.dead or not uv.visible or uv.get_meta("ghost", false):
 			continue
 		var plate := _plate(uv, uv.unit_id == sel, target != null and target.id == uv.unit_id, shooter)
 		add_child(plate)

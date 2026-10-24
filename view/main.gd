@@ -17,6 +17,7 @@ const Sfx := preload("res://view/sfx.gd")
 const PostFx := preload("res://view/post_fx.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
 const IntentOverlay := preload("res://view/intent_overlay.gd")
+const FogOverlay := preload("res://view/fog_overlay.gd")
 
 signal left_match
 
@@ -38,6 +39,7 @@ var input: InputController
 var hud: Hud
 var unit_views: Dictionary = {}   # unit id -> UnitView
 var intents: IntentOverlay
+var fog: FogOverlay
 var autoplay := false
 var screenshot_path := ""
 var _frames := 0
@@ -121,6 +123,10 @@ func start(s: GameState, begin := true) -> void:
 	_world.add_child(_units_root)
 	for u in s.units:
 		_add_unit_view(u)
+	fog = FogOverlay.new()
+	fog.name = "Fog"
+	_world.add_child(fog)
+	fog.setup(s.grid)
 	fx = Fx.new()
 	fx.name = "Fx"
 	_world.add_child(fx)
@@ -159,7 +165,8 @@ func start(s: GameState, begin := true) -> void:
 	intents.view = self
 	_world.add_child(intents)
 	input.changed.connect(hud.refresh)
-	s.event.connect(player.enqueue)
+	s.event.connect(_on_state_event)
+	show_vision(FogOverlay.annotate(s, {"type": "start"}), true)
 	face_threats(true)
 	if begin:
 		Rules.start_mission(s)
@@ -177,8 +184,8 @@ func leave() -> void:
 
 
 func _teardown() -> void:
-	if state != null and state.event.is_connected(player.enqueue):
-		state.event.disconnect(player.enqueue)
+	if state != null and state.event.is_connected(_on_state_event):
+		state.event.disconnect(_on_state_event)
 	for c in get_children():
 		remove_child(c)
 		c.queue_free()
@@ -248,6 +255,8 @@ func _build_environment() -> void:
 func _add_unit_view(u: Unit) -> UnitView:
 	var uv := UnitView.new()
 	uv.build(u)
+	if u.team != Types.Team.PLAYER and state != null and not Vision.sees_unit(state, Types.Team.PLAYER, u):
+		uv.visible = false
 	EnemyBeats.dress(uv, u)
 	uv.stepped.connect(_on_step)
 	_units_root.add_child(uv)
@@ -271,12 +280,36 @@ func view_for(id: int) -> UnitView:
 	return _add_unit_view(u)
 
 
-## Living unit shown at a cell (by displayed position).
+## Living unit shown at a cell (by displayed position). Units hidden by fog don't count.
 func unit_view_at(c: Vector2i) -> UnitView:
 	for uv in unit_views.values():
-		if not uv.dead and uv.cell == c:
+		if not uv.dead and uv.visible and uv.cell == c:
 			return uv
 	return null
+
+
+## Every rules event goes to the event player with a snapshot of what the squad saw at
+## that moment (FogOverlay.annotate), so fog and hidden enemies play back in step.
+func _on_state_event(ev: Dictionary) -> void:
+	player.enqueue(FogOverlay.annotate(state, ev))
+
+
+## Applies an event's fog snapshot: the fog texture, and which enemies are shown, ghosted
+## (Spore Sense) or hidden.
+func show_vision(ev: Dictionary, instant := false) -> void:
+	if ev.has("_fog"):
+		fog.show_fog(ev._fog, instant)
+	if not ev.has("_unseen"):
+		return
+	var unseen: Array = ev._unseen
+	var ghosts: Array = ev.get("_sensed", [])
+	var alive: Array = ev.get("_alive", [])
+	for id in unit_views:
+		var uv: UnitView = unit_views[id]
+		if not alive.has(id):
+			continue
+		uv.visible = not unseen.has(id) or ghosts.has(id)
+		FogOverlay.set_ghost(uv, ghosts.has(id))
 
 
 func unit_name(id: int) -> String:
@@ -306,7 +339,7 @@ func face_threats(instant := false) -> void:
 		var best: Unit = null
 		var best_d := INF
 		for o in state.living():
-			if o != u and u.is_enemy_of(o):
+			if o != u and u.is_enemy_of(o) and (u.team != Types.Team.PLAYER or Vision.sees_unit(state, u.team, o)):
 				var d := Vector2(o.pos - u.pos).length_squared()
 				if d < best_d:
 					best_d = d
@@ -326,7 +359,8 @@ func _process(_delta: float) -> void:
 		_screenshot_step()
 
 
-## Dev aid: `--screenshot-action=shoot|fire|ready|overview` sets up a scene before the capture;
+## Dev aid: `--screenshot-action=shoot|fire|ready|overview|scout` sets up a scene before the capture
+## (scout: a soldier walks out and back, leaving explored-but-not-visible fog behind);
 ## `--screenshot-frame=N` picks the frame (default 150). With Godot's `--write-movie`
 ## and `--fixed-fps`, `fire` records a whole shot cinematic.
 func _screenshot_step() -> void:
@@ -336,9 +370,21 @@ func _screenshot_step() -> void:
 	for a in args:
 		if a.begins_with("--screenshot-frame="):
 			shot_frame = int(a.trim_prefix("--screenshot-frame="))
-	if _frames == 60 and args.has("--screenshot-action=overview"):   # whole map from high up
+	if _frames == 60 and (args.has("--screenshot-action=overview") or args.has("--screenshot-action=scout")):   # whole map from high up
 		camera_rig._target_dist = CameraRig.MAX_DIST
 		camera_rig.focus(board.center())
+		if args.has("--screenshot-action=scout"):
+			var u := state.controllable_units(0)[0]
+			set_meta("scout_from", u.pos)
+			for i in 2:
+				var m := _autoplay_advance(u)
+				if not m.is_empty():
+					session.submit(m)
+	elif _frames == 100 and args.has("--screenshot-action=scout"):
+		var u := state.controllable_units(1)[0]
+		var m := _autoplay_advance(u)
+		if not m.is_empty():
+			session.submit(m)
 	elif _frames == 60:
 		input.cycle()
 	elif _frames == 70 and (args.has("--screenshot-action=shoot") or args.has("--screenshot-action=fire")):
@@ -372,13 +418,40 @@ func _autoplay_step() -> void:
 	for p in session.local_players():
 		for u in state.controllable_units(p):
 			if u.actions_left > 0:
-				var targets := Combat.visible_targets(state, u)
+				var targets := Combat.shot_targets(state, u)
 				var shot := {"type": Types.SHOOT, "unit": u.id, "target": targets[0].id} if not targets.is_empty() else {}
 				if not shot.is_empty() and Rules.validate(state, shot) == "":
 					session.submit(shot)
+					return
+	# Nothing in sight (fog of war): advance on the nearest enemy, one move per frame.
+	for p in session.local_players():
+		for u in state.controllable_units(p):
+			if u.actions_left > 0 and Combat.shot_targets(state, u).is_empty():
+				var move := _autoplay_advance(u)
+				if not move.is_empty():
+					session.submit(move)
 					return
 	for p in session.local_players():
 		if state.phase == Types.Phase.TEAM and not state.ready.get(p, false):
 			print("[autoplay] turn %d: player %d ready" % [state.turn, p])
 			session.set_ready(p, true)
 			return
+
+
+## The move that takes `u` closest to the nearest enemy, or {} if it is as close as it gets.
+func _autoplay_advance(u: Unit) -> Dictionary:
+	var foes := state.living(Types.Team.ENEMY)
+	if foes.is_empty():
+		return {}
+	var goal := foes[0].pos
+	for e in foes:
+		if u.pos.distance_squared_to(e.pos) < u.pos.distance_squared_to(goal):
+			goal = e.pos
+	var best := u.pos
+	for c in Rules.move_range(state, u):
+		if c.distance_squared_to(goal) < best.distance_squared_to(goal):
+			best = c
+	if best == u.pos or best.distance_to(goal) < 1.5:
+		return {}
+	var move := {"type": Types.MOVE, "unit": u.id, "to": best}
+	return move if Rules.validate(state, move) == "" else {}

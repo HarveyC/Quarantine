@@ -230,7 +230,7 @@ func _trigger(u: Unit, a: Dictionary) -> void:
 			if mode == Mode.SHOOT:
 				confirm_shot()
 				return
-			targets.assign(Combat.visible_targets(view.state, u).map(func(t: Unit) -> int: return t.id))
+			targets.assign(Combat.shot_targets(view.state, u).map(func(t: Unit) -> int: return t.id))
 			if targets.is_empty():
 				view.hud.toast("No visible targets")
 				return
@@ -307,7 +307,7 @@ func click_cell(c: Vector2i) -> void:
 			elif u != null and _reach.has(c):
 				submit({"type": Types.MOVE, "unit": u.id, "to": c})
 			elif u != null and uv != null:
-				var vis := Combat.visible_targets(view.state, u).map(func(t: Unit) -> int: return t.id)
+				var vis := Combat.shot_targets(view.state, u).map(func(t: Unit) -> int: return t.id)
 				if vis.has(uv.unit_id):
 					targets.assign(vis)
 					target_idx = targets.find(uv.unit_id)

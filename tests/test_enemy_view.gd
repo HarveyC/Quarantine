@@ -53,6 +53,7 @@ func test_enemy_fights_play_through_the_view() -> void:
 
 func test_hidden_lurker_is_not_drawn_until_revealed() -> void:
 	var s := make_state(["lurker", "runner"])
+	Vision.disable(s)   # about the Lurker's own stealth, not fog of war (test_vision.gd)
 	var v: MissionView = MAIN.instantiate()
 	v.start(s)
 	_drain(v)

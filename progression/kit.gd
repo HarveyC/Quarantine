@@ -477,7 +477,7 @@ static func can_react(w: Unit, mover: Unit) -> bool:
 ## Twin Sight: `w`'s overwatch also triggers on cells its partner can see.
 static func shared_sight(s: GameState, w: Unit, cell: Vector2i) -> bool:
 	var p := bond_partner(s, w, "twin_sight")
-	return p != null and Combat.can_see(s, p.pos, cell)
+	return p != null and Vision.unit_sees_cell(s, p, cell)
 
 
 ## Called before a reaction shot clears overwatch. True keeps it up (Kill Zone's second shot).

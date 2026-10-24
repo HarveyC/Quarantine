@@ -249,7 +249,8 @@ func _refresh_targeting() -> void:
 
 ## Called by the event player as each event starts playing.
 func on_beat(ev: Dictionary) -> void:
-	combat_log.add_line(EventText.describe(ev, view.unit_name))
+	if not ev.get("_hidden", false):
+		combat_log.add_line(EventText.describe(ev, view.unit_name))
 	refresh()
 
 
@@ -305,7 +306,7 @@ func show_tooltip(uv: UnitView) -> void:
 	var sel := view.input.selected_unit()
 	var target := view.state.get_unit(uv.unit_id)
 	if sel != null and target != null and sel.id != target.id and sel.is_enemy_of(target) \
-			and Combat.visible_targets(view.state, sel).has(target):
+			and Combat.shot_targets(view.state, sel).has(target):
 		var odds := Combat.hit_chance(view.state, sel, target)
 		chips.add_child(W.chip("Hit %d%%" % int(odds.get("hit", 0)), Styles.AMBER, true, 11))
 		if odds.get("flanked", false):
