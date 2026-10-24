@@ -13,6 +13,9 @@ extends Node
 ##   base    always             pulse   enemies in sight (held a while after they vanish)
 ##   danger  heavy contact, a soldier near death, or the enemy turn with enemies in sight
 ##   bloom   the squad's highest Infection (full when someone has Lapsed or Turned)
+## While the squad is Concealed (as the event player shows it) the fight plays the stealth loop
+## instead: tense and quiet, same key and tempo. When the squad is spotted the reveal stinger
+## hits and the combat stems come in with pulse and danger forced up for ASSAULT_HOLD seconds.
 ## Boss fights swap to the boss loop: base, high (boss hurt or in a later phase), bloom (always
 ## full against the Source).
 
@@ -24,13 +27,14 @@ const SETTINGS_PATH := "user://audio.cfg"
 const VOLUME_BUSES := {"Master": 0.8, "Music": 0.7, "Ambience": 0.8, "SFX": 1.0, "UI": 0.7}
 const TRACKS := {
 	"menu": ["menu"], "map": ["map"], "rest": ["rest"],
+	"stealth": ["stealth"],
 	"combat": ["combat_base", "combat_pulse", "combat_danger", "combat_bloom"],
 	"boss": ["boss_base", "boss_high", "boss_bloom"],
 }
 ## Which track and ambience bed each mood uses ("" = silence).
 const MOODS := {
 	"menu": ["menu", "amb_wall"], "map": ["map", "amb_map"], "rest": ["rest", "amb_map"],
-	"combat": ["combat", "act"], "boss": ["boss", "act"], "after": ["", "act"], "summary": ["menu", "amb_map"],
+	"stealth": ["stealth", "act"], "combat": ["combat", "act"], "boss": ["boss", "act"], "after": ["", "act"], "summary": ["menu", "amb_map"],
 }
 const ACT_BEDS := {1: "amb_wall", 2: "amb_port", 3: "amb_bore"}
 const BED_DB := {"amb_wall": -4.0, "amb_port": -3.0, "amb_bore": -2.0, "amb_map": -6.0}
@@ -40,7 +44,7 @@ const SPOTS := {
 	"amb_bore": ["spot_drip", "spot_whisper_1", "spot_whisper_2", "spot_rumble", "spot_bloom", "spot_howl_1", "spot_creak"],
 	"amb_map": ["spot_rotor", "spot_gunfire_1", "spot_siren_2"],
 }
-const STINGERS := ["st_win", "st_lose", "st_contact", "st_boss", "st_node", "st_rank"]
+const STINGERS := ["st_win", "st_lose", "st_contact", "st_reveal", "st_boss", "st_node", "st_rank"]
 const UI_SOUNDS := {"hover": "res://audio/ui_hover.wav", "click": "res://audio/ui_click.wav",
 	"open": "res://audio/ui/open.ogg", "close": "res://audio/ui/close.ogg", "tick": "res://audio/ui/tick.ogg",
 	"deny": "res://audio/ui_deny.wav"}
@@ -54,6 +58,8 @@ const LAYER_OUT := 0.2
 const ENGAGED_HOLD := 10.0
 ## Seconds without contact before a new sighting earns the contact stinger again.
 const CONTACT_REARM := 25.0
+## Seconds of all-out music (pulse and danger up) after the squad loses concealment.
+const ASSAULT_HOLD := 30.0
 
 var mood := ""
 var act := 1
@@ -70,6 +76,7 @@ var _bark_in := 8.0
 var _view: Node = null
 var _voices: EnemyVoices
 var _engaged_until := -1.0
+var _assault_until := -1.0
 var _last_contact := -1000.0
 var _view_at := 0.0
 var _boss_announced := false
@@ -227,7 +234,7 @@ func set_mood(m: String, a := 1) -> void:
 	_set_bed(bed)
 	if m == "rest" and was in ["map", "rest"]:
 		stinger("st_node")
-	elif m == "rest" and was in ["combat", "boss", "after"]:
+	elif m == "rest" and was in ["stealth", "combat", "boss", "after"]:
 		stinger("st_rank")
 
 
@@ -239,7 +246,12 @@ func _direct_combat(d: Dictionary) -> void:
 			_ended = true
 		set_mood("after", d.act)
 		return
+	var player: Node = view.get("player")
+	if d.mood == "combat" and player != null and bool(player.get("concealed")):
+		set_mood("stealth", d.act)   # enemies in sight while unseen don't earn the contact stinger
+		return
 	set_mood(d.mood, d.act)
+	info["assault"] = _assault_until > _clock
 	if info.threat > 0.0:
 		if d.mood == "boss" and info.boss_seen and not _boss_announced:
 			_boss_announced = true
@@ -302,9 +314,11 @@ static func combat_info(view: Node) -> Dictionary:
 ## Combat layer volumes (linear) for `info` (see combat_info; "engaged" adds the pulse hold).
 static func combat_mix(info: Dictionary) -> Array:
 	var threat: float = info.get("threat", 0.0)
-	var engaged: bool = info.get("engaged", threat > 0.0)
+	var engaged: bool = info.get("engaged", threat > 0.0) or info.get("assault", false)
 	var pulse := 1.0 if engaged else 0.0
 	var danger := clampf((threat - 2.0) / 2.0, 0.0, 1.0)
+	if info.get("assault", false):
+		danger = 1.0   # just spotted: all-out fight
 	if engaged and info.get("low_hp", false):
 		danger = maxf(danger, 0.8)
 	if threat > 0.0 and info.get("enemy_phase", false):
@@ -332,6 +346,7 @@ func _follow_view(view: Variant) -> void:
 	_view = view
 	_voices = null
 	_engaged_until = -1.0
+	_assault_until = -1.0
 	_last_contact = -1000.0
 	_view_at = _clock
 	_boss_announced = false
@@ -348,6 +363,12 @@ func _follow_view(view: Variant) -> void:
 func _on_beat(ev: Dictionary) -> void:
 	if _voices != null:
 		_voices.on_beat(ev)
+	if str(ev.get("type", "")) == "concealment_lost":
+		stinger("st_reveal")
+		_assault_until = _clock + ASSAULT_HOLD
+		_engaged_until = _clock + ENGAGED_HOLD
+		_last_contact = _clock   # the reveal stands in for the contact stinger
+		set_mood("combat", act)
 	if str(ev.get("type", "")) == "mission_end":
 		_ended = true
 		set_mood("after", act)

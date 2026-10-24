@@ -144,6 +144,15 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 		"clock":
 			circle.call(12, 12, 8)
 			line.call([[12, 8], [12, 12], [15, 14]])
+		"concealed":   # a closed eye, lashes down, struck through
+			line.call([[2, 11], [6, 14.5], [12, 16], [18, 14.5], [22, 11]])
+			line.call([[6, 14.5], [4.5, 17.5]])
+			line.call([[12, 16], [12, 19.5]])
+			line.call([[18, 14.5], [19.5, 17.5]])
+			line.call([[4, 4], [20, 20]])
+		"detected":   # a wide-open eye
+			line.call([[1.5, 12], [6, 7], [12, 5.5], [18, 7], [22.5, 12], [18, 17], [12, 18.5], [6, 17], [1.5, 12]])
+			dot.call(12, 12, 3.6)
 		"alert":
 			circle.call(12, 12, 9)
 			line.call([[12, 7], [12, 13]])

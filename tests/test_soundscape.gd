@@ -58,6 +58,8 @@ func test_combat_layers_follow_the_fight() -> void:
 	assert_eq(Soundscape.combat_mix({"threat": 1.0, "low_hp": true})[2], 0.8, "a soldier near death")
 	assert_eq(Soundscape.combat_mix({"threat": 1.0, "enemy_phase": true})[2], 0.6, "enemy turn with contact")
 	assert_eq(Soundscape.combat_mix({"infection": 0.1})[3], 0.0, "low Infection: no Bloom")
+	var assault := Soundscape.combat_mix({"threat": 0.0, "engaged": false, "assault": true})
+	assert_eq([assault[1], assault[2]], [1.0, 1.0], "just spotted: pulse and danger come in at once")
 	assert_eq(Soundscape.combat_mix({"infection": 0.8})[3], 1.0, "high Infection: full Bloom")
 	assert_eq(Soundscape.combat_mix({"lost": true})[3], 1.0, "a Lapsed or Turned soldier: full Bloom")
 

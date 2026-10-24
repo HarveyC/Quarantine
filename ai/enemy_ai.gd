@@ -10,6 +10,8 @@ extends RefCounted
 ## Activation: enemies start dormant (no `status["alerted"]`). They wake when a hostile is in
 ## sight at the start of their turn, when they have taken damage, or when an alerted ally is
 ## within POD_RADIUS (pod alert, which chains). Waking emits {"type": "alerted", "unit": id} once.
+## While the squad is Concealed (stealth/concealment.gd) they only spot someone close by, and
+## the first one to wake breaks concealment.
 
 const POD_RADIUS := 6.0
 const SPIT_RANGE := 7.0
@@ -52,6 +54,9 @@ static func is_alerted(u: Unit) -> bool:
 static func alert(s: GameState, u: Unit) -> void:
 	if is_alerted(u) or not u.is_alive():
 		return
+	if Concealment.active(s):
+		Concealment.lose(s, "alerted", u)   # wakes u and its pod
+		return
 	var queue: Array[Unit] = [u]
 	u.status["alerted"] = true
 	s.emit({"type": "alerted", "unit": u.id})
@@ -80,6 +85,9 @@ static func _update_alert(s: GameState, u: Unit) -> bool:
 	if not UnitData.ENEMIES.has(u.kind):
 		return true
 	var wake := u.hp < u.max_hp
+	if not wake and Concealment.active(s):
+		# Concealed: only Infected close enough to spot someone wake (and no ally is awake yet).
+		return Concealment.scan(s, u)
 	if not wake:
 		for h in _hostiles(s, u):
 			if Combat.can_see(s, u.pos, h.pos) and Kit.can_be_spotted(s, u, h):
@@ -97,7 +105,11 @@ static func _update_alert(s: GameState, u: Unit) -> bool:
 
 
 ## Dormant enemies occasionally shuffle 1-2 tiles and otherwise do nothing.
+## While the squad is concealed they patrol instead (Concealment.patrol).
 static func _dormant_turn(s: GameState, u: Unit) -> void:
+	if Concealment.active(s):
+		Concealment.patrol(s, u)
+		return
 	if s.rng.randf() >= DORMANT_SHUFFLE_CHANCE:
 		return
 	var cells: Array = s.grid.reachable(u.pos, 2, s.occupied(u.id)).keys()

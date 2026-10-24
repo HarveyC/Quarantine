@@ -6,7 +6,7 @@ extends RefCounted
 ## spec = {act (1-3), row, node ("skirmish" | "ambush" | "nest" | "boss"),
 ##         objective ("extract" | "hold" | "rescue" | "purge" | "boss"), outbreak, seed, players,
 ##         squad (soldiers deploying, 1-4; default 4),
-##         modifiers: {extra_enemies, enemies_dead_at_start, ambush, boss_health_mult}}
+##         modifiers: {extra_enemies, enemies_dead_at_start, ambush, detected, boss_health_mult}}
 ## Fights scale with `squad` (co-op squads are one soldier per player), not with `players`.
 
 const SKIRMISH_BUDGET := {1: 6, 2: 7, 3: 9}
@@ -105,11 +105,21 @@ static func build(spec: Dictionary) -> Dictionary:
 		enc["start_infection"] = 10
 	if node == "ambush" or mods.get("ambush", false):
 		enc["ambush"] = true
+	enc["concealed"] = starts_concealed(node, objective, mods)
 	var dead := int(mods.get("enemies_dead_at_start", 0))
 	while dead > 0 and enemies.size() > 1 and not EnemyRoster.parse(enemies[-1]).elite:
 		enemies.pop_back()
 		dead -= 1
 	return {"enemies": enemies, "encounter": enc}
+
+
+## Concealment is a per-mission option: most fights start with the squad unseen, but an Ambush
+## (the enemy strikes first), Hold the beacon (they know where you're digging in) and boss
+## fights start detected. An event can also force it with modifiers.detected.
+static func starts_concealed(node: String, objective: String, mods: Dictionary = {}) -> bool:
+	if node in ["ambush", "boss"] or objective in ["hold", "boss"]:
+		return false
+	return not mods.get("ambush", false) and not mods.get("detected", false)
 
 
 ## What the map screen shows for a fight node. Does not depend on Outbreak.

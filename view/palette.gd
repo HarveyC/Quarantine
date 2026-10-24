@@ -5,6 +5,8 @@ extends RefCounted
 const TEAL := Color("2ef2c8")
 const TEAL_DIM := Color("1b8f78")
 const DANGER := Color("e2533a")
+## Squad Concealment: cold moonlight, kept apart from amber (actionable) and teal (Infection).
+const STEALTH := Color("8fb4e8")
 const AMBER := Color("e8b04a")
 const HEAL := Color("8fd16a")   # matches the soldier HP pips
 

@@ -123,6 +123,18 @@ func _set_mode(m: Mode) -> void:
 
 # --- overlays ----------------------------------------------------------------
 
+## While the squad is shown Concealed: cells where a dormant enemy the squad can see would spot
+## a soldier (never enemies under the fog).
+func spotted_cells() -> Dictionary:
+	if view.player == null or not view.player.concealed or not Concealment.active(view.state):
+		return {}
+	var watchers: Array = []
+	for e in view.state.living(Types.Team.ENEMY):
+		var uv = view.view_for(e.id)
+		if uv != null and uv.visible:
+			watchers.append(e)
+	return Concealment.danger_cells(view.state, watchers)
+
 func refresh() -> void:
 	if view.board == null:
 		return
@@ -140,7 +152,7 @@ func refresh() -> void:
 				if u.actions_left > 0:
 					_reach = Rules.move_range(view.state, u)
 					_reach.erase(u.pos)
-					view.board.show_range(_reach)
+					view.board.show_range(_reach, spotted_cells())
 			Mode.SHOOT:
 				var t := current_target()
 				if t != null:

@@ -69,6 +69,7 @@ static func setup_echo(s: GameState, echo: Dictionary) -> Unit:
 	u.ai_controlled = true
 	u.status["turned"] = true
 	u.status["alerted"] = true
+	Concealment.disable(s)   # an Echo knows exactly where its old squad is
 	u.status["elite"] = true
 	u.status["echo"] = echo.key
 	u.status["echo_wave"] = echo.get("wave", 0)

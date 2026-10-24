@@ -146,6 +146,7 @@ class Diagram extends Control:
 			"cover": _cover()
 			"height": _height()
 			"tiers": _tiers()
+			"stealth": _stealth()
 
 	func _text(at: Vector2, t: String, col: Color, sz := 12, mono := false) -> void:
 		var f: Font = Styles.FONT_MONO if mono else Styles.FONT_COND_BOLD
@@ -184,6 +185,29 @@ class Diagram extends Control:
 		_text(Vector2(220, ground - 42), "+%d AIM" % Elevation.AIM_BONUS, Styles.AMBER, 13, true)
 		_text(Vector2(220, ground - 24), "+%d SIGHT" % Vision.HIGH_GROUND_BONUS, Styles.AMBER, 13, true)
 		_text(Vector2(220, ground - 6), "COVER -1 STEP", Styles.AMBER, 13, true)
+
+	## A soldier in the clear, a sleeping Infected and the red tiles where it would spot them.
+	func _stealth() -> void:
+		var ground := 50.0
+		var tile := 24.0
+		var n := 11
+		var x0 := 6.0
+		var enemy := n - 1
+		var r := int(Concealment.DETECT_RADIUS)
+		for i in n:
+			var hot := enemy - i <= r
+			var col := Color(Styles.DANGER, 0.32) if hot else Color(Styles.STEALTH, 0.12)
+			draw_rect(Rect2(x0 + i * tile, ground, tile - 2, 8), col)
+			if hot and i != enemy:
+				draw_rect(Rect2(x0 + i * tile, ground, tile - 2, 8), Color(Styles.DANGER, 0.85), false, 1.0)
+		_soldier(Vector2(x0 + tile * 1.5 - 1, ground), Styles.player_color(0))
+		var ex := x0 + enemy * tile + tile * 0.5 - 1
+		draw_circle(Vector2(ex, ground - 22), 5.0, Styles.DANGER)
+		draw_rect(Rect2(ex - 5, ground - 16, 10, 16), Styles.DANGER)
+		_text(Vector2(ex - 4, ground - 32), "z", Styles.DIM, 12)
+		_text(Vector2(x0, ground + 24), "CONCEALED", Styles.STEALTH, 12)
+		_text(Vector2(x0 + (enemy - r) * tile, ground + 24), "SPOTTED IN %d TILES" % r, Styles.DANGER_TEXT, 12)
+		_text(Vector2(x0 + tile * 3.0, ground - 30), "+%d AIM UNAWARE" % Concealment.AMBUSH_AIM, Styles.AMBER, 12, true)
 
 	func _tiers() -> void:
 		var x0 := 4.0

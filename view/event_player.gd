@@ -38,6 +38,9 @@ static var cinematics := true
 var view: MissionView
 var speed := 1.0
 var enemy_phase := false   # displayed phase, which lags GameState while the queue plays
+## Displayed squad concealment (Concealment), which also lags GameState: the HUD chip, the red
+## detection tiles and the stealth music follow this, so the alarm lands when it plays.
+var concealed := false
 var turn := 0
 var ended := false
 ## Slows unit animation and effects (not the beat clock) for slow motion and hit-stop.
@@ -275,6 +278,13 @@ func _beat_team_phase(ev: Dictionary) -> Dictionary:
 		uv.set_statuses(false, false)
 		if uv.guard:
 			uv.set_guard(false)
+	if turn == 1 and concealed:
+		view.hud.banner("SQUAD CONCEALED", Palette.STEALTH)
+		view.hud.toast("Unseen. Red tiles give you away, so does opening fire")
+		_sfx("sting_squad", -4.0)
+		return {"dur": 1.4}
+	if turn == 1 and not Concealment.used(view.state) and not view.state.encounter.is_empty():
+		view.hud.toast("No cover of darkness: they know you're here")
 	view.hud.banner("TURN %d  -  SQUAD PHASE" % int(ev.get("turn", 0)), Palette.player_ui(0))
 	_sfx("sting_squad")
 	return {"dur": 0.9}
@@ -1231,6 +1241,25 @@ func _beat_alerted(ev: Dictionary) -> Dictionary:
 	view.fx.floating_text(_head(uv), "!", Palette.DANGER, 60)
 	_sfx("alert", -3.0)
 	return {"dur": 0.3}
+
+
+## The squad has been seen: the alarm, a look at who saw them, and the music breaks (Soundscape).
+func _beat_concealment_lost(ev: Dictionary) -> Dictionary:
+	concealed = false
+	var uv := _uv(ev)
+	var who := ""
+	if uv != null and uv.visible:
+		who = UnitData.ENEMIES.get(uv.kind, {}).get("name", uv.display_name)
+		who = ("an " if who.substr(0, 1).to_lower() in ["a", "e", "i", "o", "u"] else "a ") + who
+		view.fx.floating_text(_head(uv), "!", Palette.DANGER, 84, 1.6)
+		if not in_cinematic:
+			view.camera_rig.focus(uv.position)
+	view.hud.banner("SQUAD DETECTED", Palette.DANGER)
+	view.hud.toast(Concealment.cause_text(str(ev.get("cause", "")), who))
+	if get_node_or_null("/root/Soundscape") == null:
+		_sfx("alert")
+	view.input.refresh()
+	return {"dur": 1.3}
 
 
 func _beat_mission_end(ev: Dictionary) -> Dictionary:

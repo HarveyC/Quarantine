@@ -68,6 +68,7 @@ Rules for parallel work:
 | `move` | `unit`, `from`, `path: Array[Vector2i]` (one event per segment between interrupts) |
 | `shot` | `unit`, `target`, `hit`, `graze`, `crit`, `damage`, `chance`, `reaction` (a graze has `hit` and `graze` both true and reduced damage; emitted before its `damage` event) |
 | `damage` | `unit`, `amount`, `hp`, `source` |
+| `concealment_lost` | `cause` (spotted, fired, attacked, explosion, alerted), `unit` (the spotter or target, -1), `by` (our unit, -1) |
 | `died` | `unit` |
 | `overwatch` | `unit` |
 | `hunker` | `unit` |
@@ -443,6 +444,30 @@ hits carry into the next layer:
   beats `explosion`, `cover_destroyed` (per change), throw and Shoot barrel beats; sounds `explosion`
   and `collapse` (tools/gen_sfx.py). Aim preview `Board.show_blast` from `Destruction.preview`.
   Dev capture: `godot -s tools/shot_destruction.gd -- OUT_DIR` (needs a renderer).
+
+## Concealment (stealth/)
+
+XCOM-style squad stealth, `Concealment` in stealth/concealment.gd. Pure rules code; state is
+`state.encounter.concealment = {on, lost_turn, cause}`, so it is in every snapshot and checksum.
+
+- Per-mission option: `FightBuilder.starts_concealed` sets encounter `concealed`. On for most
+  fights and quick play; off for Ambush nodes, Hold the beacon, bosses, an event's
+  `modifiers.detected`, and Echo fights (`Story.setup_echo` calls `Concealment.disable`).
+- While concealed a dormant Infected only spots a unit within `DETECT_RADIUS` (4, Hive Hush 2)
+  with line of sight, instead of its full sight. `Rules.move_along` checks every step either
+  side takes (`Concealment.spotter`), flushes the walk so far as a `move` event, then breaks it,
+  so the alarm plays at the right moment. `EnemyAI` checks again at each dormant enemy's turn.
+- Any squad attack (hit or miss), any damage between the sides, an explosion
+  (`Destruction.noise`) or any other alert (`EnemyAI.alert`) also breaks it. The enemy involved
+  and its pod wake. Concealment never comes back in that fight.
+- Dormant enemies patrol (`Concealment.patrol`, `state.rng`) near `status.patrol_home`, and
+  spawns arrive dormant. Attacks on unaware targets get `Unaware` +15 aim; reaction shots in the
+  enemy phase of the reveal turn get `Ambush shot` +15.
+- View: `EventPlayer.concealed` is the displayed state (lags the rules like the rest). It drives
+  the HUD chip, the red move tiles (`Concealment.danger_cells`, only enemies the squad can see),
+  the SQUAD CONCEALED / DETECTED banners and the Soundscape `stealth` loop, which hands over to
+  the combat stems with the `st_reveal` stinger and full pulse and danger for 30 seconds.
+- Dev aid: `godot -s tools/shot_concealment.gd -- OUT_DIR` renders the sequence.
 
 ## Objectives (objectives/)
 

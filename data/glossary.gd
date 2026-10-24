@@ -290,6 +290,16 @@ static func _build() -> Dictionary:
 		"more": ["Fires in the enemy phase.", "A {suppress|Suppressed} soldier loses their overwatch."],
 		"see": ["suppress", "hit_chance", "tag_overwatch"],
 		"aliases": ["Reaction shot", "On overwatch"]}
+	t["concealed"] = {"name": "Concealed", "kind": "status", "icon": "concealed", "tone": Styles.STEALTH,
+		"line": "The Infected haven't seen the squad yet. Most missions start this way.",
+		"art": "",
+		"stats": [["%d" % int(Concealment.DETECT_RADIUS), "tiles: spotted"], ["+%d" % Concealment.AMBUSH_AIM, "aim, unaware"]],
+		"more": ["Red move tiles are where a sleeping Infected would see you.", "Any shot, hit or explosion gives the whole squad away.",
+			"Put the squad on {overwatch} before you open fire: reaction shots that turn get +%d aim too." % Concealment.AMBUSH_AIM,
+			"Ambushes, Hold the beacon and bosses start Detected."],
+		"see": ["overwatch", "hit_chance"],
+		"aliases": ["Concealment", "Undetected", "Detected"],
+		"labels": ["Unaware", "Ambush shot"]}
 	t["hunker"] = {"name": "Hunker down", "kind": "action", "icon": "hunker", "tone": "amber",
 		"line": "Get low behind {cover} until your next turn. Doubles it.",
 		"art": "cover", "art_ctx": {"hunker": true},

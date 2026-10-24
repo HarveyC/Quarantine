@@ -35,6 +35,8 @@ const HINTS := {
 		"text": "Supplies and a recruit. Recruits wait in reserve and deploy when a soldier falls."},
 	"fight": {"title": "Squad phase", "target": "ready",
 		"text": "Move and shoot with your soldiers in any order, then press Ready. Enemies move once everyone is ready."},
+	"concealed": {"title": "Concealed", "target": "stealth", "visual": "stealth",
+		"text": "They haven't seen you. Red move tiles give you away, and so does any shot. Set overwatch, then open fire for an ambush."},
 	"infection": {"title": "Infection", "target": "roster", "visual": "tiers",
 		"text": "Teal is Infection. At 25 a mutation wakes, from 50 a soldier can Lapse, at 100 they Turn."},
 	"lapse": {"title": "Lapsed", "target": "unit",
@@ -211,6 +213,8 @@ func _next_hint() -> Dictionary:
 			return {}
 		if not _seen("fight"):
 			return {"id": "fight"}
+		if not _seen("concealed") and v.player != null and v.player.concealed:
+			return {"id": "concealed"}
 		while not _queue.is_empty():
 			var q: Dictionary = _queue.pop_front()
 			if not _seen(q.id):
@@ -285,10 +289,10 @@ func _target_rect(hint: Dictionary) -> Dictionary:
 	var key := str(def.get("target", ""))
 	var v := _mission()
 	match key:
-		"ready", "roster":
+		"ready", "roster", "stealth":
 			if v == null:
 				return {"ok": false}
-			var c: Control = v.hud.action_bar.ready_button() if key == "ready" else v.hud.roster
+			var c: Control = v.hud.action_bar.ready_button() if key == "ready" else (v.hud.stealth_chip() if key == "stealth" else v.hud.roster)
 			return {"ok": true, "rect": c.get_global_rect(), "arrow": true}
 		"unit", "cells":
 			if v == null:

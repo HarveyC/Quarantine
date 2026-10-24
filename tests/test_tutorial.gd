@@ -79,7 +79,9 @@ func test_lessons_play_through_to_the_end() -> void:
 	for r in _mobile(t):
 		Rules.deal_damage(s, r, 99, trooper)
 	t.tick()
-	assert_eq(_step(t), "infection", "clearing the wave skips ahead to Infection")
+	assert_eq(_step(t), "concealment", "clearing the wave skips ahead to the Concealment card")
+	t.proceed()
+	assert_eq(_step(t), "infection", "Continue moves on to Infection")
 	var dosed := t.drill.lesson_soldier(s)
 	assert_true(dosed.infection >= TutorialScript.LESSON_INFECTION, "a soldier was dosed to Exposed")
 	if dosed.actions_left <= 0:
