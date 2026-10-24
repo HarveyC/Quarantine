@@ -142,6 +142,65 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   `gear_pick {player, soldier, card (-1 = skip for +10 Supplies), to_stash?}`,
   `gear_stash_take {player, soldier, index}`, `gear_unequip {player, soldier, slot}`. `player` -1 = anyone.
 
+## Non-combat nodes (nodes/)
+
+Events, Supply depot, Field hospital and Survivors (design doc: "Run map and events", "Economy and
+rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind in `ui/nodes/`.
+
+- **`NodeRules`** is the entry point the framework calls: `enter(run, kind, event_id = "")`,
+  `validate(run, action) -> String`, `apply(run, action) -> bool`, `is_done(run)` (every present
+  player has sent `node_leave`), `pending_fight(run)`, `screen(kind) -> Script`, and
+  `autoplay_actions(run)` (the actions that close the node with defaults: for absent players'
+  timers and headless tests). The open screen is `run.node_state` (`kind` = event / depot /
+  hospital / survivors, `left` = players who have left).
+- **Actions** (all carry `player`, only in the NODE phase, benched players can't act):
+  `node_choose {option, soldier?}`, `node_pass` (decline a volunteer step), `node_timeout` (host
+  only: the 20 s choice timer ran out, missing picks take the default), `node_leave`;
+  depot `node_buy {index, soldier?, slot?}`, `node_sell {soldier, slot}`, `node_reroll`;
+  hospital `node_treat {soldier, treatment: patch|purge|train|cure}`; survivors `node_claim`.
+- **Events** are data in `EventData.EVENTS` (15, written in the world's voice), run by
+  `EventRules`. An event is a graph of steps; each step is decided one of five ways: `vote`
+  (majority, the host breaks a tie, re-voting allowed until the last vote is in), `secret` (picks
+  revealed together, with an optional `unanimous` bonus), `per_player` (each player for their own
+  soldiers, applied at once), `volunteer` (first claim; everyone passing runs `nobody`) and `owner`
+  (only the owner of the event's subject soldier). Options carry requirements, an optional own-soldier
+  target and a list of effects (format at the top of `event_data.gd`). Events never repeat in a run,
+  are filtered by act and squad state (Whispers needs a soldier at 50+, Last seat a wounded one,
+  The Source's signal is act 3 only) and act 1 weights the low-stakes ones x3. A solo player answers
+  every kind of step alone and votes resolve at once.
+- **What nodes write**: shared values only through `RunRules.add_supplies` / `add_intel` /
+  `add_serum` / `add_outbreak` / `add_recruit`; soldier `hp`, `infection` (capped at 99 outside a
+  fight), `injuries`, `scars`, `sit_out` (Checkpoint "held") and `status = gone` (Last seat);
+  gear only through `Loadout`; perks and mutations only through Progression (late-bound:
+  `grant_random_mutation`, `mutations_of`, `remove_mutation`, `full_cure`, `grant_perk_pick`,
+  `mutation_name`), with a small fallback in `record.prog.mutations` before it lands. A recruit
+  from Stragglers may carry `hidden_carrier: true` (it joins at 50 Infection).
+- **Modifiers set**: `extra_enemies` (Last broadcast +1, small ambush −1), `enemies_dead_at_start`
+  (Air support 2), `force_nest_next` (Air support), `ambush`, `boss_health_mult` (Signal 0.8),
+  `first_turn_action_loss` (Whispers), `remove_column` (The bridge), and `pending_fight`
+  (`{"kind": "skirmish"|"ambush", "objective"}`: Checkpoint "force the gate", Field chapel ambush).
+- **Depot**: 7 slots (gear 1 Common/Uncommon weighted to the squad's tags, gear 2 Uncommon or
+  Rare from act 2, 3 different consumables, 1 Serum dose for 50 once per depot, 1 service rolled from
+  Armorer / Recruit 45 / Scar removal 40), reroll 20 then 35 (keeps Serum and the service), sell
+  back at 40%, Quartermaster Doctrine −15%. Buyers pick one of their own soldiers.
+- **Hospital**: one treatment per soldier by its owner; Patch up (full HP, −1 injury), Purge (−30
+  Infection, 15 Supplies), Train (extra perk pick), Full cure (2 doses). Healing or purging anyone
+  raises Outbreak by 1 once per visit; Train doesn't.
+- **Survivors**: +10 Supplies on entry and one recruit; the first `node_claim` takes them,
+  otherwise they join the smallest reserve when everyone leaves.
+
+Node events (`run.event`): `event_start` (`event`, `subject`), `event_step` (`event`, `step`, `kind`),
+`event_choice` (`player`, `step`, `option`: empty for secret picks), `event_vote` (`option`, `votes`),
+`event_reveal` (`picks`), `event_end` (`event`, `results`, `fight`), `item_gained` (`sid`, `item`),
+`soldier_hp` / `soldier_infection` / `soldier_mutation` / `perk_pick` / `full_cure` / `sit_out`
+(`sid`, ...), `modifier` (`key`, `value`), `depot_open`, `depot_bought`, `depot_sold`,
+`depot_reroll`, `hospital_open`, `hospital_treat` (`soldier`, `treatment`), `survivors_found`,
+`node_leave` (`player`).
+
+Screens (`ui/nodes/`, look from the approved mockups via `NodeUi`) extend `node_screen.gd`: they
+rebuild from `run.node_state` after each run event and send input with `session.submit_run`. Every
+button's enabled state comes from `NodeRules.validate`, so the screen and the rules can't disagree.
+
 ## View presentation (cinematics, animation, sound)
 
 All of this is view-only and driven by event data, so it never touches `GameState` and every peer

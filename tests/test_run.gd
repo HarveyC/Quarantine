@@ -138,6 +138,9 @@ func test_full_run_to_victory_and_save_resume() -> void:
 		guard += 1
 		match run.phase:
 			RunState.Phase.MAP: _vote_first(run)
+			RunState.Phase.NODE:
+				for a in NodeRules.autoplay_actions(run):
+					RunRules.apply(run, a)
 			RunState.Phase.FIGHT:
 				if saved_mid == "":
 					saved_mid = run.save_string()
