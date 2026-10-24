@@ -238,7 +238,7 @@ func test_last_seat_sends_home() -> void:
 	_choose(run, 1, "send")
 	assert_eq(run.get_soldier(2).status, RunSoldier.GONE, "left the run")
 	assert_eq(run.reserve_of(0).size(), 2, "owner gets a recruit")
-	assert_eq(_events(run, "perk_pick").size(), 1, "with a perk pick")
+	assert_eq(_events(run, "perk_pick_granted").size(), 1, "with a perk pick")
 
 
 func test_spore_bloom_burn_cost_and_requirement() -> void:
@@ -261,7 +261,7 @@ func test_spore_bloom_burn_cost_and_requirement() -> void:
 func test_back_alley_medic_per_player() -> void:
 	var run := _run()
 	run.get_soldier(1).infection = 40
-	RunAccess._fallback_mutations(run.get_soldier(3)).append("surge")
+	Progression.graft(run.get_soldier(3).prog, "adrenal_surge")
 	NodeRules.enter(run, "event", "back_alley_medic")
 	assert_true(not _choose(run, 0, "sell", 1), "needs a mutation")
 	_choose(run, 0, "purge", 1)
@@ -366,12 +366,13 @@ func test_hospital_treatments() -> void:
 	run.get_soldier(1).injuries = 1
 	run.get_soldier(2).infection = 50
 	run.get_soldier(3).infection = 80
-	RunAccess._fallback_mutations(run.get_soldier(3)).assign(["surge", "sense"])
+	Progression.graft(run.get_soldier(3).prog, "adrenal_surge")
+	Progression.graft(run.get_soldier(3).prog, "acid_spit")
 	run.serum[1] = 4
 	NodeRules.enter(run, "hospital")
 	assert_true(_act(run, "node_treat", 0, {"soldier": 2, "treatment": "train"}), "train")
 	assert_eq(run.outbreak, 0, "train is free of Outbreak")
-	assert_eq(_events(run, "perk_pick").size(), 1, "perk pick")
+	assert_eq(_events(run, "perk_pick_granted").size(), 1, "perk pick")
 	assert_true(not _act(run, "node_treat", 0, {"soldier": 2, "treatment": "purge"}), "one treatment each")
 	assert_true(_act(run, "node_treat", 0, {"soldier": 1, "treatment": "patch"}), "patch")
 	assert_eq(run.get_soldier(1).hp, run.get_soldier(1).max_hp, "full HP")

@@ -121,6 +121,27 @@ func _win_fight(run: RunState, bonus: bool = false) -> void:
 	Rules.check_end(s)
 	assert_eq(s.result, Types.Result.VICTORY, "fake win")
 	assert_true(RunRules.apply(run, {"type": RunRules.FIGHT_END, "player": 0, "outcome": RunRules.fight_outcome(s, bonus)}), "fight_end")
+	_take_rank_up_picks(run)
+
+
+## Makes every waiting Progression pick (first perk on offer, mutation offers skipped).
+func _take_rank_up_picks(run: RunState) -> void:
+	if run.phase == RunState.Phase.ENDED:
+		return
+	for r in run.squad():
+		var guard := 0
+		while Progression.pending_picks(r) > 0 and guard < 10:
+			guard += 1
+			var offer := Progression.perk_offer(run, r)
+			var act := {"type": "prog_perk_pick", "player": run.controller_of(r), "sid": r.id, "perk": offer[0] if offer.size() > 0 else ""}
+			var err := RunRules.validate(run, act)
+			assert_eq(err, "", "perk pick")
+			if err != "":
+				break
+			RunRules.apply(run, act)
+		while not r.prog.offers.is_empty() and guard < 20:
+			guard += 1
+			RunRules.apply(run, {"type": "prog_skip_offer", "player": run.controller_of(r), "sid": r.id})
 
 
 ## Settles the REWARD step (the starting kit and post-fight picks once GearRun is in): takes the
