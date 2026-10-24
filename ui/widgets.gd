@@ -1,12 +1,14 @@
 extends RefCounted
-## Small custom-drawn HUD pieces: bracketed panels, HP pips, action diamonds,
-## the Infection bar with tier marks, icons and keycaps.
+## Small custom-drawn HUD pieces in the Bloom look: rounded HP pips, glowing lantern action
+## orbs, the Infection bar with tier marks, ring gauges and portrait rings, creeping Bloom
+## tendrils, icons, key caps and chips.
 
 const Styles := preload("res://ui/styles.gd")
 const Icons := preload("res://ui/icons.gd")
 
 
 const Frame := preload("res://ui/frame.gd")
+const Draw := preload("res://ui/bloom_draw.gd")
 
 
 ## Segmented bar: `filled` of `count` segments, optionally a hatched range that a
@@ -37,18 +39,15 @@ class Pips extends Control:
 		for i in count:
 			var r := Rect2(i * (seg.x + gap), y, seg.x, seg.y)
 			if i >= filled:
-				draw_rect(r, off)
+				Draw.capsule(self, r, off)
 			elif i >= filled - lose:
-				draw_rect(r, Color("5a2318"))
-				var stripes := 3
-				for k in stripes:
-					var x := r.position.x + (k + 0.5) * r.size.x / stripes
-					draw_line(Vector2(x - 2, r.end.y), Vector2(x + 2, r.position.y), Styles.DANGER, 2.0)
+				Draw.capsule(self, r, Color(Styles.DANGER, 0.3))
+				Draw.capsule(self, r.grow(-1.2), Color(Styles.DANGER, 0.55))
 			else:
-				draw_rect(r, color)
+				Draw.capsule(self, r, color)
 
 
-## Action points as small diamonds.
+## Action points as small glowing lantern orbs (the class keeps its old name).
 class Diamonds extends Control:
 	var total := 2
 	var filled := 2
@@ -68,20 +67,20 @@ class Diamonds extends Control:
 		queue_redraw()
 
 	func _draw() -> void:
-		var h := d * 0.72
+		var rad := d * 0.6
 		var step := d * 1.45 + 3.0
 		for i in total:
-			var c := Vector2(h + i * step, size.y * 0.5)
-			var pts := PackedVector2Array([c + Vector2(0, -h), c + Vector2(h, 0), c + Vector2(0, h), c + Vector2(-h, 0)])
+			var c := Vector2(d * 0.72 + i * step, size.y * 0.5)
 			if i < filled:
-				draw_colored_polygon(pts, color)
+				Draw.glow(self, c, rad * 2.0, color, 0.9)
+				draw_circle(c, rad, color)
+				draw_circle(c + Vector2(-rad, -rad) * 0.3, rad * 0.35, Color(1, 1, 1, 0.45))
 			else:
-				pts.append(pts[0])
-				draw_polyline(pts, Color("5b6150"), 1.0, true)
+				draw_arc(c, rad - 0.5, 0, TAU, 20, Color(Styles.DIM, 0.45), 1.2, true)
 
 
-## Infection 0-100 with tier marks at 25/50/75, a glow on the fill, and an optional
-## preview value drawn as a hatched ghost.
+## Infection 0-100 as a rounded teal bar with tier marks at 25/50/75, a glow on the fill, and
+## an optional preview value drawn as a ghost.
 class InfBar extends Control:
 	var value := 0
 	var preview := -1
@@ -96,14 +95,205 @@ class InfBar extends Control:
 
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
-		draw_rect(r, Color("1d2723"))
+		Draw.capsule(self, r, Color(Styles.TEAL, 0.1))
 		var w := size.x * value / 100.0
 		if value > 0:
-			draw_rect(Rect2(0, -1, w, size.y + 2), Color(Styles.TEAL, 0.18))
-			draw_rect(Rect2(0, 0, w, size.y), Styles.TEAL if value >= 25 else Styles.TEAL.darkened(0.25))
+			var fr := Rect2(0, 0, maxf(w, size.y), size.y)
+			Draw.capsule(self, fr.grow(1.5), Color(Styles.TEAL, 0.2))
+			Draw.capsule(self, fr, Styles.TEAL if value >= 25 else Styles.TEAL.darkened(0.25))
 		for t in [25, 50, 75]:
 			var x: float = size.x * t / 100.0
-			draw_rect(Rect2(x - 0.5, -2, 1.5, size.y + 4), Styles.GROUND)
+			draw_rect(Rect2(x - 0.75, -1, 1.5, size.y + 2), Styles.GROUND)
+
+
+## A ring gauge: a track circle and an arc filled clockwise from the top to `value` (0..1). An
+## optional second arc (`extra`, after the fill) shows a preview. The fill glows.
+class Ring extends Control:
+	var value := 0.0
+	var extra := 0.0
+	var color := Styles.TEAL
+	var extra_color := Styles.DANGER
+	var track := Color(1, 1, 1, 0.1)
+	var thickness := 5.0
+	var glow := true
+
+	func _init(px := 64.0, thick := 5.0, col := Styles.TEAL) -> void:
+		custom_minimum_size = Vector2(px, px)
+		thickness = thick
+		color = col
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func set_value(v: float, col := color, more := 0.0) -> void:
+		value = clampf(v, 0.0, 1.0)
+		color = col
+		extra = clampf(more, 0.0, 1.0 - value)
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.5 - thickness * 0.5 - 1.0
+		draw_arc(c, r, 0, TAU, 64, track, thickness, true)
+		var a0 := -PI * 0.5
+		if value > 0.0:
+			var a1 := a0 + TAU * value
+			if glow:
+				draw_arc(c, r, a0, a1, 64, Color(color, 0.18), thickness + 7.0, true)
+				draw_arc(c, r, a0, a1, 64, Color(color, 0.3), thickness + 3.0, true)
+			draw_arc(c, r, a0, a1, 64, color, thickness, true)
+		if extra > 0.0:
+			draw_arc(c, r, a0 + TAU * value, a0 + TAU * (value + extra), 32, Color(extra_color, 0.7), thickness, true)
+
+
+## A round soldier portrait: the class icon in a dark disc, a thin owner-colour inner ring, and
+## an outer ring gauge for Infection (teal). `lit` adds the lantern glow of the active soldier.
+class Portrait extends Control:
+	var kind := ""
+	var owner_color := Styles.TEXT
+	var infection := 0
+	var lit := false
+	var dim := false
+
+	func _init(px := 64.0) -> void:
+		custom_minimum_size = Vector2(px, px)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func setup(k: String, col: Color, inf: int, is_lit := false, is_dim := false) -> void:
+		kind = k
+		owner_color = col
+		infection = inf
+		lit = is_lit
+		dim = is_dim
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var R := minf(size.x, size.y) * 0.5
+		var ring := maxf(3.0, R * 0.09)
+		if lit:
+			Draw.glow(self, c, R * 1.45, Styles.AMBER, 1.0)
+		elif infection >= 50:
+			Draw.glow(self, c, R * 1.35, Styles.TEAL, 0.8)
+		var r := R - ring * 0.5 - 1.0
+		draw_arc(c, r, 0, TAU, 64, Color(1, 1, 1, 0.1), ring, true)
+		if infection > 0:
+			var a1 := -PI * 0.5 + TAU * infection / 100.0
+			draw_arc(c, r, -PI * 0.5, a1, 64, Color(Styles.TEAL, 0.3), ring + 4.0, true)
+			draw_arc(c, r, -PI * 0.5, a1, 64, Styles.TEAL, ring, true)
+		var inner := r - ring * 0.5 - 2.0
+		draw_circle(c, inner, Styles.GROUND)
+		draw_circle(c, inner - 1.0, Color("1a2433") if not dim else Color("121822"))
+		draw_arc(c, inner - 1.0, 0, TAU, 48, Styles.AMBER if lit else Color(owner_color, 0.85), 2.0, true)
+		var icol := (Styles.AMBER_LIGHT if lit else Styles.TEXT) if not dim else Styles.MUTED
+		var ip := inner * 1.05
+		Icons.draw(self, Icons.for_class(kind), Rect2(c - Vector2(ip, ip) * 0.5, Vector2(ip, ip)), icol, maxf(1.6, R * 0.05))
+
+
+## Creeping Bloom tendrils: a few branching, slowly swaying veins with glowing nodules, grown
+## from one edge of the control toward `reach` (0..1) of the way across. Purely decorative;
+## screens put it behind their content. `edge`: "left", "right", "top", "bottom" or "center"
+## (radiating from `origin`, in 0..1 of the size).
+class Veins extends Control:
+	var edge := "left"
+	var origin := Vector2(0.5, 0.5)
+	var reach := 0.3
+	var color := Styles.TEAL
+	var strands := 5
+	var seed_value := 7
+	var alpha := 0.75
+	var animate := true
+	var branching := 0.22
+	var start_radius := 0.0   # "center": strands start this far (px) from the origin
+	var _t := 0.0
+	var _paths: Array = []
+
+	func _init(from_edge := "left", how_far := 0.3, count := 5, s := 7) -> void:
+		edge = from_edge
+		reach = how_far
+		strands = count
+		seed_value = s
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _ready() -> void:
+		resized.connect(_build)
+		_build()
+		set_process(animate)
+
+	func set_reach(v: float) -> void:
+		reach = clampf(v, 0.0, 1.0)
+		_build()
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _build() -> void:
+		_paths.clear()
+		if size.x < 2 or size.y < 2:
+			return
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		for i in strands:
+			var start: Vector2
+			var dir: Vector2
+			var span: float
+			var f := (i + 0.5 + rng.randf_range(-0.35, 0.35)) / strands
+			match edge:
+				"right":
+					start = Vector2(size.x + 4, size.y * f)
+					dir = Vector2.LEFT
+					span = size.x
+				"top":
+					start = Vector2(size.x * f, -4)
+					dir = Vector2.DOWN
+					span = size.y
+				"bottom":
+					start = Vector2(size.x * f, size.y + 4)
+					dir = Vector2.UP
+					span = size.y
+				"center":
+					var a := TAU * (i + rng.randf_range(-0.3, 0.3)) / strands
+					dir = Vector2(cos(a), sin(a))
+					start = size * origin + dir * start_radius
+					span = size.length() * 0.5
+				_:
+					start = Vector2(-4, size.y * f)
+					dir = Vector2.RIGHT
+					span = size.x
+			var length := span * reach * rng.randf_range(0.55, 1.0)
+			_grow(rng, start, dir, length, 3.2 - (0.0 if i % 2 == 0 else 0.8), 0)
+
+	func _grow(rng: RandomNumberGenerator, start: Vector2, dir: Vector2, length: float, width: float, depth: int) -> void:
+		if length < 12.0:
+			return
+		var pts := PackedVector2Array([start])
+		var p := start
+		var d := dir.normalized()
+		var steps := maxi(4, int(length / 18.0))
+		var step := length / steps
+		for k in steps:
+			d = d.rotated(rng.randf_range(-0.45, 0.45)).normalized()
+			d = (d + dir.normalized() * 0.35).normalized()
+			p += d * step
+			pts.append(p)
+			if depth < 2 and k > 1 and rng.randf() < branching:
+				var side := 1.0 if rng.randf() < 0.5 else -1.0
+				_grow(rng, p, d.rotated(side * rng.randf_range(0.6, 1.1)), length * rng.randf_range(0.25, 0.45), width * 0.55, depth + 1)
+		_paths.append({"pts": pts, "w": width, "phase": rng.randf() * TAU, "depth": depth})
+
+	func _draw() -> void:
+		for path in _paths:
+			var pts: PackedVector2Array = path.pts
+			var sway := PackedVector2Array()
+			for k in pts.size():
+				var wob := sin(_t * 0.6 + path.phase + k * 0.7) * 1.6 * (float(k) / pts.size())
+				sway.append(pts[k] + Vector2(wob, -wob))
+			var w: float = path.w
+			draw_polyline(sway, Color(color, alpha * 0.18), w + 6.0, true)
+			draw_polyline(sway, Color(color, alpha), w, true)
+			var tip := sway[sway.size() - 1]
+			var pulse := 0.75 + 0.25 * sin(_t * 1.4 + path.phase)
+			Draw.glow(self, tip, (w + 3.0) * 3.0, color, alpha * pulse)
+			draw_circle(tip, w + 1.2, Color(color, alpha))
 
 
 ## A line icon from Icons, sized by custom_minimum_size.
@@ -128,17 +318,19 @@ class Icon extends Control:
 		Icons.draw(self, id, Rect2(Vector2.ZERO, size), color, width)
 
 
-## Square class-icon tile used on soldier cards.
-static func glyph(kind: String, col: Color, px := 46.0, border := Color("3a443a")) -> PanelContainer:
+## Round class-icon tile used on soldier cards: a dark disc with a coloured ring.
+static func glyph(kind: String, col: Color, px := 46.0, border := Styles.BORDER_STRONG) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Styles.BG_RAISED
-	sb.border_color = border
-	sb.set_border_width_all(1)
+	var sb := Styles.panel_box(Color("162030"), border, Styles.PILL)
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.set_content_margin_all(0)
 	p.add_theme_stylebox_override("panel", sb)
 	p.custom_minimum_size = Vector2(px, px)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := Icon.new(Icons.for_class(kind), col, px * 0.55, 1.8)
+	var ic := Icon.new(Icons.for_class(kind), col, px * 0.52, 1.8)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	p.add_child(ic)
@@ -146,16 +338,12 @@ static func glyph(kind: String, col: Color, px := 46.0, border := Color("3a443a"
 
 
 ## Keyboard key cap, e.g. [Tab].
-static func keycap(text: String, size := 11, fg := Color("d6d2c2"), bg := Color("151a16"), border := Color("4d574b")) -> PanelContainer:
+static func keycap(text: String, size := 11, fg := Styles.TEXT, bg := Color("141c2a"), border := Styles.BORDER_STRONG) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = bg
-	sb.border_color = border
-	sb.set_border_width_all(1)
+	var sb := Styles.panel_box(bg, border, 6)
 	sb.border_width_bottom = 2
-	sb.set_corner_radius_all(3)
-	sb.content_margin_left = 5
-	sb.content_margin_right = 5
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
 	sb.content_margin_top = 1
 	sb.content_margin_bottom = 1
 	p.add_theme_stylebox_override("panel", sb)
@@ -167,18 +355,18 @@ static func keycap(text: String, size := 11, fg := Color("d6d2c2"), bg := Color(
 	return p
 
 
-## Flat chip: a filled caps tag ("SQUAD PHASE") or an outlined one.
+## Pill chip: a filled caps tag ("SQUAD PHASE") or an outlined one.
 static func chip(text: String, col: Color, filled := true, size := 13) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = col if filled else Color.TRANSPARENT
-	sb.border_color = col if filled else Color("3a433a")
-	sb.set_border_width_all(1)
-	sb.content_margin_left = 8
-	sb.content_margin_right = 8
+	var sb := Styles.panel_box(col if filled else Color(col, 0.06), col if filled else Color(col, 0.4), Styles.PILL)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
 	sb.content_margin_top = 2
 	sb.content_margin_bottom = 2
+	if filled and col.s > 0.4:
+		sb.shadow_color = Color(col, 0.3)
+		sb.shadow_size = 6
 	p.add_theme_stylebox_override("panel", sb)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_child(Styles.caps(text, size, Styles.GROUND if filled else Styles.DIM))
+	p.add_child(Styles.caps(text, size, Styles.GROUND if filled else col.lerp(Styles.DIM, 0.3)))
 	return p

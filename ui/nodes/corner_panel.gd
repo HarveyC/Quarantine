@@ -1,25 +1,19 @@
 extends PanelContainer
-## A panel with amber corner marks (top left and bottom right, like the HUD's Frame), and an
-## optional coloured stripe along its top edge.
-
-const MARK := 12.0
-const WIDTH := 2.0
+## A node-screen panel in the Bloom look: the rounded glass box comes from its stylebox
+## (NodeUi.box); `stripe` draws a short owner pill centred on its top edge.
 
 var stripe := Color(0, 0, 0, 0)
-var marks := true
+var marks := true   # kept for callers; Bloom panels have no corner marks
 
 
 func _draw() -> void:
-	if stripe.a > 0:
-		draw_rect(Rect2(0, 0, size.x, 3), stripe)
-	if not marks:
+	if stripe.a <= 0:
 		return
-	var c := NodeUi.AMBER
-	for corner in [Vector2(0, 0), size]:
-		var dx := MARK if corner.x == 0 else -MARK
-		var dy := MARK if corner.y == 0 else -MARK
-		draw_line(corner, corner + Vector2(dx, 0), c, WIDTH)
-		draw_line(corner, corner + Vector2(0, dy), c, WIDTH)
+	var w := minf(size.x * 0.4, 90.0)
+	var x := (size.x - w) * 0.5
+	draw_rect(Rect2(x + 2, -1, w - 4, 4), stripe)
+	draw_circle(Vector2(x + 2, 1), 2, stripe)
+	draw_circle(Vector2(x + w - 2, 1), 2, stripe)
 
 
 func _notification(what: int) -> void:
