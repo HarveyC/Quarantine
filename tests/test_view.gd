@@ -224,7 +224,10 @@ func test_infection_growths_follow_tier() -> void:
 
 
 func test_units_face_nearest_threat() -> void:
-	var v := _make_view()
+	var s := MissionView.default_mission(1234)
+	Vision.disable(s)   # with fog on, soldiers only turn toward enemies they can see
+	var v: MissionView = MAIN.instantiate()
+	v.start(s)
 	v.player.flush()
 	for u in v.state.living(Types.Team.PLAYER):
 		var best: Unit = null

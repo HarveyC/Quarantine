@@ -25,9 +25,9 @@ const CLOSE := 3.0
 ## Items whose effect needs a system the game doesn't have yet (fog of war, restraint,
 ## mutation costs). They're kept out of reward and depot draws until they work.
 const PENDING: Array[String] = [
-	"smart_link", "motion_tracker", "symbiotic_suit",
+	"symbiotic_suit",
 	"crossfire", "hold_position", "bloodletting",
-	"recon_drone", "containment_foam",
+	"containment_foam",
 ]
 ## Fire tiles gear makes: Thermite line length per Mk, and how long each kind of fire lasts.
 const THERMITE_LENGTH := [3, 5]
@@ -57,7 +57,10 @@ const CONSUMABLE_USE := {
 	"frag_grenade": {"targeting": "cell", "cost": 1, "range": 6.0},
 	"flashbang": {"targeting": "cell", "cost": 1, "range": 6.0},
 	"smoke_grenade": {"targeting": "cell", "cost": 1, "range": 6.0},
+	"recon_drone": {"targeting": "cell", "cost": 1, "range": Vision.DRONE_RANGE},
 }
+## Rangefinder: extra overwatch range per Mk.
+const RANGEFINDER_RANGE := [2, 3]
 
 
 static func is_pending(id: String) -> bool:
@@ -88,6 +91,19 @@ static func is_burning(_s: GameState, u: Unit) -> bool:
 
 static func is_marked(s: GameState, u: Unit) -> bool:
 	return Combat.has_status(s, u, "tagged")
+
+
+## Smart-link: `u` may shoot Marked enemy `t` without line of sight while any ally sees it.
+static func smart_link_shot(s: GameState, u: Unit, t: Unit) -> bool:
+	if not has(u, "smart_link") or not u.is_enemy_of(t) or not t.is_alive() or t.status.get("hidden", false):
+		return false
+	return is_marked(s, t) and Vision.sees_unit(s, u.team, t)
+
+
+## Extra tiles of overwatch range (Rangefinder), added to the watcher's sight radius.
+static func overwatch_range_bonus(u: Unit) -> int:
+	var m := mk(u, "rangefinder")
+	return RANGEFINDER_RANGE[clampi(m, 1, 2) - 1] if m > 0 else 0
 
 
 ## Rough awake-mutation count until Progression reports it: one per Infection tier reached.
@@ -125,6 +141,8 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 				breakdown.append(["Suppress set", 15])
 			if has(a, "breach_and_clear") and _dist(from, t.pos) <= CLOSE and cover != Types.Cover.NONE:
 				breakdown.append(["Breach and clear", Combat.COVER_FULL if cover == Types.Cover.FULL else Combat.COVER_HALF])
+		if mk(a, "smart_link") >= 2 and not Combat.can_see(s, from, t.pos) and smart_link_shot(s, a, t):
+			breakdown.append(["Smart-link", 10])
 		if mk(a, "suppressor") >= 2 and not t.status.get("alerted", true):
 			breakdown.append(["Suppressor", 10])
 	if a.team == Types.Team.PLAYER and a.status.get("doctrines", []).has("buddy_system"):
@@ -494,6 +512,8 @@ static func _cell_error(s: GameState, u: Unit, id: String, d: Dictionary, cell: 
 				return why
 			if not Combat.can_see(s, u.pos, c):
 				return "No line of sight"
+		"item:recon_drone":
+			pass   # it flies: any cell in range
 		_:
 			if s.grid.blocks_los(c) or not Combat.can_see(s, u.pos, c):
 				return "No line of sight"
@@ -618,6 +638,10 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 					var c := cell + Vector2i(dx, dy)
 					if s.grid.in_bounds(c) and s.grid.tile(c) == Types.Tile.LOW:
 						s.grid.tiles[c.y * s.grid.width + c.x] = Types.Tile.FLOOR
+			return
+		"recon_drone":
+			s.emit(ev)
+			Vision.add_reveal(s, cell, Vision.DRONE_RADIUS)
 			return
 		"smoke_grenade":
 			for o in area.call(1):

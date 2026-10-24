@@ -61,6 +61,7 @@ static func start_team_phase(s: GameState) -> void:
 		u.hunkered = false
 		for k in u.cooldowns.keys():
 			u.cooldowns[k] = max(0, u.cooldowns[k] - 1)
+	Vision.refresh(s)   # before the event: run saves snapshot the state on it
 	s.emit({"type": "team_phase", "turn": s.turn})
 	GearFx.on_team_phase_start(s)
 	Deployables.on_team_phase_start(s)
@@ -72,6 +73,7 @@ static func start_team_phase(s: GameState) -> void:
 			u.actions_left = Types.ACTIONS_PER_TURN
 			EnemyAI.take_turn(s, u)
 			u.actions_left = 0
+	Vision.refresh(s)
 	check_end(s)
 
 
@@ -103,9 +105,11 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		s.emit({"type": "rejected", "action": action, "reason": err})
 		return false
 	var u := s.get_unit(action.unit)
+	_expose_attacker(s, u, action)
 	if action.type == Types.ABILITY and EnemyAbilities.handles(str(action.ability)):
 		EnemyAbilities.apply(s, u, action)
 		Encounter.after_action(s, u, action)
+		Vision.refresh(s)
 		check_end(s)
 		return true
 	match action.type:
@@ -113,8 +117,23 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: Combat.apply(s, u, action)
 		Types.MUTATION: Infection.apply_mutation(s, u, action)
 	Encounter.after_action(s, u, action)
+	Vision.refresh(s)
 	check_end(s)
 	return true
+
+
+## Fog of war: shooting at or attacking a hostile gives the attacker's position away, and so
+## do the area attacks below (lobbed spit, airstrike calls). Anything that deals damage also
+## exposes its source (deal_damage).
+const EXPOSING_CELL_ABILITIES := ["spit", "brood_spit", "airstrike", "flashbang", "core_slam"]
+
+
+static func _expose_attacker(s: GameState, u: Unit, action: Dictionary) -> void:
+	if action.type != Types.SHOOT and action.type != Types.ABILITY:
+		return
+	var t := s.get_unit(action.get("target", -1))
+	if (t != null and u.is_enemy_of(t)) or EXPOSING_CELL_ABILITIES.has(str(action.get("ability", ""))):
+		Vision.expose(s, u)
 
 
 ## Player readiness for the simultaneous team phase. When everyone is ready the enemy phase runs.
@@ -146,6 +165,7 @@ static func run_enemy_phase(s: GameState) -> void:
 		EnemyAI.take_turn(s, u)
 		u.actions_left = 0
 		Encounter.on_unit_turn_end(s, u)
+		Vision.refresh(s)
 	if s.phase != Types.Phase.ENDED:
 		Encounter.on_enemy_phase_end(s)
 	if s.phase != Types.Phase.ENDED:
@@ -179,6 +199,7 @@ static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
 	for c in path:
 		u.pos = c
 		segment.append(c)
+		Vision.on_step(s, u)
 		var reactors := Combat.reactions_to_move(s, u, c)
 		if not reactors.is_empty():
 			# Flush the movement so far, then let overwatch fire.
@@ -203,6 +224,8 @@ static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = 
 		return
 	target.hp = max(0, target.hp - amount)
 	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1})
+	if source != null and source.is_enemy_of(target):
+		Vision.expose(s, source)
 	if source and EnemyRoster.infects(source):
 		Infection.on_damaged(s, target, source, amount)
 	Encounter.on_damaged(s, target, source, amount)

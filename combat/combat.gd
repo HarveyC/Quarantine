@@ -156,11 +156,27 @@ static func peek_cells(g: Grid, c: Vector2i) -> Array[Vector2i]:
 	return out
 
 
-## Hostile living units `u` can currently shoot at.
+## Hostile living units `u` can currently shoot at. Squad units also need the target inside
+## the squad's shared vision (fog of war, see Vision); enemy targeting is unchanged.
 static func visible_targets(s: GameState, u: Unit) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for t in s.units:
-		if t.is_alive() and u.is_enemy_of(t) and not t.status.get("hidden", false) and can_see(s, u.pos, t.pos):
+		if t.is_alive() and u.is_enemy_of(t) and not t.status.get("hidden", false) and can_see(s, u.pos, t.pos) \
+				and in_squad_sight(s, u, t):
+			out.append(t)
+	return out
+
+
+## Fog of war gate for squad units: the target must be seen by the squad. Always true for enemies.
+static func in_squad_sight(s: GameState, u: Unit, t: Unit) -> bool:
+	return u.team != Types.Team.PLAYER or Vision.sees_unit(s, u.team, t)
+
+
+## Everything `u` may SHOOT: visible targets plus Smart-link shots at Marked enemies an ally sees.
+static func shot_targets(s: GameState, u: Unit) -> Array[Unit]:
+	var out := visible_targets(s, u)
+	for t in s.living():
+		if not out.has(t) and u.is_enemy_of(t) and GearFx.smart_link_shot(s, u, t):
 			out.append(t)
 	return out
 
@@ -186,7 +202,7 @@ static func cover_against(g: Grid, target: Vector2i, from: Vector2i) -> int:
 ## "graze" is the width of the graze band (rolls in hit+1..hit+graze graze); "crit" is the
 ## chance that a hit is critical. `reaction` applies the overwatch penalty.
 static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2i = attacker.pos, reaction: bool = false) -> Dictionary:
-	var los := can_see(s, from, target.pos)
+	var los := can_see(s, from, target.pos) or GearFx.smart_link_shot(s, attacker, target)
 	var cover := cover_against(s.grid, target.pos, from)
 	var flanked := cover == Types.Cover.NONE
 	var breakdown: Array = [["Aim", attacker.aim]]
@@ -294,7 +310,7 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 		return "No such target"
 	match id:
 		"suppress", "tag":
-			if not u.is_enemy_of(t) or not can_see(s, u.pos, t.pos):
+			if not u.is_enemy_of(t) or not can_see(s, u.pos, t.pos) or not in_squad_sight(s, u, t):
 				return "No line of sight"
 		"stim":
 			if u.is_enemy_of(t):
@@ -306,7 +322,7 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 				return "Not an enemy"
 			if _cheb(u.pos, t.pos) > BREACH_RANGE:
 				return "Too far"
-			if not can_see(s, u.pos, t.pos):
+			if not can_see(s, u.pos, t.pos) or not in_squad_sight(s, u, t):
 				return "No line of sight"
 		"claw":
 			if not u.is_enemy_of(t):
@@ -416,7 +432,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			if UnitData.is_melee_only(u.kind):
 				return "Melee only"
 			var t := s.get_unit(action.get("target", -1))
-			if t == null or not visible_targets(s, u).has(t):
+			if t == null or not shot_targets(s, u).has(t):
 				return "No line of sight"
 		Types.ABILITY:
 			return _validate_ability(s, u, action)
@@ -461,10 +477,11 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 
 
 ## Units on overwatch that would react to `mover` entering `cell`. Must not change state.
+## Overwatch covers the watcher's own sight radius (Vision.overwatch_sees), not the squad's.
 static func reactions_to_move(s: GameState, mover: Unit, cell: Vector2i) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for w in s.units:
-		if w != mover and is_overwatching(s, w) and w.is_enemy_of(mover) and can_see(s, w.pos, cell):
+		if w != mover and is_overwatching(s, w) and w.is_enemy_of(mover) and Vision.overwatch_sees(s, w, mover, cell):
 			out.append(w)
 	return out
 
