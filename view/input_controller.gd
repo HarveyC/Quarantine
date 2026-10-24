@@ -10,6 +10,8 @@ enum Mode { MOVE, SHOOT, TARGET_UNIT, TARGET_CELL }
 const NO_CELL := Vector2i(-999, -999)
 const Board := preload("res://view/board.gd")
 const UnitView := preload("res://view/unit_view.gd")
+const EventPlayer := preload("res://view/event_player.gd")
+const Sfx := preload("res://view/sfx.gd")
 
 var view: MissionView
 var selected_id := -1
@@ -49,6 +51,8 @@ func current_target() -> Unit:
 # --- selection ---------------------------------------------------------------
 
 func select(id: int) -> void:
+	if id != selected_id:
+		_ui_sound("ui_click")
 	selected_id = id
 	_set_mode(Mode.MOVE)
 	var uv := view.view_for(id)
@@ -230,6 +234,7 @@ func _trigger(u: Unit, a: Dictionary) -> void:
 				view.hud.toast("No visible targets")
 				return
 			target_idx = 0
+			_ui_sound("ui_click")
 			_set_mode(Mode.SHOOT)
 		"unit", "cell":
 			pending = _template(u, a)
@@ -271,11 +276,18 @@ func submit(action: Dictionary) -> void:
 	pending = {}
 	targets.clear()
 	view.board.clear_overlays()
+	_ui_sound("ui_confirm")
 	view.session.submit(action)
 	changed.emit()
 
 
+func _ui_sound(s: String) -> void:
+	if view.sfx != null:
+		view.sfx.play(s, 0.0, 0.03)
+
+
 func cancel() -> void:
+	_ui_sound("ui_hover")
 	if mode != Mode.MOVE:
 		_set_mode(Mode.MOVE)
 	else:
@@ -337,6 +349,12 @@ func _key(k: InputEventKey) -> void:
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			if mode == Mode.SHOOT:
 				confirm_shot()
+		KEY_C:
+			EventPlayer.cinematics = not EventPlayer.cinematics
+			view.hud.toast("Shot cameras " + ("on" if EventPlayer.cinematics else "off"))
+		KEY_M:
+			view.sfx.set_muted(not Sfx.muted)
+			view.hud.toast("Sound " + ("off" if Sfx.muted else "on"))
 		KEY_F:
 			var uv := view.view_for(selected_id)
 			if uv != null:

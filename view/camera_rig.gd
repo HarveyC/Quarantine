@@ -1,6 +1,10 @@
 extends Node3D
 ## Angled tactical camera. WASD / arrow keys / screen-edge pan, Q/E rotate in
 ## 90 degree steps, mouse wheel zoom. Everything eases towards its target.
+##
+## Cinematic mode (shot cams): the event player hands over two camera poses and
+## drives the blend between them on its own clock with `cine_progress`, so slow
+## motion and test stepping stay in sync. `end_cinematic` cuts back to tactical.
 
 const PITCH_DEG := 55.0
 const MIN_DIST := 6.0
@@ -17,6 +21,14 @@ var _target_yaw := deg_to_rad(45.0)
 var _target_dist := 17.0
 var _yaw := _target_yaw
 var _dist := _target_dist
+
+var cinematic := false
+var _cine_from := Transform3D.IDENTITY
+var _cine_to := Transform3D.IDENTITY
+var _cine_fov := Vector2(50, 50)
+var _cine_k := 0.0
+var _shake := 0.0
+var _shake_t := 0.0
 
 
 func _init() -> void:
@@ -35,6 +47,40 @@ func setup(board_center: Vector3, board_size: Vector2) -> void:
 ## Ease the camera towards a world point (e.g. an acting enemy).
 func focus(world: Vector3) -> void:
 	_target_pos = _clamp(Vector3(world.x, 0, world.z))
+
+
+## Starts (or re-aims) a cinematic shot: camera moves from pose `from` to `to`
+## (world transforms, looking down -Z) and FOV from `fov.x` to `fov.y`.
+func cine(from: Transform3D, to: Transform3D, fov := Vector2(42, 42)) -> void:
+	cinematic = true
+	_cine_from = from
+	_cine_to = to
+	_cine_fov = fov
+	cine_progress(0.0)
+
+
+func cine_progress(k: float) -> void:
+	_cine_k = clampf(k, 0.0, 1.0)
+	_apply()
+
+
+func end_cinematic() -> void:
+	if not cinematic:
+		return
+	cinematic = false
+	camera.fov = 50.0
+	_apply()
+
+
+## A camera pose at `eye` looking at `target`.
+static func look_pose(eye: Vector3, target: Vector3) -> Transform3D:
+	var d := target - eye
+	var up := Vector3.UP if absf(d.normalized().y) < 0.98 else Vector3.FORWARD
+	return Transform3D(Basis.looking_at(d, up), eye)
+
+
+func shake(amount: float) -> void:
+	_shake = maxf(_shake, amount)
 
 
 func rotate_step(dir: int) -> void:
@@ -67,11 +113,15 @@ func _process(delta: float) -> void:
 	position = position.lerp(_target_pos, k)
 	_yaw = lerp_angle(_yaw, _target_yaw, k)
 	_dist = lerpf(_dist, _target_dist, k)
+	_shake = move_toward(_shake, 0.0, delta * 2.5)
+	_shake_t += delta
 	_apply()
 
 
 func _pan_input() -> Vector2:
 	var v := Vector2.ZERO
+	if cinematic:
+		return v
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): v.x -= 1
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): v.x += 1
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): v.y += 1
@@ -89,6 +139,8 @@ func _pan_input() -> Vector2:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if cinematic:
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_Q: rotate_step(-1)
@@ -100,9 +152,21 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _apply() -> void:
+	var jitter := Vector3.ZERO
+	if _shake > 0.0:
+		var a := _shake * _shake * 0.12
+		jitter = Vector3(sin(_shake_t * 71.0), sin(_shake_t * 53.0 + 1.3), sin(_shake_t * 61.0 + 2.1)) * a
+	if cinematic:
+		var e := _cine_k * _cine_k * (3.0 - 2.0 * _cine_k)   # smoothstep
+		var pose := _cine_from.interpolate_with(_cine_to, e)
+		pose.origin += jitter
+		# The camera is a child of the rig, so express the world pose in rig space.
+		camera.transform = transform.affine_inverse() * pose
+		camera.fov = lerpf(_cine_fov.x, _cine_fov.y, e)
+		return
 	var pitch := deg_to_rad(PITCH_DEG)
 	var offset := Vector3(sin(_yaw) * cos(pitch), sin(pitch), cos(_yaw) * cos(pitch)) * _dist
-	camera.transform = Transform3D(Basis.looking_at(-offset, Vector3.UP), offset)
+	camera.transform = Transform3D(Basis.looking_at(-offset, Vector3.UP), offset + jitter)
 
 
 ## Cell under a screen point, by intersecting the camera ray with the floor plane.

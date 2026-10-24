@@ -139,3 +139,52 @@ func test_restart_rebuilds_view() -> void:
 	assert_true(not v.hud.end_overlay.visible, "overlay hidden")
 	v.player.flush()
 	v.free()
+
+
+func test_shot_cinematic_takes_and_returns_camera() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldier := v.state.controllable_units(0)[0]
+	var enemy := v.state.living(Types.Team.ENEMY)[0]
+	v.player.enqueue({"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": true, "graze": false,
+		"crit": false, "damage": 3, "chance": 70, "reaction": false})
+	v.player.enqueue({"type": "damage", "unit": enemy.id, "amount": 3, "hp": 1, "source": soldier.id})
+	v.player.advance(0.3)
+	assert_true(v.camera_rig.cinematic, "shot camera engaged")
+	assert_true(v.player.in_cinematic, "cinematic flagged")
+	var steps := 0
+	var slowed := false
+	while v.player.is_busy() and steps < 2000:
+		v.player.advance(1.0 / 30.0)
+		slowed = slowed or v.player.world_scale < 0.5
+		if v.player.is_busy():
+			assert_true(v.camera_rig.cinematic, "camera held through the damage beat")
+		steps += 1
+	assert_true(slowed, "slow motion during the shot")
+	assert_true(not v.camera_rig.cinematic and not v.player.in_cinematic, "tactical camera back after the queue drains")
+	assert_eq(v.player.world_scale, 1.0, "normal speed restored")
+	assert_eq(v.view_for(enemy.id).hp, 1, "damage applied")
+	v.free()
+
+
+func test_cinematics_off_plays_quick_shot() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var EventPlayer := preload("res://view/event_player.gd")
+	EventPlayer.cinematics = false
+	var soldier := v.state.controllable_units(0)[0]
+	var enemy := v.state.living(Types.Team.ENEMY)[0]
+	v.player.enqueue({"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": false, "graze": false,
+		"crit": false, "damage": 0, "chance": 40, "reaction": false})
+	v.player.advance(0.1)
+	assert_true(not v.camera_rig.cinematic, "no camera cut")
+	v.player.flush()
+	EventPlayer.cinematics = true
+	v.free()
+
+
+func test_sound_files_exist() -> void:
+	var Sfx := preload("res://view/sfx.gd")
+	for s in Sfx.SOUNDS:
+		assert_true(ResourceLoader.exists("res://audio/%s.wav" % s), "sound %s" % s)
+	assert_true(ResourceLoader.exists("res://audio/ambience.wav"), "ambience")

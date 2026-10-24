@@ -112,6 +112,25 @@ New event types are fine; add them to this table.
   `graze` is the width of the graze band above `hit`; `crit` is the crit chance given a hit.
   `Combat.melee_chance` gives claw odds.
 
+## View presentation (cinematics, animation, sound)
+
+All of this is view-only and driven by event data, so it never touches `GameState` and every peer
+in an online match plays the same thing.
+
+- **Shot cinematics** (`view/event_player.gd`): `shot` events and the `claw` / `breach` abilities cut
+  the camera over the shooter's shoulder (`CameraRig.cine`), push in, fly the round in slow motion
+  (`EventPlayer.world_scale` slows unit animation and FX, not the beat clock), hit-stop on impact,
+  and hold through the following `damage` / `died` / `infection` / `turned` / `alerted` beats
+  (`CINE_FOLLOW`). Any other event, or the queue draining, cuts back to the tactical camera.
+  Skipped when `EventPlayer.cinematics` is false (C key) or playback is sped up (autoplay).
+- **Unit rigs** (`view/unit_view.gd`): primitive meshes on a jointed rig, posed procedurally in
+  `tick` (idle, walk, aim, recoil, hit, hunker, lunge, death). Calls: `set_moving`, `set_aim`,
+  `recoil`, `hit_react`, `set_lunge`, `muzzle_world`, `chest_world`.
+- **Sound** (`view/sfx.gd`): `MissionView.sfx.play(name)`; files in `audio/` are synthesized by
+  `tools/gen_sfx.py`. `Sfx.muted` is the M key toggle.
+- **Look**: environment and lights in `MissionView._build_environment`, set dressing in `Board`,
+  vignette and grain in `view/post_fx.gd`.
+
 ## Networking (online co-op)
 
 Host-authoritative, action-replicated, over Godot's built-in ENet. This builds on the rule that
