@@ -64,11 +64,11 @@ func _ready() -> void:
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 110)
 	margin.add_theme_constant_override("margin_right", 90)
-	margin.add_theme_constant_override("margin_top", 80)
+	margin.add_theme_constant_override("margin_top", 60)
 	margin.add_theme_constant_override("margin_bottom", 64)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(margin)
-	var root := Styles.vbox(26)
+	var root := Styles.vbox(20)
 	margin.add_child(root)
 	root.add_child(_wordmark())
 	var body := Control.new()
@@ -95,19 +95,18 @@ func _ready() -> void:
 
 func _wordmark() -> Control:
 	var box := Styles.vbox(4)
-	var kicker := Styles.hbox(10)
-	var line := ColorRect.new()
-	line.color = Styles.AMBER
-	line.custom_minimum_size = Vector2(36, 2)
-	line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	kicker.add_child(line)
-	kicker.add_child(Styles.caps("Lantern Company · Harrow colony", 15, Styles.DIM))
+	var kicker := Styles.hbox(12)
+	var lamp := W.Icon.new("lantern", Styles.AMBER, 34, 2.0)
+	lamp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	kicker.add_child(lamp)
+	var company := Styles.display("Lantern Company", 20, Styles.AMBER, false)
+	(company.get_theme_font("font") as FontVariation).spacing_glyph = 5
+	kicker.add_child(company)
 	box.add_child(kicker)
-	var title := Styles.caps("Carriers", 112, Styles.TEXT)
-	(title.get_theme_font("font") as FontVariation).spacing_glyph = 10
-	title.add_theme_constant_override("outline_size", 0)
+	var title := Styles.display("Carriers", 122, Styles.TEXT)
+	title.add_theme_font_override("font", Styles.font_copy(Styles.FONT_DISPLAY_BLACK, -2))
 	box.add_child(title)
-	box.add_child(Styles.label("Co-op tactics. The Bloom is in your blood; push to the Source before it wins.", 17, Styles.DIM))
+	box.add_child(Styles.label("Something down the shaft is calling your name.", 20, Styles.DIM))
 	return box
 
 
@@ -118,7 +117,7 @@ func _build_menu(body: Control) -> void:
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_menu_box = row
 	body.add_child(row)
-	var col := Styles.vbox(10)
+	var col := Styles.vbox(8)
 	col.custom_minimum_size.x = COLUMN_W
 	row.add_child(col)
 	_continue_btn = _menu_button(col, "Continue run", "continue", func() -> void: continue_requested.emit(), "primary")
@@ -139,7 +138,7 @@ func _build_menu(body: Control) -> void:
 	hot.tooltip_text = "Two players, one screen, one soldier each."
 	var quick := _menu_button(col, "Quick mission", "quick", func() -> void: local_requested.emit(2))
 	quick.tooltip_text = "A single hot-seat fight, no run."
-	col.add_child(_gap(10))
+	col.add_child(_gap(4))
 	var hq := _menu_button(col, "Field HQ", "doctrine", open_field_hq, "ghost")
 	hq.tooltip_text = "Unlocks, Severity, run record and achievements."
 	var archive := _menu_button(col, "Archive", "intel", func() -> void: add_child(preload("res://ui/story/archive_screen.gd").new()), "ghost")
@@ -186,7 +185,7 @@ func _build_menu(body: Control) -> void:
 	var right := Styles.vbox(8)
 	right.size_flags_vertical = Control.SIZE_SHRINK_END
 	var cs := W.Frame.new(Vector4(16, 12, 16, 14))
-	cs.set_look(Color(0.043, 0.055, 0.047, 0.8), Styles.BORDER, Styles.AMBER, false)
+	cs.set_look(Color(0.039, 0.055, 0.094, 0.8), Styles.BORDER, Styles.AMBER, false)
 	cs.custom_minimum_size.x = 280
 	var cv := Styles.vbox(6)
 	cs.add_child(cv)
@@ -223,7 +222,7 @@ func _gap(px: float) -> Control:
 
 ## One button in a menu column: icon, caps text, full column width.
 func _menu_button(parent: Control, text: String, icon: String, cb: Callable, kind := "secondary") -> Button:
-	var b := Styles.icon_button(text, icon, kind, 19 if kind != "ghost" else 17, 54.0 if kind != "ghost" else 42.0)
+	var b := Styles.icon_button(text, icon, kind, 19 if kind != "ghost" else 17, 46.0 if kind != "ghost" else 34.0)
 	b.pressed.connect(cb)
 	parent.add_child(b)
 	return b
@@ -307,7 +306,7 @@ func show_menu(message: String = "") -> void:
 	_continue_sub.visible = saved != null
 	if saved != null:
 		_continue_sub.text = RunSave.summary(saved).to_upper()
-	_solo_btn.text = "SOLO RUN" + _severity_tag()
+	_solo_btn.text = "Solo run" + _severity_tag()
 	_menu_box.visible = true
 	_lobby_box.visible = false
 	_join_panel.visible = false
@@ -325,7 +324,7 @@ func open_field_hq() -> void:
 
 func _severity_tag() -> String:
 	var n := Profile.severity()
-	return "  ·  SEVERITY %d" % n if n > 0 else ""
+	return "  ·  Severity %d" % n if n > 0 else ""
 
 
 func _platform() -> Node:
@@ -384,7 +383,7 @@ func show_lobby(net: NetSession) -> void:
 		copy.tooltip_text = "Copy the address"
 		copy.pressed.connect(func() -> void:
 			DisplayServer.clipboard_set("%s:%d" % [addr, port])
-			copy.text = "COPIED")
+			copy.text = "Copied")
 		_address_row.add_child(copy)
 		_lobby_hint.text = "Each player brings one soldier."
 	else:
@@ -399,7 +398,7 @@ func show_lobby(net: NetSession) -> void:
 			_lobby_hint.text = "Invite friends, or they can pick Join game on you in their Steam friends list."
 	_start_btn.visible = net.is_host
 	_start_run_btn.visible = net.is_host
-	_start_run_btn.text = "START RUN" + _severity_tag()
+	_start_run_btn.text = "Start run" + _severity_tag()
 	_lobby_continue.visible = net.is_host and RunSave.exists()
 	if first and is_inside_tree():
 		Feel.deal(_slots.get_children(), 0.06)
@@ -411,7 +410,7 @@ func _slot(e: Dictionary, kinds: Array, net: NetSession) -> Control:
 	var f := W.Frame.new(Vector4(18, 16, 18, 16))
 	f.custom_minimum_size = Vector2(250, 190)
 	if e.is_empty():
-		f.set_look(Color(0.03, 0.04, 0.035, 0.55), Color("1f2620"), Styles.AMBER, false)
+		f.set_look(Color(0.04, 0.055, 0.09, 0.45), Styles.BORDER_SOFT, Styles.AMBER, false)
 		var v := Styles.vbox(10)
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
 		v.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -425,8 +424,10 @@ func _slot(e: Dictionary, kinds: Array, net: NetSession) -> Control:
 		return f
 	var col := Styles.player_color(e.player)
 	var you: bool = e.player == net.my_player
-	f.set_look(Color(0.05, 0.065, 0.055, 0.92), Color(col, 0.55) if you else Styles.BORDER, Styles.AMBER, you)
-	f.draw.connect(func() -> void: f.draw_rect(Rect2(0, 0, f.size.x, 3), col))
+	f.set_look(Color(0.05, 0.07, 0.11, 0.9), Color(col, 0.55) if you else Styles.BORDER, Styles.AMBER, you)
+	f.draw.connect(func() -> void:
+		var w := f.size.x * 0.36
+		W.Draw.capsule(f, Rect2((f.size.x - w) * 0.5, -2, w, 4), col))
 	var v := Styles.vbox(10)
 	f.add_child(v)
 	var top := Styles.hbox(8)
@@ -444,7 +445,9 @@ func _slot(e: Dictionary, kinds: Array, net: NetSession) -> Control:
 	v.add_child(grow)
 	for k in kinds:
 		var r := Styles.hbox(10)
-		r.add_child(W.glyph(k, col, 40.0))
+		var pt := W.Portrait.new(48.0)
+		pt.setup(k, col, 0)
+		r.add_child(pt)
 		r.add_child(Styles.caps(UnitData.SOLDIERS[k].name, 17, Styles.TEXT))
 		v.add_child(r)
 	return f
@@ -456,9 +459,12 @@ func _class_tile(k: String, on: bool) -> Button:
 	b.toggle_mode = true
 	b.button_pressed = on
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(118, 104)
+	b.custom_minimum_size = Vector2(118, 112)
 	b.tooltip_text = str(UnitData.SOLDIERS[k].get("blurb", UnitData.SOLDIERS[k].name))
 	Styles.style_button(b, "secondary")
+	Styles.round_button(b, 24)
+	if on:
+		b.add_theme_stylebox_override("pressed", Styles.glow_box(Color(Styles.AMBER, 0.14), Styles.AMBER, Color(Styles.AMBER, 0.35), 16, 24))
 	var v := Styles.vbox(8)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -492,11 +498,13 @@ func _port_value() -> int:
 	return int(_port.text) if _port.text.is_valid_int() else NetSession.DEFAULT_PORT
 
 
-## Title backdrop: a dark gradient, a faint survey grid, a lantern glow and slow teal spores.
+## Title backdrop: night blue deepening to the Bloom's teal on the right, where the Bloom's heart
+## pulses with tendrils creeping out of it toward the menu, and slow spores drifting up.
 class Backdrop extends Control:
 	const COUNT := 70
 	var _spores: Array = []
 	var _t := 0.0
+	var _veins: Control
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -504,7 +512,31 @@ class Backdrop extends Control:
 		rng.seed = 7
 		for i in COUNT:
 			_spores.append({"p": Vector2(rng.randf(), rng.randf()), "v": rng.randf_range(0.004, 0.016),
-				"r": rng.randf_range(1.0, 3.2), "ph": rng.randf() * TAU, "a": rng.randf_range(0.15, 0.6)})
+				"r": rng.randf_range(1.0, 3.2), "ph": rng.randf() * TAU, "a": rng.randf_range(0.15, 0.6),
+				"hot": rng.randf() < 0.12})
+
+	func _ready() -> void:
+		var v := W.Veins.new("center", 0.55, 8, 11)
+		v.origin = Vector2(0.78, 0.5)
+		v.alpha = 0.55
+		v.branching = 0.12
+		v.start_radius = 150.0
+		v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(v)
+		_veins = v
+		var cap := Styles.vbox(2)
+		cap.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 40)
+		cap.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		cap.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		cap.offset_right = -110
+		cap.offset_bottom = -170
+		var a := Styles.display("The Source", 18, Styles.TEAL)
+		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		cap.add_child(a)
+		var b := Styles.label("waits at the bottom of the shaft", 16, Styles.DIM)
+		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		cap.add_child(b)
+		add_child(cap)
 
 	func _process(delta: float) -> void:
 		if not is_visible_in_tree():
@@ -519,38 +551,47 @@ class Backdrop extends Control:
 
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
-		draw_rect(r, Color("080a09"))
-		# Vertical gradient bands toward a warm floor glow.
-		var bands := 24
-		for i in bands:
-			var k := float(i) / bands
-			var c := Color("0b0e0c").lerp(Color("141410"), k * k)
-			draw_rect(Rect2(0, size.y * k, size.x, size.y / bands + 1), c)
-		# Survey grid.
-		var step := 64.0
-		var gc := Color(1, 1, 1, 0.025)
-		var x := fmod(size.x * 0.5, step)
-		while x < size.x:
-			draw_line(Vector2(x, 0), Vector2(x, size.y), gc, 1.0)
-			x += step
-		var y := fmod(size.y * 0.5, step)
-		while y < size.y:
-			draw_line(Vector2(0, y), Vector2(size.x, y), gc, 1.0)
-			y += step
-		# Lantern glow and the shaft's teal light, far right.
-		var glow := Vector2(size.x * 0.78, size.y * 0.62)
-		for i in 10:
-			var rr := size.y * (0.75 - i * 0.06)
-			draw_circle(glow, rr, Color(Styles.TEAL, 0.012))
-		var lamp := Vector2(size.x * 0.2, size.y * 0.1)
-		for i in 8:
-			draw_circle(lamp, size.y * (0.5 - i * 0.05), Color(Styles.AMBER, 0.008))
+		draw_rect(r, Styles.GROUND)
+		# The Bloom's light: wide soft rings toward the heart on the right.
+		var heart := Vector2(size.x * 0.78, size.y * 0.5)
+		for i in 48:
+			var k := float(i) / 48.0
+			draw_circle(heart, size.y * (1.1 - k * 0.95), Color(Color("0f2a2e").lerp(Styles.TEAL, k * 0.2), 0.035 + k * 0.012))
+		# Faint contour lines, like a survey of the colony.
+		for i in 6:
+			var pts := PackedVector2Array()
+			var y0 := size.y * (0.12 + i * 0.16)
+			for xi in 33:
+				var x := size.x * xi / 32.0
+				pts.append(Vector2(x, y0 + sin(xi * 0.45 + i * 1.7) * 14.0))
+			draw_polyline(pts, Color(Styles.DIM, 0.05), 1.0, true)
+		# The heart itself: an irregular glowing blob that breathes.
+		var pulse := 1.0 + 0.03 * sin(_t * 1.1)
+		var R := size.y * 0.15 * pulse
+		W.Draw.glow(self, heart, R * 3.0, Styles.TEAL, 1.2)
+		# A soft radial ramp from the dark rind to a pale hot core, each ring a little lumpy.
+		var ramp := [Color("0a2a2a"), Color("127a6b"), Styles.TEAL, Color("b6fff1")]
+		var rings := 22
+		for i in rings:
+			var k := float(i) / (rings - 1)
+			var seg := k * (ramp.size() - 1)
+			var col: Color = ramp[mini(int(seg), ramp.size() - 2)].lerp(ramp[mini(int(seg) + 1, ramp.size() - 1)], seg - int(seg))
+			var poly := PackedVector2Array()
+			var rk := 1.0 - k * 0.85
+			for j in 56:
+				var a := TAU * j / 56.0
+				var wob := 1.0 + 0.08 * sin(a * 3.0 + _t * 0.5) * rk + 0.05 * sin(a * 5.0 - _t * 0.7) * rk
+				poly.append(heart + Vector2(cos(a), sin(a)) * R * rk * wob + Vector2(-R * 0.15, -R * 0.12) * k)
+			draw_colored_polygon(poly, Color(col, 0.55 + 0.45 * k))
+		var spot := heart + Vector2(-R * 0.1, -R * 0.2)
+		W.Draw.glow(self, spot, R * 0.5, Color("ff5fa2"), 0.6)
 		for s in _spores:
 			var p: Vector2 = s.p * size
 			var a: float = s.a * (0.6 + 0.4 * sin(_t * 1.3 + s.ph))
-			draw_circle(p, s.r * 2.6, Color(Styles.TEAL, a * 0.12))
-			draw_circle(p, s.r, Color(Styles.TEAL, a))
+			var c: Color = Styles.DANGER if s.hot else Styles.TEAL
+			draw_circle(p, s.r * 2.6, Color(c, a * 0.12))
+			draw_circle(p, s.r, Color(c, a))
 		# Vignette.
 		for i in 12:
 			var w := 30.0 + i * 18.0
-			draw_rect(r.grow(-i * 6.0), Color(0, 0, 0, 0.035), false, w)
+			draw_rect(r.grow(-i * 6.0), Color(0, 0, 0, 0.03), false, w)

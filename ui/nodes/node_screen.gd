@@ -90,7 +90,8 @@ func header(kicker: String, title: String, kicker_color: Color, right: Control =
 	var row := NodeUi.hbox(18)
 	if icon != "":
 		var tile := W.Frame.new(Vector4(0, 0, 0, 0))
-		tile.set_look(Color(kicker_color, 0.07), Color(kicker_color, 0.45), Styles.AMBER, false)
+		tile.radius = 39
+		tile.set_look(Color(kicker_color, 0.1), Color(kicker_color, 0.7), Styles.AMBER, false)
 		tile.custom_minimum_size = Vector2(78, 78)
 		tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var ic := W.Icon.new(icon, kicker_color, 44, 2.0)

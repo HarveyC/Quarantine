@@ -12,8 +12,9 @@ const W := preload("res://ui/widgets.gd")
 const NodeInfo := preload("res://ui/run/node_info.gd")
 
 const ROW_HINTS: Array[String] = ["", "Skirmish", "Rolled", "Rolled", "Field hospital", "Boss"]
-const LINE := Color("4a5246")
-const TRAVELLED := Color("c9a24a")
+const LINE := Color(0.66, 0.78, 0.8, 0.32)
+const TRAVELLED := Color("c98a3a")
+const NIGHT := Color("111a28")
 const PAD := Vector2(100, 0)
 const HEAD_H := 64.0
 const LEGEND_H := 40.0
@@ -30,6 +31,7 @@ var hover := -1
 
 var _card: Control
 var _t := 0.0
+var _veins: W.Veins
 
 
 ## One node on the board: a ring with its type icon. Draws itself from its fields.
@@ -54,68 +56,105 @@ class NodeDot extends Control:
 		var r := radius()
 		var col := NodeInfo.color(type)
 		var border := LINE
-		var fill := Color("121613")
+		var fill := NIGHT
 		var icon_col := Styles.DIM
 		var width := 2.0
 		var alpha := 1.0
+		var infested := type == RunMap.NEST or type == RunMap.BOSS or type == RunMap.AMBUSH
 		match look:
 			Look.OPTION:
 				border = col if type != RunMap.SKIRMISH and type != RunMap.UNKNOWN else Styles.AMBER
-				icon_col = border
-				fill = Color(border.darkened(0.82), 0.97)
-				width = 3.0
-				var glow := 6.0 + pulse * 4.0
-				draw_arc(c, r + glow * 0.5 + 2, 0, TAU, 64, Color(border, 0.10 + 0.08 * pulse), glow, true)
+				icon_col = border.lightened(0.2)
+				fill = Color(border.darkened(0.78), 0.97)
+				width = 2.5
+				W.Draw.glow(self, c, r * 1.55, Styles.AMBER if not infested else border, 0.55 + 0.35 * pulse)
+				draw_arc(c, r + 5 + pulse * 2.0, 0, TAU, 64, Color(Styles.AMBER, 0.25 + 0.2 * pulse), 2.0, true)
 			Look.CURRENT:
-				border = Styles.AMBER
-				icon_col = Styles.AMBER
-				fill = Color("1b1a10")
-				width = 3.0
-				draw_arc(c, r + 6, 0, TAU, 64, Color(Styles.AMBER, 0.14), 8.0, true)
+				# The squad's lantern: a glowing amber orb.
+				W.Draw.glow(self, c, r * 1.8, Styles.AMBER, 1.0)
+				_blob(c, r, Styles.AMBER_DEEP, 0)
+				_blob(c - Vector2(r, r) * 0.08, r * 0.82, Styles.AMBER, 0)
+				_blob(c - Vector2(r, r) * 0.22, r * 0.4, Styles.AMBER_LIGHT, 0)
+				var lr := r * 1.0
+				Icons.draw(self, "lantern", Rect2(c - Vector2(lr, lr) * 0.5, Vector2(lr, lr)), Styles.AMBER_DARK, 2.4)
+				return
 			Look.VISITED:
-				border = Color("7a6a3a")
+				border = Color(TRAVELLED, 0.7)
 				icon_col = TRAVELLED
-				fill = Color("15150f")
+				fill = Color("1a1712")
 			Look.PASSED:
-				alpha = 0.4
+				# Behind the squad the Bloom has taken the node.
+				alpha = 0.75
+				border = Color(Styles.TEAL, 0.45)
+				icon_col = Color(Styles.TEAL, 0.6)
+				fill = Color(Styles.TEAL_DEEP, 0.35)
 			Look.FUTURE:
 				if type == RunMap.UNKNOWN:
-					border = Styles.MUTED
-					icon_col = Styles.DIM
-				if type == RunMap.BOSS or type == RunMap.NEST or type == RunMap.HOSPITAL or type == RunMap.DEPOT:
-					border = col.darkened(0.45)
-					icon_col = col.darkened(0.1)
+					border = Color(Styles.DIM, 0.4)
+					icon_col = Color(Styles.DIM, 0.6)
+				if infested or type == RunMap.HOSPITAL or type == RunMap.DEPOT:
+					border = Color(col, 0.55)
+					icon_col = col.darkened(0.05)
 		if type == RunMap.BOSS and look != Look.PASSED:
-			border = Color("a8453a") if look == Look.FUTURE else border
-			fill = Color("1a100e")
+			W.Draw.glow(self, c, r * 1.7, Styles.DANGER, 0.6)
+			fill = Color("2a0d1e")
+			border = Styles.DANGER
 			width = maxf(width, 3.0)
 		if revealable:
 			border = Styles.AMBER
 			icon_col = Styles.AMBER
 			width = 3.0
 		if hovered:
-			fill = fill.lightened(0.06)
+			fill = fill.lightened(0.08)
 			border = border.lightened(0.25)
 		modulate.a = alpha
-		draw_circle(c, r, fill)
-		if type == RunMap.UNKNOWN:
-			for k in 16:
-				var a0 := k * TAU / 16.0
-				draw_arc(c, r, a0, a0 + TAU / 32.0, 6, border, width, true)
+		if infested and look != Look.PASSED:
+			_blob(c, r, fill, 1 + id % 5)
+			_blob_line(c, r, border, width, 1 + id % 5)
 		else:
-			draw_arc(c, r, 0, TAU, 64, border, width, true)
+			draw_circle(c, r, fill)
+			if type == RunMap.UNKNOWN and not revealable:
+				for k in 16:
+					var a0 := k * TAU / 16.0
+					draw_arc(c, r, a0, a0 + TAU / 32.0, 6, border, width, true)
+			else:
+				draw_arc(c, r, 0, TAU, 64, border, width, true)
 		var ir := r * (0.95 if type == RunMap.BOSS else 0.9)
 		Icons.draw(self, NodeInfo.icon(type), Rect2(c - Vector2(ir, ir) * 0.5, Vector2(ir, ir)), icon_col, 2.2 if r > 34 else 1.9)
+
+	## An organic, slightly lumpy disc (infested nodes). `lumps` 0 is a plain circle.
+	func _blob_pts(c: Vector2, r: float, lumps: int) -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		for k in 48:
+			var a := TAU * k / 48.0
+			var wob := 1.0 + (0.06 * sin(a * 3.0 + lumps) + 0.04 * sin(a * 5.0 + lumps * 2.0) if lumps > 0 else 0.0)
+			pts.append(c + Vector2(cos(a), sin(a)) * r * wob)
+		return pts
+
+	func _blob(c: Vector2, r: float, col: Color, lumps: int) -> void:
+		draw_colored_polygon(_blob_pts(c, r, lumps), col)
+
+	func _blob_line(c: Vector2, r: float, col: Color, w: float, lumps: int) -> void:
+		var pts := _blob_pts(c, r, lumps)
+		pts.append(pts[0])
+		draw_polyline(pts, col, w, true)
 
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	clip_contents = false
 	resized.connect(_layout)
+	_veins = W.Veins.new("left", 1.0, 6, 23)
+	_veins.alpha = 0.6
+	_veins.branching = 0.16
+	add_child(_veins)
 
 
 func _process(delta: float) -> void:
 	_t += delta
+	# Keep the Bloom's reach in step with the board (the parent can size us after a refresh).
+	if run != null and absf(_veins.size.x - (bloom_edge() + position.x + 30.0)) > 2.0:
+		_layout()
 	var p := 0.5 + 0.5 * sin(_t * 3.0)
 	for id in dots:
 		var d: NodeDot = dots[id]
@@ -206,6 +245,11 @@ func refresh() -> void:
 func _layout() -> void:
 	if run == null:
 		return
+	# The tendrils grow from the screen's left edge up to the Bloom's edge.
+	var left := position.x + 30.0
+	_veins.position = Vector2(-left, 0)
+	_veins.size = Vector2(maxf(bloom_edge() + left, 10.0), size.y)
+	_veins._build()
 	for n in run.map:
 		var d: NodeDot = dots.get(n.id)
 		if d != null:
@@ -244,7 +288,7 @@ func _rebuild_card() -> void:
 	var info := NodeInfo.card(run, n)
 	var f := W.Frame.new(Vector4(16, 14, 16, 14))
 	var accent: Color = info.tag_color if info.tag_color != Styles.DIM else Styles.BORDER_STRONG
-	f.set_look(Color(0.055, 0.067, 0.059, 0.97), accent, Styles.AMBER)
+	f.set_look(Color(0.047, 0.067, 0.106, 0.97), accent, Styles.AMBER)
 	f.custom_minimum_size.x = 310
 	f.z_index = 10
 	var box := Styles.vbox(8)
@@ -319,20 +363,23 @@ func _draw() -> void:
 	var a := _area()
 	# Faint survey grid over the whole screen, and the Infection creeping in behind the squad.
 	var full := Rect2(-position, (get_parent() as Control).size if get_parent() is Control else size)
-	var g := Color(1, 1, 1, 0.022)
-	var x := full.position.x
-	while x < full.end.x:
-		draw_line(Vector2(x, full.position.y), Vector2(x, full.end.y), g, 1.0)
-		x += 60.0
-	var y := full.position.y
-	while y < full.end.y:
-		draw_line(Vector2(full.position.x, y), Vector2(full.end.x, y), g, 1.0)
-		y += 60.0
-	var haze_r := col_x(maxi(run.row, 0)) + 60
-	var teal_a := Color(Styles.TEAL, 0.11)
+	# Soft survey contours.
+	for i in 7:
+		var pts := PackedVector2Array()
+		var y0 := full.position.y + full.size.y * (0.1 + i * 0.13)
+		for xi in 41:
+			var x := full.position.x + full.size.x * xi / 40.0
+			pts.append(Vector2(x, y0 + sin(xi * 0.38 + i * 1.3) * 12.0))
+		draw_polyline(pts, Color(Styles.DIM, 0.045), 1.0, true)
+	# The Bloom creeping in from the left behind the squad: a teal haze that reaches past the
+	# rows already left behind, deeper as the Outbreak grows. Tendrils (bloom_veins) grow with it.
+	var haze_r := bloom_edge()
+	var teal_a := Color(Styles.TEAL, 0.16)
 	var teal_0 := Color(Styles.TEAL, 0.0)
 	draw_polygon(PackedVector2Array([full.position, Vector2(haze_r, full.position.y), Vector2(haze_r, full.end.y), Vector2(full.position.x, full.end.y)]),
 		PackedColorArray([teal_a, teal_0, teal_0, teal_a]))
+	var hc := Vector2(full.position.x + (haze_r - full.position.x) * 0.25, a.get_center().y)
+	W.Draw.glow(self, hc, (haze_r - full.position.x) * 0.9, Styles.TEAL, 0.9)
 
 	# Column headers.
 	for c in RunState.ROWS + 1:
@@ -373,9 +420,11 @@ func _draw() -> void:
 	# Drop point.
 	var dp := drop_pos()
 	var dcol := Styles.AMBER if run.node < 0 else TRAVELLED
-	var dia := PackedVector2Array([dp + Vector2(0, -14), dp + Vector2(14, 0), dp + Vector2(0, 14), dp + Vector2(-14, 0), dp + Vector2(0, -14)])
-	draw_colored_polygon(dia, Color("15150f"))
-	draw_polyline(dia, dcol, 2.0, true)
+	if run.node < 0:
+		W.Draw.glow(self, dp, 40, Styles.AMBER, 0.8)
+	draw_circle(dp, 15, NIGHT)
+	draw_arc(dp, 15, 0, TAU, 40, dcol, 2.0, true)
+	Icons.draw(self, "arrow_right", Rect2(dp - Vector2(9, 9), Vector2(18, 18)), dcol, 2.0)
 	if run.node < 0:
 		_text_c(font, "SQUAD", dp + Vector2(0, 40), 14, Styles.AMBER, 1.5)
 
@@ -401,10 +450,9 @@ func _draw() -> void:
 	for i in mini(reach.size(), 4):
 		var n := run.get_node(reach[i])
 		var kp := node_pos(n) + Vector2(-_r(n.id) - 8, -_r(n.id) + 2)
-		var kr := Rect2(kp - Vector2(11, 11), Vector2(22, 22))
-		draw_rect(kr, Color("151a16"))
-		draw_rect(kr, Styles.BORDER_STRONG, false, 1.0)
-		_text_c(Styles.FONT_MONO, str(i + 1), kp + Vector2(0, 5), 12, Color("d6d2c2"))
+		draw_circle(kp, 12, Color("141c2a"))
+		draw_arc(kp, 12, 0, TAU, 32, Color(Styles.AMBER, 0.7), 1.5, true)
+		_text_c(Styles.FONT_MONO, str(i + 1), kp + Vector2(0, 5), 12, Styles.AMBER_LIGHT)
 
 	# Vote chips: one per voter in their colour, under the node they picked.
 	var per_node := {}
@@ -428,7 +476,7 @@ func _draw() -> void:
 		var cy := node_pos(n).y - _r(id) - 30
 		for ch in chips:
 			var r := Rect2(cx, cy, ch[2], 20)
-			draw_rect(r, Styles.player_color(ch[0]))
+			W.Draw.capsule(self, r, Styles.player_color(ch[0]))
 			draw_string(font, Vector2(cx + 7, cy + 15), ch[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Styles.GROUND)
 			cx += ch[2] + 4
 
@@ -448,6 +496,14 @@ func _draw() -> void:
 		Icons.draw(self, NodeInfo.icon(it[0]), Rect2(lx, ly - 13, 18, 18), col if col != Styles.TEXT else Styles.DIM, 1.6)
 		draw_string(body, Vector2(lx + 24, ly), it[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Styles.DIM)
 		lx += it[2] + 22
+
+
+## Where the Bloom's haze reaches on the board (x): past the squad's column, further with the
+## Outbreak.
+func bloom_edge() -> float:
+	var row := maxi(run.row, 0)
+	var x := col_x(row) - 20.0 + float(run.outbreak) * 22.0
+	return clampf(x, PAD.x * 0.6, size.x * 0.85)
 
 
 func _r(id: int) -> float:

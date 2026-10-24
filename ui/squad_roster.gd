@@ -1,7 +1,7 @@
 extends VBoxContainer
-## Left-hand squad roster: one card per soldier for the whole squad, owner shown by a
-## colour stripe. Cards show HP pips, action diamonds, the Infection bar with tier
-## marks and statuses. Clicking a card selects that soldier.
+## Left-hand squad roster: one rounded card per soldier for the whole squad, owner shown by a
+## colour pill and the portrait's inner ring. Cards show the portrait with its teal Infection
+## ring, HP pips, lantern action orbs and statuses. Clicking a card selects that soldier.
 
 signal unit_clicked(id: int)
 
@@ -50,14 +50,15 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 	var out_of_play := uv.dead or uv.turned or uv.lapsed
 	var mine: bool = view.session.is_local(uv.owner_player)
 	var pcol := Styles.player_color(uv.owner_player)
-	var card := W.Frame.new(Vector4(14, 9, 12, 9))
+	var card := W.Frame.new(Vector4(8, 7, 18, 7))
 	card.stripe = pcol
+	card.radius = 40
 	if selected:
-		card.set_look(Color(0.12, 0.11, 0.07, 0.94), Styles.AMBER, Styles.AMBER, false)
+		card.set_look(Color(0.13, 0.1, 0.06, 0.92), Styles.AMBER, Styles.AMBER, false)
 	elif uv.tier >= 2 and not uv.dead:
-		card.set_look(Color(0.066, 0.082, 0.07, 0.92), Color(Styles.TEAL, 0.35), Styles.AMBER, false)
+		card.set_look(Color(0.03, 0.09, 0.1, 0.88), Color(Styles.TEAL, 0.4), Styles.AMBER, false)
 	else:
-		card.set_look(Color(0.066, 0.082, 0.07, 0.9), Styles.BORDER_SOFT, Styles.AMBER, false)
+		card.set_look(Color(0.04, 0.055, 0.09, 0.82), Styles.BORDER_SOFT, Styles.AMBER, false)
 	if out_of_play:
 		card.modulate = Color(1, 1, 1, 0.55)
 	elif not mine or (u != null and u.actions_left == 0):
@@ -70,13 +71,15 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 
 	var row := Styles.hbox(12)
 	card.add_child(row)
-	row.add_child(W.glyph(uv.kind, pcol, 46.0, pcol if selected else Color("3a443a")))
+	var face := W.Portrait.new(62.0)
+	face.setup(uv.kind, pcol, uv.infection, selected, out_of_play)
+	row.add_child(face)
 	var col := Styles.vbox(5)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(col)
 
 	var top := Styles.hbox(6)
-	top.add_child(Styles.caps(uv.display_name, 17))
+	top.add_child(Styles.bold(uv.display_name, 16))
 	top.add_child(Styles.spacer())
 	var status := _status(view, uv, u)
 	if status[0] != "":
@@ -100,16 +103,10 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 	mid.add_child(hp)
 	col.add_child(mid)
 
-	var inf := Styles.hbox(8)
-	var bar := W.InfBar.new(5.0)
-	bar.set_value(uv.infection)
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	inf.add_child(bar)
-	var tl := Styles.mono("%d %s" % [uv.infection, Infection.tier_name(uv.tier).to_upper()], 10, Styles.TEAL if uv.tier >= 1 else Styles.TEAL_DIM)
-	tl.custom_minimum_size = Vector2(84, 0)
-	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	inf.add_child(tl)
+	# Infection is the teal ring round the portrait; the words say how far gone.
+	var inf := Styles.hbox(6)
+	inf.add_child(W.Icon.new("infection", Styles.TEAL if uv.tier >= 1 else Styles.TEAL_DIM, 13, 1.6))
+	inf.add_child(Styles.label("Infection %d · %s" % [uv.infection, Infection.tier_name(uv.tier)], 12, Styles.TEAL if uv.tier >= 1 else Styles.TEAL_DIM))
 	col.add_child(inf)
 
 	var flags := PackedStringArray()

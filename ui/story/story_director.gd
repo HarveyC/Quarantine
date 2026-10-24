@@ -256,7 +256,7 @@ func _squad_voice(not_name: String) -> String:
 
 func _radio(who: String, text: String, col: Color) -> void:
 	var f := preload("res://ui/frame.gd").new(Vector4(14, 9, 14, 10))
-	f.set_look(Color(0.035, 0.045, 0.04, 0.84), Styles.BORDER_SOFT, Styles.AMBER, false)
+	f.set_look(Color(0.03, 0.045, 0.073, 0.84), Styles.BORDER_SOFT, Styles.AMBER, false)
 	f.stripe = col
 	var box := Styles.vbox(3)
 	f.add_child(box)

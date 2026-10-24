@@ -1,15 +1,15 @@
 class_name NodeUi
 extends RefCounted
-## Look and widget helpers for the node screens, following the approved UI mockups: dark
-## see-through panels with amber corner marks, amber only for things you can press, teal only
-## for Infection, a player-colour stripe on soldier cards. OWNER: nodes workstream.
+## Look and widget helpers for the node screens in the Bloom look: rounded glass panels, pill
+## buttons and chips, amber only for things you can press, teal only for Infection, a
+## player-colour pill on soldier cards. OWNER: nodes workstream.
 
 const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 
-const BG := Color(0.043, 0.051, 0.047, 0.9)
-const PANEL := Color(0.059, 0.075, 0.063, 0.94)
-const PANEL_SOFT := Color(0.071, 0.086, 0.075, 0.96)
+const BG := Color(0.039, 0.055, 0.094, 0.9)
+const PANEL := Color(0.05, 0.07, 0.11, 0.9)
+const PANEL_SOFT := Color(0.06, 0.082, 0.125, 0.94)
 const BORDER := Styles.BORDER_SOFT
 const TEXT := Styles.TEXT
 const DIM := Styles.DIM
@@ -19,7 +19,7 @@ const AMBER_DARK := Styles.AMBER_DARK
 const TEAL := Styles.TEAL
 const HEALTH := Styles.HP
 const BAD := Styles.DANGER_TEXT
-const SUPPLY := Color("c9a24a")
+const SUPPLY := Color("d9b46a")
 
 const CornerPanel := preload("res://ui/nodes/corner_panel.gd")
 
@@ -46,10 +46,10 @@ static func player_name(session, p: int) -> String:
 
 
 static func box(bg := PANEL, border := BORDER, pad := 16) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = bg
-	sb.border_color = border
-	sb.set_border_width_all(1)
+	var sb := Styles.panel_box(bg, border, 20)
+	sb.shadow_color = Color(0, 0, 0, 0.3)
+	sb.shadow_size = 12
+	sb.shadow_offset = Vector2(0, 4)
 	sb.content_margin_left = pad
 	sb.content_margin_right = pad
 	sb.content_margin_top = pad
@@ -57,7 +57,7 @@ static func box(bg := PANEL, border := BORDER, pad := 16) -> StyleBoxFlat:
 	return sb
 
 
-## A panel with amber corner marks; `stripe` draws a coloured bar along the top (a player).
+## A rounded glass panel; `stripe` draws a coloured pill on its top edge (a player).
 static func panel(stripe := Color(0, 0, 0, 0), pad := 16) -> PanelContainer:
 	var p: PanelContainer = CornerPanel.new()
 	p.add_theme_stylebox_override("panel", box(PANEL, BORDER, pad))
@@ -121,16 +121,19 @@ static func meter(caption_text: String, value: int, max_value: int, color: Color
 	bar.custom_minimum_size = Vector2(0, 8)
 	bar.max_value = max_value
 	bar.value = value
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color("1d2420")
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = color
+	var bg := Styles.panel_box(Color(0.91, 0.96, 0.95, 0.08), Color(0, 0, 0, 0), Styles.PILL)
+	bg.set_content_margin_all(0)
+	var fill := Styles.panel_box(color, Color(0, 0, 0, 0), Styles.PILL)
+	fill.set_content_margin_all(0)
+	if color == TEAL:
+		fill.shadow_color = Color(TEAL, 0.45)
+		fill.shadow_size = 6
 	bar.add_theme_stylebox_override("background", bg)
 	bar.add_theme_stylebox_override("fill", fill)
 	if ticks:
 		for t in [25, 50, 75]:
 			var tick := ColorRect.new()
-			tick.color = Color("0b0d0c")
+			tick.color = Styles.GROUND
 			tick.anchor_left = t / 100.0
 			tick.anchor_right = t / 100.0
 			tick.anchor_bottom = 1.0
@@ -158,12 +161,9 @@ static func clear(node: Node) -> void:
 ## A small chip: line icon and a short value ("+20" with the Supplies crate).
 static func chip(icon: String, text: String, col: Color, size := 15, tip := "") -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(col, 0.08)
-	sb.border_color = Color(col, 0.55)
-	sb.set_border_width_all(1)
-	sb.content_margin_left = 7
-	sb.content_margin_right = 9
+	var sb := Styles.panel_box(Color(col, 0.1), Color(col, 0.45), Styles.PILL)
+	sb.content_margin_left = 9
+	sb.content_margin_right = 11
 	sb.content_margin_top = 3
 	sb.content_margin_bottom = 3
 	p.add_theme_stylebox_override("panel", sb)
@@ -252,14 +252,15 @@ static func tile_button(icon: String, title_text: String, col: Color, under: Con
 	b.tooltip_text = tip
 	b.custom_minimum_size = Vector2(140, 118)
 	Styles.style_button(b, "secondary")
+	Styles.round_button(b, 22)
 	var v := Styles.vbox(7)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	var c := col if enabled else Color("4d5148")
+	var c := col if enabled else Color(Styles.MUTED, 0.5)
 	var ic := W.Icon.new(icon, c, 30, 1.9)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
-	var l := Styles.caps(title_text, 15, TEXT if enabled else Color("5b6052"))
+	var l := Styles.caps(title_text, 15, TEXT if enabled else Color(Styles.MUTED, 0.6))
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(l)
 	if under != null:

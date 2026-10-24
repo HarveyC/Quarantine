@@ -88,7 +88,7 @@ func test_menus_build() -> void:
 	tree.root.add_child(p)
 	p._ready()
 	var labels := p.find_children("*", "Button", true, false).map(func(b): return b.text)
-	assert_true(labels.has("RESUME") and labels.has("CONTROLS"), "pause menu buttons: %s" % str(labels))
+	assert_true(labels.has("Resume") and labels.has("Controls"), "pause menu buttons: %s" % str(labels))
 	p.free()
 
 

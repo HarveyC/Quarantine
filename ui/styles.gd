@@ -1,41 +1,77 @@
 extends RefCounted
-## HUD theme: dark translucent panels with amber corner marks, condensed caps for
-## headings, mono for numbers. Amber means "you can act", teal means Infection.
-## See the UI mockups (Combat HUD) for the reference look.
+## HUD theme, "Bloom": the Infection grows into the interface. Deep night-blue ground, soft
+## rounded glass panels, pill buttons, ring gauges. Two lights only: the amber lantern means
+## "you can act" (buttons, the active soldier, action points), the teal Bloom means Infection
+## (gauges, tendrils, mutations). Enemies and danger are a hot pink. Unbounded for display
+## words, Outfit for body text, JetBrains Mono for small numbers and key caps.
+## See the "Bloom" direction in the UI style canvas for the reference look.
 
-const FONT_BODY := preload("res://ui/fonts/Barlow-Regular.ttf")
-const FONT_BODY_BOLD := preload("res://ui/fonts/Barlow-SemiBold.ttf")
-const FONT_COND := preload("res://ui/fonts/BarlowCondensed-SemiBold.ttf")
-const FONT_COND_BOLD := preload("res://ui/fonts/BarlowCondensed-Bold.ttf")
+const _UNBOUNDED := preload("res://ui/fonts/Unbounded-Variable.ttf")
+const _OUTFIT := preload("res://ui/fonts/Outfit-Variable.ttf")
 const FONT_MONO := preload("res://ui/fonts/JetBrainsMono-Bold.ttf")
 
-const GROUND := Color("0b0d0c")
-const BG := Color(0.043, 0.055, 0.047, 0.88)
-const BG_SOFT := Color(0.067, 0.082, 0.07, 0.92)
-const BG_RAISED := Color("141915")
-const BORDER := Color("2f3830")
-const BORDER_SOFT := Color("2a322b")
-const BORDER_STRONG := Color("4d574b")
-const TEXT := Color("e9e4d4")
-const DIM := Color("a8aa98")
-const MUTED := Color("8c8e7e")
+static var FONT_BODY: Font = _weight(_OUTFIT, 400)
+static var FONT_BODY_BOLD: Font = _weight(_OUTFIT, 600)
+static var FONT_COND: Font = _weight(_OUTFIT, 600)
+static var FONT_COND_BOLD: Font = _weight(_OUTFIT, 700)
+static var FONT_DISPLAY: Font = _weight(_UNBOUNDED, 700)
+static var FONT_DISPLAY_BLACK: Font = _weight(_UNBOUNDED, 900)
+static var FONT_DISPLAY_MEDIUM: Font = _weight(_UNBOUNDED, 500)
 
-const AMBER := Color("f2c14e")
-const AMBER_DARK := Color("15130b")
+const GROUND := Color("0a0e18")
+const BG := Color(0.039, 0.055, 0.094, 0.86)
+const BG_SOFT := Color(0.055, 0.075, 0.118, 0.92)
+const BG_RAISED := Color("121a27")
+const BORDER := Color(0.66, 0.78, 0.8, 0.2)
+const BORDER_SOFT := Color(0.66, 0.78, 0.8, 0.13)
+const BORDER_STRONG := Color(0.66, 0.78, 0.8, 0.38)
+const TEXT := Color("e8f4f2")
+const DIM := Color("a9bcc0")
+const MUTED := Color("7f9298")
+
+const AMBER := Color("ffb347")
+const AMBER_LIGHT := Color("ffd08a")
+const AMBER_DEEP := Color("d9822a")
+const AMBER_DARK := Color("2a1604")
 const TEAL := Color("3fe0c5")
-const TEAL_DIM := Color("8fb8ad")
-const DANGER := Color("ff6a4d")
-const DANGER_TEXT := Color("ff8a6e")
-const HP := Color("a9c46c")
-const HP_OFF := Color("2c332c")
-const GRAZE := Color("c9b57a")
+const TEAL_DIM := Color("7fb9ae")
+const TEAL_DEEP := Color("127a6b")
+const DANGER := Color("ff5fa2")
+const DANGER_TEXT := Color("ff8cbc")
+const HP := Color("b4d77a")
+const HP_OFF := Color(0.66, 0.78, 0.8, 0.12)
+const GRAZE := Color("d8c27e")
+
+## Corner radius of a standard panel; buttons are pills.
+const RADIUS := 16
+const PILL := 999
 
 ## Player colours (index = player id). Blue and coral differ in lightness as well as hue.
-const PLAYERS: Array[Color] = [Color("79b0ff"), Color("ff9a6b"), Color("c9a8ff"), Color("e0d06a")]
+const PLAYERS: Array[Color] = [Color("79b0ff"), Color("ff9a6b"), Color("c4a6ff"), Color("e0d06a")]
 
 ## Text size multiplier from Settings > Accessibility (GameSettings sets it). Screens pick it
 ## up as they are built.
 static var text_scale := 1.0
+
+
+static func _weight(base: FontFile, wght: int, spacing := 0) -> FontVariation:
+	var f := FontVariation.new()
+	f.base_font = base
+	f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): wght}
+	f.spacing_glyph = spacing
+	return f
+
+
+## A fresh copy of one of the FONT_* variations (a nested FontVariation would drop the weight),
+## so a caller can tune its spacing without touching the shared one.
+static func font_copy(f: Font, spacing := 0) -> FontVariation:
+	var src := f as FontVariation
+	var out := FontVariation.new()
+	out.base_font = src.base_font if src != null else f
+	if src != null:
+		out.variation_opentype = src.variation_opentype
+	out.spacing_glyph = spacing
+	return out
 
 
 static func fs(size: int) -> int:
@@ -46,16 +82,26 @@ static func player_color(p: int) -> Color:
 	return PLAYERS[posmod(p, PLAYERS.size())]
 
 
-static func panel_box(bg := BG, border := BORDER, radius := 0) -> StyleBoxFlat:
+static func panel_box(bg := BG, border := BORDER, radius := RADIUS) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = border
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(radius)
+	sb.corner_detail = 10
+	sb.anti_aliasing = true
 	sb.content_margin_left = 14
 	sb.content_margin_right = 14
 	sb.content_margin_top = 10
 	sb.content_margin_bottom = 10
+	return sb
+
+
+## A panel box with a soft coloured glow around it (the lantern or the Bloom shining through).
+static func glow_box(bg: Color, border: Color, glow: Color, glow_px := 14, radius := RADIUS) -> StyleBoxFlat:
+	var sb := panel_box(bg, border, radius)
+	sb.shadow_color = glow
+	sb.shadow_size = glow_px
 	return sb
 
 
@@ -67,29 +113,29 @@ static func make_theme() -> Theme:
 	t.set_constant("outline_size", "Label", 0)
 	t.set_stylebox("panel", "PanelContainer", panel_box())
 	t.set_stylebox("panel", "Panel", panel_box())
-	t.set_stylebox("normal", "Button", panel_box(BG_RAISED, Color("333d33")))
-	t.set_stylebox("hover", "Button", panel_box(Color("1a2019"), BORDER_STRONG))
-	t.set_stylebox("pressed", "Button", panel_box(Color("2a2613"), AMBER))
-	t.set_stylebox("hover_pressed", "Button", panel_box(Color("2a2613"), AMBER))
-	t.set_stylebox("disabled", "Button", panel_box(Color(0.06, 0.07, 0.065, 0.9), Color("222823")))
+	t.set_stylebox("normal", "Button", panel_box(Color(0.91, 0.96, 0.95, 0.05), BORDER_STRONG, PILL))
+	t.set_stylebox("hover", "Button", glow_box(Color(AMBER, 0.08), AMBER, Color(AMBER, 0.22), 10, PILL))
+	t.set_stylebox("pressed", "Button", glow_box(Color(AMBER, 0.16), AMBER, Color(AMBER, 0.3), 12, PILL))
+	t.set_stylebox("hover_pressed", "Button", glow_box(Color(AMBER, 0.16), AMBER, Color(AMBER, 0.3), 12, PILL))
+	t.set_stylebox("disabled", "Button", panel_box(Color(0.91, 0.96, 0.95, 0.02), BORDER_SOFT, PILL))
 	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	t.set_font("font", "Button", FONT_COND)
 	t.set_font_size("font_size", "Button", fs(16))
 	t.set_color("font_color", "Button", TEXT)
-	t.set_color("font_hover_color", "Button", TEXT)
-	t.set_color("font_disabled_color", "Button", Color("5b6052"))
+	t.set_color("font_hover_color", "Button", AMBER_LIGHT)
+	t.set_color("font_disabled_color", "Button", Color(MUTED, 0.6))
 	t.set_color("font_pressed_color", "Button", AMBER)
 	t.set_color("font_hover_pressed_color", "Button", AMBER)
-	t.set_stylebox("background", "ProgressBar", panel_box(Color(0.05, 0.06, 0.055, 0.95), BORDER_SOFT))
+	t.set_stylebox("background", "ProgressBar", panel_box(Color(0.91, 0.96, 0.95, 0.07), Color(0, 0, 0, 0), PILL))
 	t.set_stylebox("normal", "RichTextLabel", StyleBoxEmpty.new())
 	t.set_color("default_color", "RichTextLabel", TEXT)
 	t.set_font("normal_font", "RichTextLabel", FONT_BODY)
 	t.set_font("bold_font", "RichTextLabel", FONT_BODY_BOLD)
 	t.set_font("mono_font", "RichTextLabel", FONT_MONO)
-	t.set_stylebox("normal", "LineEdit", panel_box(BG_RAISED, Color("333d33")))
-	t.set_stylebox("focus", "LineEdit", panel_box(BG_RAISED, AMBER))
+	t.set_stylebox("normal", "LineEdit", panel_box(Color(0.91, 0.96, 0.95, 0.05), BORDER_STRONG, 12))
+	t.set_stylebox("focus", "LineEdit", glow_box(Color(0.91, 0.96, 0.95, 0.06), AMBER, Color(AMBER, 0.2), 8, 12))
 	t.set_color("font_color", "LineEdit", TEXT)
-	t.set_color("font_placeholder_color", "LineEdit", Color("5f6457"))
+	t.set_color("font_placeholder_color", "LineEdit", MUTED)
 	t.set_color("caret_color", "LineEdit", AMBER)
 	t.set_color("selection_color", "LineEdit", Color(AMBER, 0.3))
 	_add_extras(t)
@@ -99,38 +145,34 @@ static func make_theme() -> Theme:
 ## Tooltips, sliders, check boxes, drop-downs and scroll bars in the same look, so no screen
 ## falls back to Godot's default grey widgets.
 static func _add_extras(t: Theme) -> void:
-	var tip := panel_box(Color(0.035, 0.045, 0.04, 0.97), BORDER_STRONG)
-	tip.border_width_left = 2
-	tip.border_color = BORDER_STRONG
-	tip.content_margin_left = 12
-	tip.content_margin_right = 12
-	tip.content_margin_top = 8
-	tip.content_margin_bottom = 8
+	var tip := glow_box(Color(0.035, 0.05, 0.085, 0.97), BORDER_STRONG, Color(0, 0, 0, 0.4), 10, 12)
+	tip.content_margin_left = 14
+	tip.content_margin_right = 14
+	tip.content_margin_top = 9
+	tip.content_margin_bottom = 9
 	t.set_stylebox("panel", "TooltipPanel", tip)
 	t.set_font("font", "TooltipLabel", FONT_BODY)
 	t.set_font_size("font_size", "TooltipLabel", 14)
 	t.set_color("font_color", "TooltipLabel", TEXT)
-	# Sliders: a thin track with an amber fill and a square amber grabber.
-	var track := StyleBoxFlat.new()
-	track.bg_color = Color("1d2420")
+	# Sliders: a rounded track with an amber fill and a glowing round grabber.
+	var track := panel_box(Color(0.91, 0.96, 0.95, 0.1), Color(0, 0, 0, 0), PILL)
 	track.content_margin_top = 3
 	track.content_margin_bottom = 3
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = AMBER
+	var fill := panel_box(AMBER, Color(0, 0, 0, 0), PILL)
 	fill.content_margin_top = 3
 	fill.content_margin_bottom = 3
 	t.set_stylebox("slider", "HSlider", track)
 	t.set_stylebox("grabber_area", "HSlider", fill)
 	t.set_stylebox("grabber_area_highlight", "HSlider", fill)
-	t.set_icon("grabber", "HSlider", _square_tex(14, AMBER))
-	t.set_icon("grabber_highlight", "HSlider", _square_tex(16, AMBER.lightened(0.25)))
+	t.set_icon("grabber", "HSlider", _orb_tex(18, AMBER))
+	t.set_icon("grabber_highlight", "HSlider", _orb_tex(20, AMBER_LIGHT))
 	t.set_icon("tick", "HSlider", _square_tex(2, BORDER_STRONG))
-	# Check boxes: an outlined square that fills amber.
+	# Check boxes: an outlined circle that fills with a lantern dot.
 	for kind in ["CheckBox", "CheckButton"]:
-		t.set_icon("unchecked", kind, _box_tex(18, BORDER_STRONG, false))
-		t.set_icon("checked", kind, _box_tex(18, AMBER, true))
-		t.set_icon("unchecked_disabled", kind, _box_tex(18, BORDER, false))
-		t.set_icon("checked_disabled", kind, _box_tex(18, BORDER_STRONG, true))
+		t.set_icon("unchecked", kind, _ring_tex(20, BORDER_STRONG, false))
+		t.set_icon("checked", kind, _ring_tex(20, AMBER, true))
+		t.set_icon("unchecked_disabled", kind, _ring_tex(20, BORDER, false))
+		t.set_icon("checked_disabled", kind, _ring_tex(20, BORDER_STRONG, true))
 		t.set_stylebox("normal", kind, _flat_margin(6))
 		t.set_stylebox("hover", kind, _flat_margin(6))
 		t.set_stylebox("pressed", kind, _flat_margin(6))
@@ -142,34 +184,29 @@ static func _add_extras(t: Theme) -> void:
 		t.set_color("font_pressed_color", kind, TEXT)
 		t.set_color("font_hover_pressed_color", kind, TEXT)
 	# Drop-downs and their pop-up list.
-	t.set_stylebox("normal", "OptionButton", panel_box(BG_RAISED, Color("6a5a2c")))
-	t.set_stylebox("hover", "OptionButton", panel_box(Color("1c1b12"), AMBER))
-	t.set_stylebox("pressed", "OptionButton", panel_box(Color("1c1b12"), AMBER))
+	t.set_stylebox("normal", "OptionButton", panel_box(Color(0.91, 0.96, 0.95, 0.05), Color(AMBER, 0.45), PILL))
+	t.set_stylebox("hover", "OptionButton", glow_box(Color(AMBER, 0.08), AMBER, Color(AMBER, 0.2), 8, PILL))
+	t.set_stylebox("pressed", "OptionButton", glow_box(Color(AMBER, 0.12), AMBER, Color(AMBER, 0.2), 8, PILL))
 	t.set_stylebox("focus", "OptionButton", StyleBoxEmpty.new())
 	t.set_font("font", "OptionButton", FONT_BODY)
 	t.set_color("font_color", "OptionButton", TEXT)
 	t.set_color("font_hover_color", "OptionButton", TEXT)
-	t.set_stylebox("panel", "PopupMenu", panel_box(Color(0.035, 0.045, 0.04, 0.98), BORDER_STRONG))
-	var hl := StyleBoxFlat.new()
-	hl.bg_color = Color(AMBER, 0.16)
+	t.set_stylebox("panel", "PopupMenu", glow_box(Color(0.035, 0.05, 0.085, 0.98), BORDER_STRONG, Color(0, 0, 0, 0.45), 12, 14))
+	var hl := panel_box(Color(AMBER, 0.16), Color(0, 0, 0, 0), 10)
 	t.set_stylebox("hover", "PopupMenu", hl)
 	t.set_font("font", "PopupMenu", FONT_BODY)
 	t.set_color("font_color", "PopupMenu", TEXT)
 	t.set_color("font_hover_color", "PopupMenu", AMBER)
-	# Thin scroll bars.
+	# Thin rounded scroll bars.
 	for kind in ["VScrollBar", "HScrollBar"]:
-		var bar := StyleBoxFlat.new()
-		bar.bg_color = Color(1, 1, 1, 0.03)
+		var bar := panel_box(Color(1, 1, 1, 0.03), Color(0, 0, 0, 0), PILL)
 		bar.content_margin_left = 3
 		bar.content_margin_right = 3
 		bar.content_margin_top = 3
 		bar.content_margin_bottom = 3
 		t.set_stylebox("scroll", kind, bar)
-		var g := StyleBoxFlat.new()
-		g.bg_color = BORDER_STRONG
-		t.set_stylebox("grabber", kind, g)
-		var gh := StyleBoxFlat.new()
-		gh.bg_color = DIM
+		t.set_stylebox("grabber", kind, panel_box(BORDER_STRONG, Color(0, 0, 0, 0), PILL))
+		var gh := panel_box(DIM, Color(0, 0, 0, 0), PILL)
 		t.set_stylebox("grabber_highlight", kind, gh)
 		t.set_stylebox("grabber_pressed", kind, gh)
 
@@ -189,17 +226,33 @@ static func _square_tex(px: int, col: Color) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 
-static func _box_tex(px: int, col: Color, filled: bool) -> ImageTexture:
+## A soft glowing round grabber.
+static func _orb_tex(px: int, col: Color) -> ImageTexture:
 	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
-	for i in px:
-		for j in [0, 1, px - 2, px - 1]:
-			img.set_pixel(i, j, col)
-			img.set_pixel(j, i, col)
-	if filled:
-		for x in range(4, px - 4):
-			for y in range(4, px - 4):
-				img.set_pixel(x, y, col)
+	var c := Vector2(px, px) * 0.5
+	for x in px:
+		for y in px:
+			var d := Vector2(x + 0.5, y + 0.5).distance_to(c)
+			var core := clampf(px * 0.36 - d + 0.5, 0.0, 1.0)
+			var halo := clampf(1.0 - d / (px * 0.5), 0.0, 1.0) * 0.45
+			var out := col.lightened(0.25 * clampf(1.0 - d / (px * 0.36), 0.0, 1.0))
+			out.a = maxf(core, halo)
+			img.set_pixel(x, y, out)
+	return ImageTexture.create_from_image(img)
+
+
+## A ring, optionally with a filled dot inside (check boxes).
+static func _ring_tex(px: int, col: Color, filled: bool) -> ImageTexture:
+	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
+	var c := Vector2(px, px) * 0.5
+	var r := px * 0.5 - 1.5
+	for x in px:
+		for y in px:
+			var d := Vector2(x + 0.5, y + 0.5).distance_to(c)
+			var a := clampf(1.2 - absf(d - r) / 0.9, 0.0, 1.0)
+			if filled:
+				a = maxf(a, clampf(r - 4.0 - d + 0.5, 0.0, 1.0))
+			img.set_pixel(x, y, Color(col, a * col.a))
 	return ImageTexture.create_from_image(img)
 
 
@@ -213,14 +266,30 @@ static func label(text: String, size := 15, color := TEXT) -> Label:
 	return l
 
 
-## Condensed caps heading with letter spacing.
+## Caps label. Small captions are Outfit with open letter spacing; headings (22 px and up)
+## switch to the Unbounded display face, which runs wide, so they are set a little smaller.
 static func caps(text: String, size := 15, color := TEXT, bold := true) -> Label:
+	if size >= 22:
+		return display(text, size, color, bold)
 	var l := label(text.to_upper(), size, color)
-	var f := FontVariation.new()
-	f.base_font = FONT_COND_BOLD if bold else FONT_COND
-	f.spacing_glyph = maxi(1, roundi(size * 0.08))
-	l.add_theme_font_override("font", f)
+	l.add_theme_font_override("font", font_copy(FONT_COND_BOLD if bold else FONT_COND, maxi(1, roundi(size * 0.08))))
 	return l
+
+
+## Display heading in Unbounded (wordmarks, screen titles, big numbers). Sized so `size` is
+## roughly the cap height a condensed face of that size would have had.
+static func display(text: String, size := 28, color := TEXT, heavy := true, upper := true) -> Label:
+	var l := label(text.to_upper() if upper else text, roundi(size * 0.8), color)
+	l.add_theme_font_override("font", font_copy(FONT_DISPLAY if heavy else FONT_DISPLAY_MEDIUM))
+	return l
+
+
+## Gives a label a soft coloured glow behind its letters (the Bloom shining through a title).
+static func glow_text(l: Label, col := TEAL, px := 16, alpha := 0.4) -> void:
+	l.add_theme_color_override("font_shadow_color", Color(col, alpha))
+	l.add_theme_constant_override("shadow_outline_size", px)
+	l.add_theme_constant_override("shadow_offset_x", 0)
+	l.add_theme_constant_override("shadow_offset_y", 0)
 
 
 ## Monospaced numbers.
@@ -236,7 +305,7 @@ static func bold(text: String, size := 15, color := TEXT) -> Label:
 	return l
 
 
-## A thin coloured bar (ProgressBar with a flat fill).
+## A thin rounded bar (ProgressBar with a flat pill fill).
 static func bar(color: Color, height := 8) -> ProgressBar:
 	var p := ProgressBar.new()
 	p.show_percentage = false
@@ -247,8 +316,11 @@ static func bar(color: Color, height := 8) -> ProgressBar:
 
 
 static func set_bar_color(p: ProgressBar, color: Color) -> void:
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = color
+	var fill := panel_box(color, Color(0, 0, 0, 0), PILL)
+	fill.set_content_margin_all(0)
+	if color == TEAL:
+		fill.shadow_color = Color(TEAL, 0.45)
+		fill.shadow_size = 6
 	p.add_theme_stylebox_override("fill", fill)
 
 
@@ -273,20 +345,19 @@ static func spacer() -> Control:
 	return c
 
 
-## Button with a drawn icon left of its text. `kind`: "primary" (solid amber, the one thing to
-## press), "secondary" (outlined) or "ghost" (text only). The icon follows the font colour.
+## Pill button with a drawn icon left of its text. `kind`: "primary" (the glowing lantern, the
+## one thing to press), "secondary" (glass pill) or "ghost" (text only). The icon follows the
+## font colour.
 static func icon_button(text: String, icon: String, kind := "secondary", size := 17, height := 46.0) -> Button:
 	var b := Button.new()
-	b.text = text.to_upper()
+	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(0, height)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT if icon != "" else HORIZONTAL_ALIGNMENT_CENTER
-	var f := FontVariation.new()
-	f.base_font = FONT_COND_BOLD
-	f.spacing_glyph = 1
-	b.add_theme_font_override("font", f)
-	b.add_theme_font_size_override("font_size", size)
-	style_button(b, kind, 16 + (int(height * 0.5) + 6 if icon != "" else 0))
+	b.add_theme_font_override("font", FONT_DISPLAY_MEDIUM if kind != "primary" else FONT_DISPLAY)
+	b.add_theme_font_size_override("font_size", roundi(size * 0.78))
+	var pad := 22 + (int(height * 0.5) + 8 if icon != "" else 0)
+	style_button(b, kind, pad)
 	if icon != "":
 		var ic := ButtonIcon.new(icon, height * 0.42)
 		b.add_child(ic)
@@ -294,37 +365,53 @@ static func icon_button(text: String, icon: String, kind := "secondary", size :=
 
 
 ## Applies the primary / secondary / ghost look to any button. `pad_left` leaves room for an icon.
-static func style_button(b: Button, kind := "secondary", pad_left := 16) -> void:
+static func style_button(b: Button, kind := "secondary", pad_left := 20) -> void:
 	var boxes := {}
 	match kind:
 		"primary":
-			boxes = {"normal": [AMBER, AMBER], "hover": [AMBER.lightened(0.14), AMBER.lightened(0.14)],
-				"pressed": [AMBER.darkened(0.12), AMBER.darkened(0.12)], "disabled": [Color("2e2a1c"), Color("3a3524")]}
+			boxes = {"normal": glow_box(AMBER, AMBER_LIGHT, Color(AMBER, 0.42), 16, PILL),
+				"hover": glow_box(AMBER_LIGHT, Color("fff0d6"), Color(AMBER, 0.6), 22, PILL),
+				"pressed": glow_box(AMBER_DEEP, AMBER, Color(AMBER, 0.35), 10, PILL),
+				"disabled": panel_box(Color(AMBER, 0.12), Color(AMBER, 0.2), PILL)}
 			for k in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
 				b.add_theme_color_override(k, AMBER_DARK)
-			b.add_theme_color_override("font_disabled_color", Color("7d7660"))
+			b.add_theme_color_override("font_disabled_color", Color(AMBER, 0.45))
 		"ghost":
-			boxes = {"normal": [Color(0, 0, 0, 0), Color(0, 0, 0, 0)], "hover": [Color(1, 1, 1, 0.04), Color(0, 0, 0, 0)],
-				"pressed": [Color(AMBER, 0.1), Color(0, 0, 0, 0)], "disabled": [Color(0, 0, 0, 0), Color(0, 0, 0, 0)]}
+			boxes = {"normal": panel_box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), PILL),
+				"hover": panel_box(Color(1, 1, 1, 0.05), Color(0, 0, 0, 0), PILL),
+				"pressed": panel_box(Color(AMBER, 0.1), Color(0, 0, 0, 0), PILL),
+				"disabled": panel_box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), PILL)}
 			b.add_theme_color_override("font_color", DIM)
 			b.add_theme_color_override("font_hover_color", TEXT)
 			b.add_theme_color_override("font_pressed_color", AMBER)
-			b.add_theme_color_override("font_disabled_color", Color("4d5148"))
+			b.add_theme_color_override("font_disabled_color", Color(MUTED, 0.5))
 		_:
-			boxes = {"normal": [Color(0.07, 0.085, 0.073, 0.92), Color("3a4438")], "hover": [Color("1c1b12"), AMBER],
-				"pressed": [Color("2a2613"), AMBER], "disabled": [Color(0.05, 0.06, 0.055, 0.8), Color("222823")]}
+			boxes = {"normal": panel_box(Color(0.91, 0.96, 0.95, 0.05), BORDER_STRONG, PILL),
+				"hover": glow_box(Color(AMBER, 0.08), AMBER, Color(AMBER, 0.22), 12, PILL),
+				"pressed": glow_box(Color(AMBER, 0.16), AMBER, Color(AMBER, 0.3), 12, PILL),
+				"disabled": panel_box(Color(0.91, 0.96, 0.95, 0.02), BORDER_SOFT, PILL)}
 			b.add_theme_color_override("font_color", TEXT)
-			b.add_theme_color_override("font_hover_color", AMBER)
+			b.add_theme_color_override("font_hover_color", AMBER_LIGHT)
 			b.add_theme_color_override("font_pressed_color", AMBER)
 			b.add_theme_color_override("font_hover_pressed_color", AMBER)
-			b.add_theme_color_override("font_disabled_color", Color("5b6052"))
+			b.add_theme_color_override("font_disabled_color", Color(MUTED, 0.6))
 	for state in boxes:
-		var sb := panel_box(boxes[state][0], boxes[state][1])
+		var sb: StyleBoxFlat = boxes[state]
 		sb.content_margin_left = pad_left
-		sb.content_margin_right = 16
+		sb.content_margin_right = 22
 		b.add_theme_stylebox_override(state, sb)
 	b.add_theme_stylebox_override("hover_pressed", b.get_theme_stylebox("pressed"))
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
+## Gives a styled button a fixed corner radius (tiles and cards that aren't pills).
+static func round_button(b: Button, radius := RADIUS) -> void:
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		var sb := b.get_theme_stylebox(state) as StyleBoxFlat
+		if sb != null and b.has_theme_stylebox_override(state):
+			sb = sb.duplicate()
+			sb.set_corner_radius_all(radius)
+			b.add_theme_stylebox_override(state, sb)
 
 
 ## The icon inside an icon_button: drawn at the left, in the button's current font colour.
@@ -349,7 +436,7 @@ class ButtonIcon extends Control:
 	func _place() -> void:
 		var b := get_parent() as Control
 		if b != null:
-			position = Vector2(16, (b.size.y - size.y) * 0.5)
+			position = Vector2(maxf(18.0, b.size.y * 0.42), (b.size.y - size.y) * 0.5)
 
 	func _draw() -> void:
 		var b := get_parent() as Button
@@ -363,4 +450,4 @@ class ButtonIcon extends Control:
 			elif b.is_hovered():
 				key = "font_hover_color"
 			col = b.get_theme_color(key)
-		Icons.draw(self, id, Rect2(Vector2.ZERO, size), col, 1.8)
+		Icons.draw(self, id, Rect2(Vector2.ZERO, size), col, 1.9)
