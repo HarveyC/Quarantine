@@ -13,6 +13,13 @@ extends RefCounted
 ##   over (bool, boss dead: adds die without death effects).
 
 const SPAWN_CAP := 8             # living non-static enemies; spawners pause above this
+## Boss fights by squad size (encounter "squad", default 4): egg sacs the Brood Mother starts
+## with, roots shielding the Source, how often boss spawners (sacs, roots) spawn, and the spawn cap.
+const BOSS_SACS := {1: 1, 2: 1, 3: 2, 4: 4}
+const SOURCE_ROOTS := {1: 1, 2: 1, 3: 2, 4: 3}
+const BOSS_SPAWN_EVERY_EXTRA := {1: 2, 2: 2, 3: 1, 4: 0}
+const BOSS_DAMAGE := {1: 0.6, 2: 0.7, 3: 0.8, 4: 1.0}   # the boss's own hits on soldiers
+const SQUAD_SPAWN_CAP := {1: 4, 2: 5, 3: 7, 4: SPAWN_CAP}
 const HIDDEN_REVEAL_RANGE := 4
 const SOURCE_PULSE := 5          # Infection to every soldier per turn in the Source's phase 1
 const SOURCE_SAFE_RADIUS := 3    # spore rings stop this close to the Source
@@ -47,13 +54,15 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 			cell = s.grid.enemy_spawns[(i * 3) % s.grid.enemy_spawns.size()]
 		var nest := _place(s, "spore_nest", cell)
 		nest.status["spawner"] = {"kinds": ["runner"], "every": 2, "next": 2 + i % 2, "i": 0}
+	var squad := clampi(int(enc.get("squad", 4)), 1, 4)
+	var slower: int = BOSS_SPAWN_EVERY_EXTRA[squad]
 	match str(enc.get("boss", "")):
 		"brood_mother":
 			var b := _place(s, "brood_mother", _marker(s, "boss", _far_spawn(s)))
 			var offsets: Array[Vector2i] = [Vector2i(-2, 0), Vector2i(2, 0), Vector2i(0, -2), Vector2i(0, 2)]
-			for i in offsets.size():
+			for i in BOSS_SACS[squad]:
 				var sac := _place(s, "egg_sac", b.pos + offsets[i])
-				sac.status["spawner"] = {"kinds": ["runner"], "every": 2, "next": 2 + i % 2, "i": 0}
+				sac.status["spawner"] = {"kinds": ["runner"], "every": 2 + slower, "next": 2 + i % 2, "i": 0}
 		"colonel_hale":
 			var h := _place(s, "colonel_hale", _marker(s, "boss", _far_spawn(s)))
 			h.cooldowns["airstrike"] = 1
@@ -61,9 +70,9 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 			var centre := Vector2i(s.grid.width / 2, s.grid.height / 2)
 			var src := _place(s, "the_source", _marker(s, "boss", centre))
 			var offsets: Array[Vector2i] = [Vector2i(0, -4), Vector2i(-4, 3), Vector2i(4, 3)]
-			for i in offsets.size():
+			for i in SOURCE_ROOTS[squad]:
 				var root := _place(s, "source_root", src.pos + offsets[i])
-				root.status["spawner"] = {"kinds": ["runner", "spitter"], "every": 3, "next": 2 + i, "i": i}
+				root.status["spawner"] = {"kinds": ["runner", "spitter"], "every": 3 + slower, "next": 2 + i, "i": i}
 	var mult := float(enc.get("boss_health_mult", 1.0))
 	for u in s.living(Types.Team.ENEMY):
 		if EnemyRoster.is_static(u) or enc.get("ambush", false):
@@ -342,12 +351,16 @@ static func _run_spawners(s: GameState) -> void:
 		if sp.is_empty() or s.turn < int(sp.next):
 			continue
 		sp.next = int(sp.next) + int(sp.every)
-		if _mobile_enemies(s) >= SPAWN_CAP:
+		if _mobile_enemies(s) >= _spawn_cap(s):
 			continue
 		var kinds: Array = sp.kinds
 		var kind: String = kinds[int(sp.i) % kinds.size()]
 		sp.i = int(sp.i) + 1
 		spawn(s, kind, u.pos, u)
+
+
+static func _spawn_cap(s: GameState) -> int:
+	return SQUAD_SPAWN_CAP[clampi(int(s.encounter.get("squad", 4)), 1, 4)]
 
 
 static func _spawn_incoming(s: GameState) -> void:
@@ -357,7 +370,7 @@ static func _spawn_incoming(s: GameState) -> void:
 			keep.append(w)
 			continue
 		for i in w.kinds.size():
-			if _mobile_enemies(s) < SPAWN_CAP:
+			if _mobile_enemies(s) < _spawn_cap(s):
 				spawn(s, w.kinds[i], w.cells[i % w.cells.size()])
 	s.encounter["incoming"] = keep
 
@@ -446,6 +459,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		armour += EnemyRoster.ARMOURED_REDUCTION
 	if armour > 0:
 		amount = maxi(1, amount - armour)
+	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:
+		amount = maxi(1, roundi(amount * float(BOSS_DAMAGE[clampi(int(s.encounter.get("squad", 4)), 1, 4)])))
 	if target.kind == "the_source" and source != null and source.team == Types.Team.PLAYER \
 			and Infection.tier(source.infection) >= Infection.Tier.MUTATING:
 		amount = ceili(amount * CARRIER_BONUS)
@@ -478,11 +493,12 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 				target.status.erase("tether")
 				s.emit({"type": "boss_phase", "unit": target.id, "phase": 2, "boss": target.kind,
 					"text": "The Brood Mother tears free!"})
-				# She lays two fresh sacs where she was rooted as she tears free.
-				for d in [Vector2i(-1, 1), Vector2i(1, 1)]:
+				# She lays two fresh sacs where she was rooted as she tears free (one for a small squad).
+				var squad := clampi(int(s.encounter.get("squad", 4)), 1, 4)
+				for d in [Vector2i(-1, 1), Vector2i(1, 1)].slice(0, mini(2, BOSS_SACS[squad])):
 					var sac := _place(s, "egg_sac", target.pos + d * 2)
 					sac.status["alerted"] = true
-					sac.status["spawner"] = {"kinds": ["runner"], "every": 2, "next": s.turn + 1, "i": 0}
+					sac.status["spawner"] = {"kinds": ["runner"], "every": 2 + BOSS_SPAWN_EVERY_EXTRA[squad], "next": s.turn + 1, "i": 0}
 					s.emit({"type": "spawned", "unit": sac.id, "kind": sac.kind, "cell": sac.pos, "from": target.id})
 		"colonel_hale":
 			if int(target.status.boss_phase) == 1 and target.hp * 2 <= target.max_hp:

@@ -9,15 +9,22 @@ extends RefCounted
 ##         modifiers: {extra_enemies, enemies_dead_at_start, ambush, boss_health_mult}}
 ## Fights scale with `squad` (co-op squads are one soldier per player), not with `players`.
 
-const SKIRMISH_BUDGET := {1: 4, 2: 6, 3: 8}
+const SKIRMISH_BUDGET := {1: 6, 2: 7, 3: 9}
 const NEST_BUDGET := {1: 3, 2: 4, 3: 5}     # on top of the elite and the Hive node
 const BOSS_BUDGET := {1: 0, 2: 0, 3: 0}     # bosses bring their own adds
 const BUDGET_PER_ENEMY := 2                  # each "+1 enemy" from Outbreak or events
 const ENEMY_CAP := 5
 const MIN_START := 3
-## Threat budget share and boss health by squad size (4 is the baseline the budgets are tuned for).
-const SQUAD_BUDGET := {1: 0.5, 2: 0.6, 3: 0.8, 4: 1.0}
-const SQUAD_BOSS_HEALTH := {1: 0.6, 2: 0.7, 3: 0.85, 4: 1.0}
+## Threat budget share, fewest starting enemies and boss health by squad size (4 is the baseline
+## the budgets are tuned for). Tuned with the balance sim (tools/balance): a squad of each size
+## loses roughly the same share of its HP per fight.
+const SQUAD_BUDGET := {1: 0.35, 2: 0.5, 3: 0.75, 4: 1.0}
+const SQUAD_MIN_START := {1: 1, 2: 2, 3: 3, 4: 3}
+const SQUAD_BOSS_HEALTH := {1: 0.35, 2: 0.4, 3: 0.6, 4: 1.0}
+## Colonel Hale's escort by squad size.
+const HALE_ADDS := {1: [], 2: [], 3: ["fallen"], 4: ["fallen", "fallen", "sharpshooter"]}
+## A lone soldier can't break a Lurker's pin (a teammate has to hit it), so it never meets one.
+const SOLO_BANNED: Array[String] = ["lurker"]
 const STAGE_NAMES: Array[String] = ["Contained", "Spreading", "Rampant", "Critical", "Collapse"]
 
 
@@ -58,7 +65,7 @@ static func build(spec: Dictionary) -> Dictionary:
 	budget = ceili(budget * float(SQUAD_BUDGET[squad]))
 	var enemies: Array[String] = []
 	var enc := {"act": act, "node": node, "objective": objective, "outbreak": int(spec.get("outbreak", 0)),
-		"stage": st, "waves": []}
+		"stage": st, "waves": [], "squad": squad}
 	if node == "nest":
 		enemies.append(EnemyRoster.spec(elite_kind, true, _affixes(rng, 2 if st >= 3 else 1, true)))
 		enc["hive"] = true
@@ -70,12 +77,14 @@ static func build(spec: Dictionary) -> Dictionary:
 	if node == "boss":
 		enc["boss"] = EnemyRoster.BOSS_OF_ACT[act]
 		if act == 2:
-			enemies.append_array(["fallen", "sharpshooter"] if squad <= 2 else ["fallen", "fallen", "sharpshooter"])
+			enemies.append_array(HALE_ADDS[squad])
 		var mult := float(mods.get("boss_health_mult", 1.0)) * float(SQUAD_BOSS_HEALTH[squad])
 		if mult != 1.0:
 			enc["boss_health_mult"] = mult
 	var pool := EnemyRoster.pool(act)
-	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else mini(MIN_START, cap), act, cap)
+	if squad == 1:
+		pool = pool.filter(func(k: String) -> bool: return not SOLO_BANNED.has(k))
+	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else mini(SQUAD_MIN_START[squad], cap), act, cap)
 	# Spare budget past the cap: an affix on a regular, or an earlier reinforcement wave.
 	if st >= 2 and node != "boss":
 		enc.waves.append({"turn": 3 if st >= 4 else 4, "every": 3 if st >= 4 else 0, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2)})

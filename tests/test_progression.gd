@@ -71,7 +71,7 @@ func test_apply_record_hp_perks_and_abilities() -> void:
 	p.rank = 3
 	p.perks = ["purge"]
 	Progression.apply_record(u, p)
-	assert_eq(u.max_hp, 6 + 2, "+1 max HP per rank")
+	assert_eq(u.max_hp, UnitData.SOLDIERS.medic.max_hp + 2, "+1 max HP per rank")
 	assert_true(u.abilities.has("purge"), "perk grants ability")
 	var t := UnitData.make("trooper", Types.Team.PLAYER)
 	var tp := Progression.new_record("trooper")

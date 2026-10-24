@@ -16,7 +16,7 @@ extends RefCounted
 
 ## Threat budget each regular enemy spends when a fight is built.
 const COST := {"runner": 1, "spitter": 1, "fallen": 2, "bloater": 2, "lurker": 2, "shrieker": 2, "brute": 3,
-	"leaper": 2, "drifter": 2, "sharpshooter": 3, "burrower": 2}
+	"leaper": 2, "drifter": 1, "sharpshooter": 2, "burrower": 2}
 ## First act an enemy appears in as a regular.
 const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "leaper": 1, "brute": 2, "lurker": 2,
 	"drifter": 2, "sharpshooter": 2, "shrieker": 3, "burrower": 3}
