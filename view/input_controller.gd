@@ -190,7 +190,9 @@ func actions() -> Array[Dictionary]:
 	if u == null:
 		return out
 	var has_ap := u.actions_left > 0
-	out.append({"key": "shoot", "label": "Shoot", "targeting": "shoot", "type": Types.SHOOT, "enabled": has_ap})
+	var gun: Dictionary = Weapons.of(u)
+	out.append({"key": "shoot", "label": "Shoot", "targeting": "shoot", "type": Types.SHOOT, "enabled": has_ap,
+		"desc": "%s: %s" % [gun.name, gun.desc]})
 	out.append({"key": "overwatch", "label": "Overwatch", "targeting": "none", "type": Types.OVERWATCH, "enabled": has_ap})
 	out.append({"key": "hunker", "label": "Hunker", "targeting": "none", "type": Types.HUNKER, "enabled": has_ap})
 	for a in Combat.available_abilities(view.state, u):

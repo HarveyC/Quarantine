@@ -14,10 +14,8 @@ extends RefCounted
 const SIGHT_RANGE := 14.0
 const COVER_HALF := 20
 const COVER_FULL := 40
+## Close range for passives like Point Blank. Range aim terms are per weapon (Weapons).
 const CLOSE_RANGE := 3.0
-const CLOSE_BONUS := 15
-const LONG_RANGE := 10.0
-const LONG_PENALTY_PER_TILE := 3
 const TAG_BONUS := 15
 const SUPPRESS_PENALTY := 30
 const REACTION_PENALTY := 15
@@ -236,20 +234,17 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 			breakdown.append(["Hunkered", -cv])
 	if target.defense != 0:
 		breakdown.append(["Defense", -target.defense])
-	var dist := from.distance_to(target.pos)
-	if dist <= CLOSE_RANGE:
-		breakdown.append(["Close range", CLOSE_BONUS])
-	elif dist > LONG_RANGE:
-		breakdown.append(["Long range", -LONG_PENALTY_PER_TILE * ceili(dist - LONG_RANGE)])
+	Weapons.range_terms(attacker, from.distance_to(target.pos), breakdown)
 	if attacker.team == Types.Team.PLAYER and has_status(s, target, "tagged"):
 		breakdown.append(["Tagged", TAG_BONUS])
 	if has_status(s, attacker, "suppressed"):
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
-	if reaction:
-		breakdown.append(["Reaction shot", -REACTION_PENALTY])
+	if reaction and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
+		breakdown.append(["Reaction shot", -Weapons.reaction_penalty(attacker, REACTION_PENALTY)])
 	GearFx.odds_terms(s, attacker, target, from, reaction, cover, breakdown)
 	var crit := Kit.modify_odds(s, attacker, target, from, reaction, breakdown)
-	return _finish_odds(breakdown, cover, flanked, los, mini(100, (FLANK_CRIT if flanked else 0) + crit))
+	return _finish_odds(breakdown, cover, flanked, los, mini(100, (FLANK_CRIT if flanked else 0) + crit + Weapons.crit_bonus(attacker)),
+		Weapons.graze_band(attacker, GRAZE_BAND))
 
 
 ## Odds of a claw (melee) attack: aim, minus 20 if the target has any cover toward the attacker.
@@ -263,14 +258,14 @@ static func melee_chance(s: GameState, attacker: Unit, target: Unit, from: Vecto
 	return _finish_odds(breakdown, cover, cover == Types.Cover.NONE, true, 0)
 
 
-static func _finish_odds(breakdown: Array, cover: int, flanked: bool, los: bool, crit: int) -> Dictionary:
+static func _finish_odds(breakdown: Array, cover: int, flanked: bool, los: bool, crit: int, band := GRAZE_BAND) -> Dictionary:
 	var total := 0
 	for term in breakdown:
 		total += int(term[1])
 	var hit := clampi(total, MIN_CHANCE, 100) if los else 0
 	if not los:
 		breakdown.append(["No line of sight", -total])
-	var graze := mini(GRAZE_BAND, 100 - hit) if los else 0
+	var graze := mini(band, 100 - hit) if los else 0
 	return {"hit": hit, "graze": graze, "crit": crit if los else 0, "cover": cover,
 		"flanked": flanked, "los": los, "breakdown": breakdown}
 
@@ -505,6 +500,8 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		"crit": r.crit, "damage": dmg, "chance": odds.hit, "reaction": reaction})
 	if dmg > 0:
 		Rules.deal_damage(s, t, dmg, u)
+	elif not (r.hit or r.graze):
+		Weapons.after_miss(s, u, t)
 	GearFx.after_shot(s, u, t, r.hit or r.graze, reaction, dmg)
 	Kit.after_shot(s, u, t, odds, dmg > 0)
 

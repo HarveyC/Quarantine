@@ -97,7 +97,7 @@ func refresh(view: MissionView) -> void:
 		_who.text = SquadRoster.owner_name(view, u.owner_player).to_upper()
 		_who.add_theme_color_override("font_color", pcol)
 		_name.text = u.display_name.to_upper()
-		_class.text = UnitData.SOLDIERS.get(u.kind, {}).get("name", u.kind.capitalize())
+		_class.text = "%s  ·  %s" % [UnitData.SOLDIERS.get(u.kind, {}).get("name", u.kind.capitalize()), Weapons.display_name(u.kind)]
 		(_ap as W.Diamonds).set_values(2, u.actions_left)
 		_ap_text.text = "%d ACTION%s" % [u.actions_left, "" if u.actions_left == 1 else "S"]
 		for a in input.actions():
@@ -158,7 +158,7 @@ func _button(input: InputController, a: Dictionary, can_act: bool) -> Button:
 		b.add_theme_stylebox_override("hover", Styles.panel_box(Styles.AMBER.lightened(0.1), Styles.AMBER))
 	if b.disabled:
 		fg = Color(fg, 0.35)
-	b.tooltip_text = label
+	b.tooltip_text = label + ("\n" + str(a.desc) if a.get("key") == "shoot" and a.has("desc") else "")
 	var key: String = a.key
 	b.pressed.connect(func() -> void: action_pressed.emit(key))
 	var col := Styles.vbox(6)

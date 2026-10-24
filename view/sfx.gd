@@ -6,18 +6,25 @@ extends Node
 ## `play(name)` picks a free voice from a small pool; pitch is jittered a little so
 ## repeated shots do not sound identical. Voices play on the SFX bus, ui_* sounds on UI.
 
-const VOICES := 12
+const VOICES := 20
 const SOUNDS := [
 	"rifle", "sniper", "shotgun", "spit", "claw", "whiz", "impact_flesh", "impact_armor",
 	"ricochet", "concrete", "alert", "enemy_death", "soldier_death", "turned", "infect",
 	"mutation", "heal", "lapse", "breach", "ui_click", "ui_hover", "ui_confirm", "ui_deny",
 	"radio", "sting_squad", "sting_enemy", "cinematic", "victory", "defeat", "step1", "step2", "step3",
+	"smg", "lmg", "carbine", "tail_rifle", "tail_heavy", "pump", "bolt",
+]
+## Gunfire and bullet impacts play on the Weapons bus (the music ducks under it).
+const WEAPON := [
+	"rifle", "sniper", "shotgun", "smg", "lmg", "carbine", "tail_rifle", "tail_heavy", "pump", "bolt",
+	"whiz", "impact_flesh", "impact_armor", "ricochet", "concrete", "breach",
 ]
 ## Mix levels in dB per sound (default 0).
 const LEVELS := {
 	"ui_hover": -14.0, "ui_click": -8.0, "ui_confirm": -6.0, "ui_deny": -6.0, "step1": -12.0,
 	"step2": -12.0, "step3": -12.0, "whiz": -6.0, "cinematic": -5.0, "radio": -8.0,
 	"sting_squad": -6.0, "sting_enemy": -4.0, "infect": -4.0, "concrete": -4.0,
+	"smg": -2.0, "tail_rifle": -5.0, "tail_heavy": -4.0, "pump": -3.0, "bolt": -4.0,
 }
 
 static var muted := false
@@ -59,7 +66,9 @@ func play(s: String, volume_db := 0.0, pitch_jitter := 0.06, delay := 0.0, bus :
 		get_tree().create_timer(delay).timeout.connect(play.bind(s, volume_db, pitch_jitter, 0.0, bus))
 		return
 	var v := _free_voice()
-	v.bus = bus if bus != "" else ("UI" if s.begins_with("ui_") else "SFX")
+	if bus == "":
+		bus = "UI" if s.begins_with("ui_") else ("Weapons" if s in WEAPON and AudioServer.get_bus_index("Weapons") >= 0 else "SFX")
+	v.bus = bus
 	v.stream = _streams[s]
 	v.volume_db = volume_db + LEVELS.get(s, 0.0)
 	v.pitch_scale = 1.0 + _rng.randf_range(-pitch_jitter, pitch_jitter)

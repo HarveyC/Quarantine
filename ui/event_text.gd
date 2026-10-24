@@ -28,6 +28,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 				res = "CRITS" if ev.get("crit", false) else ("grazes" if ev.get("graze", false) else "hits")
 			var pre := "Reaction: " if ev.get("reaction", false) else ""
 			return "%s%s %s %s (%d%%)" % [pre, who.call("unit"), res, who.call("target"), int(ev.get("chance", 0))]
+		"pinned":
+			return "%s is pinned down by %s" % [who.call("target"), who.call("unit")]
 		"damage":
 			return "%s takes %s (HP %d)" % [who.call("unit"), _c(str(ev.get("amount", 0)), Palette.DANGER), int(ev.get("hp", 0))]
 		"died":

@@ -6,6 +6,7 @@ extends RefCounted
 
 const Palette := preload("res://view/palette.gd")
 const SHADER := preload("res://view/character.gdshader")
+const GunModels := preload("res://view/gun_models.gd")
 
 const MODELS := {
 	"drifter": preload("res://assets/models/drifter.glb"),
@@ -61,7 +62,10 @@ static func instantiate(kind: String, is_soldier: bool) -> Node3D:
 		return CHARACTERS[kind].instantiate()
 	if MODELS.has(kind):
 		return MODELS[kind].instantiate()
-	return (CHARACTERS.trooper if is_soldier else CHARACTERS.runner).instantiate()
+	var m: Node3D = (CHARACTERS.trooper if is_soldier else CHARACTERS.runner).instantiate()
+	if GunModels.has_gun(kind):   # borrowed body, own weapon
+		GunModels.swap(m, kind)
+	return m
 
 
 static func size_of(kind: String) -> float:
