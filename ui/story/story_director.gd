@@ -4,6 +4,13 @@ extends CanvasLayer
 ## Source's whispers to an infected soldier (only that soldier's player sees them). Watches the
 ## App's session; reads run and fight events and never changes them, so every peer plays its own
 ## copy and skipping a scene only skips it for you.
+##
+## Fight chatter follows the mission view's event player, not the rules: Rules resolves a whole
+## enemy turn at once, so a line said when the event fires would arrive while the attack is still
+## animating. "Down" and "turned" lines wait for that beat to finish, contact and whispers start
+## with their beat, and run events that land mid-fight (an Echo laid to rest, intel recovered, a
+## recruit) wait until the queue has drained. Host and clients play the same beats, so the timing
+## is the same on every peer.
 
 const Styles := preload("res://ui/styles.gd")
 const StoryScene := preload("res://ui/story/story_scene.gd")
@@ -16,6 +23,8 @@ var app: Node
 var _session: Node
 var _run: RunState
 var _state: GameState
+var _player: Node          # the mission view's EventPlayer while a fight is on screen
+var _held: Array[Callable] = []   # run-event lines waiting for the fight's beats to finish
 var _scene: Control
 var _queue: Array = []
 var _played := {}
@@ -69,13 +78,19 @@ func _process(delta: float) -> void:
 	var run: RunState = s.get("run") if s != null else null
 	if run != _run:
 		_bind_run(run)
-	var st: GameState = s.get("state") if s != null else null
-	if run == null or run.phase != RunState.Phase.FIGHT:
-		st = null
-	if st != _state:
-		_bind_state(st)
+	# The mission view stays up after a fight until its last beats and the debrief have played,
+	# so the chatter follows it rather than the session's state.
+	var v: Node = app.get("view") if app != null and s != null else null
+	if not is_instance_valid(v):
+		v = null
+	var pl: Node = v.get("player") if v != null else null
+	if not is_instance_valid(_player):
+		_player = null
+	if pl != _player:
+		_bind_player(pl, v.get("state") if v != null else null)
 	if s == null:
 		_clear()
+	_release_held()
 	if _scene == null and not _queue.is_empty():
 		_start(_queue.pop_front())
 	if _whisper_t > 0.0:
@@ -92,6 +107,7 @@ func _clear() -> void:
 	if _scene != null:
 		_scene.queue_free()
 		_scene = null
+	_held.clear()
 	for c in _radio_box.get_children():
 		c.queue_free()
 
@@ -110,17 +126,46 @@ func _bind_run(run: RunState) -> void:
 		_queue_scene("intro:%d" % run.seed, intro_spec(run))
 
 
-func _bind_state(st: GameState) -> void:
-	if _state != null and _state.event.is_connected(_on_state_event):
-		_state.event.disconnect(_on_state_event)
+func _bind_player(pl: Node, st: GameState) -> void:
+	if is_instance_valid(_player):
+		if _player.beat_started.is_connected(_on_beat_started):
+			_player.beat_started.disconnect(_on_beat_started)
+		if _player.beat_finished.is_connected(_on_beat_finished):
+			_player.beat_finished.disconnect(_on_beat_finished)
+	_player = pl
 	_state = st
 	_contact_said = false
 	_tiers.clear()
-	if st == null:
+	if pl == null or st == null:
+		_player = null
+		_state = null
 		return
-	st.event.connect(_on_state_event)
+	pl.beat_started.connect(_on_beat_started)
+	pl.beat_finished.connect(_on_beat_finished)
 	for u in st.units:
 		_tiers[u.id] = Infection.tier(u.infection)
+
+
+## True while a fight is on screen and still has beats to play.
+func _fight_busy() -> bool:
+	return is_instance_valid(_player) and _player.is_busy()
+
+
+func _release_held() -> void:
+	if _held.is_empty() or _fight_busy():
+		return
+	var held := _held.duplicate()
+	_held.clear()
+	for c in held:
+		c.call()
+
+
+## Says a run-event line now, or once the fight on screen has caught up with the rules.
+func _after_beats(say: Callable) -> void:
+	if _fight_busy():
+		_held.append(say)
+	else:
+		say.call()
 
 
 func _queue_scene(key: String, spec: Dictionary) -> void:
@@ -159,20 +204,20 @@ func _on_run_event(ev: Dictionary) -> void:
 		"outbreak":
 			var stage := RunRules.outbreak_stage(ev.total)
 			if stage > _last_stage and stage >= 2:
-				_bark("outbreak", {})
+				_after_beats(_bark.bind("outbreak", {}))
 			_last_stage = stage
 		"recruit_deployed":
 			var r := run.get_soldier(ev.sid)
 			if not r.is_empty():
-				_bark("recruit", {"name": r.name})
+				_after_beats(_bark.bind("recruit", {"name": r.name}))
 		"echo_met":
-			_bark("echo", {"name": ev.name, "wave": _echo_wave(ev.key)})
+			_after_beats(_bark.bind("echo", {"name": ev.name, "wave": _echo_wave(ev.key)}))
 		"echo_laid":
-			_bark("echo_laid", {"name": ev.name})
+			_after_beats(_bark.bind("echo_laid", {"name": ev.name}))
 		"lore":
 			var e := StoryData.lore_entry(ev.id)
 			if not e.is_empty():
-				_radio("INTEL RECOVERED", "%s · %s" % [e.title, e.from], Styles.TEAL_DIM)
+				_after_beats(_radio.bind("INTEL RECOVERED", "%s · %s" % [e.title, e.from], Styles.TEAL_DIM))
 
 
 func _echo_wave(key: String) -> int:
@@ -184,21 +229,16 @@ func _echo_wave(key: String) -> int:
 
 # --- fight events ---------------------------------------------------------------------------
 
-func _on_state_event(ev: Dictionary) -> void:
+## As a beat starts: the "!" over the enemy that spotted the squad, the tier change on a soldier.
+func _on_beat_started(ev: Dictionary) -> void:
 	var st := _state
-	match ev.type:
+	if st == null:
+		return
+	match str(ev.get("type", "")):
 		"alerted":
 			if not _contact_said:
 				_contact_said = true
 				_bark("contact", {})
-		"died":
-			var u := st.get_unit(ev.unit)
-			if u != null and u.status.has("sid") and not u.status.get("turned", false):
-				_bark("dead", {"name": _surname(u)})
-		"turned":
-			var u := st.get_unit(ev.unit)
-			if u != null and u.status.has("sid"):
-				_bark("turned", {"name": _surname(u)})
 		"infection":
 			var u := st.get_unit(ev.unit)
 			if u == null or not u.status.has("sid"):
@@ -207,6 +247,22 @@ func _on_state_event(ev: Dictionary) -> void:
 			_tiers[u.id] = ev.tier
 			if ev.tier > before and ev.tier in [2, 3]:
 				_whisper_to(u, ev.tier)
+
+
+## Once a beat has played out: a soldier is only called down when the body is on the ground.
+func _on_beat_finished(ev: Dictionary) -> void:
+	var st := _state
+	if st == null:
+		return
+	match str(ev.get("type", "")):
+		"died":
+			var u := st.get_unit(ev.unit)
+			if u != null and u.status.has("sid") and not u.status.get("turned", false):
+				_bark("dead", {"name": _surname(u)})
+		"turned":
+			var u := st.get_unit(ev.unit)
+			if u != null and u.status.has("sid"):
+				_bark("turned", {"name": _surname(u)})
 
 
 func _surname(u: Unit) -> String:

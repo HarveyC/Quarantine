@@ -1006,7 +1006,10 @@ World, Echoes and endings from the design doc's "World and story". Rules live in
 - **Presentation** (`ui/story/story_director.gd`, a CanvasLayer in `App`, local only): the briefing at run
   start, act 2 and 3 transitions, boss intros at `fight_start`, the ending scene, radio barks on run and fight
   events (act 2 garbled, act 3 a soldier speaks) and Source whispers when a local player's soldier reaches
-  Mutating or Critical. Scenes are `story_scene.gd` (letterbox, title card, captions; Space next, Esc skip)
+  Mutating or Critical. Fight chatter is timed by the mission view's `EventPlayer`, not by Rules: contact
+  and whispers start with their beat, "down" and "turned" lines wait for `beat_finished`, and run events
+  that land mid-fight (Echo laid, intel, recruit, outbreak) are held until the queue drains, so the line
+  never arrives before the attack has played on screen (host and clients alike). Scenes are `story_scene.gd` (letterbox, title card, captions; Space next, Esc skip)
   over `story_stage.gd` (a 3D set from primitives plus the game's models, own SubViewport world).
 - Dev aid: `godot -s tools/shot_story.gd -- out.png <intro|act2|act3|brood_mother|colonel_hale|the_source|burn|sample|carry|ending_vote> [secs]`
   (under xvfb, `--rendering-driver opengl3`) and `tools/shot_story_fight.gd` (an Echo, radio and a whisper in a fight).

@@ -13,6 +13,8 @@ extends Node
 ## by event data, so every peer in an online match sees the same cinematic.
 
 signal beat_started(ev: Dictionary)
+## After an event's beat has played out (the body has fallen, the flash has faded).
+signal beat_finished(ev: Dictionary)
 signal drained
 
 const Board := preload("res://view/board.gd")
@@ -111,6 +113,7 @@ func _start(ev: Dictionary) -> void:
 				(fin as Callable).call()
 			view.show_vision(ev)
 	beat.merge({"dur": 0.0, "pad": 0.0, "update": null, "finish": null, "t": 0.0})
+	beat["ev"] = ev
 	if enemy_phase and beat.dur > 0.0 and ev.get("type") in ["move", "shot", "ability", "mutation", "overwatch", "hunker"]:
 		beat.pad += ENEMY_PAD
 	_cur = beat
@@ -129,6 +132,7 @@ func _end_current() -> void:
 		(b.update as Callable).call(1.0)
 	if b.finish != null:
 		(b.finish as Callable).call()
+	beat_finished.emit(b.ev)
 
 
 func _uv(ev: Dictionary, key := "unit") -> UnitView:
