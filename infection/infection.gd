@@ -71,7 +71,7 @@ static func add(s: GameState, u: Unit, amount: int) -> void:
 	if u.status.get("turned", false) or u.status.has("deployable"):
 		return
 	if amount != 0:
-		amount = Kit.infection_change(s, u, amount)
+		amount = GearFx.infection_gain(s, u, Kit.infection_change(s, u, amount))
 		if amount == 0:
 			return
 	var before := tier(u.infection)

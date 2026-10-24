@@ -9,6 +9,8 @@ extends RefCounted
 ##   "gear_fire_mobility": int mobility currently added by Flame-retardant coat
 ##   "suppress_extra": int extra aim penalty on a Suppressed unit (Compensator, Shock rounds Mk II)
 ##   "contained": int      phase index until which the unit gains no Infection (Containment emitter)
+##   "restrained": int     phase index a Containment foam restraint ends on
+##   "suppressed_by": int  unit id whose Suppress is on it (Suppress set free shot)
 ##   "gear_uses": {ability id: uses this fight}
 ##   "gear_refund_turn": int  turn a Close-set kill last refunded a move
 ##   "gear_moved_turn": int   turn the unit last moved (Bipod)
@@ -23,13 +25,12 @@ const SMOKE_RADIUS := 1
 const SMOKE_TURNS := 2
 const CLOSE := 3.0
 
-## Items whose effect needs a system the game doesn't have yet (fog of war, restraint,
-## mutation costs). They're kept out of reward and depot draws until they work.
-const PENDING: Array[String] = [
-	"symbiotic_suit",
-	"crossfire", "hold_position", "bloodletting",
-	"containment_foam",
-]
+## Items whose effect needs a system the game doesn't have yet. They're kept out of reward and
+## depot draws until they work. Empty: every item works (tests/test_item_audit.gd checks it).
+const PENDING: Array[String] = []
+## Containment foam: phases a Lapsed or Turned soldier stays restrained (2 turns), and its reach.
+const FOAM_PHASES := 4
+const FOAM_RANGE := 4.0
 ## Fire tiles gear makes: Thermite line length per Mk, and how long each kind of fire lasts.
 const THERMITE_LENGTH := [3, 5]
 const THERMITE_TURNS := 2
@@ -60,6 +61,7 @@ const CONSUMABLE_USE := {
 	"flashbang": {"targeting": "cell", "cost": 1, "range": 6.0},
 	"smoke_grenade": {"targeting": "cell", "cost": 1, "range": 6.0},
 	"recon_drone": {"targeting": "cell", "cost": 1, "range": Vision.DRONE_RANGE},
+	"containment_foam": {"targeting": "unit", "cost": 1},
 }
 ## Rangefinder: extra overwatch range per Mk.
 const RANGEFINDER_RANGE := [2, 3]
@@ -167,6 +169,11 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 		breakdown.append(["Suppressed (gear)", -int(a.status.suppress_extra)])
 	if t.status.has("gear") and has(t, "riot_shield") and cover == Types.Cover.NONE:
 		breakdown.append(["Riot shield", -Combat.COVER_HALF])
+	elif cover == Types.Cover.NONE and t.team == Types.Team.PLAYER:
+		for g in s.living(Types.Team.PLAYER):
+			if g != t and _cheb(g.pos, t.pos) == 1 and has(g, "riot_shield"):
+				breakdown.append(["Shield cover", -Combat.COVER_HALF])
+				break
 	if in_smoke(s, t):
 		breakdown.append(["Smoke", -SMOKE_DEFENSE])
 	if t.status.has("gear"):
@@ -294,6 +301,8 @@ static func _mark(s: GameState, t: Unit, phases: int) -> void:
 
 static func _suppress(s: GameState, u: Unit, t: Unit, extra: int = 0) -> void:
 	t.status["suppressed"] = Combat.phase_index(s) + 2
+	t.status["suppressed_by"] = u.id
+	t.status.erase("suppress_shot_used")
 	t.overwatch = false
 	var bonus := extra
 	if has(u, "compensator"):
@@ -354,6 +363,8 @@ static func hazard_hit(s: GameState, u: Unit, h: Dictionary, damage: int, infect
 			damage *= 2
 	if h.kind == "spore" and has(u, "filter_mask"):
 		infection = 0
+	if h.kind == "spore" and infection > 0 and u.status.get("doctrines", []).has("spore_filters"):
+		infection = infection * 3 / 4
 	return Vector2i(damage, infection)
 
 
@@ -371,6 +382,8 @@ static func fire_line(from: Vector2i, cell: Vector2i, length: int) -> Array[Vect
 
 ## Combat's Suppress ability: Compensator penalty, Rotary feed cone.
 static func on_suppress(s: GameState, u: Unit, t: Unit) -> void:
+	t.status["suppressed_by"] = u.id
+	t.status.erase("suppress_shot_used")
 	if not u.status.has("gear"):
 		return
 	if has(u, "compensator"):
@@ -399,8 +412,6 @@ static func damage_taken(s: GameState, target: Unit, amount: int, source: Unit) 
 
 ## Infection a soldier gains from a bite or hit after gear.
 static func bite_infection(s: GameState, target: Unit, gain: int) -> int:
-	if Combat.has_status(s, target, "contained"):
-		return 0
 	for g in s.living(Types.Team.PLAYER):
 		if g != target and has(g, "quarantine_field") and Combat.is_hunkered(s, g) and _cheb(g.pos, target.pos) == 1:
 			return 0
@@ -444,6 +455,107 @@ static func on_team_phase_start(s: GameState) -> void:
 
 static func on_move(s: GameState, u: Unit) -> void:
 	u.status["gear_moved_turn"] = s.turn
+
+
+## Containment foam: a restrained unit sits out its turn (EnemyAI.take_turn checks this).
+static func is_restrained(s: GameState, u: Unit) -> bool:
+	return Combat.has_status(s, u, "restrained")
+
+
+## End of the enemy phase, before hazards age (Rules.run_enemy_phase). Crossfire: a soldier
+## still on overwatch fires at one Suppressed enemy in sight that stayed put this turn.
+static func on_enemy_phase_end(s: GameState) -> void:
+	for w in s.living(Types.Team.PLAYER):
+		if not has(w, "crossfire") or not Combat.is_overwatching(s, w) or s.phase == Types.Phase.ENDED:
+			continue
+		for e in s.living(Types.Team.ENEMY):
+			if Combat.has_status(s, e, "suppressed") and int(e.status.get("gear_moved_turn", -1)) != s.turn \
+					and Vision.overwatch_sees(s, w, e, e.pos):
+				s.emit({"type": "gear", "unit": w.id, "item": "crossfire", "target": e.id})
+				if not Kit.keep_overwatch(s, w, e):
+					w.overwatch = false
+					w.status.erase("ow_until")
+				Combat.fire(s, w, e, true)
+				break
+
+
+## Suppress set: an enemy you Suppressed that moves in your sight draws one free shot from you,
+## overwatch or not. Pure (Combat.reactions_to_move asks it).
+static func suppress_shot_ready(s: GameState, w: Unit, mover: Unit, cell: Vector2i) -> bool:
+	return w.team == Types.Team.PLAYER and w.is_alive() and has_set(w, "Suppress") and w.is_enemy_of(mover) \
+		and Combat.has_status(s, mover, "suppressed") and int(mover.status.get("suppressed_by", -1)) == w.id \
+		and not mover.status.get("suppress_shot_used", false) and Combat.can_see(s, w.pos, cell)
+
+
+static func take_suppress_shot(s: GameState, w: Unit, mover: Unit) -> void:
+	mover.status["suppress_shot_used"] = true
+	s.emit({"type": "gear", "unit": w.id, "item": "suppress_set", "target": mover.id})
+	Combat.fire(s, w, mover, true)
+
+
+## Guard set: once per enemy phase a Guard-set soldier takes a hit meant for an adjacent ally.
+## Returns who the damage lands on (Rules.deal_damage).
+static func guard_redirect(s: GameState, target: Unit, source: Unit) -> Unit:
+	if s.phase != Types.Phase.ENEMY or source == null or target.team != Types.Team.PLAYER or not source.is_enemy_of(target) \
+			or target.status.has("deployable"):
+		return target
+	for g in s.living(Types.Team.PLAYER):
+		if g != target and not g.ai_controlled and _cheb(g.pos, target.pos) == 1 and has_set(g, "Guard") \
+				and int(g.status.get("guard_set_phase", -1)) != Combat.phase_index(s):
+			g.status["guard_set_phase"] = Combat.phase_index(s)
+			s.emit({"type": "gear", "unit": g.id, "item": "guard_set", "target": target.id})
+			return g
+	return target
+
+
+## Infection `u` actually gains (Infection.add, after Kit): Containment emitter, and the Purge set
+## on a turn you purged someone, block it all.
+static func infection_gain(s: GameState, u: Unit, amount: int) -> int:
+	if amount <= 0 or u.team != Types.Team.PLAYER or s.turn == 0:
+		return amount
+	if Combat.has_status(s, u, "contained"):
+		return 0
+	if has_set(u, "Purge") and int(u.status.get("purged_turn", -1)) == s.turn:
+		return 0
+	return amount
+
+
+## `u` took `amount` Infection off ally `t` (Purge, Decon, Siphon, Stim, Med-injector,
+## Suppressant shot). Purge set heals them 1 HP; Bloodletting takes the Infection onto `u` once
+## a turn for +1 action. `self_took`: the ability already moved it onto `u` (Siphon).
+static func on_purge(s: GameState, u: Unit, t: Unit, amount: int, self_took := false) -> void:
+	if t == null or t == u or amount <= 0 or not u.status.has("gear"):
+		return
+	if has(u, "bloodletting") and not self_took and int(u.status.get("bloodletting_turn", -1)) != s.turn \
+			and s.phase == Types.Phase.TEAM:
+		u.status["bloodletting_turn"] = s.turn
+		u.actions_left += 1
+		s.emit({"type": "gear", "unit": u.id, "item": "bloodletting", "actions": u.actions_left})
+		Infection.add(s, u, amount)
+	u.status["purged_turn"] = s.turn
+	if has_set(u, "Purge") and t.hp < t.max_hp:
+		t.hp += 1
+		s.emit({"type": "gear", "unit": t.id, "item": "purge_set", "heal": 1, "hp": t.hp})
+
+
+## Action cost of a built ability after gear (Combat._spend). Hold position: Suppress costs 1.
+static func ability_cost(u: Unit, id: String, cost: int) -> int:
+	if id == "suppress" and has(u, "hold_position"):
+		return 1
+	return cost
+
+
+## Symbiotic suit: a mutation's Infection cost is paid in HP instead (1 HP per 5, Mk II per 10),
+## as long as that leaves the soldier standing. Returns the Infection still to pay.
+static func mutation_cost(s: GameState, u: Unit, cost: int) -> int:
+	if cost <= 0 or not has(u, "symbiotic_suit"):
+		return cost
+	var hp := ceili(float(cost) / (5.0 if mk(u, "symbiotic_suit") < 2 else 10.0))
+	if u.hp <= hp:
+		return cost
+	u.hp -= hp
+	s.emit({"type": "gear", "unit": u.id, "item": "symbiotic_suit", "damage": hp, "hp": u.hp})
+	return 0
 
 
 # --- Gadgets and pocket items as abilities ---------------------------------------------
@@ -520,6 +632,14 @@ static func _targets(s: GameState, u: Unit, id: String, d: Dictionary) -> Array[
 static func _target_error(s: GameState, u: Unit, id: String, t: Unit) -> String:
 	if t == null or not t.is_alive():
 		return "No such target"
+	if id == "item:containment_foam":
+		if not (Infection.is_lapsed(t) or t.status.get("turned", false)):
+			return "Only a Lapsed or Turned soldier"
+		if _dist(u.pos, t.pos) > FOAM_RANGE:
+			return "Too far"
+		if not Combat.can_see(s, u.pos, t.pos):
+			return "No line of sight"
+		return ""
 	if u.is_enemy_of(t):
 		return "Not an ally"
 	if _cheb(u.pos, t.pos) > 1:
@@ -658,9 +778,9 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			if key == "med_injector" and mk(u, key) >= 2:
 				amount = 25
 			s.emit(ev)
+			var before := t.infection
 			Infection.add(s, t, -amount)
-			if has_set(u, "Purge") and t != u and t.hp < t.max_hp:
-				t.hp += 1
+			on_purge(s, u, t, before - t.infection)
 			return
 		"medkit":
 			var healed := mini(4, t.max_hp - t.hp)
@@ -685,8 +805,15 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 					held.append(o.id)
 			ev["units"] = held
 			ev["until"] = until
+		"containment_foam":
+			t.status["restrained"] = Combat.phase_index(s) + FOAM_PHASES
+			t.overwatch = false
+			t.actions_left = 0
 		"deployable_cover":
-			s.grid.tiles[cell.y * s.grid.width + cell.x] = Types.Tile.WALL
+			s.grid.set_tile(cell, Types.Tile.WALL)
+			s.emit(ev)
+			Vision.refresh(s)
+			return
 		"grapple":
 			var from := u.pos
 			u.pos = cell

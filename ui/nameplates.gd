@@ -13,7 +13,7 @@ const HEAD := Vector3(0, 2.0, 0)
 const HEAD_ENEMY := Vector3(0, 1.6, 0)   # infected models are shorter
 ## Timed tags from gear and abilities (UnitView.tags): icon and colour on the plate.
 const TAG_ICONS := {"stunned": ["stun", Color("9fd0ff")], "suppressed": ["suppress", Styles.AMBER],
-	"marked": ["tag", Styles.DANGER], "contained": ["cure", Styles.TEAL]}
+	"marked": ["tag", Styles.DANGER], "contained": ["cure", Styles.TEAL], "restrained": ["lock", Color("e4ece9")]}
 
 var view: MissionView
 var _plates: Dictionary = {}   # unit id -> Control

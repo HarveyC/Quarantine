@@ -326,6 +326,8 @@ func test_every_item_and_gadget_does_something() -> void:
 		match str(GearFx.CONSUMABLE_USE.get(key, GearFx.GADGETS.get(key, {})).get("targeting", "none")):
 			"unit":
 				a["target"] = ally.id
+				if key == "containment_foam":
+					ally.status["lapsed"] = true   # foam only takes a Lapsed or Turned soldier
 			"cell":
 				a["cell"] = e.pos
 				if key in ["deployable_cover", "demo_charge"]:
@@ -339,7 +341,7 @@ func test_every_item_and_gadget_does_something() -> void:
 		assert_true(Rules.apply(s, a), "%s applies: %s" % [id, Rules.validate(s, a)])
 		var events := s.log.filter(func(ev): return ev.type != "ability")
 		assert_true(var_to_str([s.to_dict(), u.actions_left]) != before, "%s changed nothing" % id)
-		var shows := not events.is_empty() or key in ["medkit", "deployable_cover", "containment_emitter"]
+		var shows := not events.is_empty() or key in ["medkit", "deployable_cover", "containment_emitter", "containment_foam"]
 		assert_true(shows, "%s emits nothing for the view beyond its own use" % id)
 
 

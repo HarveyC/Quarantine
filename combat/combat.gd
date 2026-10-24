@@ -413,7 +413,7 @@ static func _validate_ability(s: GameState, u: Unit, action: Dictionary) -> Stri
 
 static func _spend(u: Unit, id: String) -> void:
 	var def: Dictionary = ABILITIES[id]
-	var cost: int = Kit.ability_cost(u, id, def.cost)
+	var cost: int = GearFx.ability_cost(u, id, Kit.ability_cost(u, id, def.cost))
 	u.actions_left = 0 if cost < 0 else maxi(0, u.actions_left - cost)
 	var cd: int = Kit.ability_cooldown(u, id, def.cooldown)
 	if cd > 0:
@@ -459,6 +459,7 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id, "heal": healed, "hp": t.hp})
 			var before := t.infection
 			Infection.add(s, t, -Kit.medic_cure(t, STIM_CURE))
+			GearFx.on_purge(s, u, t, before - t.infection)
 			Kit.after_stim(s, u, t, before - t.infection)
 		"breach":
 			var dmg := s.rng.randi_range(BREACH_DAMAGE.x, BREACH_DAMAGE.y)
@@ -549,6 +550,8 @@ static func reactions_to_move(s: GameState, mover: Unit, cell: Vector2i) -> Arra
 		if w != mover and is_overwatching(s, w) and w.is_enemy_of(mover) and Kit.can_react(w, mover) \
 				and (Vision.overwatch_sees(s, w, mover, cell) or (not mover.status.get("hidden", false) and Kit.shared_sight(s, w, cell))):
 			out.append(w)
+		elif w != mover and GearFx.suppress_shot_ready(s, w, mover, cell):
+			out.append(w)   # Suppress set: the enemy you pinned broke cover
 	return out
 
 
@@ -558,6 +561,8 @@ static func resolve_reactions(s: GameState, mover: Unit, reactors: Array[Unit]) 
 		if not mover.is_alive() or s.phase == Types.Phase.ENDED:
 			return
 		if not is_overwatching(s, w):
+			if GearFx.suppress_shot_ready(s, w, mover, mover.pos):
+				GearFx.take_suppress_shot(s, w, mover)
 			continue
 		if not Kit.keep_overwatch(s, w, mover):
 			w.overwatch = false

@@ -61,6 +61,10 @@ var world_scale := 1.0
 var in_cinematic := false
 var _queue: Array[Dictionary] = []
 var _cur: Dictionary = {}
+## For tests/test_item_audit.gd: events that fell through to a bare label (the generic power
+## beat or an unknown event type), and the sounds asked for (newest last, capped).
+var generic_log: Array[String] = []
+var sfx_log: Array[String] = []
 
 
 func enqueue(ev: Dictionary) -> void:
@@ -173,6 +177,9 @@ func _focus(uv: UnitView) -> void:
 
 
 func _sfx(sound: String, volume_db := 0.0, delay := 0.0) -> void:
+	sfx_log.append(sound)
+	if sfx_log.size() > 200:
+		sfx_log.pop_front()
 	if view.sfx != null and speed <= 3.0:
 		view.sfx.play(sound, volume_db, 0.06, delay)
 
@@ -924,7 +931,25 @@ func _beat_heal(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.5}
 
 
-## Gear procs (Leech rounds, Feral grip, ...). Heals refill HP; anything else names the item.
+## Gear procs that aren't item names: what to call them, and whether the label sits on the
+## target (the unit acted on) rather than the soldier whose gear fired.
+const GEAR_PROCS := {
+	"close_set": {"text": "MOVE REFUNDED", "color": Color("e0a050")},
+	"mark_set": {"text": "MARK JUMPS", "color": Color("ff5c86"), "on_target": true},
+	"suppress_set": {"text": "PINNED SHOT", "color": Color("b9a7ff")},
+	"guard_set": {"text": "TAKES THE HIT", "color": Color("a9c46c")},
+	"purge_set": {"text": "PURGE SET", "color": Color("e9e4d4")},
+	"restrained": {"text": "RESTRAINED", "color": Color("e4ece9")},
+	"bloodletting": {"text": "BLOODLETTING  +1 ACTION", "color": Palette.TEAL},
+	"crossfire": {"text": "CROSSFIRE", "color": Color("6fc3ff")},
+	"scorched_earth": {"text": "SCORCHED EARTH", "color": Color("ff8a3d")},
+	"symbiotic": {"text": "SYMBIOTIC SUIT", "color": Palette.TEAL},
+}
+
+
+## Gear procs (Leech rounds, Feral grip, Choke, set bonuses...). Heals refill HP, an HP cost
+## (Symbiotic suit) drains it, mark and suppress tag the enemy hit, anything else names the
+## item or proc over whoever it hit.
 func _beat_gear(ev: Dictionary) -> Dictionary:
 	var uv := _uv(ev)
 	if uv == null:
@@ -943,8 +968,49 @@ func _beat_gear(ev: Dictionary) -> Dictionary:
 		if tv.visible:
 			view.fx.floating_text(_head(tv) + Vector3(0, 0.3, 0), "MARKED" if marked else "SUPPRESSED", Palette.DANGER if marked else Palette.AMBER, 36)
 		return {"dur": 0.15}
-	view.fx.floating_text(_head(uv), GearData.item_name(item).to_upper(), Palette.AMBER, 32)
-	return {"dur": 0.3}
+	var proc: Dictionary = GEAR_PROCS.get(item, {})
+	var text: String = proc.get("text", GearData.item_name(item).to_upper())
+	var col: Color = proc.get("color", Palette.AMBER)
+	var tv := _uv(ev, "target") if ev.has("target") else null
+	var on := tv if tv != null and proc.get("on_target", false) else uv
+	if ev.has("hp") and ev.has("damage"):
+		uv.set_hp(int(ev.hp))
+		text = "%s  -%d HP" % [text, int(ev.damage)]
+		col = Palette.DANGER
+		uv.flash(Palette.TEAL)
+	if tv != null and tv != uv:
+		view.fx.tracer(uv.chest_world(), tv.chest_world(), col, 0.35)
+	view.fx.floating_text(_head(on) + Vector3(0, 0.2, 0), text, col, 34, 1.3)
+	view.fx.pulse(on.position, col, 0.5)
+	if not GEAR_PROCS.has(item) or item in ["restrained", "bloodletting", "guard_set"]:
+		_sfx("ui_confirm", -6.0)
+	return {"dur": 0.4}
+
+
+## Set Burning (Incendiary rounds, Ember plating, Firestarter, Phosphor rounds...).
+func _beat_burning(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	var col: Color = Board.HAZARD_COLORS.fire
+	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "BURNING", col, 36)
+	view.fx.burst(uv.chest_world(), Vector3.UP, col, 12, 2.0, true, 0.04)
+	view.fx.flash_light(uv.position + Vector3(0, 1.0, 0), col, 2.5, 0.4)
+	_sfx("breach", -10.0)
+	return {"dur": 0.35}
+
+
+## A Burning tick at the start of a team phase (the damage event follows).
+func _beat_burn(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	var col: Color = Board.HAZARD_COLORS.fire
+	view.fx.burst(uv.chest_world(), Vector3.UP, col, 16, 2.5, true, 0.05)
+	view.fx.puff(uv.position + Vector3(0, 1.0, 0), Color(0.3, 0.27, 0.24), 1.0, 0.9, 0.7)
+	view.fx.flash_light(uv.position + Vector3(0, 1.0, 0), col, 3.0, 0.4)
+	_sfx("breach", -8.0)
+	return {"dur": 0.35}
 
 
 func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
@@ -966,6 +1032,12 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 		view.fx.tracer(src, w + Vector3(0, 0.1, 0), color, 0.5)
 		view.fx.pulse(w, color)
 	return {"dur": 0.6}
+
+
+## Ability ids with a beat of their own below; the rest go to ItemBeats (gadgets, pocket items,
+## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
+const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge",
+	"breach", "item:frag_grenade", "item:demo_charge", "shoot_barrel", "spit", "suppress", "stim", "item:medkit"]
 
 
 func _beat_ability(ev: Dictionary) -> Dictionary:
@@ -1006,12 +1078,10 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			beat.dur = maxf(float(beat.get("dur", 0.0)), 0.9)
 			return beat
 		"siphon":
-			_show_heal(_uv(ev), int(ev.get("heal", 0)), int(ev.get("hp", 0)))
-		"tag":
-			_sfx("radio")
-			_sfx("ui_confirm", -4.0, 0.2)
+			_show_heal(_uv(ev), int(ev.get("heal", 0)), int(ev.get("hp", 0)), false)
 	if ItemBeats.handles(ev):
 		return ItemBeats.beat(self, ev)
+	generic_log.append("ability:" + str(ev.get("ability", "")))
 	return _power_beat(ev, str(ev.get("name", str(ev.get("ability", "ability")).replace("_", " "))), Palette.AMBER)
 
 
@@ -1452,7 +1522,7 @@ func _beat_deployed(ev: Dictionary) -> Dictionary:
 	view.fx.pulse(uv.position, Palette.AMBER)
 	var title := "SENTRY ONLINE" if str(ev.get("kind", "")) == "turret" else str(ev.get("kind", "")).to_upper()
 	view.fx.floating_text(_head(uv), title, Palette.AMBER, 40)
-	_sfx("ui_confirm", -3.0)
+	_sfx("gadget_deploy")
 	return {"dur": 0.4}
 
 
@@ -1464,6 +1534,7 @@ func _beat_revealed_area(_ev: Dictionary) -> Dictionary:
 func _beat_unknown(ev: Dictionary) -> Dictionary:
 	if EnemyBeats.handles(ev):
 		return EnemyBeats.beat(self, ev)
+	generic_log.append("event:" + str(ev.get("type", "")))
 	print("[view] unhandled event: ", ev)
 	var uv := _uv(ev)
 	if uv != null:

@@ -11,7 +11,7 @@ const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "b
 	"item:suppressant_shot": "purge", "item:recon_drone": "drone", "gear:flare_launcher": "tag",
 	"gear:concussion_launcher": "suppress", "gear:thermite_charge": "incinerate", "gear:med_injector": "purge",
 	"gear:adrenal_pump": "mutation", "gear:deployable_cover": "cover_half", "gear:grapple": "move",
-	"gear:containment_emitter": "cure", "gear:sentry_turret": "overwatch"}
+	"gear:containment_emitter": "cure", "gear:sentry_turret": "overwatch", "item:containment_foam": "lock"}
 
 
 static func for_class(kind: String) -> String:

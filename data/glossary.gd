@@ -342,6 +342,18 @@ static func _build() -> Dictionary:
 		"stats": [["2", "dmg / turn"]],
 		"see": ["hazards", "tag_burn"],
 		"aliases": ["Burn status", "On fire", "Ignite", "Ignites"]}
+	t["contained"] = {"name": "Contained", "kind": "status", "icon": "cure", "tone": Color("#e9e4d4"),
+		"line": "Inside a Containment field: gains no Infection from anything until your next turn.",
+		"art": "",
+		"stats": [["0", "Infection gained"]],
+		"see": ["infection"],
+		"aliases": ["Containment field"]}
+	t["restrained"] = {"name": "Restrained", "kind": "status", "icon": "lock", "tone": Color("#e4ece9"),
+		"line": "Foamed in place: a Lapsed or Turned soldier who can't act, alive for the medics.",
+		"art": "",
+		"stats": [["%d" % (GearFx.FOAM_PHASES / 2), "turns"]],
+		"see": ["lapse", "turning"],
+		"aliases": ["Containment foam"]}
 	t["hazards"] = {"name": "Tile hazards", "kind": "terrain", "icon": "alert", "tone": "danger",
 		"line": "Fire, spores and acid on the ground. Hurts whoever stands in it.",
 		"art": "hazards",
