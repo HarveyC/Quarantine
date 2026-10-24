@@ -4,6 +4,7 @@ extends RefCounted
 
 const Palette := preload("res://view/palette.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
+const Board := preload("res://view/board.gd")
 ## Melee class abilities that roll to hit -> verb for the log.
 const MELEE := {"lunge": "lunges at", "riposte": "ripostes", "bash": "shield-bashes"}
 
@@ -68,6 +69,18 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			var what: String = {"frag": "Frag grenade", "demo": "Demo charge", "barrel": "Fuel barrel"}.get(str(ev.get("kind", "")), "Explosion")
 			var n := (ev.get("units", []) as Array).size()
 			return _c("%s explodes%s" % [what, (", %d caught in the blast" % n) if n > 0 else ""], Palette.AMBER)
+		"hazard":
+			var hz := str(ev.get("kind", ""))
+			var turns := int(ev.get("turns", 0))
+			var n := (ev.get("cells", []) as Array).size()
+			return _c("%s on %d tile%s%s" % [str(Hazards.KINDS.get(hz, {}).get("name", hz.capitalize())), n, "" if n == 1 else "s",
+				(" for %d turns" % turns) if turns > 0 else ""], Board.HAZARD_COLORS.get(hz, Palette.AMBER))
+		"hazard_tick":
+			var dmg := int(ev.get("damage", 0))
+			return "%s is caught in %s%s" % [who.call("unit"), str(Hazards.KINDS.get(str(ev.get("kind", "")), {}).get("name", ev.get("kind", "?"))).to_lower(),
+				(" (%d)" % dmg) if dmg > 0 else ""]
+		"hazard_end", "level_changed":
+			return ""   # the board shows these
 		"ability" when ev.get("ability") == "shoot_barrel":
 			return "%s shoots a fuel barrel" % who.call("unit")
 		"ability":
