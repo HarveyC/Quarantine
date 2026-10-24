@@ -34,12 +34,13 @@ var _wait := 0
 var _sol := {}
 ## The script: ["idle"] waits for the event queue, ["wait", n] for n frames, ["save", name],
 ## ["aim", soldier, ability, cell] shows the aim preview, ["act", soldier, ability, cell].
+## The ability "shoot" aims the normal Shoot at a fuel barrel on `cell`.
 var _steps: Array = [
 	["aim", "breacher", "item:demo_charge", Vector2i(10, 7)], ["wait", 25], ["save", "1-demo-aim"],
 	["act", "breacher", "item:demo_charge", Vector2i(10, 7)], ["wait", 34], ["save", "2-demo-blast"],
 	["idle"], ["wait", 30], ["save", "3-doorway"],
-	["aim", "trooper", "shoot_barrel", Vector2i(13, 2)], ["wait", 25], ["save", "4-barrel-aim"],
-	["act", "trooper", "shoot_barrel", Vector2i(13, 2)], ["wait", 16], ["save", "5-barrel-blast"],
+	["aim", "trooper", "shoot", Vector2i(13, 2)], ["wait", 25], ["save", "4-barrel-aim"],
+	["act", "trooper", "shoot", Vector2i(13, 2)], ["wait", 16], ["save", "5-barrel-blast"],
 	["idle"], ["wait", 40], ["save", "6-barrel-after"],
 	["aim", "marksman", "item:frag_grenade", Vector2i(3, 3)], ["wait", 25], ["save", "7-frag-aim"],
 	["act", "marksman", "item:frag_grenade", Vector2i(3, 3)], ["idle"], ["wait", 10],
@@ -123,6 +124,13 @@ func _process(_delta: float) -> bool:
 
 ## Puts the input into cell targeting for `ability` and hovers `cell`, as a player aiming would.
 func _aim(u: Unit, ability: String, cell: Vector2i) -> void:
+	if ability == "shoot":   # a fuel barrel as a Shoot target: the panel and the blast preview
+		_view.input.selected_id = u.id
+		_view.input.targets = [cell]
+		_view.input.target_idx = 0
+		_view.input._set_mode(InputController.Mode.SHOOT)
+		_view.camera_rig.focus(Board.cell_to_world(cell))
+		return
 	_view.input.pending = {"type": Types.ABILITY, "unit": u.id, "ability": ability}
 	_view.input.mode = InputController.Mode.TARGET_CELL
 	_view.board.mark_cells([cell], Color(0.18, 0.95, 0.78, 0.35))
@@ -136,6 +144,9 @@ func _act(u: Unit, ability: String, cell: Vector2i) -> void:
 	_view.input.pending = {}
 	u.actions_left = maxi(u.actions_left, 1)
 	var a := {"type": Types.ABILITY, "unit": u.id, "ability": ability, "cell": cell}
+	if ability == "shoot":
+		u.aim = 100   # the showcase needs the barrel to go up
+		a = {"type": Types.SHOOT, "unit": u.id, "cell": cell}
 	var why := Rules.validate(_s, a)
 	if why != "":
 		push_error("[shot-destruction] %s rejected: %s" % [ability, why])

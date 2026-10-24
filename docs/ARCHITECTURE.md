@@ -21,7 +21,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `vision/` | `Vision` | **fog of war** | Squad vision, explored cells, hidden enemies, exposure, senses |
 | `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
 | `elevation/` | `Elevation` | **maps** | High ground: aim and cover from height, in-fight level changes |
-| `destruction/` | `Destruction` | **destruction** | Explosions, cover/walls/roofs breaking in steps, fuel barrels, Shoot barrel |
+| `destruction/` | `Destruction` | **destruction** | Explosions, cover/walls/roofs breaking in steps, fuel barrels (Shoot targets) |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
 | `view/`, `ui/`, `scenes/` | various | **view** | 3D board, camera, input, HUD, animations |
 | `tutorial/`, `ui/tutorial/` | `Onboarding`, `TutorialScript`, `TutorialSession` | **onboarding** | Training mission, first-time tips, what the player has been taught |
@@ -462,9 +462,16 @@ hits carry into the next layer:
   target's cover cells toward the Breacher, `Destruction.cover_cells`), airstrike and core slam (1 hit
   per marked cell), Brute charge and Burrower erupt (1 hit on the cover they plough through).
   Fire placed next to a barrel (Incinerate, thermite; not a barrel's own fire) sets it off.
-- **Shoot barrel**: `{"type": ABILITY, "ability": "shoot_barrel", "cell"}` for any squad soldier with a
-  gun; needs sight (Combat.can_see and squad vision), always hits, ends the turn. Listed by
-  `Combat.available_abilities` only while a barrel is in sight (with `cells`).
+- **Shooting a barrel**: barrels are normal Shoot targets, `{"type": SHOOT, "unit", "cell"}`, for any
+  squad soldier with a gun (`Combat.shot_barrels`; needs Combat.can_see and squad vision). Odds from
+  `Combat.barrel_chance`: aim, `Destruction.BARREL_AIM` (+15, "Fuel drum"), high ground, range,
+  suppression, reaction penalty; no cover, graze or crit. `Combat.fire_at_barrel` emits `barrel_shot`
+  {unit, cell, hit, chance, reaction}; a hit is `Destruction.hit(s, {cell: 1}, u)`. Ends the turn.
+  The aim cycle (Tab / bumpers) lists units first, then barrels; clicking a barrel aims at it. The
+  panel (`TargetPanel.show_barrel`) shows the odds and who the blast catches; the board shows the
+  blast of the whole chain (`Destruction.barrel_blasts`).
+- **Overwatch**: `Combat.reaction_barrel` picks a barrel whose blast catches the mover and none of
+  the watcher's side, at odds at least those of shooting the mover; the reaction goes into it.
 - **Noise**: every explosion (and airstrike landing) alerts dormant enemies within `NOISE_RADIUS` = 6.
 - **API**: `Destruction.explode(s, center, profile, by, kind, spare)`, `hit(s, {cell: hits}, by)`,
   `detonate`, `preview(s, hits) -> {cell: kind}` (no state change; aim preview and bot),
@@ -478,7 +485,7 @@ hits carry into the next layer:
   into barrels when the parcels placed none; it runs last, so layouts are unchanged.
 - **View**: `Board` draws cracked walls and roofs, rubble heaps, debris and scorch, rubble ramps and
   red fuel drums with an amber band (plain drums are grey/olive now). `Fx.explosion` / `Fx.crumble`;
-  beats `explosion`, `cover_destroyed` (per change), throw and Shoot barrel beats; sounds `explosion`
+  beats `explosion`, `cover_destroyed` (per change), throw and `barrel_shot` beats; sounds `explosion`
   and `collapse` (tools/gen_sfx.py). Aim preview `Board.show_blast` from `Destruction.preview`.
   Dev capture: `godot -s tools/shot_destruction.gd -- OUT_DIR` (needs a renderer).
 

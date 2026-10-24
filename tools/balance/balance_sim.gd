@@ -81,7 +81,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var stats := {}   # unit id -> {dealt, taken, kills}
 	for u in s.units:
 		stats[u.id] = {"dealt": 0, "taken": 0}
-	var counter := {"lapses": 0, "explosions": 0, "barrels": 0, "walls": 0, "cover": 0, "roofs": 0}
+	var counter := {"lapses": 0, "explosions": 0, "barrels": 0, "barrel_shots": 0, "barrel_hits": 0, "walls": 0, "cover": 0, "roofs": 0}
 	s.event.connect(func(ev: Dictionary) -> void:
 		if ev.type == "damage":
 			var src := int(ev.source)
@@ -98,6 +98,10 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 			counter.explosions += 1
 			if ev.kind == "barrel":
 				counter.barrels += 1
+		elif ev.type == "barrel_shot":
+			counter.barrel_shots += 1
+			if ev.hit:
+				counter.barrel_hits += 1
 		elif ev.type == "cover_destroyed":
 			for ch in ev.get("changes", []):
 				match str(ch.kind):
@@ -130,7 +134,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		res = "win" if s.result == Types.Result.VICTORY else "loss"
 	return {"tag": tag, "order": order, "act": act, "node": node, "squad": kinds.size(), "seed": seed, "result": res,
 		"turns": s.turn, "lapses": counter.lapses,
-		"terrain": {"explosions": counter.explosions, "barrels": counter.barrels, "walls": counter.walls,
+		"terrain": {"explosions": counter.explosions, "barrels": counter.barrels,
+			"barrel_shots": counter.barrel_shots, "barrel_hits": counter.barrel_hits, "walls": counter.walls,
 			"cover": counter.cover, "roofs": counter.roofs},
 		"soldiers": soldiers, "enemies": foes, "spawned": enemies}
 
