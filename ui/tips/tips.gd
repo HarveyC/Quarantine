@@ -53,7 +53,7 @@ static func chip(key: String, size := 11, label := "") -> PanelContainer:
 	sb.bg_color = Color(col, 0.08)
 	sb.border_color = Color(col, 0.55)
 	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(maxi(3, roundi(size * 0.9)))
+	sb.set_corner_radius_all(Styles.PILL)
 	sb.content_margin_left = 8
 	sb.content_margin_right = 8
 	sb.content_margin_top = 1

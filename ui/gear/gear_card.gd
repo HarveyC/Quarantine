@@ -125,7 +125,7 @@ func _build_gear(v: VBoxContainer) -> void:
 	for t in item.tags:
 		tags.add_child(UI.tag_chip(t))
 	v.add_child(tags)
-	v.add_child(UI.wrap(UI.label(GearData.desc(id, mk), 15, Color("#cfccbd")), W - 40))
+	v.add_child(UI.wrap(UI.label(GearData.desc(id, mk), 15, UI.COPY), W - 40))
 	_art_at = v.get_child_count()
 	# Threshold preview / upgrade box.
 	if pv.mode == "upgrade":
@@ -178,7 +178,7 @@ func _build_gun(v: VBoxContainer) -> void:
 	tags.add_theme_constant_override("separation", 6)
 	tags.add_child(UI.tag_chip(g.tag))
 	v.add_child(tags)
-	v.add_child(UI.wrap(UI.label(g.desc, 15, Color("#cfccbd")), W - 40))
+	v.add_child(UI.wrap(UI.label(g.desc, 15, UI.COPY), W - 40))
 	_art_at = v.get_child_count()
 	for p in GearTags.preview_gun(record, card.id):
 		if p.to <= p.from:
@@ -215,7 +215,7 @@ func _build_power(v: VBoxContainer) -> void:
 		var tags := HBoxContainer.new()
 		tags.add_child(UI.tag_chip(t))
 		v.add_child(tags)
-	v.add_child(UI.wrap(UI.label(str(card.get("desc", "")), 15, Color("#cfccbd")), W - 40))
+	v.add_child(UI.wrap(UI.label(str(card.get("desc", "")), 15, UI.COPY), W - 40))
 	_art_at = v.get_child_count()
 	if t != "":
 		var before: int = GearTags.counts(record).get(t, 0)
@@ -230,7 +230,7 @@ func _build_power(v: VBoxContainer) -> void:
 func _build_consumable(v: VBoxContainer) -> void:
 	_row(v, Tips.term(UI.label("POCKET", 12, UI.FAINT, "mono"), "pocket"), UI.caps("Consumable ×%d" % int(card.get("charges", 2)), 13, UI.DIM))
 	v.add_child(UI.caps(GearData.item_name(card.id), 36))
-	v.add_child(UI.wrap(UI.label(GearData.desc(card.id), 15, Color("#cfccbd")), W - 40))
+	v.add_child(UI.wrap(UI.label(GearData.desc(card.id), 15, UI.COPY), W - 40))
 	if not Loadout.can_add_consumable(record, card.id):
 		v.add_child(UI.label("Pockets are full", 13, UI.DANGER, "bold"))
 
@@ -239,7 +239,7 @@ func _build_cache(v: VBoxContainer) -> void:
 	_row(v, UI.label("CACHE", 12, UI.FAINT, "mono"), UI.caps("Squad", 13, UI.DIM))
 	v.add_child(UI.caps("Supply cache", 36))
 	v.add_child(UI.mono("+%d" % int(card.get("supplies", GearRun.CACHE_SUPPLIES)), 40, UI.AMBER))
-	v.add_child(Tips.term(UI.label("Supplies to the squad, for the depot and the hospital.", 15, Color("#cfccbd")), "supplies"))
+	v.add_child(Tips.term(UI.label("Supplies to the squad, for the depot and the hospital.", 15, UI.COPY), "supplies"))
 
 
 func _boxed(v: VBoxContainer, col: Color) -> VBoxContainer:
@@ -302,7 +302,7 @@ class Art:
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
 		draw_rect(r, Color(1, 1, 1, 0.02))
-		draw_rect(r, Color("#232a24"), false, 1.0)
+		draw_rect(r, UI.BORDER, false, 1.0)
 		var g := Color(1, 1, 1, 0.025)
 		var x := 0.0
 		while x < size.x:

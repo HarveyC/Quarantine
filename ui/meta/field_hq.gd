@@ -323,14 +323,14 @@ func _severity_step(n: int, pick: int, top: int) -> Control:
 	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	b.add_child(box)
-	var col := Styles.AMBER if n == pick else (Styles.TEXT if open else Color("4a4f45"))
+	var col := Styles.AMBER if n == pick else (Styles.TEXT if open else Color("39465a"))
 	var num := Styles.mono(str(n), 34, col)
 	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(num)
-	var icon := Widgets.Icon.new(Severity.LEVELS[n - 1].icon if n > 0 else "check", col if open else Color("3a3f37"), 20)
+	var icon := Widgets.Icon.new(Severity.LEVELS[n - 1].icon if n > 0 else "check", col if open else Color("2f3a4c"), 20)
 	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(icon)
-	var name := Styles.caps(Severity.LEVELS[n - 1].name if n > 0 else "Standard", 11, col if open else Color("4a4f45"))
+	var name := Styles.caps(Severity.LEVELS[n - 1].name if n > 0 else "Standard", 11, col if open else Color("39465a"))
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(name)
 	return b
@@ -465,7 +465,7 @@ func _build_achievements() -> void:
 		f.set_look(Styles.BG_SOFT if got else Color(Styles.BG, 0.6), Styles.BORDER if got else Styles.BORDER_SOFT, Styles.AMBER, got)
 		var row := Styles.hbox(12)
 		f.add_child(row)
-		row.add_child(_icon_tile(d.icon, Styles.AMBER if got else Color("4a4f45"), 52))
+		row.add_child(_icon_tile(d.icon, Styles.AMBER if got else Color("39465a"), 52))
 		var box := Styles.vbox(2)
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		box.add_child(Styles.caps(d.name, 17, Styles.TEXT if got else Styles.MUTED))
@@ -491,10 +491,8 @@ func _section(title: String, sub: String) -> void:
 
 func _icon_tile(id: String, col: Color, px: float) -> Control:
 	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Styles.BG_RAISED
-	sb.border_color = Color(col, 0.5)
-	sb.set_border_width_all(1)
+	var sb := Styles.panel_box(Styles.BG_RAISED, Color(col, 0.5), Styles.PILL)
+	sb.set_content_margin_all(0)
 	p.add_theme_stylebox_override("panel", sb)
 	p.custom_minimum_size = Vector2(px, px)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE

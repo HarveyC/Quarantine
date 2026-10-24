@@ -19,7 +19,7 @@ const Feel := preload("res://ui/ui_feel.gd")
 const PauseMenu := preload("res://ui/pause_menu.gd")
 const BIOME_NAMES: Array[String] = ["The Wall", "The Port", "The Bore"]
 const ROMAN: Array[String] = ["I", "II", "III"]
-const PANEL_BG := Color(0.05, 0.06, 0.06, 0.82)
+const PANEL_BG := Color(0.043, 0.06, 0.095, 0.82)
 const SIDE_W := 330.0
 const SQUAD_H := 100.0
 
@@ -71,7 +71,7 @@ class OutbreakBar extends Control:
 		for i in SEGS:
 			if BREAKS.has(i):
 				x += 6
-			draw_rect(Rect2(x, 0, 16, size.y), Styles.TEAL if i < value else Color("1d2723"))
+			draw_rect(Rect2(x, 0, 16, size.y), Styles.TEAL if i < value else Color("192436"))
 			x += 19
 
 
@@ -79,7 +79,7 @@ func _init() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = Styles.make_theme()
 	var bg := ColorRect.new()
-	bg.color = Color("0c0f0d")
+	bg.color = Color("0a0f18")
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	_build()
@@ -173,7 +173,7 @@ func _build() -> void:
 
 	# Right: the route vote and the field log.
 	var side := W.Frame.new(Vector4(18, 16, 18, 16))
-	side.set_look(Color(0.043, 0.055, 0.047, 0.86), Styles.BORDER)
+	side.set_look(Color(0.037, 0.055, 0.088, 0.86), Styles.BORDER)
 	side.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
 	side.offset_left = -(SIDE_W + 40)
 	side.offset_right = -40
@@ -214,7 +214,7 @@ func _build() -> void:
 	_screen_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_screen_holder)
 	_full_holder = ColorRect.new()
-	_full_holder.color = Color(0.02, 0.025, 0.025, 0.92)
+	_full_holder.color = Color(0.017, 0.025, 0.043, 0.92)
 	_full_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_full_holder.visible = false
 	add_child(_full_holder)
@@ -322,19 +322,21 @@ func _soldier_card(r: Dictionary) -> Control:
 	var card := W.Frame.new(Vector4(16, 12, 14, 12))
 	card.stripe = pcol
 	var tier := Infection.tier(r.infection)
-	card.set_look(Color(0.066, 0.082, 0.07, 0.92), Color(Styles.TEAL, 0.35) if tier >= 2 else Styles.BORDER_SOFT, Styles.AMBER, false)
+	card.radius = 22
+	card.set_look(Color(0.056, 0.082, 0.128, 0.92), Color(Styles.TEAL, 0.35) if tier >= 2 else Styles.BORDER_SOFT, Styles.AMBER, false)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.custom_minimum_size.x = 250
 	var row := Styles.hbox(12)
 	card.add_child(row)
-	var glyph := W.glyph(r.kind, pcol, 46.0)
+	var glyph := W.Portrait.new(58.0)
+	glyph.setup(r.kind, pcol, r.infection, false, r.sit_out > 0)
 	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(glyph)
 	var col := Styles.vbox(5)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(col)
 	var top := Styles.hbox(6)
-	top.add_child(Styles.caps(r.name, 17))
+	top.add_child(Styles.bold(r.name, 17))
 	top.add_child(Styles.spacer())
 	if r.sit_out > 0:
 		top.add_child(Styles.caps("Sits out %d" % r.sit_out, 12, Styles.DANGER_TEXT))
@@ -369,7 +371,7 @@ func _soldier_card(r: Dictionary) -> Control:
 ## Reserve recruits and the fallen, in one small card at the end of the strip.
 func _reserve_card() -> Control:
 	var card := W.Frame.new(Vector4(16, 12, 16, 12))
-	card.set_look(Color(0.043, 0.055, 0.047, 0.86), Styles.BORDER_SOFT, Styles.AMBER, false)
+	card.set_look(Color(0.037, 0.055, 0.088, 0.86), Styles.BORDER_SOFT, Styles.AMBER, false)
 	card.custom_minimum_size.x = 230
 	var box := Styles.vbox(4)
 	card.add_child(box)
@@ -449,8 +451,8 @@ func _option_row(n: Dictionary, i: int) -> Control:
 	var f := W.Frame.new(Vector4(14, 10, 14, 10))
 	var hot: bool = _map.hover == n.id
 	var tc := NodeInfo.color(type)
-	f.set_look(Color(0.12, 0.11, 0.07, 0.94) if mine else (Color("161b17") if hot else Color("121613")),
-		Styles.AMBER if mine else (Styles.BORDER_STRONG if hot else Color("2c342d")), Styles.AMBER, mine)
+	f.set_look(Color(0.12, 0.11, 0.07, 0.94) if mine else (Color("131b2a") if hot else Color("0f1622")),
+		Styles.AMBER if mine else (Styles.BORDER_STRONG if hot else Color("263244")), Styles.AMBER, mine)
 	f.mouse_filter = Control.MOUSE_FILTER_STOP
 	f.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var id: int = n.id
@@ -756,7 +758,7 @@ func _progress_track() -> Control:
 func _stat_tile(icon: String, value: String, caption: String, col: Color, sub := "") -> Control:
 	var f := W.Frame.new(Vector4(20, 16, 20, 16))
 	end_cards.append(f)
-	f.set_look(Color(0.05, 0.065, 0.055, 0.92), Styles.BORDER, Styles.AMBER, false)
+	f.set_look(Color(0.043, 0.065, 0.103, 0.92), Styles.BORDER, Styles.AMBER, false)
 	f.custom_minimum_size = Vector2(230, 0)
 	var h := Styles.hbox(14)
 	f.add_child(h)
@@ -780,7 +782,7 @@ func _fate_card(r: Dictionary) -> Control:
 	f.stripe = pcol
 	var dead: bool = r.status == RunSoldier.DEAD
 	var turned: bool = r.status == RunSoldier.TURNED
-	f.set_look(Color(0.05, 0.065, 0.055, 0.9), Styles.BORDER_SOFT, Styles.AMBER, false)
+	f.set_look(Color(0.043, 0.065, 0.103, 0.9), Styles.BORDER_SOFT, Styles.AMBER, false)
 	var h := Styles.hbox(10)
 	f.add_child(h)
 	h.add_child(W.glyph(r.kind, pcol if not (dead or turned) else Styles.MUTED, 40.0))

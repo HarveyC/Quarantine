@@ -55,6 +55,8 @@ var _tooltip: Control
 var _tooltip_uv: UnitView
 var _toast_t := 0.0
 var _banner_t := 0.0
+## The Bloom creeping in from the screen's right edge, further as the squad's Infection climbs.
+var _veins: W.Veins
 
 
 func setup(v: MissionView) -> void:
@@ -67,6 +69,11 @@ func setup(v: MissionView) -> void:
 	UnitView.world_labels = false
 	for uv in view.unit_views.values():
 		uv.set_overlays_visible(true)
+	_veins = W.Veins.new("right", 0.05, 5, 31)
+	_veins.alpha = 0.32
+	_veins.branching = 0.12
+	_veins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_veins)
 	nameplates = Nameplates.new()
 	nameplates.build(view)
 	add_child(nameplates)
@@ -149,7 +156,7 @@ func _build_bottom() -> void:
 
 	var mid := Styles.vbox(8)
 	_hint = PanelContainer.new()
-	_hint.add_theme_stylebox_override("panel", Styles.panel_box(Color(0.04, 0.05, 0.045, 0.9), Styles.BORDER))
+	_hint.add_theme_stylebox_override("panel", Styles.panel_box(Color(0.04, 0.055, 0.09, 0.9), Styles.BORDER, Styles.PILL))
 	_hint.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hint_label = Styles.label("", 14, Styles.TEXT)
@@ -243,12 +250,18 @@ func refresh() -> void:
 		action_bar.refresh(view)
 		_refresh_targeting()
 	nameplates.refresh()
+	var worst := 0
+	for u in s.living(Types.Team.PLAYER):
+		worst = maxi(worst, u.infection)
+	var reach := 0.04 + worst / 100.0 * 0.26
+	if absf(reach - _veins.reach) > 0.01:
+		_veins.set_reach(reach)
 
 
 func _set_chip(chip: PanelContainer, col: Color, on: bool) -> void:
 	var sb := chip.get_theme_stylebox("panel") as StyleBoxFlat
 	sb.bg_color = col if on else Color.TRANSPARENT
-	sb.border_color = col if on else Color("3a433a")
+	sb.border_color = col if on else Styles.BORDER_STRONG
 	var l := chip.get_child(0) as Label
 	l.add_theme_color_override("font_color", Styles.GROUND if on else Styles.DIM)
 

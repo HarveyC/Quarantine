@@ -431,5 +431,23 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 			line.call([[17, 5], [21, 5], [20, 9], [17, 10]])
 			line.call([[12, 14], [12, 18]])
 			line.call([[7, 21], [17, 21], [16, 18], [8, 18], [7, 21]])
+		"lantern":
+			line.call([[8, 2.5], [16, 2.5]])
+			line.call([[12, 2.5], [12, 5]])
+			line.call([[6.5, 7], [17.5, 7], [16.5, 19.5], [7.5, 19.5], [6.5, 7]])
+			line.call([[5, 22], [19, 22]])
+			var flame := PackedVector2Array()
+			for i in 16:
+				var a := TAU * i / 16.0
+				flame.append(o + Vector2(12 + cos(a) * 2.6, 13.2 + sin(a) * 3.8) * s)
+			ci.draw_colored_polygon(flame, color)
+		"bloom":
+			circle.call(12, 12, 4)
+			for k in 5:
+				var a := -PI * 0.5 + TAU * k / 5.0
+				var p0 := Vector2(12, 12) + Vector2(cos(a), sin(a)) * 4.0
+				var p1 := Vector2(12, 12) + Vector2(cos(a + 0.35), sin(a + 0.35)) * 8.5
+				line.call([[p0.x, p0.y], [p1.x, p1.y]])
+				dot.call(p1.x, p1.y, 1.4)
 		_:
 			circle.call(12, 12, 8)

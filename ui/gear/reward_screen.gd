@@ -180,7 +180,7 @@ func _build_tabs() -> void:
 	for r in mine:
 		var tab := PanelContainer.new()
 		var on: bool = r.id == _sid
-		tab.add_theme_stylebox_override("panel", UI.box(Color("#1a1912") if on else Color("#111512"), UI.AMBER if on else Color("#262e27"), 2 if on else 1, 0, 10))
+		tab.add_theme_stylebox_override("panel", UI.box(UI.HELD if on else UI.PANEL_SOFT, UI.AMBER if on else UI.BORDER, 2 if on else 1, 0, 10))
 		tab.mouse_filter = Control.MOUSE_FILTER_STOP
 		tab.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var h := HBoxContainer.new()
@@ -305,7 +305,7 @@ func _show_doctrines(vote: Dictionary) -> void:
 			var on: bool = vote.votes.get(pl, "") == id
 			var pip := ColorRect.new()
 			pip.custom_minimum_size = Vector2(26, 6)
-			pip.color = UI.player_color(pl) if on else Color("#262e27")
+			pip.color = UI.player_color(pl) if on else UI.BORDER
 			pip.tooltip_text = _player_name(pl)
 			pips.add_child(pip)
 		v.add_child(pips)

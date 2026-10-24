@@ -1,6 +1,6 @@
 extends Node
-## Autoload "UiFeel": the shared motion of the interface. Every button in the game gets amber
-## corner marks that close in on hover and a short flash when pressed (Soundscape adds the hover
+## Autoload "UiFeel": the shared motion of the interface. Every button in the game gets a soft
+## amber lantern halo that tightens around it on hover and a short flash when pressed (Soundscape adds the hover
 ## tick and the click). Screens call the static enter() / deal() to fade and slide in instead of
 ## popping, through `const Feel := preload("res://ui/ui_feel.gd")` (scripts run with -s can't see
 ## autoload names). A button opts out with set_meta("no_feel", true).
@@ -66,7 +66,8 @@ static func sound(kind: String) -> void:
 		ss.ui(kind)
 
 
-## Amber corner marks drawn just outside a button; they slide in from further out on hover.
+## A soft amber halo drawn just outside a button, following its rounded shape; it tightens in
+## from further out on hover.
 class HoverMarks extends Control:
 	var t := 0.0
 	var _tw: Tween
@@ -91,12 +92,18 @@ class HoverMarks extends Control:
 	func _draw() -> void:
 		if t <= 0.01:
 			return
+		var b := get_parent() as Control
+		var radius := 8.0
+		var sb := b.get_theme_stylebox("normal") as StyleBoxFlat if b != null else null
+		if sb != null:
+			radius = minf(float(sb.corner_radius_top_left), minf(size.x, size.y) * 0.5)
 		var out := 3.0 + (1.0 - t) * 6.0
-		var r := Rect2(Vector2.ZERO, size).grow(out)
-		var k := clampf(minf(size.x, size.y) * 0.28, 5.0, 10.0)
-		var col := Color(Styles.AMBER, t)
-		for corner in [r.position, Vector2(r.end.x, r.position.y), Vector2(r.position.x, r.end.y), r.end]:
-			var dx := k if corner.x == r.position.x else -k
-			var dy := k if corner.y == r.position.y else -k
-			draw_line(corner, corner + Vector2(dx, 0), col, 2.0)
-			draw_line(corner, corner + Vector2(0, dy), col, 2.0)
+		var box := StyleBoxFlat.new()
+		box.draw_center = false
+		box.set_border_width_all(2)
+		box.border_color = Color(Styles.AMBER, 0.85 * t)
+		box.set_corner_radius_all(int(radius + out))
+		box.corner_detail = 12
+		box.shadow_color = Color(Styles.AMBER, 0.25 * t)
+		box.shadow_size = 8
+		draw_style_box(box, Rect2(Vector2.ZERO, size).grow(out))

@@ -62,7 +62,7 @@ func _soldier_row(p: int, r: Dictionary) -> Control:
 	var row := Styles.hbox(14)
 	var who := W.Frame.new(Vector4(18, 14, 16, 14))
 	who.stripe = pcol
-	who.set_look(Color(0.05, 0.065, 0.055, 0.92), Styles.BORDER_SOFT, Styles.AMBER, false)
+	who.set_look(Color(0.043, 0.065, 0.103, 0.92), Styles.BORDER_SOFT, Styles.AMBER, false)
 	who.custom_minimum_size = Vector2(250, 0)
 	var info := Styles.vbox(8)
 	who.add_child(info)
@@ -136,6 +136,7 @@ func _card(icon: String, title: String, col: Color, chips: Array, desc: String, 
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.focus_mode = Control.FOCUS_NONE
 	Styles.style_button(b, "secondary")
+	Styles.round_button(b, 22)
 	var box := Styles.vbox(8)
 	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 14)
 	b.add_child(box)
@@ -163,12 +164,9 @@ class GearUiTag extends PanelContainer:
 
 	func _init(tag: String) -> void:
 		var c := GearData.tag_color(tag) if tag != "" else Styles.DIM
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(c, 0.1)
-		sb.border_color = c
-		sb.set_border_width_all(1)
-		sb.content_margin_left = 6
-		sb.content_margin_right = 6
+		var sb := Styles.panel_box(Color(c, 0.1), Color(c, 0.7), Styles.PILL)
+		sb.content_margin_left = 8
+		sb.content_margin_right = 8
 		sb.content_margin_top = 1
 		sb.content_margin_bottom = 1
 		add_theme_stylebox_override("panel", sb)

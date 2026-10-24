@@ -360,8 +360,8 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var n_rounds: int = feel.rounds
 	# Bursts play out in the slow motion, so space them out further on the shot camera.
 	var gap: float = feel.gap * (2.2 if cine else 1.0)
-	var span := gap * (n_rounds - 1)
-	var flight := ((0.55 if hero else 0.4) if cine else 0.12)
+	var span := GunFeel.round_offset(feel, n_rounds - 1, gap)
+	var flight := ((0.55 if hero else 0.4) if cine else 0.12) * float(feel.get("flight", 1.0))
 	var t_fire := (0.55 if hero else 0.4) if cine else 0.12
 	var t_hit := t_fire + span + flight
 	var dur := t_hit + ((0.9 if hero else 0.7) if cine else 0.3)
@@ -375,7 +375,8 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var rounds: Array[Dictionary] = []
 	for i in n_rounds:
 		var last := i == n_rounds - 1
-		var r := {"t0": t_fire + gap * i, "t1": t_fire + gap * i + flight, "last": last,
+		var t0 := t_fire + GunFeel.round_offset(feel, i, gap)
+		var r := {"t0": t0, "t1": t0 + flight, "last": last, "proj": GunFeel.proj_of(feel, i, n_rounds),
 			"fired": false, "landed": false, "bullets": [], "from": Vector3.ZERO}
 		# Earlier rounds of a hit mostly connect; on a miss (or the first rounds of a graze) they chew up cover.
 		var connects := hit and (last or (i + seed) % 3 != 0) and not (graze and not last)
@@ -397,25 +398,41 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		var cap := "%s  >  %s" % [shooter.label(), target.label()]
 		view.hud.cine_caption(("REACTION FIRE  -  " if reaction else "") + cap, "%d%% to hit" % chance if chance > 0 else "")
 		_sfx("cinematic")
-	var st := {"pushed": false, "done": false}
+	var casing := GunFeel.casing_of(feel)
+	var impact_style := str(feel.get("impact", "spark"))
+	var mech_t := -1.0
+	if feel.get("eject", "") == "mech" and casing != "":
+		mech_t = rounds[n_rounds - 1].t0 + float(feel.get("mech_delay", 0.4)) * (2.0 if cine else 1.0)
+	var st := {"pushed": false, "done": false, "ejected": mech_t < 0.0}
+	var eject := func(i: int) -> void:
+		# Once the shot camera has pushed down the line of fire it passes the shooter's
+		# ejection port: a late casing (pump, bolt) would flash across the lens, so only hear it.
+		if not (cine and st.pushed):
+			view.fx.casing(shooter.muzzle_world() - dir * 0.35, right, casing)
+		# The first casings of a burst are heard landing; after that they blur into the gunfire.
+		if i < 2:
+			_sfx("shell_drop" if casing == "shell" else "brass", 0.0, 0.45 + 0.07 * i)
 	var fire_round := func(i: int) -> void:
 		var r: Dictionary = rounds[i]
 		r.fired = true
 		r.from = shooter.muzzle_world()
 		var barrel: Vector3 = (target.chest_world() - (r.from as Vector3)).normalized()
-		view.fx.muzzle_flash(r.from, col if feel.flash > 0.0 else Palette.TEAL, barrel, feel.flash)
-		if feel.get("smoke", false) or i == 0:
+		var style := str(feel.get("flash_style", "star"))
+		view.fx.muzzle_flash(r.from, col if feel.flash > 0.0 else Palette.TEAL, barrel, feel.flash, style)
+		if (feel.get("smoke", false) or i == 0) and style != "gas" and style != "bio":
 			view.fx.puff(r.from + dir * 0.35, Color(0.6, 0.6, 0.55), 0.2 + 0.12 * feel.flash, 0.6, 0.2)
-		if feel.casing:
-			view.fx.casing(r.from - dir * 0.3, right)
+		if casing != "" and mech_t < 0.0:
+			eject.call(i)
 		shooter.recoil(feel.recoil)
 		for imp in r.impacts:
-			r.bullets.append(view.fx.spawn_bullet(col, false, feel.bullet, r.impacts.size() == 1))
+			var b := view.fx.spawn_round(r.proj, col, feel.bullet, r.impacts.size() == 1)
+			b.set_meta("arc", float(feel.get("arc", 0.0)))
+			r.bullets.append(b)
 		_sfx(feel.sound, 0.0 if i == 0 else -1.5)
 		if i == 0 and feel.has("tail"):
 			_sfx(feel.tail, -3.0, 0.03)
 		if r.last:
-			_sfx("whiz", -4.0, 0.08)
+			_sfx(str(feel.get("whiz", "whiz")), -4.0, 0.08)
 			if feel.has("mech"):
 				_sfx(feel.mech, -2.0, feel.mech_delay * (2.0 if cine else 1.0))
 		view.camera_rig.shake(feel.shake)
@@ -430,7 +447,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 			var imp: Dictionary = r.impacts[k]
 			if feel.get("smoke", false) and k == 0:
 				view.fx.smoke_trail(r.from, imp.pos)
-			_impact_at(shooter, target, imp, r.last and k == 0, crit, graze, cine)
+			_impact_at(shooter, target, imp, r.last and k == 0, crit, graze, cine, impact_style, col, k == 0)
 		if r.last and r.hit:
 			target.hit_react(shooter.position, 1.6 if crit else (0.6 if graze else 1.0))
 			target.flash(Color(1.0, 0.85, 0.7) if crit else Palette.DANGER)
@@ -443,6 +460,9 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		var s := k * dur
 		if cine and s < t_fire:
 			view.camera_rig.cine_progress(s / t_fire)
+		if not st.ejected and s >= mech_t:
+			st.ejected = true
+			eject.call(0)
 		for i in rounds.size():
 			var r: Dictionary = rounds[i]
 			if not r.fired and s >= r.t0:
@@ -480,6 +500,9 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		for r in rounds:
 			for b in r.bullets:
 				view.fx.remove(b)
+		if not st.ejected:
+			st.ejected = true
+			eject.call(0)
 		shooter.set_aim(0.0)
 	return {"dur": dur, "update": update, "finish": finish}
 
@@ -566,37 +589,98 @@ func _cover_face(grid: Grid, c: Vector2i, toward_target: Vector2i, cover: int, r
 	return {"pos": pos, "normal": n, "kind": "cover"}
 
 
-func _impact_at(shooter: UnitView, target: UnitView, imp: Dictionary, main: bool, crit: bool, graze: bool, cine: bool) -> void:
+## One projectile landing. `style` is the gun's "impact" (view/gun_feel.gd): it adds its own
+## splash, debris and sound on top of the surface's; `col` is the round's colour; `lead` is
+## the first projectile of its round (pellet spreads only sound once).
+func _impact_at(shooter: UnitView, target: UnitView, imp: Dictionary, main: bool, crit: bool, graze: bool, cine: bool,
+		style := "spark", col := Color.WHITE, lead := true) -> void:
 	var at: Vector3 = imp.pos
 	var dir := _flat(target.position - shooter.position).normalized()
+	var big := style in ["heavy", "slug"]
+	var small := style in ["pellet", "needle"]
 	match imp.kind:
 		"body":
 			var normal := -dir + Vector3(0, 0.3, 0)
 			var blood := _blood(target)
 			var glow := blood == Palette.TEAL
-			var big := main and crit
-			view.fx.burst(at, -normal * 0.3 + dir, blood, (22 if big else 14) if main else 6, (4.5 if big else 3.2) if main else 2.4, glow, 0.05 if main else 0.035)
-			view.fx.burst(at, normal, Color(1.0, 0.75, 0.4), 6 if main else 3, 5.0, true, 0.025)
+			var huge := main and (crit or style == "slug")
+			view.fx.burst(at, -normal * 0.3 + dir, blood, (22 if huge else 14) if main else 6, (4.5 if huge else 3.2) if main else 2.4, glow, 0.05 if main else 0.035)
+			if style not in ["bio", "dart", "shock"]:
+				view.fx.burst(at, normal, Color(1.0, 0.75, 0.4), 6 if main else 3, 5.0, true, 0.025)
 			if main:
 				view.fx.flash_light(at, blood.lightened(0.3), 2.2 if crit else 1.4, 0.2, 3.0)
 				view.fx.decal(target.position + dir * 0.7, blood.darkened(0.3), 0.3 if graze else 0.42, glow)
 				_sfx("impact_armor" if target.is_soldier and not target.turned else "impact_flesh", 2.0 if crit else 0.0)
-			else:
+			elif lead:
 				_sfx("impact_armor" if target.is_soldier and not target.turned else "impact_flesh", -7.0)
+			if big and main:
+				view.camera_rig.shake(0.35)
 		"cover":
 			var n: Vector3 = imp.normal
-			view.fx.burst(at, n + Vector3(0, 0.4, 0), Color(0.55, 0.53, 0.48), 10 if main else 5, 3.2, false, 0.04)
-			view.fx.burst(at, n, Color(1.0, 0.8, 0.4), 5 if main else 3, 4.5, true, 0.02)
-			view.fx.puff(at + n * 0.1, Color(0.55, 0.52, 0.47), 0.6 if main else 0.35, 0.9, 0.25)
-			view.fx.bullet_hole(at, n)
+			var chips := 10 if main else 5
+			if big:
+				chips = 18 if main else 9
+			elif small:
+				chips = 4 if main else 2
+			view.fx.burst(at, n + Vector3(0, 0.4, 0), Color(0.55, 0.53, 0.48), chips, 4.0 if big else 3.2, false, 0.06 if big else 0.04)
+			if style not in ["bio", "dart"]:
+				view.fx.burst(at, n, Color(1.0, 0.8, 0.4), (8 if style == "needle" else 5) if main else 3, 4.5, true, 0.02)
+			view.fx.puff(at + n * 0.1, Color(0.55, 0.52, 0.47), (1.0 if big else 0.6) if main else 0.35, 0.9, 0.25)
+			if style == "dart":
+				view.fx.stuck_dart(at, -dir, col)
+			else:
+				view.fx.bullet_hole(at, n, 0.13 if big else (0.04 if small else 0.07))
 			if main:
 				view.fx.flash_light(at + n * 0.1, Color(1.0, 0.8, 0.5), 1.2, 0.12, 2.0)
-			_sfx(("ricochet" if cine else "concrete") if main else "concrete", 0.0 if main else -6.0)
+			if lead and style not in ["dart", "pellet", "slug"]:
+				_sfx(("ricochet" if cine else "concrete") if main else "concrete", 0.0 if main else -6.0)
 		_:
-			view.fx.burst(at, Vector3.UP - dir * 0.3, Color(0.42, 0.4, 0.36), 9 if main else 4, 2.6, false, 0.035)
-			view.fx.puff(at + Vector3(0, 0.15, 0), Color(0.5, 0.47, 0.42), 0.55 if main else 0.3, 0.8, 0.35)
-			view.fx.decal(at, Color(0.1, 0.09, 0.08), 0.08)
-			_sfx("concrete", -3.0 if main else -8.0)
+			view.fx.burst(at, Vector3.UP - dir * 0.3, Color(0.42, 0.4, 0.36), (16 if big else 9) if main else 4, 2.6, false, 0.035)
+			view.fx.puff(at + Vector3(0, 0.15, 0), Color(0.5, 0.47, 0.42), (0.9 if big else 0.55) if main else 0.3, 0.8, 0.35)
+			if style == "dart":
+				view.fx.stuck_dart(at, -dir + Vector3(0, 0.4, 0), col)
+			else:
+				view.fx.decal(at, Color(0.1, 0.09, 0.08), 0.14 if big else 0.08)
+			if lead and style not in ["dart", "pellet", "slug"]:
+				_sfx("concrete", -3.0 if main else -8.0)
+	_impact_style(at, imp, dir, style, col, main, lead)
+
+
+## The gun's own mark on an impact: bio rounds splash and smoke with culture, slugs knock a
+## crater of debris loose, pellets spatter, darts thock in, shock rounds crackle.
+func _impact_style(at: Vector3, imp: Dictionary, dir: Vector3, style: String, col: Color, main: bool, lead: bool) -> void:
+	var n: Vector3 = imp.get("normal", -dir)
+	match style:
+		"bio":
+			view.fx.burst(at, n + Vector3(0, 0.5, 0), col, 16 if main else 8, 3.0, true, 0.04)
+			view.fx.puff(at + n * 0.15, col.darkened(0.45), 0.9 if main else 0.5, 1.4, 0.3)
+			view.fx.flash_light(at + n * 0.2, col, 2.2 if main else 1.2, 0.35, 3.0)
+			if imp.kind != "body":
+				view.fx.decal(at, col.darkened(0.55), 0.22, true)
+			if lead:
+				_sfx("impact_bio", 0.0 if main else -5.0)
+		"slug":
+			view.fx.burst(at, n + Vector3(0, 0.6, 0), Color(0.5, 0.48, 0.44), 12, 5.0, false, 0.07)
+			view.fx.puff(at + n * 0.2, Color(0.55, 0.52, 0.47), 1.3, 1.2, 0.35)
+			if lead:
+				_sfx("impact_slug", 0.0 if main else -4.0)
+		"pellet":
+			if lead:
+				_sfx("impact_pellets", 0.0 if main else -4.0)
+		"dart":
+			view.fx.puff(at + n * 0.1, Color(0.85, 0.92, 0.95), 0.3, 0.6, 0.1)
+			if lead:
+				_sfx("impact_dart", 0.0 if main else -5.0)
+		"shock":
+			for k in 3:
+				var off := Vector3(sin(k * 2.1), 0.6 + cos(k * 1.3) * 0.4, cos(k * 2.1)) * 0.35
+				view.fx.spark_arc(at, at + off, col, 0.25)
+			view.fx.flash_light(at, col, 2.5, 0.2, 3.0)
+			if lead:
+				_sfx("impact_shock", 0.0 if main else -5.0)
+		"needle":
+			if lead and imp.kind == "body":
+				_sfx("ricochet", -9.0)
 
 
 func _beat_damage(ev: Dictionary) -> Dictionary:
@@ -887,14 +971,14 @@ func _spit_beat(ev: Dictionary) -> Dictionary:
 	var w := Board.cell_to_world(ev.cell)
 	uv.face_towards(w)
 	var from := uv.muzzle_world()
-	var glob := view.fx.spawn_bullet(Palette.TEAL, true)
+	var glob := view.fx.spawn_round("spore", Palette.TEAL, 1.6)
+	glob.set_meta("arc", 1.6 / maxf(0.1, from.distance_to(w)))
 	_sfx("spit")
 	view.fx.floating_text(_head(uv), "SPIT", Palette.TEAL, 44)
 	var st := {"landed": false}
 	var update := func(t: float) -> void:
 		var f := clampf(t / 0.7, 0.0, 1.0)
-		var p := from.lerp(w + Vector3(0, 0.1, 0), f) + Vector3(0, sin(f * PI) * 1.6, 0)
-		view.fx.place_bullet(glob, p, p + (w - from).normalized() * 0.1, 0.0)
+		view.fx.place_bullet(glob, from, w + Vector3(0, 0.1, 0), f)
 		if f >= 1.0 and not st.landed:
 			st.landed = true
 			view.fx.remove(glob)
@@ -928,10 +1012,14 @@ func _suppress_beat(ev: Dictionary) -> Dictionary:
 			var jitter := Vector3(sin(st.n * 2.3) * 0.5, absf(cos(st.n * 1.7)) * 0.4, cos(st.n * 3.1) * 0.5)
 			var to := tv.chest_world() + jitter
 			var feel := _feel(uv)
-			view.fx.muzzle_flash(from, Color(1.0, 0.8, 0.45), to - from, feel.flash)
-			view.fx.tracer(from, to, Color(1.0, 0.8, 0.45), 0.15)
+			var col := GunFeel.color(feel, uv.is_soldier and not uv.turned, uv.turned)
+			view.fx.muzzle_flash(from, col, to - from, feel.flash, str(feel.get("flash_style", "star")))
+			var proj := GunFeel.proj_of(feel, st.n - 1, 6)
+			view.fx.tracer(from, to, col if proj != "ball" else col.darkened(0.4), 0.15)
 			view.fx.burst(to, (from - to).normalized(), Color(0.55, 0.53, 0.48), 4, 2.5, false, 0.03)
-			view.fx.casing(from, (to - from).cross(Vector3.UP).normalized())
+			var casing := GunFeel.casing_of(feel)
+			if casing != "":
+				view.fx.casing(from, (to - from).cross(Vector3.UP).normalized(), casing)
 			uv.recoil(0.6)
 			view.camera_rig.kick(feel.kick * 0.5)
 			_sfx(feel.sound, -3.0)

@@ -34,7 +34,9 @@ func _card(rec: Dictionary) -> Control:
 	var v := NodeUi.vbox(12)
 	card.add_child(v)
 	var head := NodeUi.hbox(12)
-	head.add_child(W.glyph(rec.kind, pcol, 48.0))
+	var face := W.Portrait.new(56.0)
+	face.setup(rec.kind, pcol, rec.infection)
+	head.add_child(face)
 	var names := NodeUi.vbox(2)
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	names.add_child(NodeUi.title(rec.name, 24))

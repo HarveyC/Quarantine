@@ -10,8 +10,8 @@ const UnitView := preload("res://view/unit_view.gd")
 const PostFx := preload("res://view/post_fx.gd")
 const ModelKit := preload("res://view/model_kit.gd")
 
-const CONCRETE := Color("34362f")
-const GROUND := Color("1d1f1b")
+const CONCRETE := Color("283345")
+const GROUND := Color("171f30")
 const TEAL := Color("3fe0c5")
 const SODIUM := Color("ffc27a")
 const FIRE := Color("ff7a2e")
@@ -257,7 +257,7 @@ func _set_wall() -> void:
 		_box(Vector3(26, 0.5, 2.4), Vector3(side * 16.0, 9.2, -14), CONCRETE.darkened(0.2))
 		_box(Vector3(1.2, 10, 2.0), Vector3(side * 3.1, 5, -14), CONCRETE.darkened(0.2))
 		# floodlight towers on the wall top, washing down over the camp
-		_box(Vector3(0.3, 3.0, 0.3), Vector3(side * 9.0, 10.9, -14), Color("222222"))
+		_box(Vector3(0.3, 3.0, 0.3), Vector3(side * 9.0, 10.9, -14), Color("1c2231"))
 		_box(Vector3(0.9, 0.5, 0.4), Vector3(side * 9.0, 12.4, -13.6), SODIUM, 0.0, 4.0)
 		_spot(Vector3(side * 9.0, 12.2, -13.0), Vector3(side * 2.5, 0, -5), SODIUM, 9.0, 34.0, 32.0)
 		_omni(Vector3(side * 6.0, 4.0, -12.0), SODIUM.darkened(0.2), 1.6, 9.0)
@@ -275,7 +275,7 @@ func _set_wall() -> void:
 	for i in 6:
 		var x := -12.0 + i * 4.6
 		if absf(x) > 3.0:
-			_box(Vector3(2.4, 1.3, 2.4), Vector3(x, 0.65, -7.0 - (i % 2) * 1.6), Color("2b3128"), 0.785)
+			_box(Vector3(2.4, 1.3, 2.4), Vector3(x, 0.65, -7.0 - (i % 2) * 1.6), Color("232e40"), 0.785)
 	_box(Vector3(5.0, 0.9, 0.3), Vector3(-5.5, 0.45, -2.5), Color("4a3f2a"), 0.2)
 	_omni(Vector3(-6, 1.2, -3), Color("ff4a33"), 1.6, 6.0, true)
 	_spores(Vector3(0, 3, -10), Vector3(10, 3, 6))
@@ -286,7 +286,7 @@ func _set_wall() -> void:
 
 ## A Port Ardent street: tall blocks, growths pouring from the doors, the squad walking in.
 func _set_port() -> void:
-	_ground(Color("1a1c19"))
+	_ground(Color("151c2b"))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	for side in [-1.0, 1.0]:
@@ -294,7 +294,7 @@ func _set_port() -> void:
 		while z > -60.0:
 			var w := rng.randf_range(5.0, 8.0)
 			var h := rng.randf_range(9.0, 22.0)
-			_box(Vector3(6, h, w - 0.4), Vector3(side * 8.5, h * 0.5, z - w * 0.5), Color("262923").lerp(Color("30302a"), rng.randf()))
+			_box(Vector3(6, h, w - 0.4), Vector3(side * 8.5, h * 0.5, z - w * 0.5), Color("1e2737").lerp(Color("242e40"), rng.randf()))
 			# a few lit windows
 			for i in 3:
 				if rng.randf() < 0.5:
@@ -318,7 +318,7 @@ func _set_port() -> void:
 ## The rim of the Bore: a shaft of teal light rising out of the dark, scaffolding, the squad at
 ## the edge. The endings reuse it with their own light and staging.
 func _set_bore(kind: String) -> void:
-	_ground(Color("181a17"))
+	_ground(Color("141a28"))
 	var pit := CylinderMesh.new()
 	pit.top_radius = 7.5
 	pit.bottom_radius = 7.5
