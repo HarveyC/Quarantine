@@ -5,6 +5,8 @@ extends RefCounted
 ##
 ## Status keys owned here (in `unit.status`):
 ##   "burning": int        Burning ticks left (2 damage at each team phase start)
+##   "burn_source": int    unit id that set it Burning (Burn set spread, Spotter flare)
+##   "gear_fire_mobility": int mobility currently added by Flame-retardant coat
 ##   "suppress_extra": int extra aim penalty on a Suppressed unit (Compensator, Shock rounds Mk II)
 ##   "smoked": int         phase index a smoke grenade's +20 defense ends on
 ##   "contained": int      phase index until which the unit gains no Infection (Containment emitter)
@@ -20,13 +22,18 @@ const BURN_DAMAGE := 2
 const SMOKE_DEFENSE := 20
 const CLOSE := 3.0
 
-## Items whose effect needs a system the game doesn't have yet (fire tiles, spore zones,
-## fog of war). They're kept out of reward and depot draws until they work.
+## Items whose effect needs a system the game doesn't have yet (fog of war, restraint,
+## mutation costs). They're kept out of reward and depot draws until they work.
 const PENDING: Array[String] = [
-	"flame_coat", "smart_link", "motion_tracker", "filter_mask", "symbiotic_suit",
-	"crossfire", "hold_position", "spotter_flare", "scorched_earth", "bloodletting",
+	"smart_link", "motion_tracker", "symbiotic_suit",
+	"crossfire", "hold_position", "bloodletting",
 	"recon_drone", "containment_foam",
 ]
+## Fire tiles gear makes: Thermite line length per Mk, and how long each kind of fire lasts.
+const THERMITE_LENGTH := [3, 5]
+const THERMITE_TURNS := 2
+const BURN_SET_FIRE_TURNS := 1
+const SCORCHED_PURGE := 10
 
 ## Gadget abilities: targeting, action cost (0 = free, -1 = ends turn), uses per fight
 ## (Mk I, Mk II; 0 = unlimited) and cooldown (Mk I, Mk II).
@@ -176,7 +183,7 @@ static func after_shot(s: GameState, u: Unit, t: Unit, hit: bool, reaction: bool
 			ignite(s, u, t, mk(u, "incendiary_rounds"))
 		if has(u, "igniter_barrel") and u.status.get("igniter_turn", -1) != s.turn:
 			u.status["igniter_turn"] = s.turn
-			ignite(s, u, t, mk(u, "igniter_barrel"))
+			set_fire(s, u, [t.pos], mk(u, "igniter_barrel"))
 	if hit and t.team == Types.Team.ENEMY and has(u, "purifier_rounds") and u.infection > 0:
 		Infection.add(s, u, -(3 if mk(u, "purifier_rounds") < 2 else 5))
 	if hit and close and has(u, "feral_grip") and u.hp < u.max_hp:
@@ -212,6 +219,8 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		if best:
 			best.status["tagged"] = t.status.tagged
 			s.emit({"type": "gear", "unit": u.id, "item": "mark_set", "target": best.id})
+	if is_burning(s, t):
+		_burn_set_spread(s, t)
 	if is_burning(s, t) and has(u, "phosphor_rounds"):
 		var radius := 1 if mk(u, "phosphor_rounds") < 2 else 2
 		for o in s.living():
@@ -244,7 +253,60 @@ static func ignite(s: GameState, u: Unit, t: Unit, turns: int) -> void:
 		turns += 1
 	if int(t.status.get("burning", 0)) < turns:
 		t.status["burning"] = turns
+		t.status["burn_source"] = u.id
 		s.emit({"type": "burning", "unit": t.id, "turns": turns})
+
+
+## Puts `u`'s fire on `cells` for `turns` rounds (Hazards; walls are skipped there).
+static func set_fire(s: GameState, u: Unit, cells: Array, turns: int) -> void:
+	Hazards.add(s, cells, "fire", turns, u.id)
+
+
+## Burn set: an enemy that dies Burning from a Burn-set soldier's fire sets the tiles around it alight.
+static func _burn_set_spread(s: GameState, t: Unit) -> void:
+	var src := s.get_unit(int(t.status.get("burn_source", -1)))
+	if src == null or not has_set(src, "Burn"):
+		return
+	var cells: Array[Vector2i] = []
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var c := t.pos + Vector2i(dx, dy)
+			if s.grid.in_bounds(c):
+				cells.append(c)
+	set_fire(s, src, cells, BURN_SET_FIRE_TURNS)
+
+
+## Hazards hook: what a hazard tile does to `u` once gear has its say. Returns
+## Vector2i(damage, infection). Flame-retardant coat ignores fire, Filter mask ignores spores,
+## Scorched earth fire spares the squad and burns Infection off them instead, Spotter flare
+## doubles fire damage on Marked enemies.
+static func hazard_hit(s: GameState, u: Unit, h: Dictionary, damage: int, infection: int) -> Vector2i:
+	if h.kind == "fire":
+		var src := s.get_unit(int(h.get("source", -1)))
+		if src != null and has(src, "scorched_earth") and not src.is_enemy_of(u):
+			if u.team == Types.Team.PLAYER and u.infection > 0 and not u.status.has("deployable"):
+				s.emit({"type": "gear", "unit": src.id, "item": "scorched_earth", "target": u.id})
+				Infection.add(s, u, -SCORCHED_PURGE)
+			return Vector2i.ZERO
+		if has(u, "flame_coat"):
+			return Vector2i(0, infection)
+		if src != null and has(src, "spotter_flare") and is_marked(s, u):
+			damage *= 2
+	if h.kind == "spore" and has(u, "filter_mask"):
+		infection = 0
+	return Vector2i(damage, infection)
+
+
+## A line of `length` tiles starting at `cell`, running away from `from` (8 directions).
+static func fire_line(from: Vector2i, cell: Vector2i, length: int) -> Array[Vector2i]:
+	var d := cell - from
+	var dir := Vector2i(signi(d.x), signi(d.y))
+	if dir == Vector2i.ZERO:
+		dir = Vector2i.RIGHT
+	var out: Array[Vector2i] = []
+	for i in length:
+		out.append(cell + dir * i)
+	return out
 
 
 ## Combat's Suppress ability: Compensator penalty, Rotary feed cone.
@@ -293,14 +355,27 @@ static func on_team_phase_start(s: GameState) -> void:
 				u.status["burning"] = left
 			else:
 				u.status.erase("burning")
-			s.emit({"type": "burn", "unit": u.id, "damage": BURN_DAMAGE})
-			Rules.deal_damage(s, u, BURN_DAMAGE)
+			var dmg := BURN_DAMAGE
+			var src := s.get_unit(int(u.status.get("burn_source", -1)))
+			if src != null and has(src, "spotter_flare") and is_marked(s, u):
+				dmg *= 2
+			s.emit({"type": "burn", "unit": u.id, "damage": dmg})
+			Rules.deal_damage(s, u, dmg)
+			if not u.is_alive():
+				_burn_set_spread(s, u)
 	for u in s.living(Types.Team.PLAYER):
 		var want := 1 if has_set(u, "Close") else 0
 		var have := int(u.status.get("gear_set_mobility", 0))
 		if want != have:
 			u.mobility += want - have
 			u.status["gear_set_mobility"] = want
+		var fire := 0
+		if has(u, "flame_coat") and Hazards.at(s, u.pos).get("kind", "") == "fire":
+			fire = mk(u, "flame_coat")
+		var had := int(u.status.get("gear_fire_mobility", 0))
+		if fire != had:
+			u.mobility += fire - had
+			u.status["gear_fire_mobility"] = fire
 
 
 static func on_move(s: GameState, u: Unit) -> void:
@@ -479,12 +554,12 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 				_suppress(s, u, o)
 			ev["units"] = hit.map(func(o): return o.id)
 		"thermite_charge":
-			var r := 1 if mk(u, key) < 2 else 2
-			var hit: Array = (area.call(r) as Array).filter(func(o): return u.is_enemy_of(o))
-			ev["units"] = hit.map(func(o): return o.id)
+			var line := fire_line(u.pos, cell, THERMITE_LENGTH[clampi(mk(u, key), 1, 2) - 1])
 			s.emit(ev)
-			for o in hit:
-				ignite(s, u, o, 2)
+			set_fire(s, u, line, THERMITE_TURNS)
+			for o in s.living():
+				if u.is_enemy_of(o) and line.has(o.pos):
+					ignite(s, u, o, 1)
 			return
 		"med_injector", "suppressant_shot":
 			var amount := 15

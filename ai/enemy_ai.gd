@@ -28,6 +28,8 @@ static func take_turn(s: GameState, u: Unit) -> void:
 	if u.status.get("lapsed", false):
 		_lapsed_turn(s, u)
 		return
+	if EnemyBehaviours.custom_turn(s, u):
+		return
 	if not _update_alert(s, u):
 		_dormant_turn(s, u)
 		return
@@ -143,6 +145,8 @@ static func _choose(s: GameState, u: Unit) -> Dictionary:
 	match u.kind:
 		"runner": return _choose_runner(s, u, hostiles)
 		"spitter": return _choose_spitter(s, u, hostiles)
+	if EnemyBehaviours.handles(s, u):
+		return EnemyBehaviours.choose(s, u, hostiles)
 	return _choose_generic(s, u, hostiles)
 
 

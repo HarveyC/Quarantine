@@ -3,6 +3,7 @@ extends RefCounted
 ## `name_of` is Callable(id: int) -> String. Unknown event types are listed raw.
 
 const Palette := preload("res://view/palette.gd")
+const EnemyBeats := preload("res://view/enemy_beats.gd")
 
 
 static func describe(ev: Dictionary, name_of: Callable) -> String:
@@ -51,6 +52,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"mission_end":
 			var r := int(ev.get("result", 0))
 			return _c("=== MISSION %s ===" % ("COMPLETE" if r == Types.Result.VICTORY else "FAILED"), Palette.AMBER)
+	if EnemyBeats.handles(ev):
+		return EnemyBeats.describe(ev, name_of)
 	return _c(("[%s] %s" % [str(ev.get("type", "?")), str(ev)]).replace("[", "[lb]"), Color(0.55, 0.55, 0.55))
 
 

@@ -160,7 +160,7 @@ static func peek_cells(g: Grid, c: Vector2i) -> Array[Vector2i]:
 static func visible_targets(s: GameState, u: Unit) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for t in s.units:
-		if t.is_alive() and u.is_enemy_of(t) and can_see(s, u.pos, t.pos):
+		if t.is_alive() and u.is_enemy_of(t) and not t.status.get("hidden", false) and can_see(s, u.pos, t.pos):
 			out.append(t)
 	return out
 

@@ -99,7 +99,8 @@ static func _affects_here(u: Unit, h: Dictionary) -> bool:
 
 
 static func _takes_infection(u: Unit) -> bool:
-	return u.team == Types.Team.PLAYER and not u.status.get("deployable", false) and not u.status.get("turned", false)
+	return u.team == Types.Team.PLAYER and not u.status.has("deployable") and not u.status.has("civilian") \
+		and not u.status.get("turned", false)
 
 
 # ---------------------------------------------------------------- hooks called by Rules
@@ -152,8 +153,12 @@ static func _hit(s: GameState, u: Unit, cell: Vector2i) -> void:
 		return
 	var k: Dictionary = KINDS[h.kind]
 	var infection: int = k.infection if _takes_infection(u) else 0
-	s.emit({"type": "hazard_tick", "unit": u.id, "kind": h.kind, "cell": cell, "damage": k.damage, "infection": infection})
-	if k.damage > 0:
-		Rules.deal_damage(s, u, k.damage, null)
+	var hit := GearFx.hazard_hit(s, u, h, k.damage, infection)  # coats, masks, Scorched earth
+	if hit == Vector2i.ZERO:
+		return
+	infection = hit.y
+	s.emit({"type": "hazard_tick", "unit": u.id, "kind": h.kind, "cell": cell, "damage": hit.x, "infection": infection})
+	if hit.x > 0:
+		Rules.deal_damage(s, u, hit.x, null)
 	if infection > 0 and u.is_alive():
 		Infection.add(s, u, infection)

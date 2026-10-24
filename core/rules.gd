@@ -30,7 +30,8 @@ static func new_mission_on_grid(grid: Grid, squad: Array, enemies: Array[String]
 		var spawn := s.grid.enemy_spawns[i % s.grid.enemy_spawns.size()]
 		if s.unit_at(spawn) != null:
 			spawn = _nearest_free(s, spawn)
-		s.add_unit(UnitData.make(enemies[i], Types.Team.ENEMY), spawn)
+		s.add_unit(EnemyRoster.make(enemies[i]), spawn)
+	Objectives.setup(s)
 	return s
 
 
@@ -67,6 +68,7 @@ static func start_team_phase(s: GameState) -> void:
 	GearFx.on_team_phase_start(s)
 	Deployables.on_team_phase_start(s)
 	Infection.on_team_phase_start(s)
+	Encounter.on_team_phase_start(s)
 	Kit.on_team_phase_start(s)
 	# Soldiers that have Lapsed act on their own before the squad gets to move.
 	for u in s.living(Types.Team.PLAYER):
@@ -86,6 +88,11 @@ static func validate(s: GameState, action: Dictionary) -> String:
 		return "No such unit"
 	if u.actions_left <= 0:
 		return "No actions left"
+	var blocked := Encounter.validate(s, u, action)
+	if blocked != "":
+		return blocked
+	if action.get("type") == Types.ABILITY and EnemyAbilities.handles(str(action.get("ability", ""))):
+		return EnemyAbilities.validate(s, u, action)
 	var kit_err := Kit.validate(s, u, action)
 	if kit_err != "":
 		return kit_err
@@ -103,11 +110,17 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		s.emit({"type": "rejected", "action": action, "reason": err})
 		return false
 	var u := s.get_unit(action.unit)
+	if action.type == Types.ABILITY and EnemyAbilities.handles(str(action.ability)):
+		EnemyAbilities.apply(s, u, action)
+		Encounter.after_action(s, u, action)
+		check_end(s)
+		return true
 	Kit.before_action(s, u, action)
 	match action.type:
 		Types.MOVE: _do_move(s, u, action.to)
 		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: Combat.apply(s, u, action)
 		Types.MUTATION: Infection.apply_mutation(s, u, action)
+	Encounter.after_action(s, u, action)
 	Kit.after_action(s, u, action)
 	check_end(s)
 	return true
@@ -121,6 +134,7 @@ static func set_ready(s: GameState, player: int, is_ready: bool) -> void:
 	s.emit({"type": "ready", "player": player, "ready": is_ready})
 	if s.ready.values().all(func(r): return r):
 		Hazards.on_team_phase_end(s)
+		Objectives.on_team_phase_end(s)
 		check_end(s)
 		if s.phase != Types.Phase.ENDED:
 			run_enemy_phase(s)
@@ -129,6 +143,7 @@ static func set_ready(s: GameState, player: int, is_ready: bool) -> void:
 static func run_enemy_phase(s: GameState) -> void:
 	s.phase = Types.Phase.ENEMY
 	s.emit({"type": "enemy_phase", "turn": s.turn})
+	Encounter.on_enemy_phase_start(s)
 	Kit.on_enemy_phase_start(s)
 	for u in s.living(Types.Team.ENEMY):
 		if s.phase == Types.Phase.ENDED:
@@ -138,10 +153,15 @@ static func run_enemy_phase(s: GameState) -> void:
 		u.actions_left = Types.ACTIONS_PER_TURN
 		for k in u.cooldowns.keys():
 			u.cooldowns[k] = max(0, u.cooldowns[k] - 1)
+		Encounter.on_unit_turn_start(s, u)
 		EnemyAI.take_turn(s, u)
 		u.actions_left = 0
+		Encounter.on_unit_turn_end(s, u)
+	if s.phase != Types.Phase.ENDED:
+		Encounter.on_enemy_phase_end(s)
 	if s.phase != Types.Phase.ENDED:
 		Hazards.on_enemy_phase_end(s)
+		Objectives.on_enemy_phase_end(s)
 		check_end(s)
 	if s.phase != Types.Phase.ENDED:
 		start_team_phase(s)
@@ -191,15 +211,20 @@ static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = 
 	if not target.is_alive():
 		return
 	amount = GearFx.damage_taken(s, target, amount, source)
+	amount = Encounter.modify_damage(s, target, amount, source)
+	if amount <= 0:
+		return
 	amount = Kit.modify_incoming(s, target, amount, source)
 	target.hp = max(0, target.hp - amount)
 	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1})
-	if source:
+	if source and EnemyRoster.infects(source):
 		Infection.on_damaged(s, target, source, amount)
+	Encounter.on_damaged(s, target, source, amount)
 	Kit.after_damage(s, target, amount, source)
 	if not target.is_alive():
 		target.overwatch = false
 		s.emit({"type": "died", "unit": target.id})
+		Encounter.on_died(s, target)
 		Kit.on_death(s, target, source)
 
 
@@ -207,11 +232,11 @@ static func check_end(s: GameState) -> void:
 	if s.phase == Types.Phase.ENDED:
 		return
 	var r := Types.Result.NONE
-	if s.living(Types.Team.ENEMY).is_empty():
-		r = Types.Result.VICTORY
-	elif Deployables.soldiers(s).is_empty():
+	if Objectives.soldiers(s).is_empty():
 		# Turned soldiers have switched teams; Lapsed ones are still ours and will recover.
 		r = Types.Result.DEFEAT
+	else:
+		r = Objectives.check(s)   # the fight's objective, or elimination where that wins
 	if r != Types.Result.NONE:
 		s.result = r
 		s.phase = Types.Phase.ENDED

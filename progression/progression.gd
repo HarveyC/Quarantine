@@ -477,3 +477,18 @@ static func apply(run: RunState, action: Dictionary) -> void:
 
 static func pick_screen() -> Script:
 	return load("res://progression/pick_screen.gd")
+
+
+## Default choices for headless autoplay (RunAutoplay, net playtest): each waiting perk pick takes
+## the first card on offer, and mutation offers are skipped.
+static func autoplay_actions(run: RunState) -> Array:
+	var out: Array = []
+	for r in run.squad():
+		var player := run.controller_of(r)
+		if pending_picks(r) > 0:
+			var offer := perk_offer(run, r)
+			if not offer.is_empty():
+				out.append({"type": "prog_perk_pick", "player": player, "sid": r.id, "perk": offer[0]})
+		elif not _prog(r).get("offers", []).is_empty():
+			out.append({"type": "prog_skip_offer", "player": player, "sid": r.id})
+	return out

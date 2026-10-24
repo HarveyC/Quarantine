@@ -19,6 +19,7 @@ const Board := preload("res://view/board.gd")
 const Palette := preload("res://view/palette.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const CameraRig := preload("res://view/camera_rig.gd")
+const EnemyBeats := preload("res://view/enemy_beats.gd")
 const ENEMY_PAD := 0.3   # extra hold after each enemy-phase action
 ## Events that keep an open shot cinematic on screen (the shot's consequences).
 const CINE_FOLLOW := ["damage", "died", "infection", "turned", "alerted"]
@@ -459,8 +460,11 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 
 func _beat_ability(ev: Dictionary) -> Dictionary:
 	match str(ev.get("ability", "")):
-		"claw":
+		"claw", "slam", "pounce", "maul", "spore_drop":
 			return _melee_beat(ev)
+		"charge":
+			if int(ev.get("target", -1)) >= 0:
+				return _melee_beat(ev)
 		"breach":
 			return _breach_beat(ev)
 		"spit":
@@ -725,7 +729,33 @@ func _beat_hazard_end(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.0}
 
 
+func _beat_objective(ev: Dictionary) -> Dictionary:
+	if view.hud != null:
+		view.hud.refresh()
+	return {"dur": 0.0}
+
+
+func _beat_rescued(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	view.fx.floating_text(_head(uv), "SAFE", Color(0.45, 0.95, 0.55), 44)
+	_sfx("radio")
+	return {"dur": 0.5}
+
+
+func _beat_left_behind(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	_focus(uv)
+	view.fx.floating_text(_head(uv), "LEFT BEHIND", Palette.DANGER, 44)
+	return {"dur": 0.7}
+
+
 func _beat_unknown(ev: Dictionary) -> Dictionary:
+	if EnemyBeats.handles(ev):
+		return EnemyBeats.beat(self, ev)
 	print("[view] unhandled event: ", ev)
 	var uv := _uv(ev)
 	if uv != null:

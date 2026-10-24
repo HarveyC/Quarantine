@@ -16,6 +16,7 @@ running the same `Rules.apply` on each, so every state change must go through `R
 | `combat/` | `Combat` | **combat** | LOS, cover, hit chance, shoot, overwatch, hunker, class abilities |
 | `infection/` | `Infection` | **infection** | Meter, tiers, mutation powers, Lapse rolls, Turning, cure |
 | `ai/` | `EnemyAI` | **ai** | Enemy and Lapsed-soldier decisions |
+| `objectives/` | `Objectives` | **maps** | Fight objectives: win/lose rules, civilians, bonus objective, HUD line |
 | `hazards/` | `Hazards` | **maps** | Fire, spore and acid tiles: placement, hits, ageing |
 | `mapgen/`, `maps/` | `MapGen` | **maps** | Seeded tactical maps from hand-made parcels, per biome and objective |
 | `gear/` | `GearData`, `Loadout`, `GearTags`, `GearDraw`, `GearRun` | **gear** | Items, loadouts, stash, tags and set bonuses, reward offers |
@@ -76,8 +77,32 @@ Rules for parallel work:
 | `hazard` | `kind`, `cells` (changed), `turns`, `source`, `spare` |
 | `hazard_tick` | `unit`, `kind`, `cell`, `damage`, `infection` (emitted before the resulting `damage` / `infection` events) |
 | `hazard_end` | `kind`, `cells` |
+| `objective` | `kind`, `progress`, `goal` (objective progress changed) |
+| `rescued` | `unit` (a civilian reached the exit) |
+| `left_behind` | `unit` (extract: the dropship left without them; a `died` follows) |
 | `gear` | `unit`, `item` (gear effect that isn't a shot: `choke` splash `target`/`damage`, `feral_grip` `heal`/`hp`, `close_set` `actions`, `mark_set` `target`, `suppress` `target`) |
 | `burning` / `burn` | `unit`, `turns` / `damage` (set Burning; the start-of-phase tick, before its `damage` event) |
+| `spawned` | `unit`, `kind`, `cell`, `from` (spawner unit id or -1) — a new enemy appeared (Hive node, egg sac, root, wave, split, brood spit) |
+| `telegraph` | `unit`, `kind` (`burst`/`charge`/`airstrike`/`core_slam`), `cells`, `turn` (when it lands) |
+| `strike` | `kind`, `cells`, `unit`, `units` (hit ids), `damage` — a telegraphed airstrike / core slam lands (before its `damage` events) |
+| `cover_destroyed` | `cells`, `unit` — half cover turned to floor (Brute charge, airstrike); the grid has changed |
+| `source_pulse` | `unit` (the Source), `units`, `amount` |
+| `reinforcements_incoming` | `cells`, `turn`, `count` — a wave arrives at these vents next enemy phase |
+| `revealed` | `unit` (a hidden Lurker) |
+| `pinned` / `released` | `unit` (soldier), `by` (Lurker) |
+| `regenerate` | `unit`, `healed`, `hp` |
+| `immune` | `unit`, `source`, `reason` (kind it is tethered to) — damage was ignored, no `damage` event follows |
+| `untethered` | `unit` |
+| `boss_phase` | `unit`, `phase`, `boss`, `text`, plus `hp`/`max_hp` for Hale |
+| `boss_defeated` | `unit`, `boss` — the remaining enemies then die |
+| `burrowed` | `unit` (a Burrower goes underground: hidden until it erupts) |
+| `lock_lost` | `unit` (a Sharpshooter's target broke line of sight, or it was suppressed) |
+| `fell` | `unit`, `damage` — knocked off a ledge or its raised tile collapsed (before its `damage` event) |
+
+`move` may carry `knockback: true` (Brute slam/charge) and is also emitted for the Source's pull
+(the moved unit is the soldier). Enemy abilities (`slam`, `charge`, `burst`, `pounce`, `maul`,
+`scream`, `brood_spit`, `airstrike`, `flashbang`, `pull`, `core_slam`) use the `ability` event;
+area ones add `cells` and `units`.
 
 New event types are fine; add them to this table.
 
@@ -208,9 +233,14 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   (`on_move`) and `Infection.on_damaged` (`bite_infection`). Gadgets and pocket consumables are abilities
   with ids `gear:<item>` / `item:<consumable>` that Combat delegates to GearFx (they appear in
   `Combat.available_abilities` with `"gear": true`). Status keys: `burning` (ticks left), `suppress_extra`,
-  `smoked`, `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`.
-  `GearFx.PENDING` lists items whose systems don't exist yet (fire tiles, spore zones, turrets, fog);
-  they stay out of draws until they work.
+  `smoked`, `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`,
+  `burn_source`, `gear_fire_mobility`. Fire from gear (Thermite line, Igniter barrel, Burn set spread)
+  goes through `GearFx.set_fire` -> `Hazards.add(..., "fire", turns, unit.id)`, and `Hazards._hit` asks
+  `GearFx.hazard_hit` (Flame-retardant coat, Filter mask, Scorched earth, Spotter flare). Sentry turret
+  spawns a Deployables turret. `GearFx.PENDING` lists items whose systems don't exist yet (fog of war,
+  restraint, mutation costs); they stay out of draws until they work.
+- **Gear max HP** (Kevlar vest etc.): `Loadout.equip / unequip / upgrade` move the run record's
+  `max_hp` and `hp` by the change, so the record always holds HP including gear.
 - **Screens** (`ui/gear/`): `GearRun.reward_screen()` and `GearRun.loadout_screen()` return Control
   scripts with `setup(run, session)` (they send `session.submit_run`); the loadout screen emits `closed`.
   `scenes/gear_demo.tscn` previews them on a seeded run (`-- --screen=reward|loadout|doctrine|kit`).
@@ -309,6 +339,31 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 
 The view paints `evac` and `beacon` zones on the floor (`Board._build_zones`). For a look at a
 generated map: `godot res://scenes/main.tscn -- --seed=5 --objective=hold --screenshot-action=overview --screenshot=x.png`.
+
+## Objectives (objectives/)
+
+The objective comes with the map: `grid.objective` (set by MapGen, saved with the grid). Progress is
+`GameState.objective` (saved in `to_dict`). A fight ends the moment its objective is met.
+
+| objective | win | loss (besides a squad wipe) |
+|---|---|---|
+| skirmish, elite, boss | every enemy dead | |
+| extract | every living soldier on `evac` at the end of a squad turn | after turn 7 soldiers off the pad die (`left_behind`); defeat if none made it |
+| hold | 4 rounds survived (`held`) | end of a round with enemies and no soldier in `beacon` |
+| rescue | every living civilian on `exit` (kills win only once no civilian is alive) | |
+| purge | no living unit of kind `spore_nest` (or every enemy dead) | |
+
+- **Hooks**: `Objectives.setup(s)` at the end of `Rules.new_mission_on_grid`; `on_team_phase_end`
+  (after hazards, from `Rules.set_ready`) and `on_enemy_phase_end` (after hazards); `Rules.check_end`
+  uses `Objectives.check(s)` after the squad-wiped test. Squad = `Objectives.soldiers(s)` (no
+  deployables, no civilians). Tests fake a win with `s.objective.result = Types.Result.VICTORY`.
+- **Civilians** (rescue): player-team units with `status.civilian`, `owner_player = -1`, not
+  `ai_controlled`; at each squad turn's end they make one MOVE toward the nearest soldier (overwatch
+  and hazards apply), and step onto the exit when a soldier is within 3 tiles. Enemies target them.
+- **Bonus** (`Objectives.bonus_met(s)`, used by `RunRules.fight_outcome`): extract nobody left
+  behind; hold the beacon never contested; rescue every civilian saved; skirmish / elite / purge
+  won by the end of turn 5; boss none.
+- **HUD**: `Objectives.describe(s)` is the objective line under the turn banner.
 
 ## Tile hazards (hazards/)
 
@@ -609,3 +664,56 @@ the map thread's `Hazards` module.
   carry units with a `sid`.
 - Events: `deployed` (`unit`, `kind`, `cell`, `owner`), `deployable_end` (`unit`, then `died`).
   The view builds a unit view lazily; models fall back to the trooper model until a turret model exists.
+
+## Enemies (roster, elites, bosses)
+
+Folder `enemies/`, owned by the enemy roster workstream. Design doc section "Enemies".
+
+| Class | What it does |
+|---|---|
+| `EnemyRoster` | Threat costs, act pools, elites and affixes, enemy spec strings, `make(spec)` |
+| `FightBuilder` | `build(spec) -> {enemies, encounter}` and `preview(spec)` for the run map |
+| `Encounter` | Fight-level rules called by `Rules`: spawners, waves, spore zones (as `Hazards` spore tiles), telegraphs, affixes, bosses |
+| `EnemyAbilities` | Enemy-only abilities, routed by `Rules` instead of `Combat` |
+| `EnemyBehaviours` | AI behaviours Cover shooter, Seek cluster, Ambush, Support, the Brute charge and the bosses (`EnemyAI` dispatches to it) |
+| `EnemyTerrain` | Elevation reads for enemies (`Grid.level` when it exists), fall damage, collapsing raised tiles via `Elevation.set_level` |
+| `EnemyIntent` | Pure "what will it do" reads for the view's intent labels and danger tiles |
+
+View side: `view/enemy_beats.gd` (beats and log lines for the events above, placeholder scale per
+kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the event queue drains).
+
+- **Spec strings** (MatchConfig `enemies`): `"runner"`; `"brute!armoured,hasted"` = elite (double HP)
+  with affixes; `"runner+hasted"` = regular that bought an affix. `Rules.new_mission_on_grid` builds
+  them with `EnemyRoster.make`.
+- **Rules hooks** (all in `Encounter`): `validate` (pinned soldiers can't act, hidden units can't be
+  targeted), `after_action`, `on_team_phase_start`, `on_enemy_phase_start` (telegraphs land, Source pulse, spawners, waves), `on_unit_turn_start/end` (hasted, regenerating, Bloater
+  swell, Brute wind-up), `on_enemy_phase_end` (frenzy expiry, Source spore rings, wave
+  warnings), and in `Rules.deal_damage`: `modify_damage` (tethers, armour, Carrier twist, bosses
+  always reach phase 2), `on_damaged` (virulent, Outbreak infection bonus, pin release, boss phases),
+  `on_died` (splitting, death burst, boss defeat, tethers). `EnemyRoster.infects(source)` gates
+  `Infection.on_damaged` (Fallen bullets don't infect).
+- **`GameState.encounter`** is serialized with the state. Keys: `act`, `node`, `objective`,
+  `outbreak`, `stage`, `boss`, `hive`, `purge_nests`, `ambush`, `boss_health_mult`, `infect_bonus`,
+  `start_infection`, `spore_patches`, `waves` ([{turn, every, kinds}]), `incoming`, `telegraphs` ([{kind, cells, turn, damage, source, smash, unit}]),
+  `lapse_double`, `over`.
+- **Statuses** (enemy units unless noted): `elite`, `affixes`, `armour`, `hidden`, `boss`,
+  `boss_phase`, `spawner` ({kinds, every, next, i}), `tether` (kind whose living units make it
+  immune), `swelling`, `charge_dir`, `pinning`, soldier `pinned_by`, `frenzy`/`frenzy_mob`/`frenzy_aim`,
+  `pull_turn`, `leap_cell` (Leaper landing), `sighted` (Sharpshooter target id), `burrowed` +
+  `emerge_cell` (Burrower), `flying` (Drifter; Elevation reads it as height 1). **`burned_turn`** (int turn) is read, not written: set it from a flame ability to stop
+  Regenerating that turn (GearFx `burning` also stops it).
+- **Static units** (`UnitData.ENEMIES[kind].static`: Hive node, egg sac, spore nest, Source root)
+  never act; `Objectives` can count living `spore_nest` units for Purge.
+- **Outbreak stages** (`FightBuilder.stage`): Spreading +1 enemy (2 budget) and a spore patch;
+  Rampant +1 more, a wave on turn 4, +5 Infection on infected hits; Critical a skirmish elite (50%),
+  2 patches, 2 elite affixes in nests; Collapse +10 starting Infection and waves every 3 turns.
+  Budget past the 5-enemy cap buys affixes or an earlier wave. Objective pressure: Hold gets a wave
+  every turn from 2 sides, Extract 2 enemies every 2 turns, Purge 3 spore nests on `markers.nest`.
+- **Vertical enemies**: Leaper (marks a 3x3 landing a turn ahead, jumps over terrain and height,
+  overwatch can't catch it, knocks soldiers off ledges), Drifter (flies over everything, drops from
+  above ignoring cover), Sharpshooter (claims high ground, telegraphed laser lock that fires next
+  turn unless line of sight breaks or it is suppressed), Burrower (act 3, hidden underground, erupts
+  next to the soldier on the highest ground, destroys cover and collapses raised tiles). Each act
+  weights its `EnemyRoster.SIGNATURE` enemies double.
+- **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
+- Dev aid: `-- --fight=<node>,<act>,<outbreak>` plays one built fight on the test map.
