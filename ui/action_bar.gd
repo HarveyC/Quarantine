@@ -158,7 +158,7 @@ func _button(input: InputController, a: Dictionary, can_act: bool) -> Button:
 		b.add_theme_stylebox_override("hover", Styles.panel_box(Styles.AMBER.lightened(0.1), Styles.AMBER))
 	if b.disabled:
 		fg = Color(fg, 0.35)
-	b.tooltip_text = label + ("\n" + str(a.desc) if a.get("key") == "shoot" and a.has("desc") else "")
+	b.tooltip_text = label + ("\n" + str(a.desc) if not mutation and str(a.get("desc", "")) != "" else "")
 	var key: String = a.key
 	b.pressed.connect(func() -> void: action_pressed.emit(key))
 	var col := Styles.vbox(6)

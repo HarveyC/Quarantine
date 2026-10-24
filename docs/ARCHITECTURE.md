@@ -104,8 +104,17 @@ Rules for parallel work:
 | `lock_lost` | `unit` (a Sharpshooter's target broke line of sight, or it was suppressed) |
 | `fell` | `unit`, `damage` — knocked off a ledge or its raised tile collapsed (before its `damage` event) |
 | `revealed_area` | `cell`, `radius` — a Recon drone shows an area from above for the rest of the fight |
+| `guard` | `unit` (a Warden entered Guard stance: it Bashes the first enemy that steps next to it before its next team phase) |
+| `stunned` | `unit`, `by` — a Shield Bash stunned the unit (it loses its next turn, or the rest of the turn it was moving in) |
+| `bleeding` / `bleed` | `unit`, `turns` / `damage` (Reaper Bleed Out; the tick at the start of the bleeding unit's phase, before its `damage` event) |
 
-`move` may carry `knockback: true` (Brute slam/charge) and is also emitted for the Source's pull
+Melee classes: `lunge` (Reaper) emits its dash as ordinary `move` events (overwatch and Guard can
+interrupt them), then an `ability` event with `hit`, `graze`, `damage`, `chance` (Cleave adds more with
+`cleave: true`; Riposte uses ability `riposte`). `bash` (Warden) has the same fields, plus `reaction: true`
+from Guard or `charge: true` from Shield Charge, and is followed by the target's knockback `move` and `stunned`.
+A Reaper's melee kill that refunds an action emits `perk` with `perk: "bloodlust"`.
+
+`move` may carry `knockback: true` (Brute slam/charge, Shield Bash) and is also emitted for the Source's pull
 (the moved unit is the soldier). Enemy abilities (`slam`, `charge`, `burst`, `pounce`, `maul`,
 `scream`, `brood_spit`, `airstrike`, `flashbang`, `pull`, `core_slam`) use the `ability` event;
 area ones add `cells` and `units`.

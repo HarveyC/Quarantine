@@ -41,6 +41,10 @@ const TABLE := {
 	"carbine": {"name": "Bio-carbine", "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3,
 		"trait": "snap", "reaction": 0,
 		"desc": "Snap shots: overwatch reaction shots take no aim penalty."},
+	"sidearm": {"name": "Sidearm", "close": 3.0, "close_aim": 10, "falloff": 7.0, "falloff_aim": 4,
+		"desc": "Backup pistol: +10 aim within 3 tiles, falls off past 7. The real weapon is in the other hand."},
+	"revolver": {"name": "Heavy revolver", "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "crit": 10,
+		"desc": "One-handed over the shield rim: +10% crit, falls off past 6."},
 	# Alternate guns.
 	"battle_rifle": {"name": "Battle rifle", "classes": ["trooper", "marksman"], "rarity": "uncommon", "tag": "Suppress",
 		"look": "rifle", "close": 3.0, "close_aim": 10, "falloff": 12.0, "falloff_aim": 2, "aim": -5, "dmg": 1,
@@ -85,7 +89,7 @@ const TABLE := {
 ## Unit kind -> weapon id. Anything not listed fires the default rifle profile.
 const BY_KIND := {
 	"trooper": "rifle", "marksman": "dmr", "medic": "pdw", "breacher": "shotgun",
-	"hazmat": "lmg", "vector": "carbine",
+	"hazmat": "lmg", "vector": "carbine", "reaper": "sidearm", "warden": "revolver",
 	"fallen": "rifle", "colonel_hale": "rifle", "sharpshooter": "dmr", "spitter": "spit",
 }
 

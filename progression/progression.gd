@@ -36,7 +36,20 @@ const QUICK_PLAY_MUTATIONS := {
 	"breacher": {"exposed": "hollow_bones", "mutating": "leech_bite"},
 	"hazmat": {"exposed": "lure_scent", "mutating": "acid_spit"},
 	"vector": {"exposed": "adrenal_surge", "mutating": "leech_bite", "strain": "flies"},
+	"reaper": {"exposed": "hollow_bones", "mutating": "leech_bite"},
+	"warden": {"exposed": "clotting_blood", "mutating": "chitin_plates"},
 }
+
+## How each unlockable class is earned, one short sentence for menus (Field HQ).
+const CLASS_UNLOCK_HINTS := {
+	"hazmat": "Beat the Act 1 boss.",
+	"vector": "Win a fight with a soldier at Mutating Infection or higher who didn't Turn.",
+	"reaper": "Win a fight where one soldier killed 3 enemies standing next to them.",
+	"warden": "Win a fight where one soldier was hit 4 times and lived.",
+}
+## Unlock thresholds for the melee classes (Unit status counters kept by Kit).
+const REAPER_CLOSE_KILLS := 3
+const WARDEN_HITS_TAKEN := 4
 
 
 # ---------------------------------------------------------------- record
@@ -388,20 +401,35 @@ static func unlocked_classes(meta: Dictionary) -> Array[String]:
 		out.append("hazmat")
 	if meta.get("vector_unlocked", false):
 		out.append("vector")
+	for kind in ["reaper", "warden"]:
+		if meta.get(kind + "_unlocked", false):
+			out.append(kind)
 	return out
 
 
-## After every fight (outcome = RunRules.fight_outcome): a won fight ended by a soldier at
-## Mutating or higher who didn't Turn unlocks the Vector.
+## After every fight (outcome = RunRules.fight_outcome), a won fight unlocks a class when one
+## surviving, un-Turned soldier ended it: at Mutating or higher (Vector), with 3 kills on adjacent
+## enemies (Reaper), or after taking 4 hits (Warden). See CLASS_UNLOCK_HINTS.
 static func on_fight_end(run: RunState, outcome: Dictionary) -> void:
-	if outcome.get("result", Types.Result.NONE) != Types.Result.VICTORY or run.meta.get("vector_unlocked", false):
+	if outcome.get("result", Types.Result.NONE) != Types.Result.VICTORY:
 		return
 	for e in outcome.get("soldiers", []):
 		var u := Unit.from_dict(e.unit)
-		if u.is_alive() and not u.status.get("turned", false) and u.infection >= MUTATING_AT:
-			run.meta["vector_unlocked"] = true
-			run.emit({"type": "class_unlocked", "kind": "vector"})
-			return
+		if not u.is_alive() or u.status.get("turned", false):
+			continue
+		if u.infection >= MUTATING_AT:
+			_unlock(run, "vector")
+		if int(u.status.get("close_kills", 0)) >= REAPER_CLOSE_KILLS:
+			_unlock(run, "reaper")
+		if int(u.status.get("hits_taken", 0)) >= WARDEN_HITS_TAKEN:
+			_unlock(run, "warden")
+
+
+static func _unlock(run: RunState, kind: String) -> void:
+	if run.meta.get(kind + "_unlocked", false):
+		return
+	run.meta[kind + "_unlocked"] = true
+	run.emit({"type": "class_unlocked", "kind": kind})
 
 
 # ---------------------------------------------------------------- run actions
