@@ -380,6 +380,28 @@ func touching(a: Vector2i, b: Vector2i) -> bool:
 	return via_x or via_y
 
 
+## Units on `a` and `b` can strike each other in melee: `touching`, and on the same level, or one
+## level apart across a stair step (straight, like walking it). A diagonal needs both on the same
+## level with a corner around it no higher than them. Ladders and ledges don't count: a claw
+## can't reach a roof from the ground below it.
+func melee_reach(a: Vector2i, b: Vector2i) -> bool:
+	if not touching(a, b):
+		return false
+	var la := level(a)
+	var lb := level(b)
+	var d := b - a
+	if d.x == 0 or d.y == 0:
+		return la == lb or (absi(la - lb) == 1 and (is_stairs(a) or is_stairs(b)))
+	if la != lb:
+		return false
+	var x := a + Vector2i(d.x, 0)
+	var y := a + Vector2i(0, d.y)
+	return (level(x) <= la and not blocks_los(x) and not edge_blocks_los(a, Vector2i(d.x, 0))
+			and not edge_blocks_los(x, Vector2i(0, d.y))) \
+		or (level(y) <= la and not blocks_los(y) and not edge_blocks_los(a, Vector2i(0, d.y))
+			and not edge_blocks_los(y, Vector2i(d.x, 0)))
+
+
 ## Cover a unit at `c` gets on its side `d` (orthogonal): the tile there or the edge between.
 func cover_toward(c: Vector2i, d: Vector2i) -> int:
 	return maxi(cover_value(c + d), edge_cover(c, d))

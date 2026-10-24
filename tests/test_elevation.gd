@@ -154,3 +154,104 @@ func test_sight_grows_with_each_level() -> void:
 	assert_eq(Vision.sight(s, u), base + Vision.HIGH_GROUND_BONUS, "roof")
 	u.pos = Vector2i(4, 1)
 	assert_eq(Vision.sight(s, u), base + 2 * Vision.HIGH_GROUND_BONUS, "upper roof")
+
+
+# ---------------------------------------------------------------- melee across levels
+
+func _tall_state() -> GameState:
+	var s := make_blank(PackedStringArray(TALL))
+	s.turn = 1
+	s.phase = Types.Phase.TEAM
+	Vision.disable(s)
+	return s
+
+
+func _add(s: GameState, kind: String, team: int, at: Vector2i) -> Unit:
+	var u := s.add_unit(UnitData.make(kind, team), at) if team == Types.Team.PLAYER else s.add_unit(EnemyRoster.make(kind), at)
+	u.actions_left = Types.ACTIONS_PER_TURN
+	if team == Types.Team.PLAYER:
+		u.owner_player = 0
+	else:
+		u.status["alerted"] = true
+	return u
+
+
+func test_melee_reach_needs_the_same_level_or_a_stair_step() -> void:
+	var g: Grid = make_blank(PackedStringArray(TALL)).grid
+	assert_true(g.touching(Vector2i(3, 4), Vector2i(3, 3)), "ground and roof edge are next to each other")
+	assert_true(not g.melee_reach(Vector2i(3, 4), Vector2i(3, 3)), "but no claws up a bare wall")
+	assert_true(not g.melee_reach(Vector2i(3, 3), Vector2i(3, 4)), "nor down off a ledge")
+	assert_true(not g.melee_reach(Vector2i(1, 4), Vector2i(2, 3)), "nor diagonally up onto a roof")
+	assert_true(not g.melee_reach(Vector2i(7, 2), Vector2i(6, 2)), "a ladder is a climb, not a step")
+	assert_true(g.melee_reach(Vector2i(1, 2), Vector2i(2, 2)), "stairs up to the roof are a step")
+	assert_true(g.melee_reach(Vector2i(2, 2), Vector2i(1, 2)), "and back down")
+	assert_true(g.melee_reach(Vector2i(3, 2), Vector2i(4, 2)), "roof stairs reach the upper roof")
+	assert_true(not g.melee_reach(Vector2i(3, 1), Vector2i(4, 1)), "but not beside the stairs")
+	assert_true(g.melee_reach(Vector2i(2, 1), Vector2i(3, 2)), "diagonal along a roof")
+	assert_true(not g.melee_reach(Vector2i(3, 3), Vector2i(4, 2)), "no diagonal from the roof onto the upper roof")
+	assert_true(g.melee_reach(Vector2i(0, 4), Vector2i(1, 4)), "flat ground as before")
+
+
+func test_claws_and_slams_cant_reach_a_roof_from_below() -> void:
+	var s := _tall_state()
+	var t := _add(s, "trooper", Types.Team.PLAYER, Vector2i(3, 3))
+	var runner := _add(s, "runner", Types.Team.ENEMY, Vector2i(3, 4))
+	assert_eq(Rules.validate(s, {"type": Types.ABILITY, "unit": runner.id, "ability": "claw", "target": t.id}), "Not adjacent",
+		"claw refused from the ground")
+	var brute := _add(s, "brute", Types.Team.ENEMY, Vector2i(4, 4))
+	t.pos = Vector2i(4, 3)
+	assert_true(EnemyAbilities.validate(s, brute, {"type": Types.ABILITY, "unit": brute.id, "ability": "slam", "target": t.id}) != "",
+		"slam refused from the ground")
+	runner.pos = Vector2i(1, 2)
+	t.pos = Vector2i(2, 2)
+	assert_eq(Rules.validate(s, {"type": Types.ABILITY, "unit": runner.id, "ability": "claw", "target": t.id}), "",
+		"claw allowed from the stairs")
+
+
+func test_runner_climbs_instead_of_clawing_from_below() -> void:
+	var s := _tall_state()
+	var t := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 3))
+	var runner := _add(s, "runner", Types.Team.ENEMY, Vector2i(2, 4))
+	s.phase = Types.Phase.ENEMY
+	EnemyAI.take_turn(s, runner)
+	var claws := s.log.filter(func(e): return e.type == "ability" and e.get("ability") == "claw" and e.get("unit") == runner.id)
+	assert_true(claws.is_empty() or s.grid.melee_reach(runner.pos, t.pos), "only claws from the roof or the stairs: %s" % [runner.pos])
+	assert_true(runner.pos != Vector2i(2, 4), "doesn't stand below swiping at the roof")
+
+
+func test_brute_charge_stops_at_a_ledge() -> void:
+	var s := _tall_state()
+	var t := _add(s, "trooper", Types.Team.PLAYER, Vector2i(5, 3))
+	var brute := _add(s, "brute", Types.Team.ENEMY, Vector2i(5, 6))
+	var lane := EnemyAbilities.charge_lane(s, brute, brute.pos, Vector2i(0, -1))
+	assert_true(lane.hit == null, "no hit on the roof")
+	assert_true(not lane.cells.has(t.pos), "charge doesn't run up the wall: %s" % [lane.cells])
+
+
+func test_reaper_and_warden_stay_on_their_level() -> void:
+	var s := _tall_state()
+	var foe := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 3))
+	foe.max_hp = 99
+	foe.hp = 99
+	var reaper := _add(s, "reaper", Types.Team.PLAYER, Vector2i(4, 5))
+	assert_eq(ClassAbilities.lunge_landing(s, reaper, foe, ClassAbilities.LUNGE_REACH), ClassAbilities.NO_CELL,
+		"the cell under the roof isn't a landing; the roof is out of reach")
+	assert_eq(Rules.validate(s, {"type": Types.ABILITY, "unit": reaper.id, "ability": "lunge", "target": foe.id}), "Can't reach",
+		"lunge refused")
+	reaper.pos = Vector2i(1, 3)
+	var landing := ClassAbilities.lunge_landing(s, reaper, foe, ClassAbilities.LUNGE_REACH)
+	assert_true(landing != ClassAbilities.NO_CELL and s.grid.level(landing) == 1, "up the stairs onto the roof: %s" % [landing])
+	var warden := _add(s, "warden", Types.Team.PLAYER, Vector2i(4, 4))
+	assert_eq(Rules.validate(s, {"type": Types.ABILITY, "unit": warden.id, "ability": "bash", "target": foe.id}), "Not adjacent",
+		"bash refused from the ground")
+
+
+func test_leaper_impact_still_reaches_a_raised_soldier() -> void:
+	var s := _tall_state()
+	var t := _add(s, "trooper", Types.Team.PLAYER, Vector2i(3, 3))
+	var le := _add(s, "leaper", Types.Team.ENEMY, Vector2i(3, 4))
+	le.status["leap_cell"] = Vector2i(3, 4)
+	le.pos = Vector2i(9, 6)
+	var hp := t.hp
+	EnemyAbilities.apply(s, le, {"type": Types.ABILITY, "unit": le.id, "ability": "leap"})
+	assert_true(t.hp < hp, "the landing hits the roof edge above it")

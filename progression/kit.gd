@@ -402,7 +402,7 @@ static func after_damage(s: GameState, target: Unit, amount: int, source: Unit) 
 ## per enemy phase.
 static func after_claw(s: GameState, attacker: Unit, target: Unit) -> void:
 	if has_perk(target, "riposte") and target.is_alive() and attacker.is_alive() and not target.ai_controlled \
-			and target.is_enemy_of(attacker) and cheb(attacker.pos, target.pos) == 1 \
+			and target.is_enemy_of(attacker) and s.grid.melee_reach(target.pos, attacker.pos) \
 			and s.phase == Types.Phase.ENEMY and _once(target, "k_riposte", Combat.phase_index(s)):
 		ClassAbilities.strike(s, target, attacker, "riposte")
 

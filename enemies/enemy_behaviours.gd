@@ -33,11 +33,11 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 		return true
 	if u.status.has("leap_cell"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "leap"})
-		# It lands ready to fight: claws anyone next to it that the impact didn't throw clear.
+		# It lands ready to fight: claws anyone in melee reach that the impact didn't throw clear.
 		if u.is_alive() and s.phase != Types.Phase.ENDED:
 			u.actions_left = 1
 			for h in s.living():
-				if u.is_enemy_of(h) and EnemyAI._cheb(u.pos, h.pos) == 1 \
+				if u.is_enemy_of(h) and s.grid.melee_reach(u.pos, h.pos) \
 						and _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id}):
 					break
 			u.actions_left = 0
@@ -82,17 +82,17 @@ static func end_turn(s: GameState, u: Unit) -> void:
 	var hostiles := EnemyAI._hostiles(s, u)
 	if u.kind in ["bloater", "broodling"] and not u.status.has("swelling") and EnemyAI.is_alerted(u):
 		var need := 1 if u.kind == "broodling" else 2
-		if _adjacent(u.pos, hostiles) >= need:
+		if _adjacent(s, u.pos, hostiles) >= need:
 			u.status["swelling"] = s.turn
 			s.emit({"type": "telegraph", "unit": u.id, "kind": "burst",
 				"cells": EnemyAbilities.square(s.grid, u.pos, 1), "turn": s.turn + 1})
-	if u.kind == "leaper" and not u.status.has("leap_cell") and EnemyAI.is_alerted(u) and _adjacent(u.pos, hostiles) == 0:
+	if u.kind == "leaper" and not u.status.has("leap_cell") and EnemyAI.is_alerted(u) and _adjacent(s, u.pos, hostiles) == 0:
 		var cell := _best_landing(s, u, hostiles)
 		if cell != Vector2i(-1, -1):
 			u.status["leap_cell"] = cell
 			s.emit({"type": "telegraph", "unit": u.id, "kind": "leap",
 				"cells": EnemyAbilities.square(s.grid, cell, 1), "turn": s.turn + 1})
-	if can_charge(u) and not u.status.has("charge_dir") and EnemyAI.is_alerted(u) and _adjacent(u.pos, hostiles) == 0:
+	if can_charge(u) and not u.status.has("charge_dir") and EnemyAI.is_alerted(u) and _adjacent(s, u.pos, hostiles) == 0:
 		var best := {}
 		var best_score := -INF
 		for d in Grid.DIRS8:
@@ -121,7 +121,7 @@ static func can_charge(u: Unit) -> bool:
 static func rush(s: GameState, u: Unit, hostiles: Array[Unit], ability: String) -> Dictionary:
 	var adjacent: Array[Unit] = []
 	for h in hostiles:
-		if s.grid.touching(u.pos, h.pos):
+		if s.grid.melee_reach(u.pos, h.pos):
 			adjacent.append(h)
 	adjacent.sort_custom(func(a: Unit, b: Unit) -> bool:
 		return EnemyAI._target_score(s, u, a, u.pos) > EnemyAI._target_score(s, u, b, u.pos))
@@ -137,7 +137,7 @@ static func rush(s: GameState, u: Unit, hostiles: Array[Unit], ability: String) 
 	for h in hostiles:
 		for d in Grid.DIRS8:
 			var c: Vector2i = h.pos + d
-			if c == u.pos or not reach.has(c):
+			if c == u.pos or not reach.has(c) or not s.grid.melee_reach(c, h.pos):
 				continue
 			var score := EnemyAI._target_score(s, u, h, c) - int(reach[c]) * 0.1
 			if score > best_score:
@@ -207,7 +207,7 @@ static func seek_cluster(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictio
 	var field := EnemyAI._distance_field(s.grid, sources)
 	var reach := Rules.move_range(s, u)
 	var score_of := func(c: Vector2i) -> float:
-		return _adjacent(c, hostiles) * 10.0 - float(field.get(c, 99)) - Hazards.avoid_cost(s, u, c)
+		return _adjacent(s, c, hostiles) * 10.0 - float(field.get(c, 99)) - Hazards.avoid_cost(s, u, c)
 	var here: float = score_of.call(u.pos)
 	var best_cell := u.pos
 	var best_score := here
@@ -309,7 +309,7 @@ static func _support_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[U
 ## Prefers spots next to soldiers on high ground or in clusters.
 static func _leaper(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 	for h in hostiles:
-		if EnemyAI._cheb(u.pos, h.pos) == 1:
+		if s.grid.melee_reach(u.pos, h.pos):
 			var claw := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id})
 			if not claw.is_empty():
 				return claw
@@ -410,7 +410,7 @@ static func _perch_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Uni
 ## Burrower: claws if adjacent, otherwise tunnels toward the soldier on the highest ground.
 static func _burrower(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 	for h in hostiles:
-		if EnemyAI._cheb(u.pos, h.pos) == 1:
+		if s.grid.melee_reach(u.pos, h.pos):
 			var claw := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id})
 			if not claw.is_empty():
 				return claw
@@ -454,7 +454,7 @@ static func _brood_mother(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dicti
 					if not spit.is_empty():
 						return spit
 	for h in hostiles:
-		if EnemyAI._cheb(u.pos, h.pos) == 1:
+		if s.grid.melee_reach(u.pos, h.pos):
 			var claw := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id})
 			if not claw.is_empty():
 				return claw
@@ -530,10 +530,11 @@ static func _try(s: GameState, action: Dictionary) -> bool:
 	return Rules.validate(s, action) == "" and Rules.apply(s, action)
 
 
-static func _adjacent(c: Vector2i, hostiles: Array[Unit]) -> int:
+## Hostiles `c` can reach in melee (Grid.melee_reach: same level or across a stair step).
+static func _adjacent(s: GameState, c: Vector2i, hostiles: Array[Unit]) -> int:
 	var n := 0
 	for h in hostiles:
-		if EnemyAI._cheb(c, h.pos) == 1:
+		if s.grid.melee_reach(c, h.pos):
 			n += 1
 	return n
 
