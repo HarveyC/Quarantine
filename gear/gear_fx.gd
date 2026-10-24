@@ -145,6 +145,12 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 			breakdown.append(["Smart-link", 10])
 		if mk(a, "suppressor") >= 2 and not t.status.get("alerted", true):
 			breakdown.append(["Suppressor", 10])
+		if has(a, "spotter_scope") and is_marked(s, t):
+			breakdown.append(["Spotter scope", 15 if mk(a, "spotter_scope") < 2 else 20])
+		if reaction and has(a, "match_rounds"):
+			breakdown.append(["Match rounds", 5 if mk(a, "match_rounds") < 2 else 10])
+		if has(a, "bayonet") and _dist(from, t.pos) <= CLOSE:
+			breakdown.append(["Bayonet", 10 if mk(a, "bayonet") < 2 else 15])
 	if a.team == Types.Team.PLAYER and a.status.get("doctrines", []).has("buddy_system"):
 		for o in s.living(Types.Team.PLAYER):
 			if o != a and _cheb(o.pos, from) == 1 and not o.is_enemy_of(a):
@@ -156,6 +162,20 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 		breakdown.append(["Riot shield", -Combat.COVER_HALF])
 	if Combat.has_status(s, t, "smoked"):
 		breakdown.append(["Smoke", -SMOKE_DEFENSE])
+	if t.status.has("gear"):
+		if has(t, "ghillie_cloak") and t.overwatch:
+			breakdown.append(["Ghillie cloak", -(10 if mk(t, "ghillie_cloak") < 2 else 15)])
+		if has(t, "mycelial_weave"):
+			var weave := 5 * awake_mutations(t) + (5 if mk(t, "mycelial_weave") >= 2 else 0)
+			if weave > 0:
+				breakdown.append(["Mycelial weave", -weave])
+		if has(t, "cauterizer") and Hazards.at(s, t.pos).get("kind", "") == "fire":
+			breakdown.append(["Cauterizer", -10])
+	if t.team == Types.Team.PLAYER:
+		for g in s.living(Types.Team.PLAYER):
+			if g != t and g.overwatch and _cheb(g.pos, t.pos) == 1 and has(g, "overlook"):
+				breakdown.append(["Overlook", -10])
+				break
 	if t.team == Types.Team.PLAYER:
 		for g in s.living(Types.Team.PLAYER):
 			if g != t and _cheb(g.pos, t.pos) == 1 and has_set(g, "Guard"):
@@ -180,6 +200,10 @@ static func shot_damage(s: GameState, u: Unit, t: Unit, dmg: int, reaction: bool
 		dmg += 1
 	if has(u, "spore_rounds"):
 		dmg += awake_mutations(u) + (1 if mk(u, "spore_rounds") >= 2 else 0)
+	if has(u, "pilot_light") and is_burning(s, t):
+		dmg += mk(u, "pilot_light")
+	if has(u, "hollow_points") and Combat.has_status(s, t, "suppressed"):
+		dmg += mk(u, "hollow_points")
 	return dmg
 
 
@@ -202,6 +226,13 @@ static func after_shot(s: GameState, u: Unit, t: Unit, hit: bool, reaction: bool
 		if has(u, "igniter_barrel") and u.status.get("igniter_turn", -1) != s.turn:
 			u.status["igniter_turn"] = s.turn
 			set_fire(s, u, [t.pos], mk(u, "igniter_barrel"))
+		if close and has(u, "firestarter"):
+			ignite(s, u, t, 1)
+	if hit and has(u, "leech_rounds") and Infection.tier(u.infection) >= Infection.Tier.EXPOSED:
+		if u.hp < u.max_hp:
+			u.hp += 1
+			s.emit({"type": "gear", "unit": u.id, "item": "leech_rounds", "heal": 1, "hp": u.hp})
+		Infection.add(s, u, 2 if mk(u, "leech_rounds") < 2 else 1)
 	if hit and t.team == Types.Team.ENEMY and has(u, "purifier_rounds") and u.infection > 0:
 		Infection.add(s, u, -(3 if mk(u, "purifier_rounds") < 2 else 5))
 	if hit and close and has(u, "feral_grip") and u.hp < u.max_hp:
@@ -239,6 +270,8 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 			s.emit({"type": "gear", "unit": u.id, "item": "mark_set", "target": best.id})
 	if is_burning(s, t):
 		_burn_set_spread(s, t)
+	if has(u, "purge_canister") and u.infection > 0:
+		Infection.add(s, u, -(5 if mk(u, "purge_canister") < 2 else 10))
 	if is_burning(s, t) and has(u, "phosphor_rounds"):
 		var radius := 1 if mk(u, "phosphor_rounds") < 2 else 2
 		for o in s.living():
@@ -262,6 +295,8 @@ static func _suppress(s: GameState, u: Unit, t: Unit, extra: int = 0) -> void:
 		t.status["suppress_extra"] = bonus
 	else:
 		t.status.erase("suppress_extra")
+	if has(u, "pinpoint"):
+		_mark(s, t, 3)
 	s.emit({"type": "gear", "unit": u.id, "item": "suppress", "target": t.id})
 
 
@@ -306,7 +341,7 @@ static func hazard_hit(s: GameState, u: Unit, h: Dictionary, damage: int, infect
 				s.emit({"type": "gear", "unit": src.id, "item": "scorched_earth", "target": u.id})
 				Infection.add(s, u, -SCORCHED_PURGE)
 			return Vector2i.ZERO
-		if has(u, "flame_coat"):
+		if has(u, "flame_coat") or has(u, "cauterizer"):
 			return Vector2i(0, infection)
 		if src != null and has(src, "spotter_flare") and is_marked(s, u):
 			damage *= 2
@@ -333,6 +368,8 @@ static func on_suppress(s: GameState, u: Unit, t: Unit) -> void:
 		return
 	if has(u, "compensator"):
 		t.status["suppress_extra"] = 10 if mk(u, "compensator") < 2 else 15
+	if has(u, "pinpoint"):
+		_mark(s, t, 3)
 	if has(u, "rotary_feed"):
 		var reach := 3 if mk(u, "rotary_feed") < 2 else 4
 		var dir := Vector2(t.pos - u.pos).normalized()
@@ -346,7 +383,9 @@ static func on_suppress(s: GameState, u: Unit, t: Unit) -> void:
 
 # --- Damage taken (Rules.deal_damage) and Infection (Infection.on_damaged) --------------
 
-static func damage_taken(_s: GameState, target: Unit, amount: int, _source: Unit) -> int:
+static func damage_taken(s: GameState, target: Unit, amount: int, source: Unit) -> int:
+	if amount > 0 and source != null and source.is_alive() and source.is_enemy_of(target) and has(target, "ember_plating"):
+		ignite(s, target, source, mk(target, "ember_plating"))
 	var armor := int(target.status.get("armor", 0))
 	return maxi(1, amount - armor) if armor > 0 and amount > 0 else amount
 

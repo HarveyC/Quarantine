@@ -158,6 +158,33 @@ const ITEMS := {
 		"desc": "You always count as in half cover, and adjacent allies share your cover",
 		"desc_mk2": "You always count as in half cover, +5 defense, and adjacent allies share your cover",
 		"stats_mk2": {"defense": 5}},
+	# Content pack 2 (acts 2 and 3): one or two more per tag so runs draw wider.
+	"pilot_light": {"name": "Pilot light", "tag": "Burn", "slot": "weapon", "rarity": "common",
+		"desc": "+1 damage against Burning enemies", "desc_mk2": "+2 damage against Burning enemies"},
+	"ember_plating": {"name": "Ember plating", "tag": "Burn", "slot": "armor", "rarity": "uncommon",
+		"desc": "An enemy that damages you starts Burning",
+		"desc_mk2": "An enemy that damages you starts Burning for 1 extra turn"},
+	"spotter_scope": {"name": "Spotter scope", "tag": "Mark", "slot": "weapon", "rarity": "uncommon",
+		"desc": "+15 aim against Marked enemies", "desc_mk2": "+20 aim against Marked enemies"},
+	"hollow_points": {"name": "Hollow points", "tag": "Suppress", "slot": "ammo", "rarity": "uncommon",
+		"desc": "+1 damage against Suppressed enemies", "desc_mk2": "+2 damage against Suppressed enemies"},
+	"ghillie_cloak": {"name": "Ghillie cloak", "tag": "Overwatch", "slot": "armor", "rarity": "uncommon",
+		"desc": "+10 defense while on overwatch", "desc_mk2": "+15 defense while on overwatch"},
+	"match_rounds": {"name": "Match rounds", "tag": "Overwatch", "slot": "ammo", "rarity": "common",
+		"desc": "+5 aim, and +5 more on overwatch shots", "desc_mk2": "+5 aim, and +10 more on overwatch shots",
+		"stats": {"aim": 5}, "stats_mk2": {"aim": 5}},
+	"bayonet": {"name": "Bayonet", "tag": "Close", "slot": "weapon", "rarity": "common",
+		"desc": "+10 aim within 3 tiles", "desc_mk2": "+15 aim within 3 tiles"},
+	"mycelial_weave": {"name": "Mycelial weave", "tag": "Strain", "slot": "armor", "rarity": "uncommon",
+		"desc": "+5 defense per awake mutation", "desc_mk2": "+5 defense per awake mutation, +5 more"},
+	"leech_rounds": {"name": "Leech rounds", "tag": "Strain", "slot": "ammo", "rarity": "rare",
+		"desc": "While Exposed or higher, hits heal you 1 HP and add 2 Infection to you",
+		"desc_mk2": "While Exposed or higher, hits heal you 1 HP and add 1 Infection to you"},
+	"purge_canister": {"name": "Purge canister", "tag": "Purge", "slot": "ammo", "rarity": "common",
+		"desc": "Each kill removes 5 Infection from you", "desc_mk2": "Each kill removes 10 Infection from you"},
+	"ballistic_plate": {"name": "Ballistic plate", "tag": "Guard", "slot": "armor", "rarity": "common",
+		"desc": "+5 defense", "desc_mk2": "+10 defense",
+		"stats": {"defense": 5}, "stats_mk2": {"defense": 10}},
 }
 
 ## Combo items: need both tags at 2+ on the soldier, count for both, start at Mk II, never sold.
@@ -180,6 +207,14 @@ const PROTOTYPES := {
 		"desc": "When you purge an ally you may take the Infection yourself and gain 1 action"},
 	"quarantine_field": {"name": "Quarantine field", "tags": ["Guard", "Purge"], "slot": "gadget",
 		"desc": "Adjacent allies gain no Infection while you're hunkered"},
+	"firestarter": {"name": "Firestarter", "tags": ["Burn", "Close"], "slot": "weapon",
+		"desc": "Hits within 3 tiles set the target Burning"},
+	"pinpoint": {"name": "Pinpoint", "tags": ["Mark", "Suppress"], "slot": "ammo",
+		"desc": "Enemies you Suppress are also Marked until the end of the next turn"},
+	"overlook": {"name": "Overlook", "tags": ["Overwatch", "Guard"], "slot": "armor",
+		"desc": "While you're on overwatch, adjacent allies get +10 defense"},
+	"cauterizer": {"name": "Cauterizer", "tags": ["Burn", "Guard"], "slot": "armor",
+		"desc": "Fire tiles don't hurt you, and you get +10 defense while standing in fire"},
 }
 
 ## Pocket consumables, used up. Charges stack per pocket.
