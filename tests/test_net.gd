@@ -33,7 +33,7 @@ func test_reconnect_from_same_install_reuses_slot_and_drops_ghost() -> void:
 	assert_true(not n.lobby.has(2), "ghost connection removed")
 	assert_eq(n.lobby.size(), 2, "still two players")
 	var config := MatchConfig.make(n.lobby.size())
-	assert_eq(config.squad.filter(func(s: Dictionary) -> bool: return s.player == 1).size(), 2, "player 2 gets two soldiers")
+	assert_eq(config.squad.filter(func(s: Dictionary) -> bool: return s.player == 1).size(), 1, "player 2 gets one soldier")
 	n.free()
 
 

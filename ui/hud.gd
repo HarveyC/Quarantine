@@ -382,6 +382,11 @@ func _on_unit_clicked(id: int) -> void:
 		view.input.select(id)
 
 
+## Toggles Ready for the local player the READY button acts for (Space shortcut).
+func toggle_ready() -> void:
+	_on_ready_pressed()
+
+
 func _on_ready_pressed() -> void:
 	var p := ActionBar.ready_player(view)
 	if p >= 0:

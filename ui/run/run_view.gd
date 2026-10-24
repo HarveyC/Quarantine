@@ -1,32 +1,42 @@
 class_name RunView
 extends Control
-## Between fights: the act's node map with live route-vote pins, the squad, the run's currencies,
-## and whichever screen the run phase needs (a module's node or reward screen, or the run summary).
-## Reads RunState; every input goes through session.submit_run, so solo, hot-seat and online
-## share one path. Solo and hot-seat: a click on the map votes for every local player at once.
+## Between fights: the act's node map (rows left to right, drop point to boss) with the squad's
+## position, open routes, live route-vote chips and a hover card per node; the route vote, the
+## squad strip, the run's currencies, and whichever screen the run phase needs (a module's node or
+## reward screen, or the run summary). Reads RunState; every input goes through
+## session.submit_run, so solo, hot-seat and online share one path. Solo and hot-seat: a click on
+## the map votes for every local player at once. Keys 1-4 vote for the routes in the vote panel.
 
 signal leave_requested
 
 const Styles := preload("res://ui/styles.gd")
 const Palette := preload("res://view/palette.gd")
-const ICONS := {
-	RunMap.SKIRMISH: "⚔", RunMap.NEST: "☣", RunMap.EVENT: "!", RunMap.DEPOT: "$", RunMap.HOSPITAL: "+",
-	RunMap.SURVIVORS: "☺", RunMap.BOSS: "☠", RunMap.UNKNOWN: "?", RunMap.AMBUSH: "⚔",
-}
-const OBJECTIVE_NAMES := {"extract": "Extract", "hold": "Hold", "rescue": "Rescue", "purge": "Purge", "boss": "Boss"}
+const W := preload("res://ui/widgets.gd")
+const MapBoard := preload("res://ui/run/map_board.gd")
+const NodeInfo := preload("res://ui/run/node_info.gd")
 const BIOME_NAMES: Array[String] = ["The Wall", "The Port", "The Bore"]
+const ROMAN: Array[String] = ["I", "II", "III"]
 const PANEL_BG := Color(0.05, 0.06, 0.06, 0.82)
+const SIDE_W := 330.0
+const SQUAD_H := 100.0
 
 var session: Node
 var run: RunState
 var autoplay := false
 
-var _top: Label
+var _act: Label
+var _biome: Label
 var _outbreak: Label
+var _outbreak_tier: Label
+var _outbreak_bar: OutbreakBar
+var _supplies: Label
+var _intel: Label
 var _serum: Label
-var _map: Control
-var _squad_box: VBoxContainer
-var _info: RichTextLabel
+var _map: MapBoard
+var _squad_row: HBoxContainer
+var _vote_title: Label
+var _vote_box: VBoxContainer
+var _vote_note: Label
 var _log: Label
 var _reveal_btn: Button
 var _loadout_btn: Button
@@ -36,17 +46,37 @@ var _screen_holder: Control
 var _full_holder: Control
 var _screen: Control
 var _screen_key := ""
-var _node_buttons := {}   # node id -> Button
+## node id -> the map's node control (kept for dev tools and tests).
+var _node_buttons := {}
 var _reveal_mode := false
 var _log_lines: Array[String] = []
 var _auto_t := 0.0
+
+
+## Outbreak as segments grouped by stage (0-2, 3-5, 6-8, 9-12, 13+).
+class OutbreakBar extends Control:
+	const SEGS := 15
+	const BREAKS: Array[int] = [3, 6, 9, 13]
+	var value := 0
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(SEGS * 19 + BREAKS.size() * 6, 10)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var x := 0.0
+		for i in SEGS:
+			if BREAKS.has(i):
+				x += 6
+			draw_rect(Rect2(x, 0, 16, size.y), Styles.TEAL if i < value else Color("1d2723"))
+			x += 19
 
 
 func _init() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = Styles.make_theme()
 	var bg := ColorRect.new()
-	bg.color = Color("0b0d0d")
+	bg.color = Color("0c0f0d")
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	_build()
@@ -59,84 +89,115 @@ func setup(s: Node) -> void:
 	run = s.run
 	run.event.connect(_on_run_event)
 	_log_lines.clear()
+	_log.text = ""
 	_screen_key = ""
+	_map.set_run(run)
 	refresh()
 
 
 # --- layout -----------------------------------------------------------------------
 
 func _build() -> void:
-	var top := _panel(Control.PRESET_TOP_WIDE)
-	top.offset_left = 16
-	top.offset_right = -16
-	top.offset_top = 12
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 28)
-	top.add_child(row)
-	_top = Styles.label("", 20, Styles.TEXT)
-	row.add_child(_top)
-	_outbreak = Styles.label("", 18, Palette.DANGER)
-	row.add_child(_outbreak)
-	_serum = Styles.label("", 16, Palette.TEAL)
-	row.add_child(_serum)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spacer)
-	_reveal_btn = Button.new()
-	_reveal_btn.text = "Reveal ? (1 Intel)"
+	_map = MapBoard.new()
+	_map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_map.offset_left = 24
+	_map.offset_right = -(SIDE_W + 40)
+	_map.offset_top = 104
+	_map.offset_bottom = -(SQUAD_H + 40)
+	_map.node_pressed.connect(_on_node_pressed)
+	_map.node_hovered.connect(func(_id: int) -> void: _refresh_vote_panel())
+	add_child(_map)
+
+	# Top bar: act and biome, Outbreak, currencies and buttons.
+	var top := Styles.hbox(28)
+	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	top.offset_left = 40
+	top.offset_right = -40
+	top.offset_top = 24
+	add_child(top)
+	var title := Styles.vbox(2)
+	_act = Styles.caps("", 14, Styles.DIM)
+	title.add_child(_act)
+	_biome = Styles.caps("", 42)
+	title.add_child(_biome)
+	top.add_child(title)
+	top.add_child(Styles.spacer())
+	var ob := Styles.vbox(6)
+	ob.alignment = BoxContainer.ALIGNMENT_CENTER
+	var ob_row := Styles.hbox(10)
+	ob_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	ob_row.add_child(W.Icon.new("outbreak", Styles.TEAL, 18, 1.8))
+	_outbreak = Styles.caps("", 15, Styles.TEAL)
+	ob_row.add_child(_outbreak)
+	_outbreak_tier = Styles.label("", 13, Styles.MUTED)
+	ob_row.add_child(_outbreak_tier)
+	ob.add_child(ob_row)
+	_outbreak_bar = OutbreakBar.new()
+	_outbreak_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ob.add_child(_outbreak_bar)
+	top.add_child(ob)
+	top.add_child(Styles.spacer())
+	var res := Styles.hbox(24)
+	res.alignment = BoxContainer.ALIGNMENT_CENTER
+	_supplies = _resource(res, "supplies", NodeInfo.DEPOT_GOLD, "Supplies")
+	_intel = _resource(res, "intel", Styles.DIM, "Intel")
+	_serum = _resource(res, "serum", Styles.TEAL, "Serum")
+	top.add_child(res)
+	var btns := Styles.hbox(10)
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	_reveal_btn = _top_button("Reveal ?")
 	_reveal_btn.toggle_mode = true
-	_reveal_btn.focus_mode = Control.FOCUS_NONE
-	_reveal_btn.toggled.connect(func(on: bool) -> void: _reveal_mode = on)
-	row.add_child(_reveal_btn)
-	_loadout_btn = Button.new()
-	_loadout_btn.text = "Loadout"
-	_loadout_btn.focus_mode = Control.FOCUS_NONE
+	_reveal_btn.toggled.connect(func(on: bool) -> void:
+		_reveal_mode = on
+		_map.reveal_mode = on
+		_map.refresh()
+		_refresh_vote_panel())
+	btns.add_child(_reveal_btn)
+	_loadout_btn = _top_button("Loadout")
 	_loadout_btn.pressed.connect(_open_loadout)
-	row.add_child(_loadout_btn)
-	var menu := Button.new()
-	menu.text = "Main menu"
-	menu.focus_mode = Control.FOCUS_NONE
+	btns.add_child(_loadout_btn)
+	var menu := _top_button("Menu")
 	menu.pressed.connect(func() -> void: leave_requested.emit())
-	row.add_child(menu)
+	btns.add_child(menu)
+	top.add_child(btns)
 
-	var squad := _panel(Control.PRESET_LEFT_WIDE)
-	squad.offset_left = 16
-	squad.offset_top = 76
-	squad.offset_bottom = -16
-	squad.custom_minimum_size.x = 300
-	_squad_box = VBoxContainer.new()
-	_squad_box.add_theme_constant_override("separation", 8)
-	squad.add_child(_squad_box)
-
-	var side := _panel(Control.PRESET_RIGHT_WIDE)
-	side.offset_right = -16
-	side.offset_top = 76
-	side.offset_bottom = -16
-	side.custom_minimum_size.x = 300
-	side.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	var side_box := VBoxContainer.new()
-	side_box.add_theme_constant_override("separation", 10)
+	# Right: the route vote and the field log.
+	var side := W.Frame.new(Vector4(18, 16, 18, 16))
+	side.set_look(Color(0.043, 0.055, 0.047, 0.86), Styles.BORDER)
+	side.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	side.offset_left = -(SIDE_W + 40)
+	side.offset_right = -40
+	side.offset_top = 128
+	side.offset_bottom = -(SQUAD_H + 48)
+	add_child(side)
+	var side_box := Styles.vbox(10)
 	side.add_child(side_box)
-	_info = RichTextLabel.new()
-	_info.bbcode_enabled = true
-	_info.fit_content = true
-	_info.custom_minimum_size = Vector2(270, 160)
-	side_box.add_child(_info)
-	_log = Styles.label("", 14, Styles.MUTED)
-	_log.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_log.custom_minimum_size.x = 270
+	_vote_title = Styles.caps("Route vote", 15, Styles.DIM)
+	side_box.add_child(_vote_title)
+	_vote_box = Styles.vbox(8)
+	side_box.add_child(_vote_box)
+	_vote_note = Styles.label("", 13, Styles.DIM)
+	_vote_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_vote_note.custom_minimum_size.x = SIDE_W - 40
+	side_box.add_child(_vote_note)
+	var grow := Control.new()
+	grow.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	grow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side_box.add_child(grow)
+	side_box.add_child(Styles.caps("Field log", 13, Styles.MUTED))
+	_log = Styles.label("", 13, Styles.MUTED)
+	_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_log.custom_minimum_size.x = SIDE_W - 40
 	side_box.add_child(_log)
 
-	_map = Control.new()
-	_map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_map.offset_left = 340
-	_map.offset_right = -340
-	_map.offset_top = 90
-	_map.offset_bottom = -30
-	_map.mouse_filter = Control.MOUSE_FILTER_PASS
-	_map.draw.connect(_draw_map)
-	_map.resized.connect(_layout_nodes)
-	add_child(_map)
+	# Bottom: the squad strip.
+	_squad_row = Styles.hbox(12)
+	_squad_row.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_squad_row.offset_left = 40
+	_squad_row.offset_right = -40
+	_squad_row.offset_top = -(SQUAD_H + 28)
+	_squad_row.offset_bottom = -28
+	add_child(_squad_row)
 
 	_screen_holder = CenterContainer.new()
 	_screen_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -149,20 +210,29 @@ func _build() -> void:
 	add_child(_full_holder)
 
 
-## A dark see-through panel with amber corner marks (the approved UI look).
-func _panel(preset: int) -> PanelContainer:
-	var p := PanelContainer.new()
-	p.set_anchors_and_offsets_preset(preset)
-	p.add_theme_stylebox_override("panel", Styles.panel_box(PANEL_BG, Color(0.25, 0.26, 0.24, 0.6), 2))
-	p.draw.connect(func() -> void: _corner_marks(p))
-	add_child(p)
-	return p
+func _resource(parent: Control, icon: String, col: Color, caption: String) -> Label:
+	var row := Styles.hbox(8)
+	row.add_child(W.Icon.new(icon, col, 18, 1.8))
+	var v := Styles.mono("", 17)
+	row.add_child(v)
+	row.add_child(Styles.label(caption, 13, Styles.MUTED))
+	parent.add_child(row)
+	return v
+
+
+func _top_button(text: String) -> Button:
+	var b := Button.new()
+	b.text = text.to_upper()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, 40)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return b
 
 
 static func _corner_marks(c: Control) -> void:
 	var s := c.size
 	var k := 10.0
-	var col := Palette.AMBER
+	var col := Styles.AMBER
 	for corner in [Vector2(0, 0), Vector2(s.x, 0), Vector2(0, s.y), s]:
 		var dx := k if corner.x == 0 else -k
 		var dy := k if corner.y == 0 else -k
@@ -175,166 +245,248 @@ static func _corner_marks(c: Control) -> void:
 func refresh() -> void:
 	if run == null:
 		return
-	var p_count := run.players.size()
-	_top.text = "ACT %s · %s   ◆ %d Supplies   ◈ %d Intel   %s" % [["I", "II", "III"][clampi(run.act - 1, 0, 2)],
-		BIOME_NAMES[clampi(run.act - 1, 0, 2)], run.supplies, run.intel, "Solo" if p_count == 1 else "%d players" % p_count]
+	var a := clampi(run.act - 1, 0, 2)
+	_act.text = "ACT %s OF III · %s" % [ROMAN[a], "SOLO" if run.is_solo() else "%d PLAYERS" % run.players.size()]
+	_biome.text = BIOME_NAMES[a].to_upper()
 	var stage := RunRules.outbreak_stage(run.outbreak)
-	_outbreak.text = "OUTBREAK %d · %s" % [run.outbreak, RunRules.OUTBREAK_NAMES[stage]]
-	var serum := PackedStringArray()
-	for p in run.players:
-		serum.append("%s%.1f" % ["" if p_count == 1 else "P%d " % (p + 1), run.serum.get(p, 0) / 2.0])
-	_serum.text = "Serum doses: " + "  ".join(serum)
-	_reveal_btn.visible = run.phase == RunState.Phase.MAP
-	_loadout_btn.visible = run.phase == RunState.Phase.MAP and RunHooks.has("GearRun", "loadout_screen")
-	if _loadout != null and run.phase != RunState.Phase.MAP:
+	_outbreak.text = "OUTBREAK %d · %s" % [run.outbreak, RunRules.OUTBREAK_NAMES[stage].to_upper()]
+	_outbreak_tier.text = "+1 each node · -%d per boss" % RunRules.BOSS_OUTBREAK_DROP
+	_outbreak_bar.value = run.outbreak
+	_outbreak_bar.queue_redraw()
+	_supplies.text = str(run.supplies)
+	_intel.text = str(run.intel)
+	_serum.text = _serum_text()
+	var on_map := run.phase == RunState.Phase.MAP
+	_reveal_btn.visible = on_map
+	_loadout_btn.visible = on_map and RunHooks.has("GearRun", "loadout_screen")
+	if _loadout != null and not on_map:
 		_close_loadout()
 	_reveal_btn.disabled = run.intel < 1 or not run.map.any(func(n: Dictionary) -> bool: return n.hidden)
-	if _reveal_btn.disabled:
+	if _reveal_btn.disabled and _reveal_btn.button_pressed:
 		_reveal_btn.button_pressed = false
+	_reveal_btn.text = "REVEAL ? · 1 INTEL"
+	_map.names = session.player_names if session != null else {}
+	_map.refresh()
+	_node_buttons = _map.dots
 	_refresh_squad()
-	_rebuild_nodes()
-	_refresh_info()
+	_refresh_vote_panel()
 	_refresh_screen()
-	_map.queue_redraw()
 
+
+func _serum_text() -> String:
+	if run.is_solo():
+		return "%.1f" % (run.serum.get(run.players[0], 0) / 2.0)
+	var parts := PackedStringArray()
+	for p in run.players:
+		parts.append("P%d %.1f" % [p + 1, run.serum.get(p, 0) / 2.0])
+	return "  ".join(parts)
+
+
+# --- squad strip -----------------------------------------------------------------------
 
 func _refresh_squad() -> void:
-	for c in _squad_box.get_children():
+	for c in _squad_row.get_children():
+		_squad_row.remove_child(c)
 		c.queue_free()
-	_squad_box.add_child(Styles.label("SQUAD", 18, Styles.TEXT))
-	for r in run.squad():
-		_squad_box.add_child(_soldier_card(r))
-	var reserve := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.RESERVE)
-	if not reserve.is_empty():
-		_squad_box.add_child(Styles.label("RESERVE", 15, Styles.MUTED))
-		for r in reserve:
-			_squad_box.add_child(Styles.label("  %s %s · %s" % [UnitData.SOLDIERS[r.kind].name, r.name, _owner_name(r.owner)], 14, Palette.player_ui(r.owner)))
-	var lost := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status in [RunSoldier.DEAD, RunSoldier.TURNED])
-	if not lost.is_empty():
-		_squad_box.add_child(Styles.label("LOST", 15, Styles.MUTED))
-		for r in lost:
-			_squad_box.add_child(Styles.label("  %s %s (%s)" % [UnitData.SOLDIERS[r.kind].name, r.name, r.status], 14, Styles.MUTED))
+	var squad := run.squad()
+	squad.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.owner < b.owner or (a.owner == b.owner and a.id < b.id))
+	for r in squad:
+		_squad_row.add_child(_soldier_card(r))
+	_squad_row.add_child(_reserve_card())
 
 
 func _soldier_card(r: Dictionary) -> Control:
-	var card := HBoxContainer.new()
-	card.add_theme_constant_override("separation", 8)
-	var stripe := ColorRect.new()
-	stripe.color = Palette.player_ui(r.owner)
-	stripe.custom_minimum_size = Vector2(4, 0)
-	card.add_child(stripe)
-	var box := VBoxContainer.new()
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation", 2)
-	card.add_child(box)
-	var rank: int = r.prog.get("rank", 1)
-	var extra := " · sits out" if r.sit_out > 0 else ""
-	box.add_child(Styles.label("%s %s  ·  R%d%s" % [UnitData.SOLDIERS[r.kind].name, r.name, rank, extra], 15, Styles.TEXT))
-	box.add_child(Styles.label(_owner_name(r.owner), 12, Palette.player_ui(r.owner)))
-	var hp := Styles.bar(Color("b8c4a0"), 6)
-	hp.max_value = maxi(1, r.max_hp)
-	hp.value = r.hp
-	box.add_child(hp)
-	var inf := Styles.bar(Palette.tier_color(Infection.tier(r.infection)), 6)
-	inf.value = r.infection
-	box.add_child(inf)
-	box.add_child(Styles.label("HP %d/%d   Infection %d · %s" % [r.hp, r.max_hp, r.infection, Infection.tier_name(Infection.tier(r.infection))], 12, Styles.MUTED))
+	var pcol := Styles.player_color(r.owner)
+	var card := W.Frame.new(Vector4(16, 12, 14, 12))
+	card.stripe = pcol
+	var tier := Infection.tier(r.infection)
+	card.set_look(Color(0.066, 0.082, 0.07, 0.92), Color(Styles.TEAL, 0.35) if tier >= 2 else Styles.BORDER_SOFT, Styles.AMBER, false)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.custom_minimum_size.x = 250
+	var row := Styles.hbox(12)
+	card.add_child(row)
+	var glyph := W.glyph(r.kind, pcol, 46.0)
+	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(glyph)
+	var col := Styles.vbox(5)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(col)
+	var top := Styles.hbox(6)
+	top.add_child(Styles.caps(r.name, 17))
+	top.add_child(Styles.spacer())
+	if r.sit_out > 0:
+		top.add_child(Styles.caps("Sits out %d" % r.sit_out, 12, Styles.DANGER_TEXT))
+	else:
+		top.add_child(Styles.caps("Rank %d" % r.prog.get("rank", 1), 12, Styles.DIM))
+	col.add_child(top)
+	var mid := Styles.hbox(6)
+	var sub: String = UnitData.SOLDIERS[r.kind].name
+	if not run.is_solo():
+		sub += " · " + _owner_name(r.owner)
+	mid.add_child(Styles.label(sub, 13, Styles.DIM))
+	mid.add_child(Styles.spacer())
+	mid.add_child(Styles.mono("%d/%d" % [r.hp, r.max_hp], 11, Styles.DIM))
+	var hp := W.Pips.new(Vector2(10, 5))
+	hp.set_values(r.max_hp, r.hp, 0, Styles.DANGER if r.hp * 3 <= r.max_hp else Styles.HP)
+	mid.add_child(hp)
+	col.add_child(mid)
+	var inf := Styles.hbox(8)
+	var bar := W.InfBar.new(5.0)
+	bar.set_value(r.infection)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	inf.add_child(bar)
+	var tl := Styles.mono("%d %s" % [r.infection, Infection.tier_name(tier).to_upper()], 10, Styles.TEAL if tier >= 1 else Styles.TEAL_DIM)
+	tl.custom_minimum_size = Vector2(84, 0)
+	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	inf.add_child(tl)
+	col.add_child(inf)
 	return card
+
+
+## Reserve recruits and the fallen, in one small card at the end of the strip.
+func _reserve_card() -> Control:
+	var card := W.Frame.new(Vector4(16, 12, 16, 12))
+	card.set_look(Color(0.043, 0.055, 0.047, 0.86), Styles.BORDER_SOFT, Styles.AMBER, false)
+	card.custom_minimum_size.x = 230
+	var box := Styles.vbox(4)
+	card.add_child(box)
+	var reserve := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.RESERVE)
+	box.add_child(Styles.caps("Reserve · %d" % reserve.size(), 13, Styles.DIM))
+	for r in reserve.slice(0, 3):
+		box.add_child(_mini_line(r, Styles.TEXT))
+	if reserve.size() > 3:
+		box.add_child(Styles.label("+%d more" % (reserve.size() - 3), 12, Styles.MUTED))
+	var lost := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status in [RunSoldier.DEAD, RunSoldier.TURNED])
+	if not lost.is_empty():
+		var turned := lost.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.TURNED).size()
+		box.add_child(Styles.caps("Lost %d%s" % [lost.size(), " · %d Turned" % turned if turned > 0 else ""], 12, Styles.MUTED))
+	if reserve.is_empty() and lost.is_empty():
+		box.add_child(Styles.label("Nobody in reserve.", 13, Styles.MUTED))
+	return card
+
+
+func _mini_line(r: Dictionary, col: Color) -> Control:
+	var row := Styles.hbox(8)
+	var dot := ColorRect.new()
+	dot.color = Styles.player_color(r.owner)
+	dot.custom_minimum_size = Vector2(4, 14)
+	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(dot)
+	row.add_child(Styles.label("%s %s" % [UnitData.SOLDIERS[r.kind].name, r.name], 13, col))
+	return row
 
 
 func _owner_name(p: int) -> String:
 	var n: String = session.player_names.get(p, "") if session != null else ""
 	if run.is_solo():
 		return n if n != "" else "You"
-	return "P%d%s%s" % [p + 1, " " + n if n != "" else "", " (benched)" if run.benched.get(p, false) else ""]
+	return "%s%s" % [n if n != "" else "P%d" % (p + 1), " (benched)" if run.benched.get(p, false) else ""]
 
 
-# --- map -----------------------------------------------------------------------------
+# --- route vote ------------------------------------------------------------------------------
 
-func _node_pos(n: Dictionary) -> Vector2:
-	var s := _map.size
-	var y: float = s.y - (n.row - 0.5) / RunState.ROWS * s.y
-	var x: float = 40 + n.x * (s.x - 80)
-	return Vector2(x, y)
-
-
-func _rebuild_nodes() -> void:
-	var ids := {}
-	for n in run.map:
-		ids[n.id] = true
-	for id in _node_buttons.keys():
-		if not ids.has(id) or not is_instance_valid(_node_buttons[id]):
-			if is_instance_valid(_node_buttons[id]):
-				_node_buttons[id].queue_free()
-			_node_buttons.erase(id)
-	var reach := run.reachable_nodes() if run.phase == RunState.Phase.MAP else ([] as Array[int])
-	for n in run.map:
-		var b: Button = _node_buttons.get(n.id)
-		if b == null:
-			b = Button.new()
-			b.focus_mode = Control.FOCUS_NONE
-			b.custom_minimum_size = Vector2(54, 54)
-			b.add_theme_font_size_override("font_size", 24)
-			var id: int = n.id
-			b.pressed.connect(func() -> void: _on_node_pressed(id))
-			b.mouse_entered.connect(func() -> void: _refresh_info(id))
-			_map.add_child(b)
-			_node_buttons[n.id] = b
-		var type := RunMap.shown_type(n)
-		b.text = ICONS.get(type, "·")
-		var can := reach.has(n.id)
-		var border := Palette.AMBER if can else (Palette.TEAL_DIM if n.id == run.node else Color(0.3, 0.31, 0.29))
-		var fill := Color(0.16, 0.13, 0.07, 0.95) if can else (Color(0.06, 0.07, 0.07, 0.9) if not n.visited else Color(0.1, 0.12, 0.11, 0.9))
-		for st in ["normal", "hover", "pressed", "disabled"]:
-			var sb := Styles.panel_box(fill.lightened(0.12) if st == "hover" and can else fill, border, 27)
-			sb.set_border_width_all(3 if can or n.id == run.node else 1)
-			b.add_theme_stylebox_override(st, sb)
-		b.add_theme_color_override("font_color", Palette.AMBER if can else (Styles.TEXT if not n.visited else Styles.MUTED))
-		b.add_theme_color_override("font_disabled_color", Styles.MUTED)
-		b.disabled = not (can or (_reveal_mode and n.hidden and run.phase == RunState.Phase.MAP))
-		b.tooltip_text = _node_title(n)
-	_layout_nodes()
-
-
-func _layout_nodes() -> void:
-	for n in run.map if run else []:
-		var b: Button = _node_buttons.get(n.id)
-		if b != null:
-			b.position = _node_pos(n) - b.custom_minimum_size / 2
-	_map.queue_redraw()
-
-
-func _draw_map() -> void:
+func _refresh_vote_panel() -> void:
 	if run == null:
 		return
-	for n in run.map:
-		for id in n.links:
-			var m := run.get_node(id)
-			var travelled: bool = n.visited and m.visited
-			var col := Palette.TEAL_DIM if travelled else Color(0.32, 0.33, 0.3, 0.7)
-			_map.draw_dashed_line(_node_pos(n), _node_pos(m), col, 2.0 if travelled else 1.5, 6.0)
-	# Vote pins: one dot per voter in their colour, a crown on the host's.
-	var font := get_theme_default_font()
-	var per_node := {}
-	for p in run.votes:
-		var id: int = run.votes[p]
-		per_node[id] = per_node.get(id, []) + [p]
-	for id in per_node:
-		var at := _node_pos(run.get_node(id)) + Vector2(-((per_node[id].size() - 1) * 9), -40)
-		for p in per_node[id]:
-			_map.draw_circle(at, 7, Palette.player_ui(p))
-			if p == run.host_player and not run.is_solo():
-				_map.draw_string(font, at + Vector2(-6, -10), "♛", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Palette.AMBER)
-			at.x += 18
+	for c in _vote_box.get_children():
+		_vote_box.remove_child(c)
+		c.queue_free()
+	var notes := PackedStringArray()
+	match run.phase:
+		RunState.Phase.MAP:
+			_vote_title.text = "NEXT MOVE" if run.is_solo() else "ROUTE VOTE"
+			var opts := run.reachable_nodes()
+			for i in opts.size():
+				_vote_box.add_child(_option_row(run.get_node(opts[i]), i))
+			notes.append(_vote_status())
+			if run.modifiers.get("force_nest_next", false):
+				notes.append("Air support: the squad must hit the nest.")
+			if _reveal_mode:
+				notes.append("Reveal: click a dashed ? node to spend 1 Intel and see what it is.")
+		RunState.Phase.FIGHT:
+			_vote_title.text = "DEPLOYING"
+			notes.append("The squad is moving in.")
+		_:
+			_vote_title.text = "ON SITE"
+			var n := run.current_node()
+			if not n.is_empty():
+				notes.append(NodeInfo.title(n))
+	_vote_note.text = "\n\n".join(notes)
 
 
-func _node_title(n: Dictionary) -> String:
+func _option_row(n: Dictionary, i: int) -> Control:
 	var type := RunMap.shown_type(n)
-	var t: String = RunMap.NAMES.get(type, type)
-	if n.objective != "" and type != RunMap.UNKNOWN:
-		t += " · " + OBJECTIVE_NAMES.get(n.objective, n.objective)
-	return t
+	var voters: Array = run.votes.keys().filter(func(p: int) -> bool: return run.votes[p] == n.id)
+	voters.sort()
+	var mine := false
+	for p in session.local_players():
+		if run.votes.get(p, -1) == n.id:
+			mine = true
+	var f := W.Frame.new(Vector4(14, 10, 14, 10))
+	var hot: bool = _map.hover == n.id
+	var tc := NodeInfo.color(type)
+	f.set_look(Color(0.12, 0.11, 0.07, 0.94) if mine else (Color("161b17") if hot else Color("121613")),
+		Styles.AMBER if mine else (Styles.BORDER_STRONG if hot else Color("2c342d")), Styles.AMBER, mine)
+	f.mouse_filter = Control.MOUSE_FILTER_STOP
+	f.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var id: int = n.id
+	f.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_vote(id))
+	f.mouse_entered.connect(func() -> void: _map.set_hover(id))
+	f.mouse_exited.connect(func() -> void:
+		if _map.hover == id:
+			_map.set_hover(-1))
+	var box := Styles.vbox(6)
+	f.add_child(box)
+	var head := Styles.hbox(10)
+	if i < 4:
+		head.add_child(W.keycap(str(i + 1)))
+	head.add_child(W.Icon.new(NodeInfo.icon(type), tc if tc != Styles.TEXT else Styles.DIM, 20, 1.8))
+	head.add_child(Styles.caps(NodeInfo.title(n), 17, tc if tc != Styles.TEXT else Styles.TEXT))
+	head.add_child(Styles.spacer())
+	if not run.is_solo():
+		head.add_child(Styles.mono(str(voters.size()), 14, Styles.TEXT if voters.size() > 0 else Styles.MUTED))
+	box.add_child(head)
+	if not voters.is_empty() and not run.is_solo():
+		var chips := Styles.hbox(6)
+		for p in voters:
+			var t := _owner_name(p) + (" · host" if p == run.host_player else "")
+			chips.add_child(W.chip(t, Styles.player_color(p), true, 11))
+		box.add_child(chips)
+	for c in f.find_children("*", "Control", true, false):
+		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return f
 
+
+func _vote_status() -> String:
+	if run.is_solo():
+		return "Click a node or press its number. Hover a node to see what's there."
+	var waiting := PackedStringArray()
+	for p in run.present_players():
+		if not run.votes.has(p):
+			waiting.append(_owner_name(p))
+	if run.votes.is_empty():
+		return "Everyone votes. Majority wins; a tie goes to the host's pick."
+	var lead := run.get_node(RunRules.vote_winner(run))
+	var counts := {}
+	for p in run.votes:
+		counts[run.votes[p]] = counts.get(run.votes[p], 0) + 1
+	var best: int = counts.values().max()
+	var tied: bool = counts.values().count(best) > 1
+	var s := ""
+	if tied:
+		s = "Tied %d to %d. The host breaks ties, so this goes to %s unless someone changes their vote." % [best, best, NodeInfo.title(lead)]
+	else:
+		s = "%s leads." % NodeInfo.title(lead)
+	if not waiting.is_empty():
+		s += " Waiting on " + ", ".join(waiting) + "."
+	return s
+
+
+# --- input ----------------------------------------------------------------------------------
 
 func _on_node_pressed(id: int) -> void:
 	var n := run.get_node(id)
@@ -342,38 +494,26 @@ func _on_node_pressed(id: int) -> void:
 		session.submit_run({"type": RunRules.REVEAL, "player": session.local_players()[0], "node": id})
 		_reveal_btn.button_pressed = false
 		return
+	if run.reachable_nodes().has(id):
+		_vote(id)
+
+
+func _vote(id: int) -> void:
 	for p in session.local_players():
 		if run.phase == RunState.Phase.MAP and not run.benched.get(p, false):
 			session.submit_run({"type": RunRules.VOTE, "player": p, "node": id})
 
 
-func _refresh_info(hover: int = -1) -> void:
-	var lines := PackedStringArray()
-	match run.phase:
-		RunState.Phase.MAP:
-			if run.is_solo():
-				lines.append("[color=#e8b04a]Choose the next node.[/color]")
-			else:
-				lines.append("[color=#e8b04a]Vote for the next node.[/color] Majority wins; a split goes to the host (♛).")
-			if run.modifiers.get("force_nest_next", false):
-				lines.append("Air support: the squad must hit the nest.")
-		RunState.Phase.FIGHT: lines.append("Deploying...")
-		RunState.Phase.NODE, RunState.Phase.REWARD: lines.append("")
-	if hover >= 0:
-		var n := run.get_node(hover)
-		lines.append("")
-		lines.append("[b]%s[/b]  (row %d)" % [_node_title(n), n.row])
-		var type := RunMap.shown_type(n)
-		if type == RunMap.NEST:
-			var pv: Dictionary = RunHooks.call_static("FightBuilder", "preview", [{"act": run.act, "row": n.row, "node": type, "objective": n.objective, "seed": n.seed}], {})
-			if pv.get("elite", "") != "":
-				lines.append("Elite: " + pv.elite)
-		elif type == RunMap.UNKNOWN:
-			lines.append("Could be an event, an ambush, a depot or survivors. Spend 1 Intel to reveal it.")
-	var stage := RunRules.outbreak_stage(run.outbreak)
-	lines.append("")
-	lines.append("[color=#e2533a]Outbreak %d: %s.[/color] +1 per node; -3 per boss." % [run.outbreak, RunRules.OUTBREAK_NAMES[stage]])
-	_info.text = "\n".join(lines)
+func _unhandled_key_input(e: InputEvent) -> void:
+	if run == null or not visible or run.phase != RunState.Phase.MAP or _full_holder.visible or not e.is_pressed() or e.is_echo():
+		return
+	var k := (e as InputEventKey).keycode
+	if k >= KEY_1 and k <= KEY_4:
+		var opts := run.reachable_nodes()
+		var i := k - KEY_1
+		if i < opts.size():
+			_vote(opts[i])
+			get_viewport().set_input_as_handled()
 
 
 # --- phase screens ------------------------------------------------------------------------

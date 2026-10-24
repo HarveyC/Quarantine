@@ -101,5 +101,67 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 		"cover_half":
 			line.call([[3, 20], [21, 20]])
 			line.call([[6, 20], [6, 14], [18, 14], [18, 20]])
+		# Run map node types and currencies.
+		"skirmish":
+			line.call([[4, 4], [17, 17]])
+			line.call([[20, 4], [7, 17]])
+			line.call([[14, 20], [20, 14]])
+			line.call([[4, 14], [10, 20]])
+		"ambush":
+			line.call([[4, 4], [17, 17]])
+			line.call([[14, 20], [20, 14]])
+			line.call([[17, 3], [17, 9]])
+			dot.call(17, 12.5, 1.2)
+		"nest":
+			circle.call(12, 7, 3.5)
+			circle.call(7, 15.5, 3.5)
+			circle.call(17, 15.5, 3.5)
+			dot.call(12, 12.5, 1.3)
+		"depot":
+			line.call([[3, 8], [12, 3], [21, 8], [21, 17], [12, 22], [3, 17], [3, 8]])
+			line.call([[3, 8], [12, 13], [21, 8]])
+			line.call([[12, 13], [12, 22]])
+		"hospital":
+			line.call([[3, 6], [21, 6], [21, 20], [3, 20], [3, 6]])
+			line.call([[12, 9], [12, 17]])
+			line.call([[8, 13], [16, 13]])
+			line.call([[9, 6], [9, 3], [15, 3], [15, 6]])
+		"survivors":
+			circle.call(8.5, 7.5, 3)
+			arc.call(8.5, 20, 6, PI, TAU)
+			circle.call(16.5, 9, 2.5)
+			arc.call(16.5, 20, 4.5, PI, TAU)
+		"boss":
+			line.call([[5, 11], [5, 8], [8, 4], [16, 4], [19, 8], [19, 11], [16, 15], [16, 20], [8, 20], [8, 15], [5, 11]])
+			dot.call(9.5, 10.5, 1.8)
+			dot.call(14.5, 10.5, 1.8)
+			line.call([[11, 17], [11, 20]])
+			line.call([[13, 17], [13, 20]])
+		"event":
+			line.call([[12, 3], [12, 15]])
+			dot.call(12, 20, 1.6)
+		"unknown":
+			line.call([[7.5, 8], [8.5, 5], [12, 3.5], [15.5, 5], [16.5, 8], [15, 11], [12, 13], [12, 16]])
+			dot.call(12, 20.5, 1.6)
+		"supplies":
+			line.call([[3, 8], [21, 8], [21, 20], [3, 20], [3, 8]])
+			line.call([[5, 4], [19, 4], [21, 8]])
+			line.call([[5, 4], [3, 8]])
+			line.call([[10, 12], [14, 12]])
+		"intel":
+			line.call([[6, 3], [15, 3], [19, 7], [19, 21], [6, 21], [6, 3]])
+			line.call([[9, 11], [16, 11]])
+			line.call([[9, 15], [16, 15]])
+		"serum":
+			line.call([[9, 3], [15, 3]])
+			line.call([[10, 3], [10, 9], [5, 19], [7, 21], [17, 21], [19, 19], [14, 9], [14, 3]])
+			line.call([[7.5, 15], [16.5, 15]])
+		"outbreak":
+			circle.call(12, 12, 4)
+			for k in 8:
+				var a := k * TAU / 8.0
+				var d := Vector2(cos(a), sin(a))
+				line.call([[12 + d.x * 6, 12 + d.y * 6], [12 + d.x * 9.5, 12 + d.y * 9.5]])
+				dot.call(12 + d.x * 10, 12 + d.y * 10, 1.1)
 		_:
 			circle.call(12, 12, 8)

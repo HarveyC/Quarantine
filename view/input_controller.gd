@@ -347,9 +347,15 @@ func _key(k: InputEventKey) -> void:
 			elif can_act():
 				cycle(-1 if k.shift_pressed else 1)
 		KEY_ESCAPE: cancel()
-		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+		KEY_ENTER, KEY_KP_ENTER:
 			if mode == Mode.SHOOT:
 				confirm_shot()
+		KEY_SPACE:
+			# Space fires while aiming, otherwise it's the READY button's shortcut.
+			if mode == Mode.SHOOT:
+				confirm_shot()
+			elif view.hud != null:
+				view.hud.toggle_ready()
 		KEY_C:
 			EventPlayer.cinematics = not EventPlayer.cinematics
 			view.hud.toast("Shot cameras " + ("on" if EventPlayer.cinematics else "off"))

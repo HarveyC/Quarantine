@@ -503,8 +503,10 @@ Host-authoritative, action-replicated, over Godot's built-in ENet. This builds o
 every state change goes through `Rules`: peers never diverge as long as they apply the same actions
 in the same order on the same seed.
 
-- **`core/match_config.gd` (`MatchConfig`)**: a serializable description of a mission (map, squad
-  split across N players, enemy list, seed). Every peer builds an identical `GameState` from it.
+- **`core/match_config.gd` (`MatchConfig`)**: a serializable description of a mission (map, squad,
+  enemy list, seed). `squad_plan(players, picks)` decides who plays what: solo is a squad of 4 for
+  player 0, co-op is one soldier per player, of the class they picked in the lobby
+  (`NetSession.pick_class`, stored as `lobby[id].class`) or the first class nobody took. Every peer builds an identical `GameState` from it.
 - **`net/local_session.gd` (`LocalSession`)** and **`net/net_session.gd` (`NetSession`)** implement the
   same small interface the view talks to: `local_players()`, `is_local(player)`, `submit(action)`,
   `set_ready(player, on)`, `restart()`, `can_restart()`, `status_text()`, `player_names`. The view and
@@ -535,7 +537,9 @@ It follows the same pattern as a mission: a pure, serializable **`RunState`** ch
 **`RunRules.apply(run, action)`**, so online play replicates run actions exactly like mission
 actions, and save/resume is `RunState.to_dict()`. Solo (1 player) is a first-class case: the
 player owns all 4 soldiers, every vote resolves the moment they click, and no lobby or network is
-involved (`LocalSession`).
+involved (`LocalSession`). In co-op each player controls one soldier (squad size = player
+count) plus their own reserve recruits; a player whose soldier is down in a fight is counted as
+ready automatically (`Rules._auto_ready`) and watches until a recruit deploys after the fight.
 
 ### Modules and owners
 
@@ -674,7 +678,8 @@ All static. Missing ones fall back to the stand-in in brackets.
 - **Objectives**: `bonus_met(state) -> bool` [false], read by `RunRules.fight_outcome`.
 - **FightBuilder**: `build(spec) -> {"enemies": Array[String], "encounter": Dictionary}`
   [`MatchConfig.default_enemies`]. `spec` = `{act, row, node, objective, outbreak, seed, players,
-  modifiers}`; deterministic from it. Optional `preview(spec) -> {"title", "elite"}` for the map.
+  squad, modifiers}`; `squad` is the number of soldiers deploying, and FightBuilder scales the
+  threat budget, enemy cap, waves and boss health to it (`SQUAD_BUDGET`, `SQUAD_BOSS_HEALTH`); deterministic from it. Optional `preview(spec) -> {"title", "elite"}` for the map.
 - **Encounter**: `setup(state, encounter)`, called by `MatchConfig.build` after the GameState exists.
 - **MapGen**: `generate(map_spec) -> Grid` [`maps/mission_01.txt`]. `map_spec` = `{biome ("wall" /
   "port" / "bore" for acts 1-3), objective, seed, act, row, outbreak}`.

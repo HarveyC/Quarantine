@@ -99,8 +99,8 @@ func refresh(view: MissionView, can_act: bool) -> void:
 		(r._ap as W.Diamonds).set_values(total, mini(left, total))
 		r._ap.visible = not is_ready
 		r._btn.set_pressed_no_signal(is_ready)
-		r._btn.text = "Ready" if is_ready else ("Set ready" if mine else "Planning")
-		r._btn.disabled = not can_act or not mine
+		r._btn.text = "No soldiers" if total == 0 else "Ready" if is_ready else ("Set ready" if mine else "Planning")
+		r._btn.disabled = not can_act or not mine or total == 0   # nobody left: ready automatically
 		r._btn.add_theme_color_override("font_color", Styles.HP if is_ready else Styles.player_color(p))
 		r._btn.add_theme_color_override("font_disabled_color", Styles.HP if is_ready else Styles.player_color(p).darkened(0.2))
 	_count.text = "%d / %d ready" % [n_ready, rows.size()]

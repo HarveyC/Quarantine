@@ -13,16 +13,41 @@ const CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
 const ENEMIES: Array[String] = ["runner", "runner", "spitter", "runner", "spitter"]
 
 
-## Splits the 4-soldier squad across `num_players` (1: all four, 2: two each, 3: 2-1-1, 4: one each).
-static func make(num_players: int, seed: int = 0) -> Dictionary:
+## Who controls what: solo is a full squad of 4 for player 0; co-op is one soldier per player.
+## `picks` maps player -> class; a player without a pick gets the first class nobody has.
+static func squad_plan(num_players: int, picks: Dictionary = {}) -> Array:
 	var n := clampi(num_players, 1, CLASSES.size())
+	var out: Array = []
+	if n == 1:
+		for k in CLASSES:
+			out.append({"kind": k, "player": 0})
+		return out
+	var taken := {}
+	for p in n:
+		if picks.has(p):
+			taken[picks[p]] = true
+	for p in n:
+		var kind: String = picks.get(p, "")
+		if kind == "":
+			for k in CLASSES:
+				if not taken.has(k):
+					kind = k
+					break
+			if kind == "":
+				kind = CLASSES[p % CLASSES.size()]
+			taken[kind] = true
+		out.append({"kind": kind, "player": p})
+	return out
+
+
+static func make(num_players: int, seed: int = 0, picks: Dictionary = {}) -> Dictionary:
 	var squad: Array = []
-	for i in CLASSES.size():
-		squad.append({"kind": CLASSES[i], "player": i * n / CLASSES.size(),
-			"prog": Progression.quick_play_record(CLASSES[i])})
+	for e in squad_plan(num_players, picks):
+		e["prog"] = Progression.quick_play_record(e.kind)
+		squad.append(e)
 	var s := seed if seed != 0 else randi() % 1000000 + 1
 	# Quick matches outside a run roll an act 1 skirmish layout from their seed.
-	return {"map": MAP, "squad": squad, "enemies": ENEMIES.duplicate(), "seed": s,
+	return {"map": MAP, "squad": squad, "enemies": ENEMIES.slice(0, 1 + squad.size()), "seed": s,
 		"map_spec": {"biome": "wall", "objective": "skirmish", "seed": s}}
 
 
@@ -38,6 +63,7 @@ static func for_fight(run: RunState, st: Dictionary) -> Dictionary:
 	for r in run.squad():
 		if r.sit_out <= 0:
 			squad.append(RunSoldier.squad_entry(run, r))
+	spec["squad"] = squad.size()
 	var built: Dictionary = RunHooks.call_static("FightBuilder", "build", [spec], {})
 	var enemies: Array = built.get("enemies", default_enemies(spec))
 	return {

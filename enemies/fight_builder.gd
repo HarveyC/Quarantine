@@ -5,8 +5,9 @@ extends RefCounted
 ##
 ## spec = {act (1-3), row, node ("skirmish" | "ambush" | "nest" | "boss"),
 ##         objective ("extract" | "hold" | "rescue" | "purge" | "boss"), outbreak, seed, players,
+##         squad (soldiers deploying, 1-4; default 4),
 ##         modifiers: {extra_enemies, enemies_dead_at_start, ambush, boss_health_mult}}
-## Fights never scale with player count: `players` is ignored on purpose.
+## Fights scale with `squad` (co-op squads are one soldier per player), not with `players`.
 
 const SKIRMISH_BUDGET := {1: 4, 2: 6, 3: 8}
 const NEST_BUDGET := {1: 3, 2: 4, 3: 5}     # on top of the elite and the Hive node
@@ -14,6 +15,9 @@ const BOSS_BUDGET := {1: 0, 2: 0, 3: 0}     # bosses bring their own adds
 const BUDGET_PER_ENEMY := 2                  # each "+1 enemy" from Outbreak or events
 const ENEMY_CAP := 5
 const MIN_START := 3
+## Threat budget share and boss health by squad size (4 is the baseline the budgets are tuned for).
+const SQUAD_BUDGET := {1: 0.5, 2: 0.6, 3: 0.8, 4: 1.0}
+const SQUAD_BOSS_HEALTH := {1: 0.6, 2: 0.7, 3: 0.85, 4: 1.0}
 const STAGE_NAMES: Array[String] = ["Contained", "Spreading", "Rampant", "Critical", "Collapse"]
 
 
@@ -36,6 +40,8 @@ static func build(spec: Dictionary) -> Dictionary:
 	var objective := str(spec.get("objective", ""))
 	var mods: Dictionary = spec.get("modifiers", {})
 	var st := stage(int(spec.get("outbreak", 0)))
+	var squad := clampi(int(spec.get("squad", 4)), 1, 4)
+	var cap := mini(ENEMY_CAP, squad + 1)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(spec.get("seed", 1)) * 7919 + 17
 	# The elite is rolled first so preview() can show it without knowing Outbreak.
@@ -49,6 +55,7 @@ static func build(spec: Dictionary) -> Dictionary:
 		"boss": budget = BOSS_BUDGET[act]
 		_: budget = SKIRMISH_BUDGET[act]
 	budget += BUDGET_PER_ENEMY * extra
+	budget = ceili(budget * float(SQUAD_BUDGET[squad]))
 	var enemies: Array[String] = []
 	var enc := {"act": act, "node": node, "objective": objective, "outbreak": int(spec.get("outbreak", 0)),
 		"stage": st, "waves": []}
@@ -63,21 +70,22 @@ static func build(spec: Dictionary) -> Dictionary:
 	if node == "boss":
 		enc["boss"] = EnemyRoster.BOSS_OF_ACT[act]
 		if act == 2:
-			enemies.append_array(["fallen", "fallen", "sharpshooter"])
-		if mods.has("boss_health_mult"):
-			enc["boss_health_mult"] = float(mods.boss_health_mult)
+			enemies.append_array(["fallen", "sharpshooter"] if squad <= 2 else ["fallen", "fallen", "sharpshooter"])
+		var mult := float(mods.get("boss_health_mult", 1.0)) * float(SQUAD_BOSS_HEALTH[squad])
+		if mult != 1.0:
+			enc["boss_health_mult"] = mult
 	var pool := EnemyRoster.pool(act)
-	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else MIN_START, act)
+	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else mini(MIN_START, cap), act, cap)
 	# Spare budget past the cap: an affix on a regular, or an earlier reinforcement wave.
 	if st >= 2 and node != "boss":
-		enc.waves.append({"turn": 3 if st >= 4 else 4, "every": 3 if st >= 4 else 0, "kinds": _wave(rng, pool, 2)})
+		enc.waves.append({"turn": 3 if st >= 4 else 4, "every": 3 if st >= 4 else 0, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2)})
 	var flip := false
 	while budget >= BUDGET_PER_ENEMY:
 		budget -= BUDGET_PER_ENEMY
 		flip = not flip
 		if flip or not _hasten_wave(enc.waves):
 			_affix_regular(rng, enemies)
-	_objective_pressure(rng, objective, pool, enc)
+	_objective_pressure(rng, objective, pool, enc, squad)
 	if objective == "purge":
 		enc["purge_nests"] = 3
 	if st >= 1:
@@ -115,9 +123,9 @@ static func preview(spec: Dictionary) -> Dictionary:
 
 
 ## Buys regulars until the budget or the cap runs out. Returns the budget left.
-static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, enemies: Array[String], min_start: int, act: int = 1) -> int:
-	while budget > 0 and enemies.size() < ENEMY_CAP:
-		var slots := ENEMY_CAP - enemies.size()
+static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, enemies: Array[String], min_start: int, act: int = 1, cap: int = ENEMY_CAP) -> int:
+	while budget > 0 and enemies.size() < cap:
+		var slots := cap - enemies.size()
 		var still_needed := maxi(0, min_start - enemies.size() - 1)
 		var max_cost := budget - still_needed
 		var target := ceili(float(budget) / slots)
@@ -152,13 +160,14 @@ static func _wave(rng: RandomNumberGenerator, pool: Array[String], n: int) -> Ar
 
 
 ## Waves for objective pressure (Hold: every turn from 2 sides; Extract: behind the squad every 2 turns).
-static func _objective_pressure(rng: RandomNumberGenerator, objective: String, pool: Array[String], enc: Dictionary) -> void:
+static func _objective_pressure(rng: RandomNumberGenerator, objective: String, pool: Array[String], enc: Dictionary, squad: int = 4) -> void:
 	match objective:
 		"hold":
 			enc.waves.append({"turn": 2, "every": 1, "kinds": _wave(rng, pool, 1)})
-			enc.waves.append({"turn": 3, "every": 2, "kinds": _wave(rng, pool, 1)})
+			if squad >= 3:
+				enc.waves.append({"turn": 3, "every": 2, "kinds": _wave(rng, pool, 1)})
 		"extract":
-			enc.waves.append({"turn": 2, "every": 2, "kinds": _wave(rng, pool, 2)})
+			enc.waves.append({"turn": 2, "every": 2, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2)})
 
 
 static func _hasten_wave(waves: Array) -> bool:
