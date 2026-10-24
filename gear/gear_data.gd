@@ -17,7 +17,7 @@ const PROTOTYPE_THRESHOLD := 2  # a Prototype needs both of its tags at 2
 const RARITIES: Array[String] = ["common", "uncommon", "rare", "prototype"]
 const RARITY_NAMES := {"common": "Common", "uncommon": "Uncommon", "rare": "Rare", "prototype": "Prototype"}
 const RARITY_COLORS := {
-	"common": Color("#b8bfb3"), "uncommon": Color("#6fc3ff"), "rare": Color("#f2c14e"), "prototype": Color("#ff5c86"),
+	"common": Color("#a8aa98"), "uncommon": Color("#8fc46a"), "rare": Color("#c08cff"), "prototype": Color("#f2c14e"),
 }
 const PRICES := {"common": 35, "uncommon": 55, "rare": 90}
 const UPGRADE_PRICES := {"common": 30, "uncommon": 30, "rare": 50}

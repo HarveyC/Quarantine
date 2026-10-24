@@ -27,6 +27,7 @@ var _stash_row: HBoxContainer
 var _stash_title: Label
 var _toast: Label
 var _supplies: Label
+var _build_box: VBoxContainer
 
 
 func setup(r: RunState, s) -> void:
@@ -126,6 +127,10 @@ func _build() -> void:
 	_pockets = HBoxContainer.new()
 	_pockets.add_theme_constant_override("separation", 10)
 	left.add_child(_pockets)
+	left.add_child(UI.caps("Build", 13, UI.DIM))
+	_build_box = VBoxContainer.new()
+	_build_box.add_theme_constant_override("separation", 4)
+	left.add_child(_build_box)
 	_toast = UI.label("", 15, UI.AMBER, "bold")
 	left.add_child(_toast)
 	var tag_panel := PanelContainer.new()
@@ -165,7 +170,7 @@ func _refresh() -> void:
 		_held = -1
 	_supplies.text = "%d Supplies" % run.supplies
 	_build_squad_bar()
-	for n in [_slots, _pockets, _tags, _stash_row]:
+	for n in [_slots, _pockets, _tags, _stash_row, _build_box]:
 		for c in n.get_children():
 			c.queue_free()
 	if r.is_empty():
@@ -183,6 +188,7 @@ func _refresh() -> void:
 		_pockets.add_child(_pocket_tile(ps[i]))
 	_build_tags(r)
 	_build_stash(r)
+	_build_summary(r)
 
 
 func _player_name(p: int) -> String:
@@ -384,6 +390,27 @@ func _build_tags(r: Dictionary) -> void:
 	if not protos.is_empty():
 		var names := protos.map(func(id): return GearData.item_name(id))
 		_tags.add_child(_bonus_line("Prototypes unlocked: " + ", ".join(names) + ". Rare rewards may become one.", UI.AMBER))
+
+
+## What the soldier's build does right now, and the next step toward a set bonus.
+func _build_summary(r: Dictionary) -> void:
+	var counts := GearTags.counts(r)
+	var sets := GearTags.active_sets(counts)
+	for t in sets:
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		h.add_child(UI.tag_chip(t, "%s set" % t))
+		h.add_child(UI.wrap(UI.label(GearData.TAG_INFO[t].bonus, 14, UI.TEXT), 640))
+		_build_box.add_child(h)
+	var close: Array = GearTags.ranked(counts).filter(func(t): return counts[t] == GearData.SET_THRESHOLD - 1)
+	for t in close:
+		_build_box.add_child(UI.label("One more %s item switches on: %s" % [t, GearData.TAG_INFO[t].bonus], 14, GearData.tag_color(t)))
+	if sets.is_empty() and close.is_empty():
+		_build_box.add_child(UI.label("Stack 3 of one tag (gear, perks, awake mutations) to switch on its set bonus.", 14, UI.FAINT))
+	var d: Array = run.modifiers.get("doctrines", [])
+	if not d.is_empty():
+		var names := d.map(func(id): return GearData.DOCTRINES.get(id, {}).get("name", id))
+		_build_box.add_child(UI.label("Squad Doctrines: " + ", ".join(names), 14, UI.DIM))
 
 
 func _bonus_line(text: String, col: Color) -> Control:

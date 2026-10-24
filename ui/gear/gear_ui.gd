@@ -123,6 +123,8 @@ static func pips(tag: String, count: int, preview_to := -1) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	var c := GearData.tag_color(tag)
+	if count == 0 and preview_to <= 0:
+		c = Color("#3a403a")
 	for i in GearData.SET_THRESHOLD:
 		var pip := Panel.new()
 		pip.custom_minimum_size = Vector2(22, 10)

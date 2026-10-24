@@ -16,12 +16,14 @@ var selected := false
 var _hover := false
 var _sb: StyleBoxFlat
 var _t := 0.0
+var _art_at := 99  # child index to put the art panel at (after the effect text)
 
 
 func setup(c: Dictionary, rec: Dictionary, index: int) -> void:
 	card = c
 	record = rec
 	custom_minimum_size = Vector2(W, H)
+	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pivot_offset = Vector2(W, H) / 2
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -36,13 +38,15 @@ func setup(c: Dictionary, rec: Dictionary, index: int) -> void:
 		"perk", "mutation": _build_power(v)
 		"consumable": _build_consumable(v)
 		"cache": _build_cache(v)
+	var art := Art.new()
+	art.kind = _art_kind()
+	art.color = _art_color()
+	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	art.custom_minimum_size = Vector2(0, 70)
+	v.add_child(art)
+	v.move_child(art, mini(_art_at, v.get_child_count() - 1))
 	var key := UI.mono("%d" % (index + 1), 12, UI.FAINT)
-	key.size_flags_vertical = Control.SIZE_SHRINK_END
 	key.size_flags_horizontal = Control.SIZE_SHRINK_END
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(spacer)
 	v.add_child(key)
 	for n in v.get_children():
 		if n is Control:
@@ -115,6 +119,7 @@ func _build_gear(v: VBoxContainer) -> void:
 		tags.add_child(UI.tag_chip(t))
 	v.add_child(tags)
 	v.add_child(UI.wrap(UI.label(GearData.desc(id, mk), 15, Color("#cfccbd")), W - 40))
+	_art_at = v.get_child_count()
 	# Threshold preview / upgrade box.
 	if pv.mode == "upgrade":
 		var b := _boxed(v, rar)
@@ -172,6 +177,7 @@ func _build_power(v: VBoxContainer) -> void:
 		tags.add_child(UI.tag_chip(t))
 		v.add_child(tags)
 	v.add_child(UI.wrap(UI.label(str(card.get("desc", "")), 15, Color("#cfccbd")), W - 40))
+	_art_at = v.get_child_count()
 	if t != "":
 		var before: int = GearTags.counts(record).get(t, 0)
 		if before + 1 == GearData.SET_THRESHOLD:
@@ -218,3 +224,86 @@ func title() -> String:
 		"cache":
 			return "+%d Supplies" % int(card.get("supplies", 25))
 	return str(card.get("name", card.get("id", "card")))
+
+
+func _art_kind() -> String:
+	match str(card.get("kind", "gear")):
+		"gear":
+			return GearData.slot_of(card.id)
+	return str(card.get("kind", "gear"))
+
+
+func _art_color() -> Color:
+	match str(card.get("kind", "gear")):
+		"gear":
+			return UI.rarity_color(GearData.rarity_of(card.id))
+		"mutation":
+			return UI.TEAL
+		"perk":
+			return UI.GOOD
+		"cache":
+			return UI.AMBER
+	return UI.DIM
+
+
+## Line-art glyph for the card's slot or kind on a faint grid, like the mockup's art panel.
+class Art:
+	extends Control
+
+	var kind := "weapon"
+	var color := Color.WHITE
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		draw_rect(r, Color(1, 1, 1, 0.02))
+		draw_rect(r, Color("#232a24"), false, 1.0)
+		var g := Color(1, 1, 1, 0.025)
+		var x := 0.0
+		while x < size.x:
+			draw_line(Vector2(x, 0), Vector2(x, size.y), g)
+			x += 24.0
+		var y := 0.0
+		while y < size.y:
+			draw_line(Vector2(0, y), Vector2(size.x, y), g)
+			y += 24.0
+		var c := size / 2
+		var s := minf(size.y * 0.36, 60.0)
+		var w := 2.0
+		match kind:
+			"weapon":
+				draw_arc(c, s, 0, TAU, 48, color, w, true)
+				draw_arc(c, s * 0.35, 0, TAU, 24, color, w, true)
+				for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+					draw_line(c + d * s * 0.55, c + d * s * 1.3, color, w, true)
+			"ammo":
+				for i in 3:
+					var bx := c.x + (i - 1) * s * 0.75
+					var top := c.y - s * 0.8
+					draw_polyline(PackedVector2Array([Vector2(bx - s * 0.22, c.y + s), Vector2(bx - s * 0.22, top + s * 0.3),
+						Vector2(bx, top), Vector2(bx + s * 0.22, top + s * 0.3), Vector2(bx + s * 0.22, c.y + s),
+						Vector2(bx - s * 0.22, c.y + s)]), color, w, true)
+			"armor":
+				draw_polyline(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.85, -s * 0.65), c + Vector2(s * 0.85, 0),
+					c + Vector2(0, s), c + Vector2(-s * 0.85, 0), c + Vector2(-s * 0.85, -s * 0.65), c + Vector2(0, -s)]), color, w, true)
+			"gadget", "consumable":
+				var pts := PackedVector2Array()
+				for i in 7:
+					pts.append(c + Vector2.from_angle(TAU * i / 6.0 + PI / 6.0) * s)
+				draw_polyline(pts, color, w, true)
+				draw_polyline(PackedVector2Array([c + Vector2(s * 0.1, -s * 0.6), c + Vector2(-s * 0.25, s * 0.05),
+					c + Vector2(s * 0.2, s * 0.05), c + Vector2(-s * 0.1, s * 0.6)]), color, w, true)
+			"mutation":
+				draw_arc(c + Vector2(0, -s * 0.45), s * 0.4, 0, TAU, 32, color, w, true)
+				draw_arc(c + Vector2(-s * 0.5, s * 0.35), s * 0.4, 0, TAU, 32, color, w, true)
+				draw_arc(c + Vector2(s * 0.5, s * 0.35), s * 0.4, 0, TAU, 32, color, w, true)
+			"perk":
+				for i in 3:
+					var yy := c.y - s * 0.6 + i * s * 0.55
+					draw_polyline(PackedVector2Array([Vector2(c.x - s * 0.7, yy + s * 0.4), Vector2(c.x, yy), Vector2(c.x + s * 0.7, yy + s * 0.4)]), color, w, true)
+			"cache":
+				draw_rect(Rect2(c - Vector2(s, s * 0.7), Vector2(s * 2, s * 1.4)), color, false, w)
+				draw_line(c + Vector2(-s, -s * 0.2), c + Vector2(s, -s * 0.2), color, w, true)
+				draw_rect(Rect2(c + Vector2(-s * 0.2, -s * 0.35), Vector2(s * 0.4, s * 0.3)), color, false, w)

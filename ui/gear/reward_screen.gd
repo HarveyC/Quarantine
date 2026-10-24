@@ -173,7 +173,7 @@ func _build_tabs() -> void:
 	for c in _tabs.get_children():
 		c.queue_free()
 	var mine := _my_soldiers()
-	_tabs.visible = mine.size() > 1 or (mine.size() == 1 and _sid == -1)
+	_tabs.visible = mine.size() > 1 and _sid != -1
 	for r in mine:
 		var tab := PanelContainer.new()
 		var on: bool = r.id == _sid
@@ -280,7 +280,8 @@ func _show_doctrines(vote: Dictionary) -> void:
 		var id: String = vote.options[i]
 		var d: Dictionary = GearData.DOCTRINES.get(id, {})
 		var p := PanelContainer.new()
-		p.custom_minimum_size = Vector2(300, 260)
+		p.custom_minimum_size = Vector2(300, 300)
+		p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		p.add_theme_stylebox_override("panel", UI.box(UI.PANEL, UI.BORDER_HI, 1, 0, 20))
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 10)
