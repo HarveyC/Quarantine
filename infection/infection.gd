@@ -1,14 +1,14 @@
 class_name Infection
 extends RefCounted
-## Infection meter (0-100), tiers, mutation powers, Lapse rolls and Turning.
-## OWNER: infection workstream.
+## Infection meter (0-100), tiers, Lapse rolls and Turning. Mutation powers are grafted per soldier
+## and live in progression/ (MutationData, Mutations, Kit); this file delegates to them.
+## OWNER: infection workstream (mutations: progression workstream).
 ##
 ## Status keys owned by this module (see docs/ARCHITECTURE.md, cross-module contracts):
 ##   "lapsed": bool          soldier is temporarily AI-controlled and hostile to everyone
 ##   "lapsed_turn": int      turn the soldier lapsed on
 ##   "turned": bool          soldier has permanently Turned (team is ENEMY)
-##   "hive_sense": int       turn number on which Hive Sense is active (ignore enemy cover)
-##   "surge_turn": int       turn on which Adrenal Surge was last used
+##   "hive_sense": int       turn number on which Hive Sense is active (ignore enemy cover; legacy, unused)
 ##   "tier_mobility": int    mobility bonus currently applied by tier passives
 ##   "tier_aim": int         aim bonus currently applied by tier passives
 
@@ -36,24 +36,6 @@ const PASSIVES := {
 	Tier.CRITICAL: {"mobility": 1, "aim": 10},
 	Tier.TURNED: {"mobility": 1, "aim": 10},
 }
-
-const MUTATIONS := {
-	"surge": {
-		"name": "Adrenal Surge", "cost": 15, "actions": 0, "targeting": "none", "min_tier": Tier.EXPOSED,
-		"desc": "Gain +1 action this turn. Once per turn.",
-	},
-	"regenerate": {
-		"name": "Regenerate", "cost": 10, "actions": 1, "targeting": "none", "min_tier": Tier.EXPOSED,
-		"cooldown": 2, "heal": 3, "desc": "Heal 3 HP. Cooldown 2.",
-	},
-	"sense": {
-		"name": "Hive Sense", "cost": 10, "actions": 1, "targeting": "none", "min_tier": Tier.MUTATING,
-		"desc": "Ignore enemy cover for the rest of this turn. Requires Mutating.",
-	},
-}
-## Display order for the HUD.
-const MUTATION_ORDER: Array[String] = ["surge", "regenerate", "sense"]
-
 
 static func tier(value: int) -> int:
 	if value >= TURNED_AT:
@@ -88,13 +70,29 @@ static func tier_color(t: int) -> Color:
 static func add(s: GameState, u: Unit, amount: int) -> void:
 	if u.status.get("turned", false):
 		return
+	if amount != 0:
+		amount = Kit.infection_change(s, u, amount)
+		if amount == 0:
+			return
 	var before := tier(u.infection)
 	u.infection = clampi(u.infection + amount, 0, MAX)
 	var after := tier(u.infection)
 	s.emit({"type": "infection", "unit": u.id, "value": u.infection, "tier": after})
 	if after != before:
 		_apply_passives(u, after)
-	if after == Tier.TURNED:
+		Kit.refresh_stats(s, u)
+	if after == Tier.TURNED and not Kit.prevent_turn(s, u):
+		_turn(s, u)
+
+
+## Re-applies the tier passives for the current value (after setting `infection` directly at spawn).
+static func sync_passives(u: Unit) -> void:
+	_apply_passives(u, tier(u.infection))
+
+
+## Turns a soldier now (Ride the Wave running out).
+static func force_turn(s: GameState, u: Unit) -> void:
+	if not u.status.get("turned", false):
 		_turn(s, u)
 
 
@@ -130,6 +128,7 @@ static func _turn(s: GameState, u: Unit) -> void:
 	u.status["turned"] = true
 	u.actions_left = 0
 	s.emit({"type": "turned", "unit": u.id})
+	Kit.on_turned(s, u)
 
 
 ## Chance (0-1) that a soldier at `value` infection Lapses at the start of a team phase.
@@ -146,18 +145,33 @@ static func is_lapsed(u: Unit) -> bool:
 static func on_team_phase_start(s: GameState) -> void:
 	for u in s.living(Types.Team.PLAYER):
 		if is_lapsed(u):
-			u.status.erase("lapsed")
-			u.status.erase("lapsed_turn")
-			u.ai_controlled = false
-			s.emit({"type": "recover", "unit": u.id})
+			end_lapse(s, u)
 			continue
-		var chance := lapse_chance(u.infection)
-		if chance > 0.0 and s.rng.randf() < chance:
-			u.status["lapsed"] = true
-			u.status["lapsed_turn"] = s.turn
-			u.ai_controlled = true
-			u.overwatch = false
-			s.emit({"type": "lapse", "unit": u.id})
+		roll_lapse(s, u)
+
+
+## Rolls for a Lapse now (phase start, Rampage, Patient Zero). Returns true if the soldier lapsed.
+static func roll_lapse(s: GameState, u: Unit) -> bool:
+	if is_lapsed(u) or u.team != Types.Team.PLAYER or not u.is_alive():
+		return false
+	var chance := Kit.lapse_chance(u, lapse_chance(u.infection))
+	if chance <= 0.0 or s.rng.randf() >= chance:
+		return false
+	u.status["lapsed"] = true
+	u.status["lapsed_turn"] = s.turn
+	u.ai_controlled = true
+	u.overwatch = false
+	s.emit({"type": "lapse", "unit": u.id})
+	Kit.on_lapse(s, u)
+	return true
+
+
+## Ends a Lapse (recovery at the next team phase, or an ally talked them down / cured them).
+static func end_lapse(s: GameState, u: Unit) -> void:
+	u.status.erase("lapsed")
+	u.status.erase("lapsed_turn")
+	u.ai_controlled = false
+	s.emit({"type": "recover", "unit": u.id})
 
 
 ## Called by Rules.deal_damage whenever `source` damages `target`.
@@ -183,73 +197,18 @@ static func has_hive_sense(s: GameState, u: Unit) -> bool:
 
 ## Mutation powers `u` could use: Array of
 ## {"id", "name", "desc", "cost" (infection added), "actions", "targeting": "none"|"unit"|"cell",
-##  "ready": bool, "reason": String (why not ready, "" if ready)}.
-## Empty for units that are not soldiers or are below EXPOSED.
+##  "ready": bool, "reason": String (why not ready, "" if ready), "cooldown", "source", "tier"}.
+## Lists the soldier's grafted active mutations (dormant ones with ready = false), plus any lent
+## by Hive Link or mirrored by Mirror Graft. See Mutations.available.
 static func available_mutations(s: GameState, u: Unit) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	if u.team != Types.Team.PLAYER or tier(u.infection) < Tier.EXPOSED:
-		return out
-	for id in MUTATION_ORDER:
-		var m: Dictionary = MUTATIONS[id]
-		var reason := _mutation_reason(s, u, id)
-		out.append({
-			"id": id, "name": m.name, "desc": m.desc, "cost": m.cost, "actions": m.actions,
-			"targeting": m.targeting, "ready": reason == "", "reason": reason,
-			"cooldown": int(u.cooldowns.get(id, 0)),
-		})
-	return out
-
-
-static func _mutation_reason(s: GameState, u: Unit, id: String) -> String:
-	if not MUTATIONS.has(id):
-		return "Unknown mutation"
-	var m: Dictionary = MUTATIONS[id]
-	if not u.is_alive():
-		return "No such unit"
-	if u.team != Types.Team.PLAYER:
-		return "Only soldiers can mutate"
-	var min_tier: int = m.min_tier
-	if tier(u.infection) < min_tier:
-		return "Requires %s infection" % tier_name(min_tier)
-	var actions: int = m.actions
-	if u.actions_left < maxi(1, actions):
-		return "No actions left"
-	if int(u.cooldowns.get(id, 0)) > 0:
-		return "Cooling down (%d)" % int(u.cooldowns[id])
-	if id == "surge" and u.status.get("surge_turn", -1) == s.turn:
-		return "Already used this turn"
-	if id == "regenerate" and u.hp >= u.max_hp:
-		return "Already at full health"
-	if id == "sense" and has_hive_sense(s, u):
-		return "Already active"
-	return ""
+	return Mutations.available(s, u)
 
 
 static func validate_mutation(s: GameState, u: Unit, action: Dictionary) -> String:
-	return _mutation_reason(s, u, str(action.get("mutation", "")))
+	return Mutations.validate(s, u, action)
 
 
 ## Applies a validated mutation. Effects resolve first, then the infection cost is added
 ## (which may Turn the unit). Emits {"type": "mutation", "unit", "mutation", ...}.
 static func apply_mutation(s: GameState, u: Unit, action: Dictionary) -> void:
-	var id: String = action.mutation
-	var m: Dictionary = MUTATIONS[id]
-	var actions: int = m.actions
-	u.actions_left -= actions
-	var ev := {"type": "mutation", "unit": u.id, "mutation": id}
-	match id:
-		"surge":
-			u.actions_left += 1
-			u.status["surge_turn"] = s.turn
-		"regenerate":
-			var heal: int = m.heal
-			var healed := mini(heal, u.max_hp - u.hp)
-			u.hp += healed
-			u.cooldowns[id] = m.cooldown
-			ev["healed"] = healed
-			ev["hp"] = u.hp
-		"sense":
-			u.status["hive_sense"] = s.turn
-	s.emit(ev)
-	var cost: int = m.cost
-	add(s, u, cost)
+	Mutations.apply(s, u, action)

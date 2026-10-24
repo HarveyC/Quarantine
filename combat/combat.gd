@@ -186,8 +186,8 @@ static func cover_against(g: Grid, target: Vector2i, from: Vector2i) -> int:
 ## "graze" is the width of the graze band (rolls in hit+1..hit+graze graze); "crit" is the
 ## chance that a hit is critical. `reaction` applies the overwatch penalty.
 static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2i = attacker.pos, reaction: bool = false) -> Dictionary:
-	var los := can_see(s, from, target.pos)
-	var cover := cover_against(s.grid, target.pos, from)
+	var los := can_see(s, from, target.pos) or Kit.shared_sight(s, attacker, target.pos)
+	var cover := Kit.cover_against(s, attacker, target, cover_against(s.grid, target.pos, from))
 	var flanked := cover == Types.Cover.NONE
 	var breakdown: Array = [["Aim", attacker.aim]]
 	if cover != Types.Cover.NONE and Infection.has_hive_sense(s, attacker):
@@ -210,7 +210,8 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
 	if reaction:
 		breakdown.append(["Reaction shot", -REACTION_PENALTY])
-	return _finish_odds(breakdown, cover, flanked, los, FLANK_CRIT if flanked else 0)
+	var crit := Kit.modify_odds(s, attacker, target, from, reaction, breakdown)
+	return _finish_odds(breakdown, cover, flanked, los, mini(100, (FLANK_CRIT if flanked else 0) + crit))
 
 
 ## Odds of a claw (melee) attack: aim, minus 20 if the target has any cover toward the attacker.
@@ -263,6 +264,7 @@ static func final_damage(base: int, graze: bool, crit: bool) -> int:
 ## "ready": bool, "cooldown": int, "cost": int (-1 = ends turn), "desc", "targets": Array of unit ids}.
 static func available_abilities(s: GameState, u: Unit) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	out.append_array(ClassAbilities.available(s, u))
 	for id in u.abilities:
 		if not ABILITIES.has(id):
 			continue
@@ -297,12 +299,12 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 		"stim":
 			if u.is_enemy_of(t):
 				return "Not an ally"
-			if _cheb(u.pos, t.pos) > 1:
+			if _cheb(u.pos, t.pos) > Kit.ability_range(u, "stim", 1):
 				return "Too far"
 		"breach":
 			if not u.is_enemy_of(t):
 				return "Not an enemy"
-			if _cheb(u.pos, t.pos) > BREACH_RANGE:
+			if _cheb(u.pos, t.pos) > Kit.ability_range(u, "breach", BREACH_RANGE):
 				return "Too far"
 			if not can_see(s, u.pos, t.pos):
 				return "No line of sight"
@@ -333,6 +335,8 @@ static func _cheb(a: Vector2i, b: Vector2i) -> int:
 
 static func _validate_ability(s: GameState, u: Unit, action: Dictionary) -> String:
 	var id: String = action.get("ability", "")
+	if ClassAbilities.handles(id):
+		return ClassAbilities.validate(s, u, action)
 	if not ABILITIES.has(id) or not u.abilities.has(id):
 		return "Unknown ability"
 	if int(u.cooldowns.get(id, 0)) > 0:
@@ -349,15 +353,18 @@ static func _validate_ability(s: GameState, u: Unit, action: Dictionary) -> Stri
 
 static func _spend(u: Unit, id: String) -> void:
 	var def: Dictionary = ABILITIES[id]
-	var cost: int = def.cost
+	var cost: int = Kit.ability_cost(u, id, def.cost)
 	u.actions_left = 0 if cost < 0 else maxi(0, u.actions_left - cost)
-	var cd: int = def.cooldown
+	var cd: int = Kit.ability_cooldown(u, id, def.cooldown)
 	if cd > 0:
 		u.cooldowns[id] = cd
 
 
 static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 	var id: String = action.ability
+	if ClassAbilities.handles(id):
+		ClassAbilities.apply(s, u, action)
+		return
 	_spend(u, id)
 	if id == "spit":
 		var cell: Vector2i = action.cell
@@ -380,10 +387,12 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			t.status["tagged"] = phase_index(s) + (2 if s.phase != Types.Phase.ENEMY else 3)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
 		"stim":
-			var healed := mini(STIM_HEAL, t.max_hp - t.hp)
+			var healed := mini(Kit.medic_heal(t, STIM_HEAL), t.max_hp - t.hp)
 			t.hp += healed
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id, "heal": healed, "hp": t.hp})
-			Infection.add(s, t, -STIM_CURE)
+			var before := t.infection
+			Infection.add(s, t, -Kit.medic_cure(t, STIM_CURE))
+			Kit.after_stim(s, u, t, before - t.infection)
 		"breach":
 			var dmg := s.rng.randi_range(BREACH_DAMAGE.x, BREACH_DAMAGE.y)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id, "hit": true, "damage": dmg})
@@ -399,6 +408,8 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 				"hit": r.hit or r.graze, "graze": r.graze, "damage": dmg, "chance": odds.hit})
 			if dmg > 0:
 				Rules.deal_damage(s, t, dmg, u)
+				Kit.after_melee(s, u, t, dmg)
+	Kit.after_ability(s, u, id, t)
 
 
 # ---------------------------------------------------------------- actions
@@ -444,18 +455,20 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 	u.status.erase("suppressed")
 	var dmg := 0
 	if r.hit or r.graze:
-		dmg = final_damage(s.rng.randi_range(u.damage.x, u.damage.y), r.graze, r.crit)
+		dmg = Kit.shot_damage(s, u, t, final_damage(s.rng.randi_range(u.damage.x, u.damage.y), r.graze, r.crit))
 	s.emit({"type": "shot", "unit": u.id, "target": t.id, "hit": r.hit or r.graze, "graze": r.graze,
 		"crit": r.crit, "damage": dmg, "chance": odds.hit, "reaction": reaction})
 	if dmg > 0:
 		Rules.deal_damage(s, t, dmg, u)
+	Kit.after_shot(s, u, t, odds, dmg > 0)
 
 
 ## Units on overwatch that would react to `mover` entering `cell`. Must not change state.
 static func reactions_to_move(s: GameState, mover: Unit, cell: Vector2i) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for w in s.units:
-		if w != mover and is_overwatching(s, w) and w.is_enemy_of(mover) and can_see(s, w.pos, cell):
+		if w != mover and is_overwatching(s, w) and w.is_enemy_of(mover) and Kit.can_react(w, mover) \
+				and (can_see(s, w.pos, cell) or Kit.shared_sight(s, w, cell)):
 			out.append(w)
 	return out
 
@@ -467,6 +480,7 @@ static func resolve_reactions(s: GameState, mover: Unit, reactors: Array[Unit]) 
 			return
 		if not is_overwatching(s, w):
 			continue
-		w.overwatch = false
-		w.status.erase("ow_until")
+		if not Kit.keep_overwatch(s, w, mover):
+			w.overwatch = false
+			w.status.erase("ow_until")
 		fire(s, w, mover, true)

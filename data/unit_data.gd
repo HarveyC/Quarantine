@@ -7,6 +7,8 @@ const SOLDIERS := {
 	"marksman": {"name": "Marksman", "max_hp": 5, "aim": 75, "mobility": 4, "damage": [4, 6], "abilities": ["tag"]},
 	"medic": {"name": "Medic", "max_hp": 6, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["stim"]},
 	"breacher": {"name": "Breacher", "max_hp": 8, "aim": 60, "mobility": 6, "damage": [4, 7], "abilities": ["breach"]},
+	"hazmat": {"name": "Hazmat", "max_hp": 8, "aim": 55, "mobility": 4, "damage": [2, 4], "abilities": ["incinerate"]},
+	"vector": {"name": "Vector", "max_hp": 6, "aim": 65, "mobility": 6, "damage": [3, 5], "abilities": ["siphon"]},
 }
 
 const ENEMIES := {

@@ -18,7 +18,8 @@ static func make(num_players: int, seed: int = 0) -> Dictionary:
 	var n := clampi(num_players, 1, CLASSES.size())
 	var squad: Array = []
 	for i in CLASSES.size():
-		squad.append({"kind": CLASSES[i], "player": i * n / CLASSES.size()})
+		squad.append({"kind": CLASSES[i], "player": i * n / CLASSES.size(),
+			"prog": Progression.quick_play_record(CLASSES[i])})
 	return {"map": MAP, "squad": squad, "enemies": ENEMIES.duplicate(), "seed": seed if seed != 0 else randi() % 1000000 + 1}
 
 

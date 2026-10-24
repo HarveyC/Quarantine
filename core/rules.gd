@@ -23,6 +23,8 @@ static func new_mission_on_grid(grid: Grid, squad: Array, enemies: Array[String]
 		s.add_unit(u, s.grid.player_spawns[i])
 		if squad[i].has("sid"):
 			RunSoldier.apply_entry(s, u, squad[i])
+		elif squad[i].has("prog"):
+			Progression.apply_record(u, squad[i].prog)
 	s.players.assign(players.keys())
 	for i in enemies.size():
 		var spawn := s.grid.enemy_spawns[i % s.grid.enemy_spawns.size()]
@@ -63,6 +65,7 @@ static func start_team_phase(s: GameState) -> void:
 			u.cooldowns[k] = max(0, u.cooldowns[k] - 1)
 	s.emit({"type": "team_phase", "turn": s.turn})
 	Infection.on_team_phase_start(s)
+	Kit.on_team_phase_start(s)
 	# Soldiers that have Lapsed act on their own before the squad gets to move.
 	for u in s.living(Types.Team.PLAYER):
 		if u.ai_controlled:
@@ -81,6 +84,9 @@ static func validate(s: GameState, action: Dictionary) -> String:
 		return "No such unit"
 	if u.actions_left <= 0:
 		return "No actions left"
+	var kit_err := Kit.validate(s, u, action)
+	if kit_err != "":
+		return kit_err
 	match action.get("type"):
 		Types.MOVE: return _validate_move(s, u, action.get("to", u.pos))
 		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: return Combat.validate(s, u, action)
@@ -95,10 +101,12 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		s.emit({"type": "rejected", "action": action, "reason": err})
 		return false
 	var u := s.get_unit(action.unit)
+	Kit.before_action(s, u, action)
 	match action.type:
 		Types.MOVE: _do_move(s, u, action.to)
 		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: Combat.apply(s, u, action)
 		Types.MUTATION: Infection.apply_mutation(s, u, action)
+	Kit.after_action(s, u, action)
 	check_end(s)
 	return true
 
@@ -116,10 +124,11 @@ static func set_ready(s: GameState, player: int, is_ready: bool) -> void:
 static func run_enemy_phase(s: GameState) -> void:
 	s.phase = Types.Phase.ENEMY
 	s.emit({"type": "enemy_phase", "turn": s.turn})
+	Kit.on_enemy_phase_start(s)
 	for u in s.living(Types.Team.ENEMY):
 		if s.phase == Types.Phase.ENDED:
 			return
-		if not u.is_alive():
+		if not u.is_alive() or Kit.skips_turn(u):
 			continue
 		u.actions_left = Types.ACTIONS_PER_TURN
 		for k in u.cooldowns.keys():
@@ -153,6 +162,13 @@ static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
 	for c in path:
 		u.pos = c
 		segment.append(c)
+		if Kit.step_hazard(s, u, c):
+			s.emit({"type": "move", "unit": u.id, "from": from, "path": segment.duplicate()})
+			from = c
+			segment.clear()
+		Kit.on_step(s, u, c)
+		if not u.is_alive():
+			return
 		var reactors := Combat.reactions_to_move(s, u, c)
 		if not reactors.is_empty():
 			# Flush the movement so far, then let overwatch fire.
@@ -170,13 +186,16 @@ static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
 static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = null) -> void:
 	if not target.is_alive():
 		return
+	amount = Kit.modify_incoming(s, target, amount, source)
 	target.hp = max(0, target.hp - amount)
 	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1})
 	if source:
 		Infection.on_damaged(s, target, source, amount)
+	Kit.after_damage(s, target, amount, source)
 	if not target.is_alive():
 		target.overwatch = false
 		s.emit({"type": "died", "unit": target.id})
+		Kit.on_death(s, target, source)
 
 
 static func check_end(s: GameState) -> void:

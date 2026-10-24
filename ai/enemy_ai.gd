@@ -80,7 +80,7 @@ static func _update_alert(s: GameState, u: Unit) -> bool:
 	var wake := u.hp < u.max_hp
 	if not wake:
 		for h in _hostiles(s, u):
-			if Combat.can_see(s, u.pos, h.pos):
+			if Combat.can_see(s, u.pos, h.pos) and Kit.can_be_spotted(s, u, h):
 				wake = true
 				break
 	if not wake:
@@ -314,7 +314,7 @@ static func _advance(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary
 
 ## How attractive `t` is as a target for `u` standing at `from`. Low HP, flanked, close.
 static func _target_score(s: GameState, u: Unit, t: Unit, from: Vector2i) -> float:
-	var score := 10.0 - t.hp
+	var score := 10.0 - t.hp + Kit.target_bias(s, u, t)
 	var odds := Combat.hit_chance(s, u, t, from)
 	if odds.get("flanked", false):
 		score += 3.0

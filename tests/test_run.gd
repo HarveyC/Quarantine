@@ -116,6 +116,17 @@ func _win_fight(run: RunState, bonus: bool = false) -> void:
 	Rules.check_end(s)
 	assert_eq(s.result, Types.Result.VICTORY, "fake win")
 	assert_true(RunRules.apply(run, {"type": RunRules.FIGHT_END, "player": 0, "outcome": RunRules.fight_outcome(s, bonus)}), "fight_end")
+	_take_rank_up_picks(run)
+
+
+## Makes every waiting Progression pick (first perk on offer, mutation offers skipped).
+func _take_rank_up_picks(run: RunState) -> void:
+	for r in run.squad():
+		while Progression.pending_picks(r) > 0:
+			var perk: String = Progression.perk_offer(run, r)[0]
+			assert_true(RunRules.apply(run, {"type": "prog_perk_pick", "player": run.controller_of(r), "sid": r.id, "perk": perk}), "perk pick")
+		while not r.prog.offers.is_empty():
+			RunRules.apply(run, {"type": "prog_skip_offer", "player": run.controller_of(r), "sid": r.id})
 
 
 func _vote_first(run: RunState) -> void:
