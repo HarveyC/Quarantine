@@ -2,7 +2,7 @@ extends Node3D
 ## Dev aid: a model lineup for checking soldier / enemy art up close.
 ## `godot -- --lineup=out.png [--lineup-mode=classes|infection|action]` renders one
 ## frame and quits; without a path it stays open as a turntable viewer.
-##   classes:   the base classes and the melee pair (Reaper, Warden) plus every enemy model
+##   classes:   every class (melee pair included) plus every enemy model
 ##   infection: one soldier per infection tier, Clean to Turned
 ##   action:    the classes and enemies aiming / lunging mid-animation
 ##   hit:       everyone flinching from a non-lethal hit
@@ -54,10 +54,10 @@ func _ready() -> void:
 					uv.set_turned()
 		_:
 			# squad (and a civilian) in front, the infected behind them
-			var kinds := ["trooper", "marksman", "medic", "breacher", "reaper", "warden", "civilian"]
+			var kinds := ["trooper", "marksman", "medic", "breacher", "hazmat", "vector", "reaper", "warden", "civilian"]
 			for i in kinds.size():
-				var uv := _spawn(kinds[i], [0, 0, 1, 1, 0, 1, -1][i], 0)
-				uv.position = Vector3((i - 3) * 1.15, 0, 1.2)
+				var uv := _spawn(kinds[i], [0, 0, 1, 1, 0, 1, 0, 1, -1][i], 0)
+				uv.position = Vector3((i - (kinds.size() - 1) * 0.5) * 1.05, 0, 1.2)
 			var x := -6.2
 			for k in ENEMIES:
 				var w := 0.9 * ModelKit.size_of(k)
