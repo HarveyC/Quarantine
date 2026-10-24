@@ -21,7 +21,8 @@ Development works today on Valve's test app id **480** (Spacewar). To ship on St
    - *Achievements*: one per id in `Achievements.DEFS`, API name = the id in upper case
      (`first_win` → `FIRST_WIN`).
    - *Stats*: INT stats named like `Achievements.stats()` keys in upper case (`RUNS`, `WINS`,
-     `FIGHTS_WON`, `BOSSES_KILLED`, `HIGHEST_SEVERITY`, `FIELD_DATA_EARNED`).
+     `FIGHTS_WON`, `BOSSES_KILLED`, `NESTS_CLEARED`, `SOLDIERS_TURNED`, `FIELD_DATA_EARNED`,
+     `HIGHEST_SEVERITY`).
    - *Rich presence*: upload `steam/rich_presence.vdf` (Community → Rich Presence).
    - *Steam Cloud*: turn it on with a byte quota (1 MB and 10 files is plenty). The game writes
      `profile.cfg` and `run_save.txt` itself, so Auto-Cloud isn't needed.

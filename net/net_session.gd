@@ -140,6 +140,7 @@ func _watch_host() -> void:
 
 func _on_connected_to_host() -> void:
 	_hello.rpc_id(1, my_name, client_id)
+	_share_packs.rpc_id(1, Profile.packs())
 
 
 func leave() -> void:
@@ -374,6 +375,29 @@ func class_picks() -> Dictionary:
 	return out
 
 
+## The host's profile meta for a new run, with every lobby player's Field Data packs pooled.
+func run_meta() -> Dictionary:
+	var meta := Profile.meta()
+	var lists: Array = [meta.get("packs", [])]
+	for v in lobby.values():
+		lists.append(v.get("packs", []))
+	meta["packs"] = MetaUnlocks.pool(lists)
+	return meta
+
+
+@rpc("any_peer", "reliable")
+func _share_packs(packs: Array) -> void:
+	if is_host:
+		handle_packs(multiplayer.get_remote_sender_id(), packs)
+
+
+## Host: a lobby peer told us which Field Data packs its profile owns.
+func handle_packs(id: int, packs: Array) -> void:
+	if lobby.has(id):
+		lobby[id]["packs"] = MetaUnlocks.pool([packs])
+		_broadcast_lobby()
+
+
 ## Picks the class of this player's soldier for the next match or run.
 func pick_class(kind: String) -> void:
 	if is_host:
@@ -435,7 +459,7 @@ func start_run() -> void:
 			if p != run.host_player and not here.has(p):
 				RunRules.apply(run, {"type": RunRules.BENCH, "player": run.host_player, "target": p, "on": true})
 	else:
-		run = RunRules.new_run(lobby.size(), 0, Profile.meta(), class_picks())
+		run = RunRules.new_run(lobby.size(), 0, run_meta(), class_picks())
 		RunRules.start_run(run)
 	var snap := run.fight_snapshot if run.phase == RunState.Phase.FIGHT else {}
 	if _live():
@@ -471,7 +495,8 @@ func _install_run(snapshot: Dictionary = {}) -> void:
 			match_started.emit(state)
 	if is_host:
 		RunSave.write(run)
-		Profile.record_run(run)
+	# Every player keeps their own profile: unlocks, Field Data, run log and achievements.
+	Profile.record_run(run, my_player)
 	run_changed.emit(run)
 
 

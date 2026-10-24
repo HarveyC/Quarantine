@@ -223,7 +223,9 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   preview for cards). Set bonus at 3, Prototype at two tags at 2.
 - **Draws** (`GearDraw`): tag weight = 1 + 2 per point (max +6); rarity odds per act with +2% Rare pity per
   Common seen; `draw_item(rng, counts, rarity, exclude, only_tags)`; `depot_items(rng, squad_counts, act)`.
-- **Run hooks** (`GearRun`, the run framework's contract): `init_run`, `starting_kit_offers` (1 of 3
+- **Run hooks** (`GearRun`, the run framework's contract): `init_run` (also gives every soldier, reserve
+  included, 1 charge of their class consumable, `GearData.STARTER_CONSUMABLES`), `on_recruit(run, record)`
+  (called by `RunRules.add_recruit`, same starter), `starting_kit_offers` (1 of 3
   Commons per soldier), `on_fight_won(run, "skirmish"|"nest"|"boss")` (one 1-of-3 offer per squad soldier:
   gear 45%, perk 15%, mutation 15% (Progression cards), consumable 15%, cache 10%; from the second fight
   an on-build card and a pivot card; nest card 1 Rare in the lead tag; boss all Rare plus the Doctrine
@@ -584,7 +586,8 @@ start), `map` (Array of node Dictionaries, see below), `supplies` (shared), `int
 record of the run), `votes` (player -> node id), `steps` (queued steps of the current node),
 `fight_config` (the current fight's MatchConfig), `fight_snapshot` (GameState.to_dict for save),
 `seen_events`, `unknown_streak`, `echoes` (soldiers who Turned: `{sid, kind, name, act}`), `meta`
-(read-only copy of profile unlock flags such as `act1_boss_beaten`, `vector_unlocked`).
+(read-only copy of profile unlock flags such as `act1_boss_beaten`, `vector_unlocked`, plus
+`packs`, `severity`, `start_flags`), `tally` (MetaProgress).
 
 Queries: `present_players()` (not benched; these vote), `is_solo()`, `squad()` (active records,
 max 4), `soldiers_of(player)` (active), `reserve_of(player)`, `get_soldier(sid)`, `get_node(id)`,
@@ -602,6 +605,27 @@ Module-owned fields (opaque to the framework, saved and synced as-is):
   `pending_fight` (`{"kind", "objective"}`: a fight runs right after the current node, with
   rewards); `heal_after_fight` (float, default 0.25, a Doctrine may raise it); `doctrines` (Array of
   ids, GearRun).
+
+### Meta progression (between runs)
+
+`meta/` owns what carries between runs (design doc, "Economy and rewards"):
+- **`Profile`** (`run/profile.gd`, file `Profile.path`, default `user://profile.cfg`): unlock flags,
+  Field Data balance, owned packs, Severity, lifetime stats, run log and achievements.
+  `Profile.meta()` is copied into `run.meta` with `packs` (owned unlocks) and `severity` (picked
+  level). `record_run(run, player)` runs on every peer (each player earns their own Field Data)
+  and folds only flags earned during the run (`run.meta.start_flags` are skipped).
+- **`MetaProgress`**: `run.tally` (fights won by kind, bosses by act, bonus objectives, dead,
+  Turned), Field Data (15 skirmish, 25 nest, 60 act boss, 120 the Source, +10% per Severity level),
+  run log entries.
+- **`MetaUnlocks`**: Field Data packs. Content listed in an unowned pack is locked: `bind(meta)`
+  runs in `RunRules.new_run` and `RunState.from_dict`, and the draws (GearDraw, the Doctrine vote,
+  MutationData pools) skip `is_locked(id)`. Unlisted content is always available; a meta with no
+  `packs` key (tests, tools) locks nothing. Online, the host pools every lobby player's packs.
+- **`Severity`** 0-10 (the doc's "Outbreak levels"): stacking rules applied in `new_run`,
+  `MatchConfig.for_fight`, depot prices, fight income and the boss Outbreak drop.
+- **`Achievements`**: `DEFS`, `unlocked()`, `is_unlocked(id)`, `on_unlocked(cb)`, `stats()` for
+  store integrations; ids are stable.
+- UI: `ui/meta/field_hq.gd` (Field HQ from the main menu); dev shot `tools/shot_field_hq.gd`.
 
 ### Soldier record
 
