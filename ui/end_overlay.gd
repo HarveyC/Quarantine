@@ -7,6 +7,9 @@ signal leave_pressed
 const Styles := preload("res://ui/styles.gd")
 const Palette := preload("res://view/palette.gd")
 
+## Seconds the battlefield stays clear after a loss before the overlay fades in.
+const LOSS_BEAT := 1.6
+
 var _title: Label
 var _sub: Label
 var _restart: Button
@@ -46,14 +49,22 @@ func build() -> void:
 	box.add_child(leave)
 
 
-func show_result(result: int, turn: int, can_restart: bool = true, in_run: bool = false) -> void:
+## `cause` is an Objectives.LOSS key: a loss names it, and comes in after LOSS_BEAT seconds so the
+## player first sees what happened on the battlefield.
+func show_result(result: int, turn: int, can_restart: bool = true, in_run: bool = false, cause := "") -> void:
 	_restart.visible = can_restart
 	var win := result == Types.Result.VICTORY
 	_title.text = "VICTORY" if win else "DEFEAT"
 	_title.add_theme_color_override("font_color", Palette.TEAL if win else Palette.DANGER)
 	_sub.text = ("Zone cleared in %d turns." if win else "The squad was lost on turn %d.") % turn
+	if not win and Objectives.LOSS.has(cause):
+		_sub.text = "%s on turn %d.\n%s" % [Objectives.LOSS[cause].title, turn, Objectives.LOSS[cause].line]
 	if in_run:
 		_sub.text += "\nBack to the map..." if win else "\nThe run is over."
 	elif not can_restart:
 		_sub.text += "\nWaiting for the host to restart."
 	visible = true
+	modulate.a = 1.0
+	if not win and is_inside_tree():
+		modulate.a = 0.0
+		create_tween().tween_property(self, "modulate:a", 1.0, 0.4).set_delay(LOSS_BEAT)

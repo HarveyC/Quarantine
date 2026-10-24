@@ -309,4 +309,4 @@ static func check_end(s: GameState) -> void:
 	if r != Types.Result.NONE:
 		s.result = r
 		s.phase = Types.Phase.ENDED
-		s.emit({"type": "mission_end", "result": r})
+		s.emit({"type": "mission_end", "result": r, "cause": Objectives.loss_cause(s)})

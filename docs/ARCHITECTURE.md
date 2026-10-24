@@ -80,7 +80,8 @@ Rules for parallel work:
 | `zone` / `zone_end` | `kind` (`spore_burst`, `growth`), `cells`, (`until`) |
 | `lapse` / `recover` / `turned` | `unit` |
 | `alerted` | `unit` (an Infected wakes up; emitted once per unit, see Enemy AI) |
-| `mission_end` | `result` (`Types.Result`) |
+| `mission_end` | `result` (`Types.Result`), `cause` (`Objectives.LOSS` key on a loss, else "") |
+| `beacon_overrun` | `rounds_left` (hold: the enemy owns the beacon; one more such round loses) |
 | `hazard` | `kind`, `cells` (changed), `turns`, `source`, `spare` |
 | `hazard_tick` | `unit`, `kind`, `cell`, `damage`, `infection` (emitted before the resulting `damage` / `infection` events) |
 | `hazard_end` | `kind`, `cells` |
@@ -525,7 +526,7 @@ The objective comes with the map: `grid.objective` (set by MapGen, saved with th
 |---|---|---|
 | skirmish, elite, boss | every enemy dead | |
 | extract | every living soldier on `evac` at the end of a squad turn | after turn 7 soldiers off the pad die (`left_behind`); defeat if none made it |
-| hold | 4 rounds survived (`held`) | end of a round with enemies and no soldier in `beacon` |
+| hold | 4 rounds survived (`held`) | 2 rounds in a row (`overrun`) ending with enemies and no soldier in `beacon`; the first emits `beacon_overrun` and isn't counted as held |
 | rescue | every living civilian on `exit` (kills win only once no civilian is alive) | |
 | purge | no living unit of kind `spore_nest` (or every enemy dead) | |
 
@@ -540,6 +541,9 @@ The objective comes with the map: `grid.objective` (set by MapGen, saved with th
   behind; hold the beacon never contested; rescue every civilian saved; skirmish / elite / purge
   won by the end of turn 5; boss none.
 - **HUD**: `Objectives.describe(s)` is the objective line under the turn banner.
+- **Loss cause**: `Objectives.loss_cause(s)` names why a lost fight was lost (`beacon`, `left_behind`,
+  `turned`, `squad_down`; text in `Objectives.LOSS`). The view focuses `loss_cells(s)` and names it,
+  then the debrief (or quick-play overlay) shows it after a beat.
 
 ## Fog of war (vision/)
 
