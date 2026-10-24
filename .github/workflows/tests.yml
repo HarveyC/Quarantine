@@ -15,3 +15,5 @@ jobs:
           echo "GODOT=$PWD/Godot_v4.4.1-stable_linux.x86_64" >> "$GITHUB_ENV"
       - name: Run tests
         run: ./tests/run.sh
+      - name: Network playtest (host + client processes)
+        run: ./tests/net_playtest.sh
