@@ -28,7 +28,7 @@ static func new_mission_on_grid(grid: Grid, squad: Array, enemies: Array[String]
 		var spawn := s.grid.enemy_spawns[i % s.grid.enemy_spawns.size()]
 		if s.unit_at(spawn) != null:
 			spawn = _nearest_free(s, spawn)
-		s.add_unit(UnitData.make(enemies[i], Types.Team.ENEMY), spawn)
+		s.add_unit(EnemyRoster.make(enemies[i]), spawn)
 	return s
 
 
@@ -65,6 +65,7 @@ static func start_team_phase(s: GameState) -> void:
 	GearFx.on_team_phase_start(s)
 	Deployables.on_team_phase_start(s)
 	Infection.on_team_phase_start(s)
+	Encounter.on_team_phase_start(s)
 	# Soldiers that have Lapsed act on their own before the squad gets to move.
 	for u in s.living(Types.Team.PLAYER):
 		if u.ai_controlled:
@@ -83,6 +84,11 @@ static func validate(s: GameState, action: Dictionary) -> String:
 		return "No such unit"
 	if u.actions_left <= 0:
 		return "No actions left"
+	var blocked := Encounter.validate(s, u, action)
+	if blocked != "":
+		return blocked
+	if action.get("type") == Types.ABILITY and EnemyAbilities.handles(str(action.get("ability", ""))):
+		return EnemyAbilities.validate(s, u, action)
 	match action.get("type"):
 		Types.MOVE: return _validate_move(s, u, action.get("to", u.pos))
 		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: return Combat.validate(s, u, action)
@@ -97,10 +103,16 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		s.emit({"type": "rejected", "action": action, "reason": err})
 		return false
 	var u := s.get_unit(action.unit)
+	if action.type == Types.ABILITY and EnemyAbilities.handles(str(action.ability)):
+		EnemyAbilities.apply(s, u, action)
+		Encounter.after_action(s, u, action)
+		check_end(s)
+		return true
 	match action.type:
 		Types.MOVE: _do_move(s, u, action.to)
 		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: Combat.apply(s, u, action)
 		Types.MUTATION: Infection.apply_mutation(s, u, action)
+	Encounter.after_action(s, u, action)
 	check_end(s)
 	return true
 
@@ -121,6 +133,7 @@ static func set_ready(s: GameState, player: int, is_ready: bool) -> void:
 static func run_enemy_phase(s: GameState) -> void:
 	s.phase = Types.Phase.ENEMY
 	s.emit({"type": "enemy_phase", "turn": s.turn})
+	Encounter.on_enemy_phase_start(s)
 	for u in s.living(Types.Team.ENEMY):
 		if s.phase == Types.Phase.ENDED:
 			return
@@ -129,8 +142,12 @@ static func run_enemy_phase(s: GameState) -> void:
 		u.actions_left = Types.ACTIONS_PER_TURN
 		for k in u.cooldowns.keys():
 			u.cooldowns[k] = max(0, u.cooldowns[k] - 1)
+		Encounter.on_unit_turn_start(s, u)
 		EnemyAI.take_turn(s, u)
 		u.actions_left = 0
+		Encounter.on_unit_turn_end(s, u)
+	if s.phase != Types.Phase.ENDED:
+		Encounter.on_enemy_phase_end(s)
 	if s.phase != Types.Phase.ENDED:
 		Hazards.on_enemy_phase_end(s)
 		check_end(s)
@@ -181,13 +198,18 @@ static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = 
 	if not target.is_alive():
 		return
 	amount = GearFx.damage_taken(s, target, amount, source)
+	amount = Encounter.modify_damage(s, target, amount, source)
+	if amount <= 0:
+		return
 	target.hp = max(0, target.hp - amount)
 	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1})
-	if source:
+	if source and EnemyRoster.infects(source):
 		Infection.on_damaged(s, target, source, amount)
+	Encounter.on_damaged(s, target, source, amount)
 	if not target.is_alive():
 		target.overwatch = false
 		s.emit({"type": "died", "unit": target.id})
+		Encounter.on_died(s, target)
 
 
 static func check_end(s: GameState) -> void:
