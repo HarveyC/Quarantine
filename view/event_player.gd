@@ -25,14 +25,21 @@ const EnemyBeats := preload("res://view/enemy_beats.gd")
 const ShotCamera := preload("res://view/shot_camera.gd")
 const GunFeel := preload("res://view/gun_feel.gd")
 const MeleeFx := preload("res://view/melee_beats.gd")
+const ShotMoments := preload("res://view/shot_moments.gd")
 const ENEMY_PAD := 0.3   # extra hold after each enemy-phase action
 const HEAL_TEXT_LIFT := Vector3(0, 0.35, 0)   # "+N HP" sits above the ability title
 ## Events that keep an open shot cinematic on screen (the shot's consequences).
 ## A knockback `move` (Shield Bash, Brute slam) also stays on the cinematic.
 const CINE_FOLLOW := ["damage", "died", "infection", "turned", "alerted", "pinned", "stunned", "perk", "bleeding"]
 const STEP_TIME := 0.2   # seconds per tile when walking
+## Above this game speed (autoplay, skipping) shots never cut to the shot camera.
+const CINE_MAX_SPEED := 3.0
+## At raised game speeds a shot cinematic plays faster too, but only by this share of the
+## extra speed (3x game speed plays it at 1.7x), so the slow motion still reads.
+const CINE_SPEEDUP := 0.35
 
-## Player setting: false skips shot cameras (shots still get the full effects).
+## Player setting: false skips shot cameras (shots still get the full effects). When on,
+## only epic moments cut to the shot camera (view/shot_moments.gd).
 static var cinematics := true
 
 var view: MissionView
@@ -74,8 +81,15 @@ func flush() -> void:
 		advance(1000.0)
 
 
+## The beat clock's speed: the game speed, eased off while a shot cinematic plays.
+func clock_speed() -> float:
+	if in_cinematic and speed > 1.0:
+		return 1.0 + (speed - 1.0) * CINE_SPEEDUP
+	return speed
+
+
 func advance(delta: float) -> void:
-	var budget := delta * speed
+	var budget := delta * clock_speed()
 	view.fx.advance(budget * world_scale)
 	for uv in view.unit_views.values():
 		uv.tick(budget * world_scale)
@@ -157,13 +171,68 @@ func _sfx(sound: String, volume_db := 0.0, delay := 0.0) -> void:
 		view.sfx.play(sound, volume_db, 0.06, delay)
 
 
-## Cinematics play at normal speed only (autoplay / skipping runs them as quick beats).
-## In co-op the camera only cuts for your own soldiers' shots: a teammate's soldier
-## shoots without taking over your camera. Enemies and Turned (AI) soldiers still cut.
-func _use_cinematic(shooter: UnitView = null) -> bool:
-	if not cinematics or speed > 1.5:
+## Only epic moments cut to the shot camera (kills, crits, boss hits, long and high-ground
+## shots: view/shot_moments.gd), at any game speed up to CINE_MAX_SPEED (autoplay / skipping
+## runs them as quick beats). In co-op the camera only cuts for your own soldiers' shots: a
+## teammate's soldier shoots without taking over your camera. Enemies and Turned (AI)
+## soldiers still cut. `ev` is the shot or strike; empty skips the epic check.
+func _use_cinematic(shooter: UnitView = null, ev := {}) -> bool:
+	if not cinematics or speed > CINE_MAX_SPEED:
 		return false
-	return shooter == null or not _teammate_owned(shooter)
+	if shooter != null and _teammate_owned(shooter):
+		return false
+	return ev.is_empty() or shot_moment(ev) != ""
+
+
+## Why the shot or strike `ev` is worth the shot camera, or "" (see view/shot_moments.gd).
+## Reads the shooter and target views and the events queued behind it (its damage and
+## death), so call it as the event starts.
+func shot_moment(ev: Dictionary) -> String:
+	var shooter := _uv(ev)
+	var target := _uv(ev, "target")
+	if shooter == null or target == null:
+		return ""
+	var kill := _dies_next(target.unit_id)
+	var f := {
+		"squad": shooter.is_soldier and not shooter.turned,
+		"hit": ev.get("hit", false),
+		"crit": ev.get("crit", false),
+		"kill": kill,
+		"last_enemy": kill and _last_enemy(target),
+		"boss_target": _is_boss(target),
+		"boss_shooter": _is_boss(shooter),
+		"soldier_target": target.is_soldier and not target.turned,
+		"dist": _flat(target.position - shooter.position).length(),
+		"high_ground": shooter.position.y - target.position.y > Board.RAISE * 0.5,
+		"chance": int(ev.get("chance", 0)),
+	}
+	return ShotMoments.moment(f)
+
+
+## True when a `died` event for `unit_id` follows in the queue before the action ends.
+func _dies_next(unit_id: int) -> bool:
+	for e in _queue:
+		var t := str(e.get("type", ""))
+		if t == "died" and int(e.get("unit", -1)) == unit_id:
+			return true
+		if not CINE_FOLLOW.has(t) and not e.get("knockback", false):
+			return false
+	return false
+
+
+## No other hostile (enemy or Turned soldier) is left standing once `target` falls.
+func _last_enemy(target: UnitView) -> bool:
+	for uv in view.unit_views.values():
+		if uv != target and not uv.dead and (not uv.is_soldier or uv.turned):
+			return false
+	return true
+
+
+func _is_boss(uv: UnitView) -> bool:
+	if EnemyRoster.BOSSES.has(uv.kind):
+		return true
+	var u: Unit = view.state.get_unit(uv.unit_id) if view.state != null else null
+	return u != null and EnemyRoster.is_boss(u)
 
 
 func _teammate_owned(uv: UnitView) -> bool:
@@ -370,7 +439,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var graze: bool = ev.get("graze", false)
 	var reaction: bool = ev.get("reaction", false)
 	var feel := _feel(shooter)
-	var cine := _use_cinematic(shooter)
+	var cine := _use_cinematic(shooter, ev)
 	var hero := shooter.is_soldier and not shooter.turned and not reaction
 	var n_rounds: int = feel.rounds
 	# Bursts play out in the slow motion, so space them out further on the shot camera.
@@ -928,7 +997,7 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 	var hit: bool = ev.get("hit", false)
 	var graze: bool = hit and ev.get("graze", false)
 	var fx: String = style.get("fx", "claw")
-	var cine := _use_cinematic(uv)
+	var cine := _use_cinematic(uv, ev)
 	var hero := uv.is_soldier and not uv.turned
 	var t_hit := 0.6 if cine else 0.2
 	var dur := t_hit + (0.8 if cine else 0.3)
@@ -1022,7 +1091,7 @@ func _breach_beat(ev: Dictionary) -> Dictionary:
 	var beat := _beat_shot(shot)
 	var uv := _uv(ev)
 	if uv != null:
-		_sfx("breach", -2.0, 0.35 if _use_cinematic(uv) else 0.0)
+		_sfx("breach", -2.0, 0.35 if _use_cinematic(uv, shot) else 0.0)
 		view.fx.floating_text(_head(uv), "BREACH", Palette.AMBER, 44)
 	return beat
 

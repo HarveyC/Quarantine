@@ -83,3 +83,31 @@ func test_shot_cameras_stay_out_of_generated_maps() -> void:
 	assert_true(full * 10 >= shots * 9, "shooter and target both in view for most shots (%d/%d)" % [full, shots])
 	print("[shot camera] %d/%d shots frame both shooter and target" % [full, shots])
 	v.free()
+
+
+func test_shot_moments_rules() -> void:
+	var M := preload("res://view/shot_moments.gd")
+	var base := {"squad": true, "hit": true, "dist": 4.0, "chance": 70}
+	var with := func(extra: Dictionary) -> String:
+		var f := base.duplicate()
+		f.merge(extra, true)
+		return M.moment(f)
+	assert_eq(M.moment(base), "", "routine hit")
+	assert_eq(with.call({"hit": false, "kill": true, "crit": true}), "", "misses never cut")
+	assert_eq(with.call({"kill": true}), "kill", "kill")
+	assert_eq(with.call({"kill": true, "last_enemy": true}), "last_enemy", "last enemy")
+	assert_eq(with.call({"crit": true}), "crit", "crit")
+	assert_eq(with.call({"boss_target": true}), "boss", "boss hit")
+	assert_eq(with.call({"dist": 12.0}), "long_shot", "long shot")
+	assert_eq(with.call({"high_ground": true, "dist": 7.0}), "high_ground", "high ground")
+	assert_eq(with.call({"high_ground": true, "dist": 3.0}), "", "point blank off a roof is routine")
+	assert_eq(with.call({"chance": 25}), "long_odds", "long odds landed")
+	# Enemies and Turned soldiers.
+	var foe := {"squad": false, "hit": true, "soldier_target": true, "dist": 12.0, "chance": 20}
+	assert_eq(M.moment(foe), "", "enemy hit on a soldier")
+	foe.kill = true
+	assert_eq(M.moment(foe), "soldier_down", "a soldier goes down")
+	foe.kill = false
+	foe.crit = true
+	assert_eq(M.moment(foe), "crit", "crit on a soldier")
+	assert_eq(M.moment({"squad": false, "hit": true, "boss_shooter": true}), "boss", "the boss lands a blow")

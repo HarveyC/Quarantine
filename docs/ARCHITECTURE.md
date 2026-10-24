@@ -576,7 +576,12 @@ in an online match plays the same thing.
   (`EventPlayer.world_scale` slows unit animation and FX, not the beat clock), hit-stop on impact,
   and hold through the following `damage` / `died` / `infection` / `turned` / `alerted` beats
   (`CINE_FOLLOW`). Any other event, or the queue draining, cuts back to the tactical camera.
-  Skipped when `EventPlayer.cinematics` is false (C key) or playback is sped up (autoplay).
+  Only epic moments cut (`view/shot_moments.gd`): for the squad a kill (the fight's last kill
+  too), a crit, a hit on a boss, a long shot (10+ tiles), a hit from high ground at 6+ tiles or a
+  hit at 35% or less; for enemies a soldier going down, a crit on one or a boss's hit. Misses never
+  cut. Kills are read from the `died` event queued behind the shot. At game speeds above 1x the
+  cinematic plays at `1 + 0.35 * (speed - 1)` (`EventPlayer.clock_speed`). Skipped when
+  `EventPlayer.cinematics` is false (C key) or above 3x (autoplay).
 - **Unit models** (`view/unit_view.gd`, `view/skinned_body.gd`, `view/model_kit.gd`): every
   unit but the props is a skinned character (`assets/characters/*.glb`, built by
   `tools/build_characters.py` from CC0 Quaternius base bodies plus our gear and growths; the
