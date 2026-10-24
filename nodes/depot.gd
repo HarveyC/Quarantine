@@ -81,7 +81,7 @@ static func _roll_service(run) -> String:
 
 
 static func _mult(run) -> float:
-	return QUARTERMASTER_MULT if RunAccess.has_doctrine(run, "quartermaster") else 1.0
+	return (QUARTERMASTER_MULT if RunAccess.has_doctrine(run, "quartermaster") else 1.0) * Severity.depot_mult(run)
 
 
 ## What a stock entry costs right now. The Armorer's price depends on the item upgraded.

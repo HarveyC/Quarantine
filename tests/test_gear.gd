@@ -200,6 +200,7 @@ func test_offers_are_deterministic_for_peers() -> void:
 func test_consumable_pockets_stack_and_fill() -> void:
 	var run := make_run()
 	var r: Dictionary = run.soldiers[2]
+	Loadout.of(r).pockets = [null, null]  # drop the starting medkit
 	assert_true(Loadout.add_consumable(r, "medkit", 2), "first pocket")
 	assert_true(Loadout.add_consumable(r, "medkit", 1), "stacks")
 	assert_true(Loadout.add_consumable(r, "frag_grenade", 2), "second pocket")
@@ -361,3 +362,24 @@ func test_bosses_drop_a_gun() -> void:
 		Loadout.add_gun(run.soldiers[0], id, false)
 	GearRun.on_fight_won(run, "boss")
 	assert_true(GearRun.offer_for(run, 1).cards.all(func(c): return c.kind != "gun"), "nothing left to offer")
+
+
+func test_everyone_starts_with_a_consumable() -> void:
+	var run := make_run()
+	var want := {"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit", "breacher": "flashbang"}
+	for r in run.soldiers:
+		assert_eq(Loadout.pockets(r)[0], {"id": want[r.kind], "charges": 1}, "%s starter" % r.kind)
+		assert_eq(Loadout.pockets(r)[1], null, "one pocket used")
+	var odd := {"id": 9, "kind": "mystery", "player": 0}
+	run.soldiers.append(odd)
+	GearRun.on_recruit(run, odd)
+	assert_true(GearData.STARTER_FALLBACK.has(Loadout.pockets(odd)[0].id), "random fallback for other classes")
+
+
+func test_run_recruits_get_a_starter() -> void:
+	var run := RunRules.new_run(1, 3)
+	RunRules.start_run(run)
+	for r in run.soldiers:
+		assert_true(Loadout.pockets(r)[0] != null, "%s (%s) has a starter" % [r.kind, r.status])
+	var rec := RunRules.add_recruit(run, 0, "medic")
+	assert_eq(Loadout.pockets(rec)[0].id, "medkit", "mid-run recruit too")
