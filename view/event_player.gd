@@ -26,6 +26,7 @@ const ShotCamera := preload("res://view/shot_camera.gd")
 const GunFeel := preload("res://view/gun_feel.gd")
 const MeleeFx := preload("res://view/melee_beats.gd")
 const ENEMY_PAD := 0.3   # extra hold after each enemy-phase action
+const HEAL_TEXT_LIFT := Vector3(0, 0.35, 0)   # "+N HP" sits above the ability title
 ## Events that keep an open shot cinematic on screen (the shot's consequences).
 ## A knockback `move` (Shield Bash, Brute slam) also stays on the cinematic.
 const CINE_FOLLOW := ["damage", "died", "infection", "turned", "alerted", "pinned", "stunned", "perk", "bleeding"]
@@ -798,6 +799,45 @@ func _beat_stunned(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.5 if in_cinematic else 0.35}
 
 
+## A heal lands on `uv`: its HP pips refill to `hp` (the HUD and nameplates read them), a
+## green "+N HP" rises over its head, a soft green glow, and the heal chime unless `chime` is off.
+func _show_heal(uv: UnitView, amount: int, hp: int, chime := true) -> void:
+	if uv == null:
+		return
+	uv.set_hp(hp)
+	if amount <= 0:
+		return
+	view.fx.floating_text(_head(uv) + HEAL_TEXT_LIFT, "+%d HP" % amount, Palette.HEAL, 72 if in_cinematic else 64, 1.4)
+	view.fx.puff(uv.position + Vector3(0, 0.8, 0), Palette.HEAL, 0.9, 0.9, 0.6)
+	view.fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.HEAL, 12, 1.5, true, 0.03)
+	view.fx.flash_light(uv.position + Vector3(0, 1.0, 0), Palette.HEAL, 2.5, 0.4)
+	view.fx.pulse(uv.position, Palette.HEAL)
+	uv.flash(Palette.HEAL)
+	if chime:
+		_sfx("heal")
+
+
+## Perk and passive heals (Transfusion, Field surgeon, ...: Kit._heal).
+func _beat_heal(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	_show_heal(uv, int(ev.get("amount", 0)), int(ev.get("hp", uv.hp)))
+	return {"dur": 0.5}
+
+
+## Gear procs (Leech rounds, Feral grip, ...). Heals refill HP; anything else names the item.
+func _beat_gear(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	if ev.has("heal"):
+		_show_heal(uv, int(ev.heal), int(ev.get("hp", uv.hp)))
+		return {"dur": 0.4}
+	view.fx.floating_text(_head(uv), GearData.item_name(str(ev.get("item", "gear"))).to_upper(), Palette.AMBER, 32)
+	return {"dur": 0.3}
+
+
 func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 	var uv := _uv(ev)
 	if uv == null:
@@ -845,12 +885,19 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return _spit_beat(ev)
 		"suppress":
 			return _suppress_beat(ev)
-		"stim":
+		"stim", "item:medkit":
 			_sfx("heal")
+			var beat := _power_beat(ev, "stim" if ev.ability == "stim" else "medkit", Palette.HEAL)
 			var tv := _uv(ev, "target")
-			if tv != null:
-				view.fx.puff(tv.position + Vector3(0, 0.8, 0), Color("8fd16a"), 0.9, 0.9, 0.6)
-				view.fx.burst(tv.position + Vector3(0, 1.0, 0), Vector3.UP, Color("8fd16a"), 10, 1.5, true, 0.03)
+			if tv == null:
+				tv = _uv(ev)
+			_show_heal(tv, int(ev.get("heal", 0)), int(ev.get("hp", tv.hp if tv else 0)), false)
+			if tv != null and int(ev.get("heal", 0)) <= 0 and tv.hp >= tv.max_hp:
+				view.fx.floating_text(_head(tv) + HEAL_TEXT_LIFT, "FULL HP", Color(0.78, 0.8, 0.76), 40)
+			beat.dur = maxf(float(beat.get("dur", 0.0)), 0.9)
+			return beat
+		"siphon":
+			_show_heal(_uv(ev), int(ev.get("heal", 0)), int(ev.get("hp", 0)))
 		"tag":
 			_sfx("radio")
 			_sfx("ui_confirm", -4.0, 0.2)
@@ -1127,6 +1174,8 @@ func _beat_infection(ev: Dictionary) -> Dictionary:
 		view.fx.floating_text(_head(uv), Infection.tier_name(t).to_upper(), Palette.tier_color(t), 44)
 	elif rising:
 		view.fx.floating_text(_head(uv), "+%d INF" % (value - uv.infection), Palette.TEAL, 34)
+	if value < uv.infection:   # a cure (Stim, Purge, Suppressant shot): show what it took off
+		view.fx.floating_text(_head(uv) + Vector3(0, -0.3, 0), "-%d INF" % (uv.infection - value), Palette.TEAL_DIM, 34)
 	uv.set_infection(value, t)
 	if not rising:
 		return {"dur": 0.2}
