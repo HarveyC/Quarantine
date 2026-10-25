@@ -9,20 +9,68 @@ concurrency:
   group: tests-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  GODOT_VERSION: 4.4.1
+
+# The suite runs as parallel jobs: the unit tests split into shards, the UI sweep and the network
+# playtest on their own. The last job, "test", passes only when all of them did.
 jobs:
-  test:
+  unit:
+    name: unit (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - name: Install Godot
         run: |
-          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
           unzip -q godot.zip
-          echo "GODOT=$PWD/Godot_v4.4.1-stable_linux.x86_64" >> "$GITHUB_ENV"
-      - name: Run tests
-        timeout-minutes: 25
-        run: ./tests/run.sh
+          echo "GODOT=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Unit tests, shard ${{ matrix.shard }} of 4
+        run: PART=unit TEST_SHARD="${{ matrix.shard }}/4" ./tests/run.sh
+
+  ui:
+    name: ui sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          echo "GODOT=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: UI overflow sweep and pick zoom check
+        run: PART=ui ./tests/run.sh
+
+  net:
+    name: net playtest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          echo "GODOT=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
       - name: Network playtest (host + client processes)
-        timeout-minutes: 12
-        run: ./tests/net_playtest.sh
+        run: |
+          "$GODOT" --headless --import >/dev/null 2>&1 || true
+          ./tests/net_playtest.sh
+
+  test:
+    name: test
+    if: always()
+    needs: [unit, ui, net]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All parts passed
+        run: |
+          echo "unit=${{ needs.unit.result }} ui=${{ needs.ui.result }} net=${{ needs.net.result }}"
+          [ "${{ needs.unit.result }}" = success ] && [ "${{ needs.ui.result }}" = success ] && [ "${{ needs.net.result }}" = success ]

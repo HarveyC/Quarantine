@@ -26,29 +26,41 @@ func test_different_seeds_give_different_layouts() -> void:
 	assert_true(seen.size() >= 18, "20 seeds give at least 18 distinct layouts (got %d)" % seen.size())
 
 
-func test_every_objective_generates_valid_maps() -> void:
-	for biome in BIOMES:
-		for o in OBJECTIVES:
-			for seed in range(1, 41):
-				var g := MapGen.generate(_spec(o, seed, biome))
-				var tag := "%s %s seed %d" % [biome, o, seed]
-				assert_true(not g.markers.is_empty(), tag + " did not fall back to the handmade map")
-				var low := 20 if o == "boss" else 22
-				assert_true(g.width >= low and g.width <= 28 and g.height >= low and g.height <= 28, tag + " size")
-				assert_eq(g.biome, biome, tag + " biome")
-				assert_true(g.player_spawns.size() >= 4, tag + " deploy cells")
-				assert_true(g.enemy_spawns.size() >= MapGen.MIN_ENEMY_SPAWNS, tag + " enemy spawns")
-				var reach := g.reachable(g.player_spawns[0], 999)
-				for c in g.player_spawns + g.enemy_spawns:
-					assert_true(reach.has(c), "%s spawn %s reachable" % [tag, c])
-				for k in g.markers:
-					for c in g.markers[k]:
-						assert_true(reach.has(c), "%s marker %s %s reachable" % [tag, k, c])
-				for y in g.height:
-					for x in g.width:
-						if g.is_walkable(Vector2i(x, y)):
-							assert_true(reach.has(Vector2i(x, y)), "%s no sealed-off floor" % tag)
-				assert_true(g.marker("reinforce").size() >= 4, tag + " reinforcement cells")
+## One biome per test method so CI can run the three in parallel shards.
+func _every_objective_generates_valid_maps(biome: String) -> void:
+	for o in OBJECTIVES:
+		for seed in range(1, 41):
+			var g := MapGen.generate(_spec(o, seed, biome))
+			var tag := "%s %s seed %d" % [biome, o, seed]
+			assert_true(not g.markers.is_empty(), tag + " did not fall back to the handmade map")
+			var low := 20 if o == "boss" else 22
+			assert_true(g.width >= low and g.width <= 28 and g.height >= low and g.height <= 28, tag + " size")
+			assert_eq(g.biome, biome, tag + " biome")
+			assert_true(g.player_spawns.size() >= 4, tag + " deploy cells")
+			assert_true(g.enemy_spawns.size() >= MapGen.MIN_ENEMY_SPAWNS, tag + " enemy spawns")
+			var reach := g.reachable(g.player_spawns[0], 999)
+			for c in g.player_spawns + g.enemy_spawns:
+				assert_true(reach.has(c), "%s spawn %s reachable" % [tag, c])
+			for k in g.markers:
+				for c in g.markers[k]:
+					assert_true(reach.has(c), "%s marker %s %s reachable" % [tag, k, c])
+			for y in g.height:
+				for x in g.width:
+					if g.is_walkable(Vector2i(x, y)):
+						assert_true(reach.has(Vector2i(x, y)), "%s no sealed-off floor" % tag)
+			assert_true(g.marker("reinforce").size() >= 4, tag + " reinforcement cells")
+
+
+func test_every_objective_generates_valid_maps_wall() -> void:
+	_every_objective_generates_valid_maps("wall")
+
+
+func test_every_objective_generates_valid_maps_port() -> void:
+	_every_objective_generates_valid_maps("port")
+
+
+func test_every_objective_generates_valid_maps_bore() -> void:
+	_every_objective_generates_valid_maps("bore")
 
 
 func test_objective_markers() -> void:
@@ -182,15 +194,27 @@ func test_landmark_plots_place_a_big_building() -> void:
 	assert_true(tall >= 5, "upper roofs show up (%d/30)" % tall)
 
 
-func test_every_cell_can_walk_back_to_the_drop_zone() -> void:
-	for biome in BIOMES:
-		for o in OBJECTIVES:
-			for seed in range(1, 16):
-				var g := MapGen.generate(_spec(o, seed, biome))
-				var start := g.player_spawns[0]
-				var back := MapGen._can_return(g, [start])
-				for c in g.reachable(start, 9999):
-					assert_true(back.has(c), "%s %s seed %d: %s can get back" % [biome, o, seed, c])
+## One biome per test method so CI can run the three in parallel shards.
+func _every_cell_can_walk_back_to_the_drop_zone(biome: String) -> void:
+	for o in OBJECTIVES:
+		for seed in range(1, 16):
+			var g := MapGen.generate(_spec(o, seed, biome))
+			var start := g.player_spawns[0]
+			var back := MapGen._can_return(g, [start])
+			for c in g.reachable(start, 9999):
+				assert_true(back.has(c), "%s %s seed %d: %s can get back" % [biome, o, seed, c])
+
+
+func test_every_cell_can_walk_back_to_the_drop_zone_wall() -> void:
+	_every_cell_can_walk_back_to_the_drop_zone("wall")
+
+
+func test_every_cell_can_walk_back_to_the_drop_zone_port() -> void:
+	_every_cell_can_walk_back_to_the_drop_zone("port")
+
+
+func test_every_cell_can_walk_back_to_the_drop_zone_bore() -> void:
+	_every_cell_can_walk_back_to_the_drop_zone("bore")
 
 
 func test_each_act_has_its_own_parcels() -> void:
