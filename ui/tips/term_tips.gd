@@ -120,8 +120,8 @@ static func content_of(c: Control) -> Dictionary:
 		return {}
 	var text := c.get_tooltip(c.get_local_mouse_position()) if c.is_inside_tree() else c.tooltip_text
 	var tip: Variant = c.get_meta(Tips.META) if c.has_meta(Tips.META) else null
-	if c.has_method("tip_at") and c.is_inside_tree():
-		var at: Variant = c.call("tip_at", c.get_local_mouse_position())
+	if c.has_method("tip_at"):
+		var at: Variant = c.call("tip_at", c.get_local_mouse_position() if c.is_inside_tree() else Vector2.ZERO)
 		if at is Dictionary and not at.is_empty():
 			tip = at
 	if tip is Dictionary:

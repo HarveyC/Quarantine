@@ -356,9 +356,7 @@ func _card(icon: String, col: Color, title: String, tag: String, counts: Diction
 		for s in stats:
 			sr.add_child(StatChip.new(str(s[0]), str(s[1]), col, 34))
 		box.add_child(sr)
-	var d := Styles.label(short, 22, Styles.TEXT)
-	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var d := Tips.text(short, 22, Styles.TEXT, 0.0, null, true)
 	box.add_child(d)
 	if drawback != "":
 		var dr := Styles.hbox(6)
@@ -366,9 +364,7 @@ func _card(icon: String, col: Color, title: String, tag: String, counts: Diction
 		var di := W.Icon.new("danger", Styles.DANGER_TEXT, 20, 1.8)
 		di.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		dr.add_child(di)
-		var dl := Styles.label(drawback, 19, Styles.DANGER_TEXT)
-		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var dl := Tips.text(drawback, 19, Styles.DANGER_TEXT)
 		dl.custom_minimum_size.x = 60
 		dr.add_child(dl)
 		box.add_child(dr)
