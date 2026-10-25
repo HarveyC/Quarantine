@@ -547,12 +547,44 @@ func test_pick_screen_picks_for_every_local_soldier() -> void:
 	first.prog.bonus_picks = 0
 	var screen: PanelContainer = Progression.pick_screen().new()
 	screen.setup(run, null)
-	var buttons := screen.find_children("*", "Button", true, false)
-	assert_eq(buttons.size(), 3 * 3 + 3 + 1, "3 perk rows of 3, one mutation row of 3 plus Skip")
-	(buttons[0] as Button).pressed.emit()
+	var cards := _pick_cards(screen)
+	assert_eq(cards.size(), 3, "one soldier at a time: three cards")
+	assert_eq(screen.find_children("*", "Button", true, false).size(), 4 + 3 + 1, "a tab per waiting soldier, 3 cards, Skip")
+	cards[0].pressed.emit()
 	assert_eq(first.prog.mutations.values().size(), 1, "first card grafted")
 	assert_eq(first.infection, 10, "graft cost")
+	# Each pick moves on to the next soldier still waiting, until the whole squad is done.
+	for i in 3:
+		cards = _pick_cards(screen)
+		assert_eq(cards.size(), 3, "next soldier's perk cards")
+		cards[0].pressed.emit()
+	assert_true(not Progression.has_pending(run), "every soldier picked")
+	assert_eq(_pick_cards(screen).size(), 0, "nothing left to pick")
 	screen.free()
+
+
+## The pick cards on screen (they carry the full rule as their hover text; tabs and Skip don't).
+func _pick_cards(screen: Control) -> Array:
+	return screen.find_children("*", "Button", true, false).filter(func(b): return b.tooltip_text != "" and not b.is_queued_for_deletion())
+
+
+## True when Icons.draw has a match arm for `id` ("id": or "id", "alias":).
+func _drawn(src: String, id: String) -> bool:
+	return src.contains('\t"%s":' % id) or src.contains('\t"%s", ' % id) or src.contains(', "%s":' % id) or src.contains(', "%s",' % id)
+
+
+func test_every_perk_and_mutation_has_a_card_face() -> void:
+	var icons := FileAccess.get_file_as_string("res://ui/icons.gd")
+	for id in PerkData.PERKS:
+		assert_true(PerkBrief.PERKS.has(id), "brief for perk " + id)
+		var b := PerkBrief.perk(id)
+		assert_true(_drawn(icons, b.icon), "%s icon %s is drawn" % [id, b.icon])
+		assert_true(b.short.length() <= 42, "%s short line fits one line: %s" % [id, b.short])
+	for id in MutationData.MUTATIONS:
+		assert_true(PerkBrief.MUTATIONS.has(id), "brief for mutation " + id)
+		var m := PerkBrief.mutation(id)
+		assert_true(_drawn(icons, m.icon), "%s icon %s is drawn" % [id, m.icon])
+		assert_true(m.short.length() <= 42 and m.drawback.length() <= 42, "%s lines stay short" % id)
 
 
 func test_content_pack_perks_damage() -> void:
