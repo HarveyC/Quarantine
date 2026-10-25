@@ -449,6 +449,7 @@ static func _pounce(s: GameState, u: Unit, t: Unit) -> void:
 	Rules.deal_damage(s, t, dmg, u)
 	if t.is_alive() and u.is_alive() and t.team == Types.Team.PLAYER:
 		t.status["pinned_by"] = u.id
+		t.status["pinned_at"] = s.turn
 		u.status["pinning"] = t.id
 		t.overwatch = false
 		t.hunkered = false
@@ -562,6 +563,7 @@ static func knockback(s: GameState, t: Unit, dir: Vector2i, steps: int) -> void:
 	t.pos = c
 	t.hunkered = false
 	s.emit({"type": "move", "unit": t.id, "from": from, "path": path, "knockback": true})
+	Encounter.check_pins(s)
 	var fall := EnemyTerrain.fall_damage(s, from, c)
 	if fall > 0:
 		s.emit({"type": "fell", "unit": t.id, "damage": fall})

@@ -26,14 +26,23 @@ const ROLE_MARKER := {"evac": "evac", "beacon": "beacon", "rescue": "civilian", 
 const POD_STEPS := Vector2i(6, 20)        # walking distance from the drop zone: every pod cell >= x, each pod's nearest cell <= y
 const EVAC_MIN_STEPS := 12
 const OBJECTIVE_MIN_STEPS := 5            # civilians, nests, hive
-const FULL_COVER := Vector2(0.04, 0.24)   # share of all tiles
-const HALF_COVER := Vector2(0.05, 0.22)
-const DEAD_GROUND := 3                    # every floor tile within this many tiles of cover
-const MAX_SIGHTLINE := 12                 # longest straight open run in a row or column
+const FULL_COVER := Vector2(0.03, 0.24)   # share of all tiles
+const HALF_COVER := Vector2(0.04, 0.22)
+const DEAD_GROUND := 4                    # every floor tile within this many tiles of cover
+const MAX_SIGHTLINE := 24                 # longest straight open run in a row or column
+const BOSS_DEAD_GROUND := 3               # boss arenas keep the tighter fix-ups they were tuned on
+const BOSS_MAX_SIGHTLINE := 12
 const REINFORCE_MIN_STEPS := 6
-const LANE_COVER_CHANCE := 0.05
-const RAISED := Vector2(0.06, 0.35)       # share of all tiles on a roof (level 1 or 2)
+const RAISED := Vector2(0.04, 0.35)       # share of all tiles on a roof (level 1 or 2)
 const MIN_WAYS_UP := 2                    # stairs or ladders on the map
+
+# Open ground: every plot gets streets at least MIN_LANES wide between its parcels. Streets carry
+# the odd short sandbag line instead of scattered crates, and loose single crates in parcels are
+# thinned out (structured cover such as lines, buildings and roofs stays).
+const MIN_LANES := 2
+const LANE_BARRICADE_CHANCE := 0.3        # per street segment beside a parcel
+const DECLUTTER_CHANCE := 0.5             # a lone half-cover tile is cleared
+const QUERY_LOW_CHANCE := 0.35            # a "?" in a parcel becomes half cover
 
 # The 8 symmetries of a square parcel, as (x, y) -> cell inside a PARCEL x PARCEL block.
 # Breach and deploy parcels only use 0 and 4 (identity, mirror) so walls stay on their row
@@ -190,7 +199,11 @@ class _Pool:
 
 
 static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: RandomNumberGenerator) -> Grid:
-	var lanes: int = plot.lanes
+	# Boss arenas stay exactly as they were (20x20, cover as drawn): the fight is about the boss,
+	# not the approach, and their balance is tuned on that layout.
+	var open_ground := objective != "boss"
+	var lanes: int = maxi(plot.lanes, MIN_LANES) if open_ground else plot.lanes
+	var query_low := QUERY_LOW_CHANCE if open_ground else 0.5
 	var cols: int = plot.rows[0].length()
 	var prow: int = plot.rows.size()
 	var step := PARCEL + lanes
@@ -211,6 +224,7 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 	var reserved := {}                    # cells the fix-up passes must leave as floor
 	var spine_rows: Array[int] = []
 	var landmarked := {}                  # plot slots already covered by an 8x8 landmark
+	var stamped := {}                     # cells laid out by a parcel (a landmark's whole span), not street
 	for py in prow:
 		for px in cols:
 			if landmarked.has(Vector2i(px, py)):
@@ -233,14 +247,22 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 			var split := Grid.split_edge_rows(_transform(parcel.rows, options[rng.randi() % options.size()]))
 			var rows: PackedStringArray = split.cells
 			var origin := Vector2i(px * step, py * step)
+			if size > PARCEL:
+				# A landmark spans two slots and the street between them: centre it in that span.
+				var span := PARCEL * 2 + lanes
+				for y in span:
+					for x in span:
+						stamped[origin + Vector2i(x, y)] = true
+				origin += Vector2i(lanes / 2, lanes / 2)
 			var pod: Array[Vector2i] = []
 			for y in size:
 				for x in size:
 					var c := origin + Vector2i(x, y)
+					stamped[c] = true
 					var ch := rows[y][x]
 					var t := g.read_glyph(c, ch)
 					match ch:
-						"?": t = Types.Tile.LOW if rng.randf() < 0.5 else Types.Tile.FLOOR
+						"?": t = Types.Tile.LOW if rng.randf() < query_low else Types.Tile.FLOOR
 						"/", "s", "|", "S":
 							reserved[c] = true
 						"P":
@@ -260,16 +282,14 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 			if not pod.is_empty():
 				pods.append(pod)
 
-	# Lanes between parcels: open ground with a little scattered cover; the cordon wall runs through them.
-	if lanes > 0:
-		for y in g.height:
-			for x in g.width:
-				if x % step < PARCEL and y % step < PARCEL:
-					continue
-				if spine_rows.has(y) and y % step < PARCEL:
-					g.tiles[y * g.width + x] = Types.Tile.WALL
-				elif rng.randf() < LANE_COVER_CHANCE:
-					g.tiles[y * g.width + x] = Types.Tile.LOW
+	# Streets between parcels: open ground; the cordon wall runs through them.
+	for y in g.height:
+		for x in g.width:
+			if not stamped.has(Vector2i(x, y)) and spine_rows.has(y) and y % step < PARCEL:
+				g.tiles[y * g.width + x] = Types.Tile.WALL
+	_street_barricades(g, cols, prow, step, lanes, stamped, rng)
+	if open_ground:
+		_declutter(g, reserved, rng)
 
 	if objective == "boss":
 		var centre := Vector2i(g.width / 2, g.height / 2)
@@ -303,8 +323,8 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 	if deploy.size() < 4 or pods.is_empty():
 		last_reject = "plot has no deploy or pods"
 		return null
-	_fix_dead_ground(g, fixed, rng)
-	_fix_sightlines(g, fixed, rng)
+	_fix_dead_ground(g, fixed, rng, DEAD_GROUND if open_ground else BOSS_DEAD_GROUND)
+	_fix_sightlines(g, fixed, rng, MAX_SIGHTLINE if open_ground else BOSS_MAX_SIGHTLINE)
 
 	# Connectivity: everything that matters must be reachable from the drop zone and able to walk
 	# back to it (drop-downs are one way); seal the rest. `back` keeps only round-trip cells.
@@ -352,6 +372,45 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 	markers.reinforce.assign(_reinforce_cells(g, objective, dist, markers))
 	g.markers = markers
 	return g
+
+
+## Now and then a two-tile sandbag line along a street beside a parcel, so the streets stay open
+## but never bare. Never on the cordon wall's row or next to other cover.
+static func _street_barricades(g: Grid, cols: int, prow: int, step: int, lanes: int, stamped: Dictionary,
+		rng: RandomNumberGenerator) -> void:
+	if lanes == 0:
+		return
+	for horizontal in [true, false]:
+		var bands: int = (prow if horizontal else cols) - 1
+		var segs: int = cols if horizontal else prow
+		var along: Vector2i = Vector2i(1, 0) if horizontal else Vector2i(0, 1)
+		for b in bands:
+			for s in segs:
+				if rng.randf() >= LANE_BARRICADE_CHANCE:
+					continue
+				var lane := b * step + PARCEL + rng.randi() % lanes
+				var start := s * step + rng.randi() % (PARCEL - 1)
+				var a: Vector2i = Vector2i(start, lane) if horizontal else Vector2i(lane, start)
+				var cells: Array[Vector2i] = [a, a + along]
+				if cells.all(func(c: Vector2i) -> bool: return not stamped.has(c) and _isolated(g, c)):
+					for c in cells:
+						g.tiles[c.y * g.width + c.x] = Types.Tile.LOW
+
+
+## Clears some of the lone half-cover tiles (a single crate with no cover around it) that parcels
+## scatter, so the ground reads open. Lines, buildings, roofs and reserved cells stay.
+static func _declutter(g: Grid, reserved: Dictionary, rng: RandomNumberGenerator) -> void:
+	for y in g.height:
+		for x in g.width:
+			var c := Vector2i(x, y)
+			if g.tile(c) != Types.Tile.LOW or g.level(c) != 0 or reserved.has(c) or g.is_volatile(c):
+				continue
+			if Grid.DIRS8.any(func(d: Vector2i) -> bool: return g.in_bounds(c + d) and g.tile(c + d) != Types.Tile.FLOOR):
+				continue
+			if Grid.DIRS4.any(func(d: Vector2i) -> bool: return g.edge(c, d) != Grid.EDGE_NONE):
+				continue
+			if rng.randf() < DECLUTTER_CHANCE:
+				g.tiles[y * g.width + x] = Types.Tile.FLOOR
 
 
 ## Fuel barrels (see Destruction): parcels can place them with "!"; a map with none gets up to
@@ -420,12 +479,12 @@ static func _is_cover(g: Grid, c: Vector2i) -> bool:
 	return false
 
 
-## Adds half cover near any floor tile that has none within DEAD_GROUND tiles.
-static func _fix_dead_ground(g: Grid, reserved: Dictionary, rng: RandomNumberGenerator) -> void:
+## Adds half cover near any floor tile that has none within `reach` tiles.
+static func _fix_dead_ground(g: Grid, reserved: Dictionary, rng: RandomNumberGenerator, reach: int) -> void:
 	for y in g.height:
 		for x in g.width:
 			var c := Vector2i(x, y)
-			if g.tile(c) != Types.Tile.FLOOR or _has_cover_near(g, c, DEAD_GROUND):
+			if g.tile(c) != Types.Tile.FLOOR or _has_cover_near(g, c, reach):
 				continue
 			var spots: Array[Vector2i] = []
 			for dy in range(-1, 2):
@@ -458,8 +517,8 @@ static func _has_cover_near(g: Grid, c: Vector2i, r: int) -> bool:
 	return false
 
 
-## Breaks straight open runs longer than MAX_SIGHTLINE (an edge wall across the line ends a run too).
-static func _fix_sightlines(g: Grid, reserved: Dictionary, rng: RandomNumberGenerator) -> void:
+## Breaks straight open runs longer than `longest` (an edge wall across the line ends a run too).
+static func _fix_sightlines(g: Grid, reserved: Dictionary, rng: RandomNumberGenerator, longest: int) -> void:
 	for horizontal in [true, false]:
 		var lines: int = g.height if horizontal else g.width
 		var length: int = g.width if horizontal else g.height
@@ -472,7 +531,7 @@ static func _fix_sightlines(g: Grid, reserved: Dictionary, rng: RandomNumberGene
 				if j < length and not g.blocks_los(c) and not cut:
 					run.append(c)
 					continue
-				if run.size() > MAX_SIGHTLINE:
+				if run.size() > longest:
 					_block_sightline(g, run, horizontal, reserved, rng)
 				run.clear()
 				if j < length and not g.blocks_los(c):

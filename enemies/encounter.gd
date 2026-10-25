@@ -30,6 +30,7 @@ const REGEN := 3
 const FRENZY_MOB := 2
 const FRENZY_AIM := 10
 const PERMANENT := 1 << 20
+const STRUGGLE_CHANCE := 50      # % a pinned soldier's Struggle throws the Lurker off
 
 
 # --- setup ---------------------------------------------------------------------------------
@@ -214,12 +215,62 @@ static func reveal(s: GameState, u: Unit) -> void:
 		EnemyAI.alert(s, u)
 
 
-static func release_pin(s: GameState, lurker: Unit) -> void:
+static func release_pin(s: GameState, lurker: Unit, why := "") -> void:
 	var t := s.get_unit(lurker.status.get("pinning", -1))
 	lurker.status.erase("pinning")
 	if t != null:
 		t.status.erase("pinned_by")
-		s.emit({"type": "released", "unit": t.id, "by": lurker.id})
+		t.status.erase("pinned_at")
+		var ev := {"type": "released", "unit": t.id, "by": lurker.id}
+		if why != "":
+			ev["why"] = why
+		s.emit(ev)
+
+
+## Ends every pin that can no longer hold: the Lurker was knocked or dragged out of reach, or
+## stunned. A pin left behind would keep a soldier out of the fight with nothing to break it.
+static func check_pins(s: GameState) -> void:
+	for l in s.living(Types.Team.ENEMY):
+		if not l.status.has("pinning"):
+			continue
+		var t := s.get_unit(int(l.status.pinning))
+		if t == null or not t.is_alive() or int(t.status.get("pinned_by", -1)) != l.id:
+			if t != null and int(t.status.get("pinned_by", -1)) == l.id:
+				t.status.erase("pinned_by")
+			l.status.erase("pinning")
+		elif not s.grid.melee_reach(l.pos, t.pos):
+			release_pin(s, l, "reach")
+		elif l.status.get("k_skip_turn", false):
+			release_pin(s, l, "stunned")
+
+
+## Whether `u` may Struggle now: "" if so, else why not. Pinned soldiers have no actions, so
+## this is checked instead of the action count.
+static func validate_struggle(s: GameState, u: Unit) -> String:
+	if s.phase != Types.Phase.TEAM:
+		return "Not your turn"
+	if u.team != Types.Team.PLAYER or u.ai_controlled:
+		return "Can't struggle"
+	if not u.status.has("pinned_by"):
+		return "Not pinned"
+	if u.status.get("struggled", -1) == s.turn:
+		return "Already struggled this turn"
+	return ""
+
+
+## Struggle: one roll per turn to throw the Lurker off. Free or not, the turn is spent.
+static func struggle(s: GameState, u: Unit) -> void:
+	var l := s.get_unit(int(u.status.pinned_by))
+	u.status["struggled"] = s.turn
+	var freed := l == null or s.rng.randi_range(1, 100) <= STRUGGLE_CHANCE
+	s.emit({"type": "struggle", "unit": u.id, "by": l.id if l != null else -1, "freed": freed})
+	if not freed:
+		return
+	if l != null:
+		release_pin(s, l, "struggle")
+	else:
+		u.status.erase("pinned_by")
+		u.status.erase("pinned_at")
 
 
 ## Removes a unit without damage (boss death clears the adds).
@@ -237,7 +288,7 @@ static func kill(s: GameState, u: Unit) -> void:
 ## Extra legality checks, run by Rules.validate before module dispatch. "" = allowed.
 static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	if u.status.has("pinned_by"):
-		return "Pinned by a Lurker"
+		return "Pinned by a Lurker: Struggle or wait for a teammate"
 	if action.has("target"):
 		var t := s.get_unit(action.get("target", -1))
 		if t != null and t.status.get("hidden", false) and u.is_enemy_of(t):
@@ -246,6 +297,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 
 
 static func after_action(s: GameState, u: Unit, action: Dictionary) -> void:
+	check_pins(s)   # a knock, pull or stun this action may have broken a Lurker's hold
 	if action.get("type") == Types.ABILITY and action.get("ability") == "spit" and action.has("cell"):
 		add_spores(s, [action.cell], EnemyAbilities.SPORE_TURNS, u)
 	if action.get("type") == Types.MOVE and u.team == Types.Team.PLAYER:
@@ -263,11 +315,13 @@ static func _reveal_near(s: GameState) -> void:
 
 
 static func on_team_phase_start(s: GameState) -> void:
+	check_pins(s)
 	for u in s.living(Types.Team.PLAYER):
 		if u.status.has("pinned_by"):
 			var l := s.get_unit(u.status.pinned_by)
 			if l == null or not l.is_alive():
 				u.status.erase("pinned_by")
+				u.status.erase("pinned_at")
 			else:
 				u.actions_left = 0
 	if s.encounter.get("lapse_double", false):

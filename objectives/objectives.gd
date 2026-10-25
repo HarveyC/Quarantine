@@ -18,7 +18,7 @@ extends RefCounted
 ##            exit (the drop zone). If every civilian dies, killing every enemy wins instead.
 ##   purge:   destroy every spore nest (units of kind NEST_KIND), or kill every enemy.
 
-const EXTRACT_TURNS := 7
+const EXTRACT_TURNS := 8           # one more than the old 7: the evac zone sits farther out on the bigger maps
 const HOLD_TURNS := 4
 const HOLD_OVERRUN_ROUNDS := 2  # rounds in a row the enemy can own the beacon before it falls
 const BONUS_BY_TURN := 5        # skirmish / elite / purge bonus: done by the end of this turn

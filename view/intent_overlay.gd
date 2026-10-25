@@ -1,6 +1,6 @@
 extends Node3D
 ## Team-phase readability layer for enemies (design doc, Enemy AI and readability): an intent
-## tag for each enemy (drawn on its nameplate, see `labels`) with a thin line to its likely target, red tiles for everything that
+## label over each enemy with a thin line to its likely target, red tiles for everything that
 ## hits next enemy phase, amber vents for incoming reinforcements,
 ## and a faint ripple over hidden Lurkers in sight. Fog of war markers: a dim red "?" where an
 ## enemy was last seen, and a pulsing red contact for Motion tracker blips.
@@ -8,6 +8,7 @@ extends Node3D
 
 const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
+const UnitView := preload("res://view/unit_view.gd")
 
 const ICON_TEXT := {
 	"claw": "CLAW", "shoot": "SHOOT", "spit": "SPIT", "burst": "BURST", "charge": "CHARGE",
@@ -25,9 +26,6 @@ var _m_ripple: StandardMaterial3D
 var _m_ghost: StandardMaterial3D
 var _m_blip: StandardMaterial3D
 var _blips: Array[Node3D] = []
-## Unit id -> [text, colour] of its intent tag, read by the nameplates (ui/nameplates.gd) so the
-## tag stacks on the enemy's own plate instead of floating where it can cover another one.
-var labels := {}
 
 
 func _ready() -> void:
@@ -48,7 +46,6 @@ func refresh() -> void:
 		remove_child(c)
 		c.queue_free()
 	_blips.clear()
-	labels.clear()
 	var s: GameState = view.state if view != null else null
 	if s == null or s.phase != Types.Phase.TEAM or (view.player != null and view.player.is_busy()):
 		return
@@ -84,17 +81,27 @@ func refresh() -> void:
 		if uv == null or not uv.visible:
 			continue
 		var dormant: bool = it.icon == "dormant"
-		var text: String = it.label if it.label != "" else ICON_TEXT.get(it.icon, "")
+		var text := word(it)
 		if not it.affixes.is_empty():
 			text += "\n" + " / ".join(it.affixes)
 		if text == "":
 			continue
-		var col := Color(0.6, 0.62, 0.6) if dormant else (Palette.TEAL if it.icon in ["spawn", "pulse"] else Palette.DANGER)
-		labels[int(it.unit)] = [text, col]
+		# With the HUD up the intent word rides on the enemy's nameplate instead (one label per
+		# enemy, not two stacked); the line to its target stays here.
+		if UnitView.world_labels:
+			var col := Color(0.6, 0.62, 0.6) if dormant else (Palette.TEAL if it.icon in ["spawn", "pulse"] else Palette.DANGER)
+			var l := Palette.label3d(text, 46, col)
+			l.position = uv.position + Vector3(0, 2.3 * uv.scale.y + 0.2, 0)
+			add_child(l)
 		if int(it.target) >= 0:
 			var tv: Node3D = view.view_for(int(it.target))
 			if tv != null:
 				_line(uv.position + Vector3(0, 0.08, 0), tv.position + Vector3(0, 0.08, 0))
+
+
+## The intent word for an EnemyIntent entry ("CLAW", "SPAWNS IN 2"), "" for none.
+static func word(it: Dictionary) -> String:
+	return str(it.label) if str(it.label) != "" else str(ICON_TEXT.get(it.icon, ""))
 
 
 func _tile(c: Vector2i, m: Material, y: float) -> void:

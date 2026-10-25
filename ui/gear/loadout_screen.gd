@@ -146,7 +146,13 @@ func _build() -> void:
 	left.add_child(_toast)
 	var tag_panel := PanelContainer.new()
 	tag_panel.custom_minimum_size = Vector2(470, 0)
-	tag_panel.add_theme_stylebox_override("panel", UI.box(UI.PANEL, UI.BORDER, 1, 0, 14))
+	# A column, not a box: one hairline on its left keeps it apart from the slots.
+	var tag_sb := UI.box(Color(0, 0, 0, 0), UI.BORDER, 0, 0, 14)
+	tag_sb.border_width_left = 1
+	tag_sb.shadow_size = 0
+	tag_sb.set_corner_radius_all(0)
+	tag_sb.content_margin_left = 24
+	tag_panel.add_theme_stylebox_override("panel", tag_sb)
 	_tags = VBoxContainer.new()
 	_tags.add_theme_constant_override("separation", 2)
 	tag_panel.add_child(_tags)

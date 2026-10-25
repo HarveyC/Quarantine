@@ -45,6 +45,7 @@ var _vote_title: Label
 var _vote_box: VBoxContainer
 var _vote_note: Label
 var _log: Label
+var _log_title: Label
 var _reveal_btn: Button
 var _top: HBoxContainer
 ## The words beside the Supplies / Intel / Serum counts; dropped first when the top bar is tight.
@@ -101,6 +102,7 @@ func setup(s: Node) -> void:
 	run.event.connect(_on_run_event)
 	_log_lines.clear()
 	_log.text = ""
+	_log_title.visible = false
 	_screen_key = ""
 	_map.set_run(run)
 	marks.setup(RouteSurface.new(_map, self), s)
@@ -186,7 +188,7 @@ func _build() -> void:
 
 	# Right: the route vote and the field log.
 	var side := W.Frame.new(Vector4(18, 16, 18, 16))
-	side.set_look(Color(0.037, 0.055, 0.088, 0.86), Styles.BORDER)
+	side.set_haze(0.5)
 	side.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
 	side.offset_left = -(SIDE_W + 40)
 	side.offset_right = -40
@@ -207,7 +209,8 @@ func _build() -> void:
 	grow.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	grow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side_box.add_child(grow)
-	side_box.add_child(Styles.caps("Field log", 13, Styles.MUTED))
+	_log_title = Styles.caps("Field log", 13, Styles.MUTED)
+	side_box.add_child(_log_title)
 	_log = Styles.label("", 13, Styles.MUTED)
 	_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_log.custom_minimum_size.x = SIDE_W - 40
@@ -538,7 +541,7 @@ func _option_row(n: Dictionary, i: int) -> Control:
 		chips.add_theme_constant_override("v_separation", 6)
 		for p in voters:
 			var t := _owner_name(p) + (" · host" if p == run.host_player else "")
-			chips.add_child(W.chip(t, Styles.player_color(p), true, 11))
+			chips.add_child(W.chip(t, Styles.player_color(p), true, 12))
 		box.add_child(chips)
 	for c in f.find_children("*", "Control", true, false):
 		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -753,16 +756,13 @@ func _summary() -> Control:
 	var lore: Array = run.story.get("lore", [])
 	if not earned.is_empty() or laid > 0 or not lore.is_empty():
 		var chips := HFlowContainer.new()
-		chips.add_theme_constant_override("h_separation", 8)
+		chips.add_theme_constant_override("h_separation", 22)
 		chips.add_theme_constant_override("v_separation", 8)
 		for id in earned:
-			var c := W.Frame.new(Vector4(10, 6, 12, 6))
-			c.set_look(Color(Styles.AMBER, 0.08), Color(Styles.AMBER, 0.5), Styles.AMBER, false)
 			var h := Styles.hbox(8)
 			h.add_child(W.Icon.new("trophy", Styles.AMBER, 16, 1.7))
 			h.add_child(Styles.caps(Achievements.DEFS[id].name, 13, Styles.AMBER))
-			c.add_child(h)
-			chips.add_child(c)
+			chips.add_child(h)
 		if laid > 0:
 			chips.add_child(_story_chip("turned", "Echoes laid to rest: %d" % laid))
 		for id in lore:
@@ -791,15 +791,13 @@ func _summary() -> Control:
 	return fit
 
 
-## A teal chip for story finds on the run board: Echoes laid to rest and intel recovered.
+## A teal icon and line for story finds on the run board: Echoes laid to rest and intel
+## recovered (no pill round it).
 func _story_chip(icon: String, text: String) -> Control:
-	var c := W.Frame.new(Vector4(10, 6, 12, 6))
-	c.set_look(Color(Styles.TEAL, 0.08), Color(Styles.TEAL, 0.45), Styles.TEAL, false)
 	var h := Styles.hbox(8)
 	h.add_child(W.Icon.new(icon, Styles.TEAL, 16, 1.7))
 	h.add_child(Styles.caps(text, 13, Styles.TEAL))
-	c.add_child(h)
-	return c
+	return h
 
 
 ## Three acts of five rows as pips, lit up to where the run ended.
@@ -891,6 +889,7 @@ func _on_run_event(ev: Dictionary) -> void:
 		if _log_lines.size() > 8:
 			_log_lines.pop_front()
 		_log.text = "\n".join(_log_lines)
+		_log_title.visible = _log.text != ""
 	if is_inside_tree():
 		refresh.call_deferred()
 

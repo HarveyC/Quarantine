@@ -129,7 +129,7 @@ func _build() -> void:
 	v.add_child(bar)
 	# Squad status, top right.
 	var sq := PanelContainer.new()
-	sq.add_theme_stylebox_override("panel", UI.box(Color(UI.PANEL, 0.85), UI.BORDER, 1, 0, 12))
+	sq.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	sq.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	sq.custom_minimum_size = Vector2(260, 0)
 	_squad = VBoxContainer.new()

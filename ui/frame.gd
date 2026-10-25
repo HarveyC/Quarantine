@@ -11,6 +11,9 @@ var accent := Styles.AMBER
 var corners := true   # kept for callers; Bloom panels glow instead of drawing corner marks
 var stripe := Color.TRANSPARENT   # optional owner stripe on the left edge
 var radius := Styles.RADIUS
+## No box at all: a feathered dark haze behind the content so text and icons read straight on
+## the scene. `fill`'s alpha sets how dark; `line` is ignored.
+var haze := false
 
 var _box: StyleBoxFlat
 
@@ -30,11 +33,33 @@ func set_look(f: Color, l: Color, a := Styles.AMBER, show_corners := true) -> vo
 	line = l
 	accent = a
 	corners = show_corners
+	haze = false
+	_box = null
+	queue_redraw()
+
+
+## The borderless look for HUD pieces that sit on the scene: no edge, only a soft haze.
+func set_haze(alpha := 0.42, tint := Styles.GROUND) -> void:
+	haze = true
+	fill = Color(tint, alpha)
 	_box = null
 	queue_redraw()
 
 
 func _draw() -> void:
+	if haze:
+		if _box == null:
+			_box = StyleBoxFlat.new()
+			_box.bg_color = Color(fill, fill.a * 0.6)
+			_box.corner_detail = 10
+			_box.shadow_color = fill
+		# The feather scales with the piece, so a small nameplate gets a small soft blob.
+		var feather := clampf(minf(size.x, size.y) * 0.5, 6.0, 26.0)
+		_box.shadow_size = int(feather)
+		_box.set_corner_radius_all(int(minf(size.y * 0.5, maxf(radius, 24))))
+		draw_style_box(_box, Rect2(Vector2.ZERO, size).grow(-feather * 0.25))
+		_draw_stripe()
+		return
 	if _box == null:
 		_box = Styles.panel_box(fill, line, radius)
 		# A border in a lit colour (amber or teal) glows softly around the panel.
@@ -46,6 +71,10 @@ func _draw() -> void:
 			_box.shadow_size = 10
 			_box.shadow_offset = Vector2(0, 4)
 	draw_style_box(_box, Rect2(Vector2.ZERO, size))
+	_draw_stripe()
+
+
+func _draw_stripe() -> void:
 	if stripe.a > 0.0:
 		var h := minf(size.y - radius, 34.0)
 		var r := Rect2(-1, (size.y - h) * 0.5, 4, h)

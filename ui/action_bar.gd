@@ -27,6 +27,7 @@ var _who: Label
 var _name: Label
 var _class: Label
 var _ap: W.Diamonds
+var _loss: HBoxContainer
 var _hp: W.Pips
 var _empty: Label
 var _soldier_box: VBoxContainer
@@ -54,6 +55,10 @@ func build() -> void:
 	_ap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	orbs.add_child(_ap)
 	Tips.term(_ap, "actions")
+	_loss = Styles.hbox(4)
+	_loss.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_loss.mouse_filter = Control.MOUSE_FILTER_PASS
+	orbs.add_child(_loss)
 	_soldier_box.add_child(orbs)
 	var nm := Styles.hbox(8)
 	nm.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -125,8 +130,11 @@ func refresh(view: MissionView) -> void:
 		_who.text = SquadRoster.owner_name(view, u.owner_player)
 		_who.add_theme_color_override("font_color", pcol)
 		_name.text = u.display_name
-		_class.text = "%s  ·  %s" % [UnitData.SOLDIERS.get(u.kind, {}).get("name", u.kind.capitalize()), Weapons.of(u).name]
+		# The class only when the name doesn't already carry it ("Trooper Abara").
+		var kind_name := str(UnitData.SOLDIERS.get(u.kind, {}).get("name", u.kind.capitalize()))
+		_class.text = Weapons.of(u).name if u.display_name.contains(kind_name) else "%s  ·  %s" % [kind_name, Weapons.of(u).name]
 		_ap.set_values(2, u.actions_left)
+		_show_losses(Rules.action_losses(view.state, u))
 		_hp.set_values(u.max_hp, u.hp, 0, Styles.DANGER if u.hp * 3 <= u.max_hp else Styles.HP)
 		_fit_soldier_box()
 		_place(input.actions(), input, can_act)
@@ -173,6 +181,26 @@ func ready_button() -> Control:
 
 ## Sits the name / class / HP block just above the portrait, centred, however tall and wide a
 ## big text size makes it.
+## Next to the action orbs: why this soldier is short of actions (icon, word, cause on hover).
+func _show_losses(losses: Array[Dictionary]) -> void:
+	for c in _loss.get_children():
+		_loss.remove_child(c)
+		c.queue_free()
+	_loss.visible = not losses.is_empty()
+	if losses.is_empty():
+		return
+	var l: Dictionary = losses[0]
+	_loss.add_child(W.Icon.new(str(l.icon), Styles.DANGER_TEXT, 15, 1.8))
+	_loss.add_child(Styles.caps(str(l.title), 12, Styles.DANGER_TEXT))
+	for c in _loss.get_children():
+		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loss.tooltip_text = "\n".join(PackedStringArray(losses.map(func(x: Dictionary) -> String: return str(x.text))))
+	if _loss.has_meta(Tips.META):
+		_loss.remove_meta(Tips.META)
+	if str(l.key) != "":
+		Tips.term(_loss, str(l.key))
+
+
 func _fit_soldier_box() -> void:
 	_soldier_box.size = Vector2.ZERO
 	var need := _soldier_box.get_combined_minimum_size()
@@ -281,8 +309,12 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 		kc.position = Vector2(-4, -2)
 		b.add_child(kc)
 	if cost != "":
-		var c := W.chip(cost, Styles.TEAL, true, 10)
-		c.position = Vector2(px - 26, -4)
+		# The Infection cost as teal numbers on the orb's top-right, outlined to read on it.
+		var c := W.chip(cost, Styles.TEAL, true, 11)
+		var cl := c.get_child(0) as Label
+		cl.add_theme_constant_override("outline_size", 5)
+		cl.add_theme_color_override("font_outline_color", Color(Styles.GROUND, 0.9))
+		c.position = Vector2(px - c.get_combined_minimum_size().x - 1, 0)
 		b.add_child(c)
 	return b
 

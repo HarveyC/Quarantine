@@ -6,7 +6,7 @@ extends "res://ui/nodes/node_screen.gd"
 func _build(into: VBoxContainer) -> void:
 	var s := ns()
 	into.add_child(header("Survivors · Act %d" % run.act, "Someone made it", NodeUi.HEALTH, wallet(), "survivors"))
-	var scene := NodeUi.panel()
+	var scene := NodeUi.bare()
 	scene.add_child(NodeUi.label(s.text, 19, NodeUi.TEXT, true))
 	into.add_child(scene)
 	var card := NodeUi.panel()
