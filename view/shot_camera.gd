@@ -13,6 +13,7 @@ const EDGE_TOP := 2.0    # edge wall + cap above its floor
 const EDGE_HALF := 0.14  # half an edge wall's thickness, plus a little
 const LENS := 0.35       # room the camera needs around it so the near plane doesn't cut in
 const STEP := 0.12       # sample spacing along a line of sight
+const TWO_SHOT_FOV := 50.0  # degrees, vertical: the tactical camera's lens
 
 
 ## Height of the solid scenery in the cell under a world point.
@@ -72,3 +73,65 @@ static func top_near(grid: Grid, p: Vector3, r := 1.5) -> float:
 		for dz in [-r, 0.0, r]:
 			top = maxf(top, solid_top(grid, p + Vector3(dx, 0, dz)))
 	return top
+
+
+## A wide two-shot for an attack the player watches rather than takes (enemy shots and strikes):
+## side-on from the attacker's side, far enough back that attacker and target both fit with room
+## round them, raised as the scenery closes in, and above it all when nothing lower is clear.
+## Returns {eye, look, fov}; the camera may drift from `eye` a tenth of the way to `look`.
+static func two_shot(grid: Grid, attacker: Vector3, target: Vector3, aspect := 16.0 / 9.0) -> Dictionary:
+	var a := attacker + Vector3(0, 1.1, 0)
+	var b := target + Vector3(0, 1.0, 0)
+	var look := (attacker + target) * 0.5 + Vector3(0, 0.95, 0)
+	var axis := Vector3(target.x - attacker.x, 0, target.z - attacker.z)
+	var span := axis.length()
+	axis = axis.normalized() if span > 0.01 else Vector3.FORWARD
+	var perp := axis.cross(Vector3.UP)
+	# Back far enough that the pair spans no more than ~70% of the frame width side-on.
+	var half_w := tan(deg_to_rad(TWO_SHOT_FOV * 0.5)) * aspect
+	var fit := clampf((span * 0.5 + 1.4) / (half_w * 0.75), 4.2, 17.0)
+	var subjects := [a, b]
+	for el in [26.0, 38.0, 50.0, 62.0]:
+		for d in [fit, fit * 1.2, fit * 0.85]:
+			for turn in [35.0, 15.0, 55.0, 0.0, 75.0]:
+				for side in [1.0, -1.0]:
+					var t := deg_to_rad(turn)
+					var flat: Vector3 = perp * side * cos(t) - axis * sin(t)
+					var e: float = deg_to_rad(el)
+					var eye: Vector3 = look + flat * cos(e) * d + Vector3.UP * sin(e) * d
+					var drift := eye.lerp(look, 0.1)
+					if framed(eye, look, TWO_SHOT_FOV, aspect, subjects) and sees(grid, eye, subjects) \
+							and eye_clear(grid, drift) and line_clear(grid, eye, drift):
+						return {"eye": eye, "look": look, "fov": TWO_SHOT_FOV}
+	# Nothing lower is clear: look down on the pair from high on one side, the pair still running
+	# across the frame, raised above the scenery until both are in view.
+	var best := Vector3.ZERO
+	for side in [1.0, -1.0]:
+		var e := deg_to_rad(72.0)
+		var eye: Vector3 = look + perp * side * cos(e) * fit * 1.25 + Vector3.UP * sin(e) * fit * 1.25
+		eye.y = maxf(eye.y, top_near(grid, eye, 2.0) + 2.5)
+		var guard := 0
+		while not sees(grid, eye, subjects) and guard < 12:
+			eye.y += 1.0
+			guard += 1
+		if best == Vector3.ZERO or eye.y < best.y:
+			best = eye
+	var eye := best
+	return {"eye": eye, "look": look, "fov": TWO_SHOT_FOV}
+
+
+## The FOV that keeps a 3.2 m tall slice round a unit in frame from `dist` away, for a push-in
+## that ends close in a tight spot (otherwise a long lens there frames only a chest).
+static func fit_fov(dist: float, narrowest := 30.0, widest := 50.0) -> float:
+	return clampf(rad_to_deg(2.0 * atan(1.6 / maxf(dist, 0.1))), narrowest, widest)
+
+
+## Every point in `pts` sits inside the frame of a camera at `eye` looking at `look`.
+static func framed(eye: Vector3, look: Vector3, fov: float, aspect: float, pts: Array) -> bool:
+	var basis := Transform3D().looking_at(look - eye, Vector3.UP).basis.inverse()
+	var tv := tan(deg_to_rad(fov * 0.5)) * 0.92
+	for p in pts:
+		var l: Vector3 = basis * (p - eye)
+		if l.z >= -0.1 or absf(l.y / -l.z) > tv or absf(l.x / -l.z) > tv * aspect:
+			return false
+	return true

@@ -182,6 +182,28 @@ static func _emit(m: ShaderMaterial, color: Color, energy: float) -> void:
 	m.set_shader_parameter("emission_energy", energy)
 
 
+## Bounds of the visible meshes under `root`, in `space`'s coordinates (an ancestor of
+## `root`, or `root` itself). Works out of the tree. Skinned meshes report their bind
+## pose, so use bones for those.
+static func bounds(root: Node3D, space: Node3D) -> AABB:
+	var out := AABB()
+	var first := true
+	var stack: Array[Node] = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		stack.append_array(n.get_children())
+		if n is MeshInstance3D and (n as MeshInstance3D).visible and (n as MeshInstance3D).mesh != null:
+			var t := Transform3D.IDENTITY
+			var at: Node = n
+			while at != null and at != space:
+				t = (at as Node3D).transform * t
+				at = at.get_parent()
+			var b: AABB = t * (n as MeshInstance3D).get_aabb()
+			out = b if first else out.merge(b)
+			first = false
+	return out
+
+
 static func find(root: Node, joint: String) -> Node3D:
 	return root.find_child(joint, true, false) as Node3D
 

@@ -56,7 +56,7 @@ const STEPS: Array[Dictionary] = [
 	{"id": "clear", "title": "Finish them", "cells": [BARREL_CELL], "keys": ["1", "Tab"],
 		"text": "Clear the Runners. The red fuel barrel is a target too: Shoot, then Tab to it. A hit blows everything next to it."},
 	{"id": "concealment", "title": "Concealment", "info": true, "visual": "stealth",
-		"text": "In the field most missions start Concealed. Red tiles near sleeping Infected give you away, and so does any shot. Set overwatch first, then open fire."},
+		"text": "In the field most missions start Concealed. Red tiles near unaware Infected give you away, and so does any shot. Set overwatch first, then open fire."},
 	{"id": "infection", "title": "Infection", "hud": "mutation",
 		"text": "Bites raise Infection. At 25 a mutation wakes. Use Adrenal Surge, the teal button, for a third action."},
 	{"id": "turning", "title": "Turning", "info": true, "visual": "tiers",

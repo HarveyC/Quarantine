@@ -319,7 +319,7 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 			v.add_child(UI.label("Drop to equip " + GearData.item_name(_preview_id), 13, UI.AMBER))
 	else:
 		v.add_child(UI.wrap(UI.caps(GearData.item_name(it.id), 22), 200))
-		v.add_child(UI.wrap(UI.label(GearData.desc(it.id, it.mk), 13, UI.COPY), 200))
+		v.add_child(UI.text(GearData.desc(it.id, it.mk), 13, UI.COPY, 200))
 		if target_slot:
 			v.add_child(UI.label("Drop to swap. %s goes to the stash." % GearData.item_name(it.id), 13, UI.AMBER))
 		var tags := HBoxContainer.new()
@@ -487,11 +487,11 @@ func _build_summary(r: Dictionary) -> void:
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 10)
 		h.add_child(UI.tag_chip(t, "%s set" % t))
-		h.add_child(UI.wrap(UI.label(GearData.TAG_INFO[t].bonus, 14, UI.TEXT), 640))
+		h.add_child(UI.text(GearData.TAG_INFO[t].bonus, 14, UI.TEXT, 640))
 		_build_box.add_child(h)
 	var close: Array = GearTags.ranked(counts).filter(func(t): return counts[t] == GearData.SET_THRESHOLD - 1)
 	for t in close:
-		_build_box.add_child(UI.label("One more %s item switches on: %s" % [t, GearData.TAG_INFO[t].bonus], 14, GearData.tag_color(t)))
+		_build_box.add_child(UI.text("One more %s item switches on: %s" % [t, GearData.TAG_INFO[t].bonus], 14, GearData.tag_color(t), 640))
 	if sets.is_empty() and close.is_empty():
 		_build_box.add_child(UI.label("Stack 3 of one tag (gear, perks, awake mutations) to switch on its set bonus.", 14, UI.FAINT))
 	var d: Array = run.modifiers.get("doctrines", [])
@@ -508,10 +508,10 @@ func _build_grafts(r: Dictionary) -> void:
 	fig.setup(g, "", locked)
 	_grafts.add_child(fig)
 	if locked:
-		var why := UI.label("Body grafts open in Act %d, from Rank %d: a Machine Refit at the hospital or depot, or a Bloom part from nests." % [
-			GraftData.FROM_ACT, GraftData.FROM_RANK], 13, UI.FAINT)
+		var why := UI.text("Body grafts open in Act %d, from Rank %d: a Machine Refit at the hospital or depot, or a Bloom part from nests." % [
+			GraftData.FROM_ACT, GraftData.FROM_RANK], 13, UI.FAINT, 420)
 		why.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		_grafts.add_child(UI.wrap(why, 420))
+		_grafts.add_child(why)
 		return
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -536,7 +536,7 @@ func _build_grafts(r: Dictionary) -> void:
 
 
 func _bonus_line(text: String, col: Color) -> Control:
-	var l := UI.wrap(UI.label(text, 13, col), 420)
+	var l := UI.text(text, 13, col, 420)
 	var m := MarginContainer.new()
 	m.add_theme_constant_override("margin_left", 30)
 	m.add_theme_constant_override("margin_bottom", 4)

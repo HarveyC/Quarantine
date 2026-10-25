@@ -41,6 +41,8 @@ const FADE := 0.18
 const GUN_AIM := Transform3D(Basis.IDENTITY, Vector3(-0.1, 1.37, 0.24))
 ## Aiming blades the chest (left shoulder forward) so the off hand reaches the fore-end.
 const AIM_TWIST := -0.42
+## The aimed weapon pitches up or down about the shoulder to meet low and high targets.
+const SHOULDER := Vector3(-0.1, 1.45, 0.0)
 static var GUN_LOW := Transform3D(Basis.from_euler(Vector3(0.65, 0.75, -0.35)), Vector3(-0.1, 1.1, 0.24))
 
 static var _library: AnimationLibrary
@@ -51,6 +53,7 @@ var clips := SOLDIER
 var speed := 1.0          # walk cycle rate (fast movers run their loop quicker)
 var armed := false        # has a gun bone to pose and hold
 var melee := ""           # a melee class's kind: no rifle, its own clips
+var aim_pitch := 0.0      # radians the aim drops below level (negative: above), see UnitView.aim_at
 var _calm := SOLDIER      # clips while not Turned
 var _base := ""
 var _shot := ""           # a one-shot playing over the base loop
@@ -206,6 +209,7 @@ func advance(delta: float, aim := 0.0, recoil := 0.0) -> void:
 		return
 	var rate := speed if _base == clips.walk and _shot == "" else 1.0
 	player.advance(delta * rate)
+	_pitch_chest(aim)
 	if melee == "warden" and aim > 0.3 and _shot != clips.get("melee", ""):
 		# the revolver is one-handed: the shield stays braced low across the body
 		_reach("l", SHIELD_BRACE + _global(_bones.spine_03).origin - skel.get_bone_global_rest(_bones.spine_03).origin, Vector3(1.0, -0.4, 0.2))
@@ -232,6 +236,19 @@ func _global(i: int) -> Transform3D:
 	return t
 
 
+## Bows (or leans back) the upper body towards the target while aiming, so pistols and
+## spit held by the clips meet it too; a rifle gets the rest of the pitch in _pose_gun.
+func _pitch_chest(aim: float) -> void:
+	var spine: int = _bones.get("spine_03", -1)
+	var k := aim_pitch * clampf(aim, 0.0, 1.0) * (0.35 if armed else 0.8)
+	if spine < 0 or absf(k) < 0.001:
+		return
+	var g_spine := _global(spine)
+	var parent := _global(skel.get_bone_parent(spine))
+	var bowed := Basis(Vector3.RIGHT, k) * g_spine.basis
+	skel.set_bone_pose_rotation(spine, (parent.basis.inverse() * bowed).get_rotation_quaternion())
+
+
 ## Places the weapon between low ready and aimed; it rides the chest's bob and crouch.
 func _pose_gun(aim: float, recoil: float) -> void:
 	var spine: int = _bones.spine_03
@@ -243,6 +260,9 @@ func _pose_gun(aim: float, recoil: float) -> void:
 		skel.set_bone_pose_rotation(spine, (parent.basis.inverse() * turned).get_rotation_quaternion())
 	var chest := _global(spine)
 	var g := GUN_LOW.interpolate_with(GUN_AIM, clampf(aim, 0.0, 1.0))
+	if aim_pitch != 0.0:
+		var pivot := Transform3D(Basis.IDENTITY, SHOULDER)
+		g = pivot * Transform3D(Basis(Vector3.RIGHT, aim_pitch * clampf(aim, 0.0, 1.0)), Vector3.ZERO) * pivot.affine_inverse() * g
 	g.origin += chest.origin - skel.get_bone_global_rest(spine).origin
 	g.origin.z -= recoil * 0.07
 	g.basis = g.basis * Basis(Vector3.RIGHT, -recoil * 0.22)

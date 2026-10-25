@@ -6,6 +6,7 @@ extends RefCounted
 
 const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const BG := Color(0.039, 0.055, 0.094, 0.9)
 const PANEL := Color(0.05, 0.07, 0.11, 0.9)
@@ -212,6 +213,10 @@ static func effects(desc: String) -> Dictionary:
 	return {"chips": chips, "rest": rest}
 
 
+## Words that can't end a line: the clause they lead into is still to come.
+const DANGLING := ["but", "or", "then", "unless", "if", "with", "for", "to", "than", "plus", "while", "until", "a", "the"]
+
+
 ## Removes `part` from `text` when it closes a clause, then tidies the joins left behind.
 static func _strip_clause(text: String, part: String) -> String:
 	var i := text.find(part)
@@ -221,6 +226,11 @@ static func _strip_clause(text: String, part: String) -> String:
 	var closes := after == "" or after.begins_with(",") or after.begins_with(".") or after.begins_with(" and ") or after.begins_with(";")
 	if not closes:
 		return text
+	# "..., but Outbreak +1": lifting the clause would leave "but" hanging, so it stays in words.
+	var before := text.substr(0, i).strip_edges().trim_suffix(",").strip_edges().to_lower()
+	for word in DANGLING:
+		if before == word or before.ends_with(" " + word):
+			return text
 	var out := (text.substr(0, i) + after).strip_edges()
 	for junk in [" and ,", " and.", ", ,", " ,", ",,"]:
 		out = out.replace(junk, junk.right(1))
@@ -248,7 +258,7 @@ static func effect_row(desc: String, size := 15) -> Control:
 		box.add_child(row)
 	var rest: String = e.rest
 	if rest != "" and rest.to_lower() != "nothing" and rest.to_lower() != "nothing happens":
-		box.add_child(label(rest, size - 1, DIM, true))
+		box.add_child(Tips.text(rest, size - 1, DIM))
 	elif e.chips.is_empty():
 		box.add_child(label("No effect", size - 1, FAINT))
 	return box

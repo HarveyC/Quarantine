@@ -18,6 +18,7 @@ const EndOverlay := preload("res://ui/end_overlay.gd")
 const FightDebrief := preload("res://ui/fight_debrief.gd")
 const OverlayLegend := preload("res://ui/overlay_legend.gd")
 const CinematicOverlay := preload("res://ui/cinematic_overlay.gd")
+const AttackCallout := preload("res://ui/attack_callout.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const InputController := preload("res://view/input_controller.gd")
 const Tips := preload("res://ui/tips/tips.gd")
@@ -39,6 +40,7 @@ var end_overlay: EndOverlay
 ## Run fights end on this instead of the overlay: banner, squad summary, then on to the rewards.
 var debrief: FightDebrief
 var cine_overlay: CinematicOverlay
+var callout: AttackCallout
 ## HUD pieces hidden while a shot cinematic plays.
 var _tactical: Array[Control] = []
 var _tactical_a := 1.0
@@ -70,7 +72,6 @@ var _veins: W.Veins
 var _stealth_edge: TextureRect
 var _stealth_edge_mat: GradientTexture2D
 var _alarm_t := 0.0
-var _stealth_hint: Label
 
 
 func setup(v: MissionView) -> void:
@@ -103,6 +104,9 @@ func setup(v: MissionView) -> void:
 	cine_overlay = CinematicOverlay.new()
 	cine_overlay.build()
 	add_child(cine_overlay)
+	callout = AttackCallout.new()
+	callout.build()
+	add_child(callout)
 	move_child(end_overlay, get_child_count() - 1)
 	move_child(debrief, get_child_count() - 1)
 	refresh()
@@ -177,9 +181,7 @@ func _build_turn_banner() -> void:
 	_stealth_word = Styles.caps("Concealed", 13, Styles.STEALTH)
 	_outline(_stealth_word)
 	stealth.add_child(_stealth_word)
-	_stealth_hint = Styles.caps("Red ground: where they can see you", 11, Styles.STEALTH, false)
-	_outline(_stealth_hint)
-	stealth.add_child(_stealth_hint)
+	Tips.term(stealth, "concealed")
 	_stealth_row = stealth
 	box.add_child(stealth)
 	# Only online games say anything here ("Waiting for Kestrel"); a local run needs no line.
@@ -350,7 +352,6 @@ func _refresh_stealth() -> void:
 	_stealth_shown = int(on)
 	var col := Styles.STEALTH if on else Styles.DANGER
 	_stealth_icon.set_icon("concealed" if on else "detected", col)
-	_stealth_hint.visible = on
 	_stealth_word.text = "CONCEALED" if on else "DETECTED"
 	_stealth_word.add_theme_color_override("font_color", col if on else Styles.DANGER_TEXT)
 
@@ -544,10 +545,6 @@ func set_cinematic(on: bool) -> void:
 		hide_tooltip()
 
 
-func cine_caption(text: String, sub: String) -> void:
-	cine_overlay.caption(text, sub)
-
-
 func cine_result(word: String, color: Color) -> void:
 	cine_overlay.result(word, color)
 
@@ -573,9 +570,13 @@ func _process(delta: float) -> void:
 		want = (0.7 + 0.1 * sin(Time.get_ticks_msec() * 0.0021)) * _tactical_a
 	var a := move_toward(_stealth_edge.modulate.a, want, delta * (6.0 if _alarm_t > 0.0 else 1.5))
 	_stealth_edge.modulate = Color(col, a)
+	callout.cinematic = _cinematic
+	callout.bar_height = cine_overlay.bar_height()
 	for c in _tactical:
 		c.modulate.a = _tactical_a
 		c.visible = _tactical_a > 0.01 and (c != readiness or readiness.wanted())
+	# An attack callout takes the action bar's spot while it plays (nothing to press then).
+	action_bar.modulate.a = 1.0 - callout.alpha()
 
 
 func _on_unit_clicked(id: int) -> void:

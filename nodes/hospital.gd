@@ -14,7 +14,7 @@ const OUTBREAK_COST := 1
 const TREATMENTS := {
 	"patch": {"name": "Patch up", "desc": "Heal to full HP and clear 1 injury", "cost": "Free"},
 	"purge": {"name": "Purge", "desc": "-30 Infection", "cost": "15 Supplies"},
-	"train": {"name": "Train", "desc": "One extra perk pick from the class pool", "cost": "Free"},
+	"train": {"name": "Train", "desc": "One extra perk pick for the soldier's class", "cost": "Free"},
 	"cure": {"name": "Full cure", "desc": "Infection to 0, removes all mutations, Scars stay", "cost": "2 Serum doses"},
 	"refit": {"name": "Refit", "desc": "A Machine graft for a free body slot. -1 move next fight while it beds in", "cost": "40 Supplies"},
 	"amputate": {"name": "Amputate", "desc": "Cut out a Bloom graft and Refit the slot with its Machine part", "cost": "30 Supplies"},

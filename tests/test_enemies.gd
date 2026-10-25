@@ -426,6 +426,15 @@ func test_fight_builder_respects_budget_cap_and_pool() -> void:
 	assert_eq(a, b, "deterministic")
 
 
+func test_every_outbreak_point_counts() -> void:
+	var want := {0: 0, 2: 1, 3: 2, 5: 3, 6: 4, 8: 5, 9: 6, 14: 6}
+	for o in want:
+		assert_eq(FightBuilder.outbreak_budget(o), want[o], "budget at Outbreak %d" % o)
+	var boss := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 5, "seed": 2})
+	var boss_hi := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 2})
+	assert_eq(boss.enemies.size(), boss_hi.enemies.size(), "bosses only follow the stage")
+
+
 func test_fight_builder_outbreak_stages() -> void:
 	var calm := FightBuilder.build({"act": 1, "node": "skirmish", "outbreak": 0, "seed": 3})
 	assert_true(calm.encounter.waves.is_empty(), "no waves when contained")
@@ -643,25 +652,116 @@ func _boss(s: GameState, kind: String) -> Unit:
 	return s.living(Types.Team.ENEMY).filter(func(u): return u.kind == kind)[0]
 
 
+func _sacs(s: GameState) -> Array:
+	return s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "egg_sac")
+
+
 func test_brood_mother_phases_and_death_ends_fight() -> void:
 	var s := _boss_state("brood_mother")
 	var bm := _boss(s, "brood_mother")
-	assert_eq(s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "egg_sac").size(), 4, "4 egg sacs")
+	assert_eq(_sacs(s).size(), BroodMother.SACS[4], "starts behind her sacs")
 	var t := s.living(Types.Team.PLAYER)[0]
 	Rules.deal_damage(s, bm, 10, t)
 	assert_eq(bm.hp, bm.max_hp, "shielded by her egg sacs")
-	for sac in s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "egg_sac"):
+	for sac in _sacs(s):
 		Rules.deal_damage(s, sac, 99, t)
-	Rules.deal_damage(s, bm, 99, t)
-	assert_true(bm.is_alive(), "survives into phase 2")
+	Rules.deal_damage(s, bm, 999, t)
 	assert_eq(int(bm.status.boss_phase), 2, "phase 2")
-	assert_eq(bm.mobility, 3, "tears free")
-	assert_eq(s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "egg_sac").size(), 2, "lays 2 new sacs")
+	assert_eq(bm.hp, BroodMother.gates(bm)[0], "one hit stops at the phase 2 gate")
+	assert_eq(bm.mobility, BroodMother.MOBILITY[2], "tears free")
+	Rules.deal_damage(s, bm, 999, t)
+	assert_eq(int(bm.status.boss_phase), 3, "phase 3")
+	assert_eq(bm.hp, BroodMother.gates(bm)[1], "and stops again at the phase 3 gate")
 	Rules.start_mission(s)
-	Rules.deal_damage(s, bm, 99, t)
+	Rules.deal_damage(s, bm, 999, t)
 	Rules.check_end(s)
 	assert_eq(_events(s, "boss_defeated").size(), 1, "defeated")
 	assert_eq(s.result, Types.Result.VICTORY, "adds die with her")
+
+
+func test_brood_mother_health_scales_with_squad() -> void:
+	for squad in [1, 2, 4]:
+		var enc: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3,
+			"players": squad, "squad": squad}).encounter
+		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(BroodMother.HEALTH[squad])) < 0.001,
+			"health share for %d soldiers" % squad)
+	assert_true(40 * BroodMother.HEALTH[2] >= 30, "a pair faces at least 30 HP")
+
+
+func test_brood_mother_rains_acid_that_lands_next_turn() -> void:
+	var s := _boss_state("brood_mother")
+	var bm := _boss(s, "brood_mother")
+	for u in s.living(Types.Team.PLAYER):
+		u.pos.y = 9   # within reach of her acid
+	bm.cooldowns.clear()
+	s.turn = 1
+	_enemy_turn(s, bm)
+	var tel: Array = s.encounter.telegraphs.filter(func(x): return x.kind == "acid_rain")
+	assert_eq(tel.size(), 1, "acid rain marked")
+	var victims := s.living(Types.Team.PLAYER).filter(func(u): return tel[0].cells.has(u.pos))
+	assert_true(victims.size() >= 1, "on the squad")
+	s.turn = 2
+	Encounter.on_enemy_phase_start(s)
+	assert_true(victims[0].hp < victims[0].max_hp, "lands next enemy phase")
+	assert_true(Encounter.is_spore(s, tel[0].cells[4]), "leaves spores")
+
+
+func test_brood_mother_relays_a_sac_once_all_are_dead() -> void:
+	var s := _boss_state("brood_mother")
+	var bm := _boss(s, "brood_mother")
+	var t := s.living(Types.Team.PLAYER)[0]
+	for sac in _sacs(s):
+		Rules.deal_damage(s, sac, 99, t)
+	assert_true(not bm.status.has("tether"), "open once the sacs are dead")
+	bm.cooldowns.clear()
+	s.turn = 3
+	_enemy_turn(s, bm)
+	assert_eq(_sacs(s).size(), 1, "lays a fresh sac")
+	assert_eq(str(bm.status.get("tether", "")), "egg_sac", "shielded again")
+	assert_eq(int(bm.cooldowns.lay), BroodMother.RELAY, "then waits before the next")
+
+
+func test_brood_mother_burrows_and_surfaces_with_a_sac() -> void:
+	var s := _boss_state("brood_mother")
+	s.encounter["squad"] = 2
+	var bm := _boss(s, "brood_mother")
+	var t := s.living(Types.Team.PLAYER)[0]
+	for sac in _sacs(s):
+		Encounter.kill(s, sac)
+	bm.status.erase("tether")
+	Rules.deal_damage(s, bm, 999, t)
+	assert_eq(int(bm.status.boss_phase), 2, "phase 2")
+	bm.cooldowns.clear()
+	s.turn = 4
+	assert_true(BroodMother.will_burrow(s, bm, true), "intent shows the dive coming")
+	assert_eq(EnemyIntent._intent(s, bm).label, "BURROWING", "intent word")
+	_enemy_turn(s, bm)
+	assert_true(bm.status.has("emerge_cell"), "dives and marks where she comes up")
+	assert_true(EnemyIntent.dangers(s).any(func(d): return d.kind == "erupt"), "the eruption shows as danger")
+	s.turn = 5
+	_enemy_turn(s, bm)
+	assert_true(not bm.status.has("burrowed"), "surfaced")
+	assert_eq(_sacs(s).size(), BroodMother.SURFACE_SACS[2], "with a fresh sac")
+	assert_eq(str(bm.status.get("tether", "")), "egg_sac", "that shields her")
+	s.turn = 6
+	assert_true(not BroodMother.will_burrow(s, bm), "stays up for a turn before diving again")
+
+
+func test_brood_mother_berserk_bursts_her_sacs() -> void:
+	var s := _boss_state("brood_mother")
+	var bm := _boss(s, "brood_mother")
+	var t := s.living(Types.Team.PLAYER)[0]
+	for sac in _sacs(s):
+		Encounter.kill(s, sac)
+	Rules.deal_damage(s, bm, 999, t)
+	BroodMother.lay_sac(s, bm, bm.pos + Vector2i(0, 2), 9)
+	bm.status.erase("tether")   # as if the squad found a way through
+	Rules.deal_damage(s, bm, 999, t)
+	assert_eq(int(bm.status.boss_phase), 3, "berserk")
+	assert_eq(_sacs(s).size(), 0, "sacs burst")
+	assert_true(s.living(Types.Team.ENEMY).any(func(u): return u.kind == "broodling"), "into Broodlings")
+	BroodMother.lay_sac(s, bm, bm.pos + Vector2i(0, 2), 9)
+	assert_true(not bm.status.has("tether"), "a sac can't shield her any more")
 
 
 func test_colonel_hale_airstrike_and_mutation() -> void:

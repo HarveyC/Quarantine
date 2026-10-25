@@ -832,6 +832,10 @@ func _add_barrels(c: Vector2i, h: int, mats: Array[StandardMaterial3D]) -> void:
 		_tiles.add_child(b)
 
 
+## Height above the floor that shots at a fuel barrel aim for: the middle of its 0.74 m drums.
+const FUEL_DRUM_AIM := 0.4
+
+
 ## Fuel barrel (Destruction): a pair of red drums with an amber hazard band and a small warning
 ## lamp on top, so it reads as "explodes" from any camera angle.
 func _add_fuel_drums(c: Vector2i, h: int, body: Material, band: Material, lamp: Material) -> void:

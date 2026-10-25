@@ -18,7 +18,7 @@ const HINTS := {
 	"run_map": {"title": "Route map", "target": "next_node",
 		"text": "Click a lit node to vote for the next stop. Paths only go forward, and every act ends at a boss."},
 	"outbreak": {"title": "Outbreak", "target": "outbreak",
-		"text": "Rises by 1 at every node, and the Infected get tougher with it. Beating a boss knocks it back."},
+		"text": "Rises by 1 at every node, and the Infected get tougher with it. Bonus objectives, cleared nests and bosses knock it back."},
 	"reveal": {"title": "Intel", "target": "reveal",
 		"text": "Spend Intel to see what a ? node really is before you vote."},
 	"loadout": {"title": "Loadout", "target": "loadout_screen",

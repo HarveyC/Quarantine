@@ -53,7 +53,8 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			return {"dur": 0.45}
 		"telegraph":
 			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
-				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING"}
+				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
+				"acid_rain": "ACID RAIN"}
 			if uv != null:
 				fx.floating_text(head.call(uv), text.get(ev.get("kind", ""), "DANGER"), Palette.DANGER, 44)
 			_flash_cells(fx, ev.get("cells", []), Palette.DANGER)
@@ -127,7 +128,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 		"jammed":   # a Shrieker's scream through a soldier's Machine grafts
 			if uv != null:
 				fx.floating_text(head.call(uv), "GRAFTS JAMMED", Palette.DANGER, 40)
-				fx.burst(uv.chest_world(), Vector3.UP, Color(0.75, 0.82, 0.86), 10, 2.2, true, 0.03)
+				fx.burst(uv.aim_point(), Vector3.UP, Color(0.75, 0.82, 0.86), 10, 2.2, true, 0.03)
 				uv.flash(Color(0.75, 0.82, 0.86))
 			ep._sfx("impact_shock", -6.0)
 			return {"dur": 0.35}

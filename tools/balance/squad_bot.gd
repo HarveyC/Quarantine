@@ -52,6 +52,11 @@ static func choose(s: GameState, u: Unit) -> Dictionary:
 	a = _barrel(s, u)
 	if not a.is_empty():
 		return a
+	var danger := danger_cells(s)
+	if danger.has(u.pos):
+		var dodge := _best_move(s, u, hostiles, {}, true)
+		if not dodge.is_empty():
+			return dodge
 	var shot := _best_shot(s, u, u.pos)
 	if u.actions_left >= 2:
 		var move := _best_move(s, u, hostiles, shot)
@@ -219,7 +224,7 @@ static func _is_tether(s: GameState, t: Unit) -> bool:
 
 
 ## Move to the cell that best trades a good shot against safety; advance when nothing is in reach.
-static func _best_move(s: GameState, u: Unit, hostiles: Array[Unit], shot_here: Dictionary) -> Dictionary:
+static func _best_move(s: GameState, u: Unit, hostiles: Array[Unit], shot_here: Dictionary, must := false) -> Dictionary:
 	var awake: Array[Unit] = []
 	for h in hostiles:
 		if EnemyAI.is_alerted(h) and not EnemyRoster.is_static(h):
@@ -234,14 +239,38 @@ static func _best_move(s: GameState, u: Unit, hostiles: Array[Unit], shot_here: 
 		if score > best:
 			best = score
 			best_cell = c
-	if best_cell == u.pos or best < here + 0.4:
+	if best_cell == u.pos or (best < here + 0.4 and not must):
 		return {}
 	return {"type": Types.MOVE, "unit": u.id, "to": best_cell}
 
 
+## Cells something lands on next enemy phase, with the damage: strike telegraphs (airstrikes,
+## acid rain, core slams), burrowers' eruptions, Leapers' landings and swelling Bloaters.
+static func danger_cells(s: GameState) -> Dictionary:
+	var out := {}
+	for t in s.encounter.get("telegraphs", []):
+		for c in t.cells:
+			out[c] = int(out.get(c, 0)) + int(t.damage)
+	for e in s.living(Types.Team.ENEMY):
+		var at := Vector2i(-1, -1)
+		var dmg := 3
+		if e.status.has("emerge_cell"):
+			at = e.status.emerge_cell
+		elif e.status.has("leap_cell"):
+			at = e.status.leap_cell
+			dmg = EnemyAbilities.LEAP_DAMAGE
+		elif e.status.has("swelling"):
+			at = e.pos
+		if at.x < 0:
+			continue
+		for c in EnemyAbilities.square(s.grid, at, 1):
+			out[c] = int(out.get(c, 0)) + dmg
+	return out
+
+
 static func _cell_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Unit], awake: Array[Unit],
 		field: Dictionary, here: bool) -> float:
-	var score := 0.0
+	var score := -float(_danger_cache(s).get(c, 0)) * 2.0
 	# Offence: the best expected shot from this cell (the soldier has one action left after moving).
 	var best_ev := 0.0
 	if not UnitData.is_melee_only(u.kind):
@@ -275,6 +304,19 @@ static func _cell_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Unit
 			allies += 1
 	score += minf(allies, 2) * 0.3
 	return score
+
+
+static var _danger_turn := -1
+static var _danger_size := -1
+static var _danger := {}
+
+
+static func _danger_cache(s: GameState) -> Dictionary:
+	var key: int = s.log.size()
+	if key != _danger_size:
+		_danger_size = key
+		_danger = danger_cells(s)
+	return _danger
 
 
 static func _distance_field(s: GameState, hostiles: Array[Unit]) -> Dictionary:

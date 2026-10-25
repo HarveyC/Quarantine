@@ -13,7 +13,8 @@ GODOT = os.environ.get("GODOT", "godot")
 STARTERS = ["trooper", "marksman", "medic", "breacher"]
 MELEE = ["reaper", "warden"]
 ALL = STARTERS + ["hazmat", "vector"] + MELEE
-RUN_OUTBREAK = {1: 3, 2: 6, 3: 9}
+# Mid-act Outbreak per act for the "real" batches; RUN_OUTBREAK=2,4,6 overrides it.
+RUN_OUTBREAK = dict(zip((1, 2, 3), map(int, os.environ.get("RUN_OUTBREAK", "3,6,9").split(","))))
 REGULARS = ["runner", "spitter", "fallen", "bloater", "leaper", "brute", "lurker", "drifter",
             "sharpshooter", "shrieker", "burrower"]
 

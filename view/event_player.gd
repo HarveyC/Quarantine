@@ -30,6 +30,8 @@ const GunFeel := preload("res://view/gun_feel.gd")
 const MeleeFx := preload("res://view/melee_beats.gd")
 const ShotMoments := preload("res://view/shot_moments.gd")
 const DeathFx := preload("res://view/death_fx.gd")
+const AttackCallout := preload("res://ui/attack_callout.gd")
+const Styles := preload("res://ui/styles.gd")
 const ENEMY_PAD := 0.3   # extra hold after each enemy-phase action
 const HEAL_TEXT_LIFT := Vector3(0, 0.35, 0)   # "+N HP" sits above the ability title
 ## Events that keep an open shot cinematic on screen (the shot's consequences).
@@ -71,6 +73,7 @@ var generic_log: Array[String] = []
 var _hit_from := {}
 ## On the shot camera, a unit whose fall the camera tilts down to follow (see _kill).
 var _fall_cam: UnitView = null
+var _watching := false   # the open cinematic is a watched two-shot, which stays put
 var sfx_log: Array[String] = []
 
 
@@ -118,6 +121,7 @@ func advance(delta: float) -> void:
 			if _queue.is_empty():
 				if in_cinematic:
 					_end_cinematic()
+				_callout_release()
 				if was_busy:
 					drained.emit()
 				return
@@ -135,8 +139,13 @@ func advance(delta: float) -> void:
 
 
 func _start(ev: Dictionary) -> void:
-	if in_cinematic and not CINE_FOLLOW.has(str(ev.get("type", ""))) and not ev.get("knockback", false):
+	var follows: bool = CINE_FOLLOW.has(str(ev.get("type", ""))) or ev.get("knockback", false)
+	if in_cinematic and not follows:
 		_end_cinematic()
+	if follows:
+		_callout_follow(ev)
+	else:
+		_callout_release()
 	beat_started.emit(ev)
 	var squad_move: bool = ev.get("type") == "move" and not ev.has("_seen")
 	if not squad_move:
@@ -275,6 +284,7 @@ func _begin_cinematic() -> void:
 func _end_cinematic() -> void:
 	in_cinematic = false
 	_fall_cam = null
+	_watching = false
 	world_scale = 1.0
 	view.camera_rig.end_cinematic()
 	for uv in view.unit_views.values():
@@ -282,21 +292,92 @@ func _end_cinematic() -> void:
 	view.hud.set_cinematic(false)
 
 
+# --- attack callout (ui/attack_callout.gd) --------------------------------------
+
+func _callout() -> AttackCallout:
+	return view.hud.callout if view.hud != null else null
+
+
+## Puts the attack callout up for `attacker` hitting at `target`: on every shot cinematic, and
+## on every attack in the enemy phase (where the player watches rather than aims).
+func _callout_begin(attacker: UnitView, target: UnitView, icon: String, ev: Dictionary, cine: bool) -> void:
+	var c := _callout()
+	if c == null or not (cine or enemy_phase):
+		return
+	c.begin(_callout_unit(attacker), _callout_unit(target), icon, int(ev.get("chance", 0)), ev.get("reaction", false))
+
+
+func _callout_unit(uv: UnitView) -> Dictionary:
+	var squad := uv.is_soldier and not uv.turned
+	var seen := uv.visible or squad
+	return {"id": uv.unit_id, "kind": uv.kind if seen else "unknown", "name": uv.display_name if seen else "",
+		"soldier": squad, "boss": _is_boss(uv), "hp": uv.hp, "max_hp": uv.max_hp, "infection": uv.infection,
+		"color": Styles.player_color(uv.owner_player) if squad else Styles.DANGER}
+
+
+func _callout_result(word: String) -> void:
+	var c := _callout()
+	if c != null and c.active:
+		c.result(word)
+
+
+## A consequence of the attack on show (its damage, Infection, statuses, the target falling).
+func _callout_follow(ev: Dictionary) -> void:
+	var c := _callout()
+	if c == null or not c.active:
+		return
+	var id := int(ev.get("unit", -1))
+	var on_target := id == c.target_id
+	match str(ev.get("type", "")):
+		"damage":
+			if on_target:
+				c.damage(int(ev.get("amount", 0)), int(ev.get("hp", 0)))
+		"died":
+			if on_target:
+				var uv := _uv(ev)
+				c.downed(uv != null and uv.is_soldier and not uv.turned)
+		"infection":
+			var uv := _uv(ev)
+			if on_target and uv != null and int(ev.get("value", 0)) > uv.infection:
+				c.infection(int(ev.value), int(ev.value) - uv.infection)
+		"pinned":
+			if ev.has("by") and on_target:   # a Lurker's hold
+				c.status("pinned", "Pinned", "pinned", Styles.DANGER)
+			elif int(ev.get("target", -1)) == c.target_id:   # pinning fire
+				c.status("suppress", "Suppressed", "suppress", Styles.DANGER)
+		"stunned":
+			if on_target:
+				c.status("stunned", "Stunned", "stun", MeleeFx.SHOCK)
+		"bleeding":
+			if on_target:
+				c.status("bleeding", "Bleeding", "wound", MeleeFx.BLEED.lightened(0.35))
+		"turned":
+			if on_target:
+				c.status("turning", "Turned", "turned", Styles.TEAL)
+
+
+func _callout_release() -> void:
+	var c := _callout()
+	if c != null:
+		c.release()
+
+
 func _flat(v: Vector3) -> Vector3:
 	return Vector3(v.x, 0, v.z)
 
 
-## Over-the-shoulder camera eye behind `from` looking at `at`. Tries the right then the
+## Over-the-shoulder camera eye behind `from` looking at `at` (whose body is aimed at
+## `aim`, low for an egg sac and high for the Drifter). Tries the right then the
 ## left shoulder at a few distances and heights, wanting room for the lens and clear lines
 ## to the shooter and the target (and to where the camera drifts during the aim). Settles
 ## for seeing just the shooter, then for a high angle above the scenery.
-func _ots_eye(from: Vector3, at: Vector3, drift: Vector3) -> Vector3:
+func _ots_eye(from: Vector3, at: Vector3, aim: Vector3, drift: Vector3) -> Vector3:
 	var dir := _flat(at - from).normalized()
 	if dir == Vector3.ZERO:
 		dir = Vector3.FORWARD
 	var right := dir.cross(Vector3.UP)
 	var shoulder := from + Vector3(0, 1.3, 0)
-	var target := at + Vector3(0, 1.3, 0)
+	var target := aim
 	var opts: Array[Vector3] = []   # side, back, height
 	for h in [1.8, 2.4]:
 		for b in [2.4, 1.8, 1.3]:
@@ -349,6 +430,25 @@ func _clear_view(eye: Vector3, subject: Vector3) -> bool:
 	return grid == null or ShotCamera.sees(grid, eye, [subject])
 
 
+## The two-shot an attack the player watches cuts to (an enemy or Turned soldier shooting or
+## striking): both bodies in frame, the lens out of the scenery (ShotCamera.two_shot).
+func _watch_pose(attacker: Vector3, target: Vector3) -> Dictionary:
+	var grid := _grid()
+	if grid != null:
+		return ShotCamera.two_shot(grid, attacker, target)
+	var look := (attacker + target) * 0.5 + Vector3(0, 0.95, 0)
+	var perp := _flat(target - attacker).normalized().cross(Vector3.UP)
+	return {"eye": look + perp * 6.0 + Vector3(0, 4.0, 0), "look": look, "fov": ShotCamera.TWO_SHOT_FOV}
+
+
+## Starts the watched two-shot: a slow drift in, never a push past either body.
+func _cine_watch(attacker: Vector3, target: Vector3) -> void:
+	var w := _watch_pose(attacker, target)
+	var eye: Vector3 = w.eye
+	_watching = true
+	view.camera_rig.cine(CameraRig.look_pose(eye, w.look), CameraRig.look_pose(eye.lerp(w.look, 0.1), w.look), Vector2(w.fov, w.fov - 3.0))
+
+
 func _grid() -> Grid:
 	return view.state.grid if view.state != null else null
 
@@ -386,7 +486,6 @@ func _beat_team_phase(ev: Dictionary) -> Dictionary:
 			uv.set_guard(false)
 	if turn == 1 and concealed:
 		view.hud.banner("SQUAD CONCEALED", Palette.STEALTH)
-		view.hud.toast("Unseen. Stay out of the red ground and hold fire to stay hidden")
 		_sfx("sting_squad", -4.0)
 		return {"dur": 1.4}
 	if turn == 1 and not Concealment.used(view.state) and not view.state.encounter.is_empty():
@@ -483,6 +582,8 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var cine := _use_cinematic(shooter, ev)
 	var hero := shooter.is_soldier and not shooter.turned and not reaction
 	var kill := hit and _dies_next(target.unit_id)
+	# Enemy and Turned shots are watched from a wide two-shot instead of over the shoulder.
+	var watch := not (shooter.is_soldier and not shooter.turned)
 	var n_rounds: int = feel.rounds
 	# Bursts play out in the slow motion, so space them out further on the shot camera.
 	var gap: float = feel.gap * (2.2 if cine else 1.0)
@@ -493,6 +594,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var dur := t_hit + ((0.9 if hero else 0.7) if cine else 0.3)
 	shooter.face_towards(target.position)
 	shooter.set_aim(1.0)
+	shooter.aim_at(target.aim_point())
 	_focus(target)
 	var dir := _flat(target.position - shooter.position).normalized()
 	var right := dir.cross(Vector3.UP)
@@ -516,13 +618,15 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var word_col := Color(0.8, 0.82, 0.8) if not hit else (Palette.DANGER if crit else Palette.AMBER)
 	if reaction:
 		view.fx.floating_text(_head(shooter), "REACTION", Palette.AMBER, 40)
+	_callout_begin(shooter, target, "shoot", ev, cine)
 	if cine:
 		_begin_cinematic()
-		var look := target.position + Vector3(0, 0.9, 0)
-		var eye_a := _ots_eye(shooter.position, target.position, dir * 0.5)
-		view.camera_rig.cine(CameraRig.look_pose(eye_a, look), CameraRig.look_pose(eye_a + dir * 0.5, look), Vector2(46, 40))
-		var cap := "%s  >  %s" % [shooter.label(), target.label()]
-		view.hud.cine_caption(("REACTION FIRE  -  " if reaction else "") + cap, "%d%% to hit" % chance if chance > 0 else "")
+		if watch:
+			_cine_watch(shooter.position, target.position)
+		else:
+			var look := target.aim_point()
+			var eye_a := _ots_eye(shooter.position, target.position, look, dir * 0.5)
+			view.camera_rig.cine(CameraRig.look_pose(eye_a, look), CameraRig.look_pose(eye_a + dir * 0.5, look), Vector2(46, 40))
 		_sfx("cinematic")
 	var casing := GunFeel.casing_of(feel)
 	var impact_style := str(feel.get("impact", "spark"))
@@ -542,7 +646,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		var r: Dictionary = rounds[i]
 		r.fired = true
 		r.from = shooter.muzzle_world()
-		var barrel: Vector3 = (target.chest_world() - (r.from as Vector3)).normalized()
+		var barrel: Vector3 = (target.aim_point() - (r.from as Vector3)).normalized()
 		var style := str(feel.get("flash_style", "star"))
 		view.fx.muzzle_flash(r.from, col if feel.flash > 0.0 else Palette.TEAL, barrel, feel.flash, style)
 		if (feel.get("smoke", false) or i == 0) and style != "gas" and style != "bio":
@@ -588,7 +692,9 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 			target.hit_react(shooter.position + _flat((r.impacts[0].pos as Vector3) - target.position) * 4.0, 0.35)
 	var update := func(k: float) -> void:
 		var s := k * dur
-		if cine and s < t_fire:
+		if cine and watch:
+			view.camera_rig.cine_progress(clampf(s / t_hit, 0.0, 1.0))
+		elif cine and s < t_fire:
 			view.camera_rig.cine_progress(s / t_fire)
 		if not st.ejected and s >= mech_t:
 			st.ejected = true
@@ -607,16 +713,20 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 			# Push along the line of fire towards the target as the rounds fly.
 			# Stop short of the target so its whole body stays in frame.
 			st.pushed = true
-			var pose_b := view.camera_rig.transform * view.camera_rig.camera.transform
-			var eye: Variant = _push_eye(pose_b.origin, shooter.position, target.position, target.chest_world())
-			if eye == null:
-				eye = pose_b.origin
-			view.camera_rig.cine(pose_b, CameraRig.look_pose(eye, target.chest_world()), Vector2(40, 30))
+			if not watch:
+				var pose_b := view.camera_rig.transform * view.camera_rig.camera.transform
+				var eye: Variant = _push_eye(pose_b.origin, shooter.position, target.position, target.aim_point())
+				if eye == null:
+					eye = pose_b.origin
+				# A push that ends close (a tight spot) keeps a wider lens so the body still fits.
+				var fov := ShotCamera.fit_fov((eye as Vector3).distance_to(target.aim_point()))
+				view.camera_rig.cine(pose_b, CameraRig.look_pose(eye, target.aim_point()), Vector2(40, minf(fov, 40.0)))
 			world_scale = 0.3
-		if cine and st.pushed and s < t_hit:
+		if cine and not watch and st.pushed and s < t_hit:
 			view.camera_rig.cine_progress(clampf((s - t_fire) / (t_hit - t_fire), 0.0, 1.0))
 		if s >= t_hit and not st.done:
 			st.done = true
+			_callout_result("crit" if crit else ("graze" if graze else ("hit" if hit else "miss")))
 			if cine:
 				view.hud.cine_result(word, word_col)
 			elif not hit or crit or graze:
@@ -651,7 +761,7 @@ func _round_impacts(shooter: UnitView, target: UnitView, feel: Dictionary, hit: 
 	for p in pellets:
 		var j := Vector3(rng.randf_range(-1, 1) * right.x, rng.randf_range(-0.6, 0.6), rng.randf_range(-1, 1) * right.z) * spread
 		if hit:
-			var at := target.chest_world() + j
+			var at := target.aim_point() + j
 			if graze:
 				at += right * 0.22 + Vector3(0, 0.2, 0)
 			elif pellets == 1:
@@ -858,7 +968,7 @@ func _kill(uv: UnitView, from: Vector3, heavy: bool) -> void:
 	for snd in DeathFx.blow(view.fx, uv, away, heavy):
 		_sfx(snd, 0.0 if snd == "kill_hit" else -3.0)
 	view.camera_rig.shake(1.2 if heavy else 0.9)
-	if in_cinematic and uv.visible:
+	if in_cinematic and uv.visible and not _watching:
 		# the shot camera tilts down after the body so it lands in frame
 		var pose := view.camera_rig.transform * view.camera_rig.camera.transform
 		var floor_at := uv.position + away * 0.55 + Vector3(0, 0.3, 0)
@@ -914,8 +1024,8 @@ func _beat_perk(ev: Dictionary) -> Dictionary:
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.25, 0), perk.capitalize().to_upper() + ("  +1 ACTION" if perk == "bloodlust" else ""), col, 40)
 	uv.flash(col)
 	if perk == "bloodlust":
-		view.fx.flash_light(uv.chest_world(), Palette.TEAL, 2.5, 0.35, 3.0)
-		view.fx.burst(uv.chest_world(), Vector3.UP, Palette.TEAL, 10, 1.6, true, 0.025)
+		view.fx.flash_light(uv.aim_point(), Palette.TEAL, 2.5, 0.35, 3.0)
+		view.fx.burst(uv.aim_point(), Vector3.UP, Palette.TEAL, 10, 1.6, true, 0.025)
 	_sfx("mutation" if perk == "bloodlust" else "ui_confirm", -8.0)
 	return {"dur": 0.45}
 
@@ -926,7 +1036,7 @@ func _beat_bleeding(ev: Dictionary) -> Dictionary:
 	if uv == null:
 		return {}
 	view.fx.floating_text(_head(uv), "BLEEDING", MeleeFx.BLEED.lightened(0.35), 36)
-	MeleeFx.drip(view.fx, uv.chest_world(), uv.position, true)
+	MeleeFx.drip(view.fx, uv.aim_point(), uv.position, true)
 	return {"dur": 0.35}
 
 
@@ -937,7 +1047,7 @@ func _beat_bleed(ev: Dictionary) -> Dictionary:
 		return {}
 	_focus(uv)
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "BLEED", MeleeFx.BLEED.lightened(0.35), 34)
-	MeleeFx.drip(view.fx, uv.chest_world(), uv.position)
+	MeleeFx.drip(view.fx, uv.aim_point(), uv.position)
 	return {"dur": 0.3}
 
 
@@ -948,7 +1058,7 @@ func _beat_stunned(ev: Dictionary) -> Dictionary:
 		return {}
 	uv.set_tag("stunned", phase_now() + (1 if enemy_phase else 2))
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "STUNNED", MeleeFx.SHOCK, 44)
-	MeleeFx.stun(view.fx, uv.chest_world())
+	MeleeFx.stun(view.fx, uv.aim_point())
 	uv.flash(MeleeFx.SHOCK)
 	return {"dur": 0.5 if in_cinematic else 0.35}
 
@@ -1028,7 +1138,7 @@ func _beat_gear(ev: Dictionary) -> Dictionary:
 		col = Palette.DANGER
 		uv.flash(Palette.TEAL)
 	if tv != null and tv != uv:
-		view.fx.tracer(uv.chest_world(), tv.chest_world(), col, 0.35)
+		view.fx.tracer(uv.aim_point(), tv.aim_point(), col, 0.35)
 	view.fx.floating_text(_head(on) + Vector3(0, 0.2, 0), text, col, 34, 1.3)
 	view.fx.pulse(on.position, col, 0.5)
 	if not GEAR_PROCS.has(item) or item in ["restrained", "bloodletting", "guard_set"]:
@@ -1043,7 +1153,7 @@ func _beat_burning(ev: Dictionary) -> Dictionary:
 		return {}
 	var col: Color = Board.HAZARD_COLORS.fire
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "BURNING", col, 36)
-	view.fx.burst(uv.chest_world(), Vector3.UP, col, 12, 2.0, true, 0.04)
+	view.fx.burst(uv.aim_point(), Vector3.UP, col, 12, 2.0, true, 0.04)
 	view.fx.flash_light(uv.position + Vector3(0, 1.0, 0), col, 2.5, 0.4)
 	_sfx("breach", -10.0)
 	return {"dur": 0.35}
@@ -1055,7 +1165,7 @@ func _beat_burn(ev: Dictionary) -> Dictionary:
 	if uv == null:
 		return {}
 	var col: Color = Board.HAZARD_COLORS.fire
-	view.fx.burst(uv.chest_world(), Vector3.UP, col, 16, 2.5, true, 0.05)
+	view.fx.burst(uv.aim_point(), Vector3.UP, col, 16, 2.5, true, 0.05)
 	view.fx.puff(uv.position + Vector3(0, 1.0, 0), Color(0.3, 0.27, 0.24), 1.0, 0.9, 0.7)
 	view.fx.flash_light(uv.position + Vector3(0, 1.0, 0), col, 3.0, 0.4)
 	_sfx("breach", -8.0)
@@ -1073,7 +1183,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 		var tv := _uv(ev, "target")
 		if tv != null:
 			uv.face_towards(tv.position)
-			view.fx.tracer(src, tv.position + Vector3(0, 0.8, 0), color, 0.5)
+			view.fx.tracer(src, tv.aim_point(), color, 0.5)
 			view.fx.pulse(tv.position, color)
 	if ev.has("cell") and ev.cell is Vector2i:
 		var w := Board.cell_to_world(ev.cell)
@@ -1134,7 +1244,7 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 	return _power_beat(ev, str(ev.get("name", str(ev.get("ability", "ability")).replace("_", " "))), Palette.AMBER)
 
 
-## Melee strike: wind-up, lunge, impact. Runner claws and the like get a side-on camera;
+## Melee strike: wind-up, lunge, impact. Runner claws and the like get the wide two-shot;
 ## a soldier's strike (Reaper lunge, Warden bash) cuts over the striker's shoulder like
 ## a shot does, and in co-op only for your own soldiers. `style`: "sound" (default
 ## "claw"), "title" (a floating label: LUNGE, SHIELD BASH, ...), "fx" ("claw", "blade":
@@ -1157,18 +1267,17 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 	_focus(tv)
 	if title != "":
 		view.fx.floating_text(_head(uv), title, Palette.TEAL if fx == "blade" else Palette.AMBER, 44)
+	_callout_begin(uv, tv, AttackCallout.STRIKE_ICON.get(str(ev.get("ability", "claw")), "attack"), ev, cine)
 	if cine:
 		_begin_cinematic()
-		var mid := (uv.position + tv.position) * 0.5
-		var look := mid + Vector3(0, 0.8, 0)
-		var eye: Vector3
 		if hero:
 			# Over the striker's shoulder, pulled back and out to the side so both bodies fit
 			# at arm's length; the shot camera's search if none of these is clear.
+			var mid := (uv.position + tv.position) * 0.5
 			var dir := _flat(tv.position - uv.position).normalized()
 			var right := dir.cross(Vector3.UP)
-			look = mid + Vector3(0, 0.95, 0)
-			eye = Vector3.INF
+			var look := mid + Vector3(0, 0.95, 0)
+			var eye := Vector3.INF
 			var opts: Array[Vector3] = []   # side, back, height: backing off less as room runs out
 			for b in [3.2, 2.4, 1.6, 0.8]:
 				for h in [2.3, 3.0]:
@@ -1176,26 +1285,16 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 						opts.append(Vector3(sd, b, h))
 			for o in opts:
 				var e: Vector3 = uv.position - dir * o.y + right * o.x + Vector3(0, o.z, 0)
-				if _clear_view(e, uv.position + Vector3(0, 1.1, 0)) and _clear_view(e, tv.position + Vector3(0, 1.0, 0)) \
+				if _clear_view(e, uv.position + Vector3(0, 1.1, 0)) and _clear_view(e, tv.aim_point()) \
 						and (_grid() == null or ShotCamera.eye_clear(_grid(), e)):
 					eye = e
 					break
 			if eye == Vector3.INF:
-				eye = _ots_eye(uv.position, tv.position, dir * 0.4)
+				eye = _ots_eye(uv.position, tv.position, tv.aim_point(), dir * 0.4)
+			view.camera_rig.cine(CameraRig.look_pose(eye, look), CameraRig.look_pose(eye.lerp(look, 0.12), look), Vector2(50, 44))
 		else:
-			var perp := _flat(tv.position - uv.position).normalized().cross(Vector3.UP)
-			eye = mid + Vector3(0, 3.5, 0) - perp * 1.2
-			for o in [Vector2(2.6, 1.3), Vector2(-2.6, 1.3), Vector2(1.9, 2.0), Vector2(-1.9, 2.0), Vector2(1.4, 3.0), Vector2(-1.4, 3.0)]:
-				var e: Vector3 = mid + perp * o.x + Vector3(0, o.y, 0)
-				if _clear_view(e, mid + Vector3(0, 1, 0)) and _clear_view(e.lerp(look, 0.25), mid + Vector3(0, 1, 0)):
-					eye = e
-					break
-			if _grid() != null and not ShotCamera.eye_clear(_grid(), eye):
-				eye.y = maxf(eye.y, ShotCamera.top_near(_grid(), eye) + 1.6)
-		var push := 0.12 if hero else 0.25
-		view.camera_rig.cine(CameraRig.look_pose(eye, look), CameraRig.look_pose(eye.lerp(look, push), look), Vector2(50, 44) if hero else Vector2(48, 40))
-		var pre := (title + "  -  ") if title != "" else ""
-		view.hud.cine_caption(pre + "%s  >  %s" % [uv.label(), tv.label()], "%d%% to hit" % int(ev.get("chance", 0)) if ev.has("chance") else "")
+			# Runner claws and the like: the wide two-shot enemy shots use.
+			_cine_watch(uv.position, tv.position)
 	# Time the sound so its impact (`lead` seconds into the file) lands with the strike.
 	var lead: float = {"blade": 0.2, "bash": 0.0}.get(style.get("sound", "claw"), 0.35)
 	_sfx(str(style.get("sound", "claw")), 0.0, maxf(0.0, t_hit - lead))
@@ -1210,7 +1309,7 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 			return
 		if not st.landed:
 			st.landed = true
-			var at := tv.chest_world()
+			var at := tv.aim_point()
 			var dir := _flat(tv.position - uv.position).normalized()
 			if hit:
 				view.fx.burst(at, dir, _blood(tv), 10 if graze else 16, 3.5, _blood(tv) == Palette.TEAL)
@@ -1226,6 +1325,7 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 			else:
 				tv.hit_react(uv.position, 0.5)
 			MeleeFx.strike(view.fx, fx, at, dir, hit)
+			_callout_result(("graze" if graze else "hit") if hit else "miss")
 			if cine:
 				var word := ("GRAZE" if graze else "HIT") if hit else "MISS"
 				view.hud.cine_result(word, (Palette.AMBER if graze else Palette.DANGER) if hit else Color(0.8, 0.82, 0.8))
@@ -1320,8 +1420,11 @@ func _beat_barrel_shot(ev: Dictionary) -> Dictionary:
 	if uv == null or not (ev.get("cell") is Vector2i):
 		return {}
 	_focus(uv)
-	var w := Board.cell_to_world(ev.cell) + Vector3(0, 0.45, 0)
+	var w := Board.cell_to_world(ev.cell) + Vector3(0, Board.FUEL_DRUM_AIM, 0)
 	uv.face_towards(w)
+	uv.aim_now(1.0)
+	uv.aim_at(w)
+	uv.tick(0.0)
 	var feel := _feel(uv)
 	var from := uv.muzzle_world()
 	var hit: bool = ev.get("hit", false)
@@ -1332,12 +1435,13 @@ func _beat_barrel_shot(ev: Dictionary) -> Dictionary:
 	view.fx.tracer(from, end, Palette.AMBER, 0.25)
 	uv.recoil(float(feel.get("recoil", 1.0)))
 	_sfx(str(feel.get("sound", "rifle")))
+	var finish := func() -> void: uv.set_aim(0.0)
 	if hit:
 		view.fx.burst(w, (from - w).normalized(), Color(1.0, 0.7, 0.3), 10, 3.0, true, 0.03)
-		return {"dur": 0.3}
+		return {"dur": 0.3, "finish": finish}
 	view.fx.burst(end, Vector3.UP, Color(0.55, 0.5, 0.42), 8, 2.0, false, 0.03)
 	view.fx.floating_text(w + Vector3(0, 0.9, 0), "MISS", Color(0.78, 0.8, 0.76), 34)
-	return {"dur": 0.5}
+	return {"dur": 0.5, "finish": finish}
 
 
 ## Destruction: a blast at a cell. Debris, fire and smoke from Fx.explosion, camera shake by size.
@@ -1368,8 +1472,13 @@ func _suppress_beat(ev: Dictionary) -> Dictionary:
 	_focus(tv)
 	uv.face_towards(tv.position)
 	uv.set_aim(1.0)
+	uv.aim_at(tv.aim_point())
 	tv.set_tag("suppressed", phase_now() + 2)
 	view.fx.floating_text(_head(uv), "SUPPRESS", Palette.AMBER, 44)
+	_callout_begin(uv, tv, "suppress", ev, false)
+	var c := _callout()
+	if c != null and c.active:
+		c.status("suppress", "Suppressed", "suppress", Styles.DANGER)
 	var st := {"n": 0}
 	var update := func(t: float) -> void:
 		var want := int(t * 6.0)
@@ -1377,7 +1486,7 @@ func _suppress_beat(ev: Dictionary) -> Dictionary:
 			st.n += 1
 			var from := uv.muzzle_world()
 			var jitter := Vector3(sin(st.n * 2.3) * 0.5, absf(cos(st.n * 1.7)) * 0.4, cos(st.n * 3.1) * 0.5)
-			var to := tv.chest_world() + jitter
+			var to := tv.aim_point() + jitter
 			var feel := _feel(uv)
 			var col := GunFeel.color(feel, uv.is_soldier and not uv.turned, uv.turned)
 			view.fx.muzzle_flash(from, col, to - from, feel.flash, str(feel.get("flash_style", "star")))
@@ -1405,6 +1514,12 @@ func _beat_mutation(ev: Dictionary) -> Dictionary:
 		view.fx.puff(uv.position + Vector3(0, 0.9, 0), Palette.TEAL_DIM, 1.0, 1.0, 0.5)
 		view.fx.flash_light(uv.position + Vector3(0, 1, 0), Palette.TEAL, 3.0, 0.6)
 	_sfx("mutation")
+	if uv != null and ev.get("mutation") == "adrenal_surge":
+		# The extra action is the whole point: call it out and light the new pip.
+		uv.flash(Palette.TEAL)
+		view.fx.floating_text(_head(uv) + Vector3(0, -0.35, 0), "+1 ACTION", Palette.AMBER, 38)
+		view.fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.AMBER, 10, 1.6, true, 0.03)
+		_sfx("ui_confirm", -4.0)
 	return _power_beat(ev, str(ev.get("mutation", "mutation")), Palette.TEAL)
 
 
@@ -1519,7 +1634,7 @@ func _beat_mission_end(ev: Dictionary) -> Dictionary:
 
 
 ## World point in the middle of `cells` (null when there are none).
-func _cells_center(cells: Array[Vector2i]):
+func _cells_center(cells: Array):
 	if cells.is_empty():
 		return null
 	var mid := Vector3.ZERO

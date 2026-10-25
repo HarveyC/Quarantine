@@ -22,6 +22,9 @@ static func handles(s: GameState, u: Unit) -> bool:
 static func custom_turn(s: GameState, u: Unit) -> bool:
 	if EnemyRoster.is_static(u):
 		return true
+	if u.kind == "brood_mother":
+		BroodMother.take_turn(s, u)
+		return true
 	if u.status.has("swelling"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "burst"})
 		return true
@@ -72,7 +75,6 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"drifter": return _drifter(s, u, hostiles)
 		"sharpshooter": return _sharpshooter(s, u, hostiles)
 		"burrower": return _burrower(s, u, hostiles)
-		"brood_mother": return _brood_mother(s, u, hostiles)
 		"colonel_hale": return _hale(s, u, hostiles)
 	return {}
 
@@ -440,33 +442,6 @@ static func _most_exposed(s: GameState, u: Unit, hostiles: Array[Unit]) -> Unit:
 
 
 # --- bosses --------------------------------------------------------------------------------
-
-static func _brood_mother(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
-	var phase := int(u.status.get("boss_phase", 1))
-	if phase >= 2 and u.cooldowns.get("brood_spit", 0) <= 0:
-		var nearest := _nearest(u, hostiles)
-		if nearest != null:
-			var dir := Vector2(nearest.pos - u.pos).normalized()
-			for dist in [4.0, 3.0, 5.0, 2.0, 6.0]:
-				var c := u.pos + Vector2i((dir * dist).round())
-				if s.grid.is_walkable(c) and s.unit_at(c) == null:
-					var spit := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "brood_spit", "cell": c})
-					if not spit.is_empty():
-						return spit
-	for h in hostiles:
-		if s.grid.melee_reach(u.pos, h.pos):
-			var claw := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id})
-			if not claw.is_empty():
-				return claw
-	if phase >= 2 and u.actions_left >= 2:
-		var r := rush(s, u, hostiles, "claw")
-		if not r.is_empty():
-			return r
-	var acid := EnemyAI._best_spit(s, u, hostiles)
-	if not acid.is_empty():
-		return acid.action
-	return rush(s, u, hostiles, "claw") if phase >= 2 else {}
-
 
 static func _hale(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 	if int(u.status.get("boss_phase", 1)) >= 2:

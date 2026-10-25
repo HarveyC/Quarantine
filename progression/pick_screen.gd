@@ -19,6 +19,8 @@ const CARD_W := 250.0
 const CARD_H := 460.0
 const HERO_W := 330.0
 const MAX_W := 1380.0
+## Headroom above the soldier strip for the lit tab's glow (primary button glow is 16 px, 22 on hover).
+const STRIP_GLOW := 24
 
 var run: RunState
 var session
@@ -86,7 +88,11 @@ func rebuild() -> void:
 			cur = w
 	_sel = cur[1].id
 	if waiting.size() > 1:
-		_list.add_child(_strip(waiting))
+		# The scroll box clips, so leave room above the strip for the lit tab's glow.
+		var pad := MarginContainer.new()
+		pad.add_theme_constant_override("margin_top", STRIP_GLOW)
+		pad.add_child(_strip(waiting))
+		_list.add_child(pad)
 	var main := Styles.hbox(18)
 	main.alignment = BoxContainer.ALIGNMENT_CENTER
 	main.add_child(_hero(cur[0], cur[1]))
@@ -350,9 +356,7 @@ func _card(icon: String, col: Color, title: String, tag: String, counts: Diction
 		for s in stats:
 			sr.add_child(StatChip.new(str(s[0]), str(s[1]), col, 34))
 		box.add_child(sr)
-	var d := Styles.label(short, 22, Styles.TEXT)
-	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var d := Tips.text(short, 22, Styles.TEXT, 0.0, null, true)
 	box.add_child(d)
 	if drawback != "":
 		var dr := Styles.hbox(6)
@@ -360,9 +364,7 @@ func _card(icon: String, col: Color, title: String, tag: String, counts: Diction
 		var di := W.Icon.new("danger", Styles.DANGER_TEXT, 20, 1.8)
 		di.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		dr.add_child(di)
-		var dl := Styles.label(drawback, 19, Styles.DANGER_TEXT)
-		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var dl := Tips.text(drawback, 19, Styles.DANGER_TEXT)
 		dl.custom_minimum_size.x = 60
 		dr.add_child(dl)
 		box.add_child(dr)
