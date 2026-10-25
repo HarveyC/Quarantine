@@ -216,6 +216,10 @@ static func _objective_pressure(rng: RandomNumberGenerator, objective: String, p
 				enc.waves.append({"turn": 3, "every": 2, "kinds": _wave(rng, pool, 1, act)})
 		"extract":
 			enc.waves.append({"turn": 2, "every": 2, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2, act)})
+		"escort", "samples":   # the long walks: a wave behind the squad every 3 turns
+			enc.waves.append({"turn": 3, "every": 3, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2, act)})
+		"demolish", "hack":    # the squad is digging in: one runner at a time
+			enc.waves.append({"turn": 3, "every": 2, "kinds": _wave(rng, pool, 1, act)})
 
 
 static func _hasten_wave(waves: Array) -> bool:

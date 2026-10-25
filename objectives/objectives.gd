@@ -17,12 +17,35 @@ extends RefCounted
 ##   rescue:  civilians follow the nearest soldier; win when every living civilian has reached the
 ##            exit (the drop zone). If every civilian dies, killing every enemy wins instead.
 ##   purge:   destroy every spore nest (units of kind NEST_KIND), or kill every enemy.
+##   escort:  a courier walks from the drop zone to the evac zone on its own, ESCORT_MOVE tiles at the end
+##            of each squad turn, but only while a soldier is within ESCORT_LEASH of it. Lost if it dies.
+##   demolish: stand on a charge site at the end of a squad turn to arm it. An armed charge blows
+##            CHARGE_FUSE rounds later (a demo blast, soldiers in it are hurt too); an enemy standing on
+##            it defuses it. Won when every charge has blown, lost after DEMOLISH_TURNS rounds.
+##   hack:    a soldier on a relay for HACK_TURNS squad turns in a row hacks it. An enemy ending a round
+##            on an unhacked relay with no soldier there destroys it. Won at HACK_NEED hacked, lost when
+##            too few relays are left to reach that.
+##   samples: step on a sample at the end of a squad turn to pick it up (the carrier loses SAMPLE_SLOW
+##            move), end a squad turn on the drop zone to hand it in. A carrier's death drops it; an
+##            enemy ending a round on a loose sample destroys it. Won at SAMPLES_NEED delivered, lost
+##            when too few are left.
 
 const EXTRACT_TURNS := 8           # one more than the old 7: the evac zone sits farther out on the bigger maps
 const HOLD_TURNS := 4
 const HOLD_OVERRUN_ROUNDS := 2  # rounds in a row the enemy can own the beacon before it falls
 const BONUS_BY_TURN := 5        # skirmish / elite / purge bonus: done by the end of this turn
 const NEST_KIND := "spore_nest"
+const ESCORT_HP := 8
+const ESCORT_MOVE := 3          # tiles the courier walks at the end of each squad turn
+const ESCORT_LEASH := 4         # ... if a soldier is within this many tiles
+const CHARGE_FUSE := 2          # rounds from arming to the blast
+const CHARGE_BLAST := {"radius": 1, "centre": 3, "ring": 1, "damage": 3}
+const DEMOLISH_TURNS := 10      # all charges must have blown by the end of this round
+const HACK_TURNS := 2           # squad turns in a row on a relay
+const HACK_NEED := 2            # relays that must be hacked (there are 3)
+const SAMPLES_NEED := 2         # samples that must be handed in (there are 3)
+const SAMPLE_SLOW := 1          # moves the carrier loses
+const NEW_KINDS := ["escort", "demolish", "hack", "samples"]
 const CIVILIAN := {"name": "Civilian", "max_hp": 3, "mobility": 4}
 
 const TEXT := {
@@ -33,6 +56,10 @@ const TEXT := {
 	"hold": "Hold the beacon",
 	"rescue": "Escort the civilians to the drop zone",
 	"purge": "Destroy the spore nests",
+	"escort": "Walk the courier to the evac zone",
+	"demolish": "Blow the charges",
+	"hack": "Hack the relays",
+	"samples": "Bring the samples to the drop zone",
 }
 
 ## Why a fight was lost (Objectives.loss_cause): headline, icon, one line of detail.
@@ -41,6 +68,14 @@ const LOSS := {
 		"line": "Enemies held the beacon with no soldier on it for %d rounds running." % HOLD_OVERRUN_ROUNDS},
 	"left_behind": {"title": "Left behind", "icon": "clock",
 		"line": "The dropship left before anyone reached the evac zone."},
+	"courier_down": {"title": "Courier lost", "icon": "skull",
+		"line": "The courier fell before it reached the evac zone."},
+	"charges_late": {"title": "Out of time", "icon": "clock",
+		"line": "The charges were not all set off in %d rounds." % DEMOLISH_TURNS},
+	"relays_lost": {"title": "Relays lost", "icon": "flag",
+		"line": "Too few relays were left to finish the hack."},
+	"samples_lost": {"title": "Samples lost", "icon": "alert",
+		"line": "Too few samples were left to bring back."},
 	"turned": {"title": "The squad Turned", "icon": "turned",
 		"line": "The Bloom took every soldier."},
 	"squad_down": {"title": "All soldiers down", "icon": "skull",
@@ -68,6 +103,20 @@ static func setup(s: GameState) -> void:
 			s.objective.contested = false
 		"extract":
 			s.objective.left_behind = 0
+		"escort":
+			var courier := _spawn_courier(s)
+			s.objective.courier = courier.id if courier != null else -1
+			s.objective.start_dist = _courier_dist(s, courier.pos) if courier != null else 0
+		"demolish":
+			s.objective.charges = _fill(s.grid.marker("charge").size(), "idle")
+			s.objective.fuse = _fill(s.grid.marker("charge").size(), 0)
+		"hack":
+			s.objective.relays = _fill(s.grid.marker("relay").size(), "idle")
+			s.objective.hacking = _fill(s.grid.marker("relay").size(), 0)
+		"samples":
+			s.objective.samples = _fill(s.grid.marker("sample").size(), "ground")
+			s.objective.carriers = _fill(s.grid.marker("sample").size(), -1)
+			s.objective.where = s.grid.marker("sample").duplicate()
 		"rescue":
 			var ids: Array = []
 			for c in s.grid.marker("civilian"):
@@ -75,6 +124,37 @@ static func setup(s: GameState) -> void:
 					ids.append(_spawn_civilian(s, c).id)
 			s.objective.civilians = ids
 			s.objective.rescued = []
+
+
+static func _fill(n: int, v: Variant) -> Array:
+	var a: Array = []
+	a.resize(n)
+	a.fill(v)
+	return a
+
+
+## The courier stands on the free cell nearest the drop zone's first cell.
+static func _spawn_courier(s: GameState) -> Unit:
+	var origin: Vector2i = s.grid.player_spawns[0] if not s.grid.player_spawns.is_empty() else Vector2i.ZERO
+	var best := Vector2i(-1, -1)
+	for r in range(1, 5):
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				var c := origin + Vector2i(dx, dy)
+				if best.x < 0 and s.grid.in_bounds(c) and s.grid.is_walkable(c) and s.unit_at(c) == null \
+						and not s.grid.player_spawns.has(c):
+					best = c
+		if best.x >= 0:
+			break
+	if best.x < 0:
+		return null
+	var u := _spawn_civilian(s, best)
+	u.display_name = "Courier"
+	u.max_hp = ESCORT_HP
+	u.hp = ESCORT_HP
+	u.mobility = ESCORT_MOVE
+	u.status["courier"] = true
+	return u
 
 
 static func _spawn_civilian(s: GameState, c: Vector2i) -> Unit:
@@ -115,14 +195,21 @@ static func on_team_phase_end(s: GameState) -> void:
 	match kind(s):
 		"extract": _check_extract(s)
 		"rescue": _rescue_turn(s)
+		"escort": _escort_turn(s)
+		"demolish": _demolish_arm(s)
+		"hack": _hack_turn(s)
+		"samples": _samples_turn(s)
 
 
 ## End of a full round (after the enemy phase and hazards): the beacon is checked.
 static func on_enemy_phase_end(s: GameState) -> void:
 	if s.objective.is_empty() or s.phase == Types.Phase.ENDED:
 		return
-	if kind(s) == "hold":
-		_check_hold(s)
+	match kind(s):
+		"hold": _check_hold(s)
+		"demolish": _demolish_round(s)
+		"hack": _hack_round(s)
+		"samples": _samples_round(s)
 
 
 static func _check_extract(s: GameState) -> void:
@@ -142,6 +229,216 @@ static func _check_extract(s: GameState) -> void:
 				s.emit({"type": "left_behind", "unit": u.id})
 				s.emit({"type": "died", "unit": u.id})
 		s.objective.result = Types.Result.VICTORY if not on_pad.is_empty() else Types.Result.DEFEAT
+
+
+# ---------------------------------------------------------------- escort
+
+static func courier(s: GameState) -> Unit:
+	return s.get_unit(int(s.objective.get("courier", -1)))
+
+
+## Steps from `from` to the nearest evac cell, walking the way a unit can (Grid.step_cost), or -1.
+static func _courier_dist(s: GameState, from: Vector2i) -> int:
+	var dist := _dist_to_evac(s)
+	return int(dist.get(from, -1))
+
+
+static func _dist_to_evac(s: GameState) -> Dictionary:
+	var seen := {}
+	var frontier: Array[Vector2i] = []
+	for t in s.grid.marker("evac"):
+		seen[t] = 0
+		frontier.append(t)
+	while not frontier.is_empty():
+		var next: Array[Vector2i] = []
+		for t in frontier:
+			for d in Grid.DIRS8:
+				var c: Vector2i = t - d
+				if not seen.has(c) and s.grid.is_walkable(c) and s.grid.step_cost(c, d) > 0:
+					seen[c] = seen[t] + 1
+					next.append(c)
+		frontier = next
+	return seen
+
+
+static func _escort_turn(s: GameState) -> void:
+	var c := courier(s)
+	if c == null or not c.is_alive():
+		return
+	var dist := _dist_to_evac(s)
+	var near := soldiers(s).any(func(u: Unit) -> bool: return _cheb(u.pos, c.pos) <= ESCORT_LEASH)
+	if near:
+		var best := c.pos
+		var best_d: int = dist.get(c.pos, 1 << 20)
+		for cell in Rules.move_range(s, c):
+			var d: int = dist.get(cell, 1 << 20)
+			if d < best_d or (d == best_d and best != c.pos and (cell.y < best.y or cell.y == best.y and cell.x < best.x)):
+				best = cell
+				best_d = d
+		if best != c.pos:
+			c.actions_left = 1
+			Rules.apply(s, {"type": Types.MOVE, "unit": c.id, "to": best})
+			c.actions_left = 0
+	else:
+		s.emit({"type": "courier_waits", "unit": c.id})
+	if not c.is_alive():
+		return
+	var left: int = dist.get(c.pos, 0)
+	_progress(s, maxi(int(s.objective.start_dist) - left, 0), int(s.objective.start_dist))
+	if s.grid.marker("evac").has(c.pos):
+		s.objective.result = Types.Result.VICTORY
+
+
+# ---------------------------------------------------------------- demolish
+
+static func _soldier_on(s: GameState, cell: Vector2i) -> bool:
+	var u := s.unit_at(cell)
+	return u != null and u.is_alive() and u.team == Types.Team.PLAYER and not is_civilian(u) and not u.status.has("deployable")
+
+
+static func _enemy_on(s: GameState, cell: Vector2i) -> bool:
+	var u := s.unit_at(cell)
+	return u != null and u.is_alive() and u.team == Types.Team.ENEMY
+
+
+static func _demolish_arm(s: GameState) -> void:
+	var cells := s.grid.marker("charge")
+	for i in cells.size():
+		if s.objective.charges[i] == "idle" and _soldier_on(s, cells[i]):
+			s.objective.charges[i] = "armed"
+			s.objective.fuse[i] = CHARGE_FUSE
+			s.emit({"type": "charge_armed", "cell": cells[i], "fuse": CHARGE_FUSE})
+	_demolish_progress(s)
+
+
+static func _demolish_round(s: GameState) -> void:
+	var cells := s.grid.marker("charge")
+	for i in cells.size():
+		if s.objective.charges[i] != "armed":
+			continue
+		if _enemy_on(s, cells[i]):
+			s.objective.charges[i] = "idle"
+			s.emit({"type": "charge_defused", "cell": cells[i]})
+			continue
+		s.objective.fuse[i] -= 1
+		if s.objective.fuse[i] <= 0:
+			s.objective.charges[i] = "blown"
+			s.emit({"type": "charge_blown", "cell": cells[i]})
+			Destruction.explode(s, cells[i], CHARGE_BLAST, null, "demo")
+			if s.phase == Types.Phase.ENDED:
+				return
+	_demolish_progress(s)
+	if s.objective.charges.all(func(v: String) -> bool: return v == "blown"):
+		s.objective.result = Types.Result.VICTORY
+	elif s.turn >= DEMOLISH_TURNS:
+		s.objective.fail = "charges_late"
+		s.objective.result = Types.Result.DEFEAT
+
+
+static func _demolish_progress(s: GameState) -> void:
+	_progress(s, s.objective.charges.count("blown"), s.objective.charges.size())
+
+
+# ---------------------------------------------------------------- hack
+
+static func _hack_turn(s: GameState) -> void:
+	var cells := s.grid.marker("relay")
+	for i in cells.size():
+		if s.objective.relays[i] != "idle":
+			continue
+		if _soldier_on(s, cells[i]):
+			s.objective.hacking[i] += 1
+			if s.objective.hacking[i] >= HACK_TURNS:
+				s.objective.relays[i] = "hacked"
+				s.emit({"type": "relay_hacked", "cell": cells[i]})
+			else:
+				s.emit({"type": "relay_hacking", "cell": cells[i], "left": HACK_TURNS - s.objective.hacking[i]})
+		else:
+			s.objective.hacking[i] = 0
+	_hack_check(s)
+
+
+static func _hack_round(s: GameState) -> void:
+	var cells := s.grid.marker("relay")
+	for i in cells.size():
+		if s.objective.relays[i] == "idle" and _enemy_on(s, cells[i]) and not _soldier_on(s, cells[i]):
+			s.objective.relays[i] = "lost"
+			s.emit({"type": "relay_lost", "cell": cells[i]})
+	_hack_check(s)
+
+
+static func _hack_check(s: GameState) -> void:
+	var hacked: int = s.objective.relays.count("hacked")
+	var open: int = s.objective.relays.count("idle")
+	_progress(s, hacked, HACK_NEED)
+	if hacked >= HACK_NEED:
+		s.objective.result = Types.Result.VICTORY
+	elif hacked + open < HACK_NEED:
+		s.objective.fail = "relays_lost"
+		s.objective.result = Types.Result.DEFEAT
+
+
+# ---------------------------------------------------------------- samples
+
+static func _samples_turn(s: GameState) -> void:
+	var drop := s.grid.marker("exit")
+	var n: int = s.objective.samples.size()
+	for i in n:
+		var st: String = s.objective.samples[i]
+		var cell: Vector2i = s.objective.where[i]
+		if st == "carried":
+			var u := s.get_unit(int(s.objective.carriers[i]))
+			if u == null or not u.is_alive():
+				_drop_sample(s, i)
+			elif drop.has(u.pos):
+				s.objective.samples[i] = "delivered"
+				u.mobility += SAMPLE_SLOW
+				u.status.erase("carrying")
+				s.emit({"type": "sample_delivered", "unit": u.id, "cell": u.pos})
+			else:
+				s.objective.where[i] = u.pos
+		elif st == "ground":
+			var u := s.unit_at(cell)
+			if u != null and _soldier_on(s, cell) and not u.status.has("carrying"):
+				s.objective.samples[i] = "carried"
+				s.objective.carriers[i] = u.id
+				u.mobility = maxi(1, u.mobility - SAMPLE_SLOW)
+				u.status["carrying"] = i
+				s.emit({"type": "sample_taken", "unit": u.id, "cell": cell})
+	_samples_check(s)
+
+
+static func _drop_sample(s: GameState, i: int) -> void:
+	var u := s.get_unit(int(s.objective.carriers[i]))
+	s.objective.samples[i] = "ground"
+	s.objective.carriers[i] = -1
+	if u != null:
+		s.objective.where[i] = u.pos
+		u.status.erase("carrying")
+	s.emit({"type": "sample_dropped", "cell": s.objective.where[i]})
+
+
+static func _samples_round(s: GameState) -> void:
+	for i in s.objective.samples.size():
+		if s.objective.samples[i] == "carried":
+			var u := s.get_unit(int(s.objective.carriers[i]))
+			if u == null or not u.is_alive():
+				_drop_sample(s, i)
+		if s.objective.samples[i] == "ground" and _enemy_on(s, s.objective.where[i]):
+			s.objective.samples[i] = "lost"
+			s.emit({"type": "sample_lost", "cell": s.objective.where[i]})
+	_samples_check(s)
+
+
+static func _samples_check(s: GameState) -> void:
+	var done: int = s.objective.samples.count("delivered")
+	var live: int = s.objective.samples.count("ground") + s.objective.samples.count("carried")
+	_progress(s, done, SAMPLES_NEED)
+	if done >= SAMPLES_NEED:
+		s.objective.result = Types.Result.VICTORY
+	elif done + live < SAMPLES_NEED:
+		s.objective.fail = "samples_lost"
+		s.objective.result = Types.Result.DEFEAT
 
 
 static func _check_hold(s: GameState) -> void:
@@ -230,7 +527,14 @@ static func check(s: GameState) -> int:
 		return s.objective.result
 	var enemies_dead := s.living(Types.Team.ENEMY).is_empty()
 	match kind(s):
-		"extract", "hold":
+		"extract", "hold", "demolish", "hack", "samples":
+			return Types.Result.NONE
+		"escort":
+			var c := courier(s)
+			if c == null or not c.is_alive():
+				s.objective.fail = "courier_down"
+				s.objective.result = Types.Result.DEFEAT
+				return Types.Result.DEFEAT
 			return Types.Result.NONE
 		"rescue":
 			# Killing everything only wins once no civilian is left to save.
@@ -249,6 +553,8 @@ static func loss_cause(s: GameState) -> String:
 		return ""
 	if not s.objective.is_empty() and kind(s) == "hold" and s.objective.result == Types.Result.DEFEAT:
 		return "beacon"
+	if not s.objective.is_empty() and s.objective.result == Types.Result.DEFEAT and s.objective.has("fail"):
+		return str(s.objective.fail)
 	var squad := _squad_units(s)
 	if squad.any(func(u: Unit) -> bool: return u.status.get("left_behind", false)):
 		return "left_behind"
@@ -260,9 +566,24 @@ static func loss_cause(s: GameState) -> String:
 ## The cells the camera should look at for a loss: the beacon zone, else where the squad fell.
 static func loss_cells(s: GameState) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	if loss_cause(s) == "beacon":
-		out.assign(s.grid.marker("beacon"))
-		return out
+	match loss_cause(s):
+		"beacon":
+			out.assign(s.grid.marker("beacon"))
+			return out
+		"courier_down":
+			var c := courier(s)
+			if c != null:
+				out.append(c.pos)
+				return out
+		"charges_late": 
+			out.assign(s.grid.marker("charge"))
+			return out
+		"relays_lost":
+			out.assign(s.grid.marker("relay"))
+			return out
+		"samples_lost":
+			out.assign(s.objective.get("where", []))
+			return out
 	for u in _squad_units(s):
 		out.append(u.pos)
 	return out
@@ -284,6 +605,12 @@ static func bonus_met(s: GameState) -> bool:
 		"rescue":
 			return not s.objective.civilians.is_empty() and s.objective.rescued.size() == s.objective.civilians.size()
 		"boss": return false
+		"escort":
+			var c := courier(s)
+			return c != null and c.is_alive() and c.hp >= c.max_hp
+		"demolish": return s.turn <= DEMOLISH_TURNS - 3
+		"hack": return s.objective.relays.count("lost") == 0
+		"samples": return s.objective.samples.count("lost") == 0
 	return s.turn <= BONUS_BY_TURN
 
 
@@ -302,6 +629,18 @@ static func describe(s: GameState) -> String:
 		"purge":
 			var nests := s.living(Types.Team.ENEMY).filter(func(u: Unit) -> bool: return u.kind == NEST_KIND).size()
 			return "%s  ·  %d left" % [text, nests] if nests > 0 else text
+		"escort":
+			var c := courier(s)
+			if c == null or not c.is_alive():
+				return text
+			var left := _courier_dist(s, c.pos)
+			return "%s  ·  %d tiles to go" % [text, maxi(left, 0)]
+		"demolish":
+			return "%s  ·  %d/%d blown  ·  round %d/%d" % [text, s.objective.charges.count("blown"), s.objective.charges.size(), s.turn, DEMOLISH_TURNS]
+		"hack":
+			return "%s  ·  %d/%d hacked" % [text, s.objective.relays.count("hacked"), HACK_NEED]
+		"samples":
+			return "%s  ·  %d/%d delivered" % [text, s.objective.samples.count("delivered"), SAMPLES_NEED]
 	return text
 
 

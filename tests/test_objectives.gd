@@ -264,3 +264,155 @@ func test_objective_state_survives_snapshot() -> void:
 	assert_eq(back.objective, s.objective, "progress restored")
 	assert_eq(back.grid.objective, "hold", "objective on the grid")
 	assert_true(Objectives.describe(back).contains("1/4"), "HUD line shows progress")
+
+
+# ---------------------------------------------------------------- sprint objectives
+
+func test_new_objectives_generate_without_fallback() -> void:
+	for biome in ["wall", "port", "bore"]:
+		for o in Objectives.NEW_KINDS:
+			for seed in range(1, 5):
+				var g := MapGen.generate({"biome": biome, "objective": o, "seed": seed})
+				assert_eq(g.objective, o, "%s %s %d keeps its objective" % [biome, o, seed])
+				assert_true(g.width >= 22, "%s %s sized" % [biome, o])
+				var key: String = {"escort": "evac", "demolish": "charge", "hack": "relay", "samples": "sample"}[o]
+				assert_true(not g.marker(key).is_empty(), "%s %s has %s" % [biome, o, key])
+				if o != "escort":
+					assert_eq(g.marker(key).size(), 3, "%s %s three sites" % [biome, o])
+	var grand := MapGen.generate({"biome": "wall", "objective": "demolish", "seed": 2})
+	assert_eq(grand.width, 28, "sites ride on grand maps")
+
+
+func test_escort_courier_walks_with_the_squad_and_wins_at_evac() -> void:
+	var s := _mission("escort")
+	var c := Objectives.courier(s)
+	assert_true(c != null and c.is_alive(), "a courier starts")
+	var d0 := Objectives._courier_dist(s, c.pos)
+	assert_true(d0 > 0, "the evac zone is a walk away")
+	_end_round(s)
+	assert_true(Objectives._courier_dist(s, c.pos) < d0, "it advanced with the squad close")
+	# Far from every soldier it waits.
+	for u in Objectives.soldiers(s):
+		_place(s, u, Vector2i(0, 0) if s.unit_at(Vector2i(0, 0)) == null else Vector2i(1, 0))
+	var here := c.pos
+	if Objectives.soldiers(s).all(func(u: Unit) -> bool: return maxi(absi(u.pos.x - here.x), absi(u.pos.y - here.y)) > Objectives.ESCORT_LEASH):
+		_end_round(s)
+		assert_eq(c.pos, here, "it waits for an escort")
+	_place(s, c, s.grid.marker("evac")[0])
+	_end_round(s)
+	assert_eq(s.result, Types.Result.VICTORY, "courier at evac wins")
+
+
+func test_escort_is_lost_when_the_courier_dies() -> void:
+	var s := _mission("escort")
+	var c := Objectives.courier(s)
+	c.hp = 0
+	Rules.check_end(s)
+	assert_eq(s.result, Types.Result.DEFEAT, "lost")
+	assert_eq(Objectives.loss_cause(s), "courier_down", "named")
+	assert_true(Objectives.LOSS.has("courier_down"), "has text")
+
+
+func test_demolish_arms_fuses_and_blows() -> void:
+	var s := _mission("demolish")
+	var sites := s.grid.marker("charge")
+	var squad := Objectives.soldiers(s)
+	for i in sites.size():
+		_place(s, squad[i], sites[i])
+	_end_round(s)
+	assert_eq(s.objective.charges.count("armed"), 3, "all armed")
+	for u in squad:
+		u.pos = Vector2i(-40, -40)
+		u.hp = 99
+	assert_eq(s.result, Types.Result.NONE, "fuse still burning")
+	_end_round(s)
+	assert_eq(s.objective.charges.count("blown"), 3, "all blown")
+	assert_eq(s.result, Types.Result.VICTORY, "won")
+
+
+func test_demolish_enemy_defuses_and_clock_runs_out() -> void:
+	var s := _mission("demolish")
+	var sites := s.grid.marker("charge")
+	var squad := Objectives.soldiers(s)
+	_place(s, squad[0], sites[0])
+	Rules.set_ready(s, 0, true)
+	Rules.set_ready(s, 1, true)
+	assert_eq(s.objective.charges[0], "armed", "armed")
+	squad[0].pos = Vector2i(-40, -40)
+	var e := s.living(Types.Team.ENEMY)[0]
+	_place(s, e, sites[0])
+	_end_round(s)
+	assert_eq(s.objective.charges[0], "idle", "an enemy on it defuses it")
+	s.turn = Objectives.DEMOLISH_TURNS
+	_end_round(s)
+	assert_eq(s.result, Types.Result.DEFEAT, "out of time")
+	assert_eq(Objectives.loss_cause(s), "charges_late", "named")
+
+
+func test_hack_needs_two_turns_and_two_relays() -> void:
+	var s := _mission("hack")
+	var relays := s.grid.marker("relay")
+	var squad := Objectives.soldiers(s)
+	_place(s, squad[0], relays[0])
+	_place(s, squad[1], relays[1])
+	_end_round(s)
+	assert_eq(s.objective.relays.count("hacked"), 0, "one turn is not enough")
+	_end_round(s)
+	assert_eq(s.result, Types.Result.VICTORY, "two relays hacked")
+
+
+func test_hack_is_lost_when_relays_are_destroyed() -> void:
+	var s := _mission("hack")
+	var relays := s.grid.marker("relay")
+	for i in [0, 1]:
+		var e := s.living(Types.Team.ENEMY)[0] if i == 0 else Unit.new()
+		if i == 1:
+			e = s.living(Types.Team.ENEMY)[0]
+		_place(s, e, relays[i])
+		s.objective.relays[i] = "idle"
+		Objectives._hack_round(s)
+		e.pos = Vector2i(-40, -40)
+	assert_eq(s.result, Types.Result.NONE, "check_end not run yet")
+	Rules.check_end(s)
+	assert_eq(s.result, Types.Result.DEFEAT, "too few relays left")
+	assert_eq(Objectives.loss_cause(s), "relays_lost", "named")
+
+
+func test_samples_are_carried_slowed_and_delivered() -> void:
+	var s := _mission("samples")
+	var spots := s.grid.marker("sample")
+	var squad := Objectives.soldiers(s)
+	var base := squad[0].mobility
+	_place(s, squad[0], spots[0])
+	_place(s, squad[1], spots[1])
+	_end_round(s)
+	assert_eq(s.objective.samples.count("carried"), 2, "two taken")
+	assert_eq(squad[0].mobility, base - Objectives.SAMPLE_SLOW, "slowed")
+	_place(s, squad[0], s.grid.marker("exit")[0])
+	_place(s, squad[1], s.grid.marker("exit")[1])
+	_end_round(s)
+	assert_eq(s.result, Types.Result.VICTORY, "delivered")
+	assert_eq(squad[0].mobility, base, "mobility restored")
+
+
+func test_samples_drop_when_the_carrier_falls_and_are_lost_to_enemies() -> void:
+	var s := _mission("samples")
+	var spots := s.grid.marker("sample")
+	var squad := Objectives.soldiers(s)
+	_place(s, squad[0], spots[0])
+	_end_round(s)
+	assert_eq(s.objective.samples[0], "carried", "taken")
+	squad[0].hp = 0
+	Objectives._samples_round(s)
+	assert_eq(s.objective.samples[0], "ground", "dropped where it fell")
+	var e := s.living(Types.Team.ENEMY)[0]
+	_place(s, e, s.objective.where[0])
+	Objectives._samples_round(s)
+	assert_eq(s.objective.samples[0], "lost", "trampled")
+	e.pos = Vector2i(-40, -40)
+	for i in [1, 2]:
+		s.objective.samples[i] = "lost"
+	Objectives._samples_check(s)
+	Rules.check_end(s)
+	assert_eq(s.result, Types.Result.DEFEAT, "too few left")
+	assert_eq(Objectives.loss_cause(s), "samples_lost", "named")

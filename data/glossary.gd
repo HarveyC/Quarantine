@@ -523,6 +523,29 @@ static func _build() -> Dictionary:
 		"stats": [["%d" % Objectives.CIVILIAN.max_hp, "civilian HP"]],
 		"more": ["If every civilian dies, killing every enemy still wins."],
 		"aliases": ["Drop zone"]}
+	t["zone_charge"] = {"name": "Charge site", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("charge"),
+		"line": "End a squad turn on it to arm the charge. It blows %d rounds later, hurting anyone near it." % Objectives.CHARGE_FUSE,
+		"art": "tile", "art_ctx": {"overlay": "charge"},
+		"stats": [["%d" % Objectives.CHARGE_FUSE, "round fuse"], ["%d" % Objectives.DEMOLISH_TURNS, "rounds to finish"]],
+		"more": ["An enemy standing on an armed charge defuses it.", "The blast breaks walls and roofs like a demo charge."],
+		"aliases": ["Charge sites"]}
+	t["zone_relay"] = {"name": "Relay", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("relay"),
+		"line": "Keep a soldier on it for %d squad turns in a row to hack it." % Objectives.HACK_TURNS,
+		"art": "tile", "art_ctx": {"overlay": "relay"},
+		"stats": [["%d" % Objectives.HACK_TURNS, "turns to hack"], ["%d of 3" % Objectives.HACK_NEED, "to win"]],
+		"more": ["An enemy ending a round on a relay no soldier is guarding destroys it.", "Leaving resets the hack."],
+		"aliases": ["Relays"]}
+	t["zone_sample"] = {"name": "Sample point", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("sample"),
+		"line": "End a squad turn on it to pick it up, then end one on the drop zone to hand it in.",
+		"art": "tile", "art_ctx": {"overlay": "sample"},
+		"stats": [["%d of 3" % Objectives.SAMPLES_NEED, "to win"], ["-%d" % Objectives.SAMPLE_SLOW, "move carrying"]],
+		"more": ["A carrier who falls drops it.", "An enemy ending a round on a loose sample destroys it."],
+		"aliases": ["Sample points"]}
+	t["courier"] = {"name": "Courier", "kind": "objective", "icon": "flag", "tone": "amber",
+		"line": "Walks %d tiles toward the evac zone at the end of each squad turn, but only while a soldier is within %d tiles." % [Objectives.ESCORT_MOVE, Objectives.ESCORT_LEASH],
+		"stats": [["%d" % Objectives.ESCORT_HP, "courier HP"]],
+		"more": ["If the courier dies the mission is lost."],
+		"aliases": ["Courier"]}
 	t["ladder"] = {"name": "Ladder", "kind": "terrain", "icon": "rank", "tone": "text",
 		"line": "Climbs one level to the roof beside it. Slow, but the only way up some roofs.",
 		"art": "climb", "art_ctx": {"way": "ladder"},
