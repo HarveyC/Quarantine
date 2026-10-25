@@ -18,27 +18,29 @@ func _init() -> void:
 	if only != "":
 		var wanted := Array(only.split(","))
 		files = files.filter(func(f): return wanted.any(func(w): return f.contains(w)))
-	# TEST_SHARD="i/n" runs every nth file starting at i, so CI can split the suite across jobs.
+	# TEST_SHARD="i/n" runs every nth test (not file), so CI can split the suite across jobs and one
+	# slow file (test_mapgen) still spreads over all of them.
 	var shard := OS.get_environment("TEST_SHARD")
+	var idx := 0
+	var n := 1
 	if shard.contains("/"):
 		var parts := shard.split("/")
-		var idx := int(parts[0])
-		var n := maxi(int(parts[1]), 1)
-		var mine: Array = []
-		for i in files.size():
-			if i % n == idx:
-				mine.append(files[i])
-		files = mine
+		idx = int(parts[0])
+		n = maxi(int(parts[1]), 1)
+	var seen := 0
 	for f in files:
-		var t0 := Time.get_ticks_msec()
-		# Every file starts from the real Progression: some tests install a fake or null one and
-		# leave it, which made results depend on which files ran before (and so on CI sharding).
-		GearTags.set_progression(false)
 		var script: GDScript = load("res://tests/" + f)
 		for m in script.get_script_method_list():
 			if not m.name.begins_with("test_"):
 				continue
+			seen += 1
+			if (seen - 1) % n != idx:
+				continue
 			total += 1
+			# Every test starts from the real Progression: some install a fake or null one and
+			# leave it, which made results depend on which tests ran before (and so on sharding).
+			GearTags.set_progression(false)
+			var t0 := Time.get_ticks_msec()
 			var inst: TestCase = script.new()
 			inst.call(m.name)
 			if inst.failures.is_empty():
@@ -48,6 +50,8 @@ func _init() -> void:
 				print("  FAIL  %s::%s" % [f, m.name])
 				for msg in inst.failures:
 					print("        - " + msg)
-		print("  file  %s %d ms" % [f, Time.get_ticks_msec() - t0])
+			var ms := Time.get_ticks_msec() - t0
+			if ms >= 3000:
+				print("  slow  %s::%s %d ms" % [f, m.name, ms])
 	print("\n%d tests, %d failed" % [total, failed])
 	quit(1 if failed > 0 else 0)
