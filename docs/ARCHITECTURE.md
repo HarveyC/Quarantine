@@ -53,7 +53,7 @@ Rules for parallel work:
 
 `{"type": Types.MOVE, "unit": id, "to": Vector2i}` costs 1 action, range `unit.mobility` (8-way, no corner cutting).
 `SHOOT` (`"target": id`), `OVERWATCH`, `HUNKER` end the unit's turn.
-`ABILITY` (`"ability": id`, optional `"target"`/`"cell"`) and `MUTATION` (`"mutation": id`, ...) cost is defined by their module.
+`ABILITY` (`"ability": id`, optional `"target"`/`"cell"`) and `MUTATION` (`"mutation": id`, ...) cost is defined by their module. `STRUGGLE` (no extra keys) is only legal for a soldier pinned by a Lurker: it costs no actions, once per team phase, and throws the Lurker off `Encounter.STRUGGLE_CHANCE`% of the time.
 
 ## Events
 
@@ -99,7 +99,8 @@ Rules for parallel work:
 | `source_pulse` | `unit` (the Source), `units`, `amount` |
 | `reinforcements_incoming` | `cells`, `turn`, `count` — a wave arrives at these vents next enemy phase |
 | `revealed` | `unit` (a hidden Lurker) |
-| `pinned` / `released` | `unit` (soldier), `by` (Lurker) |
+| `pinned` / `released` | `unit` (soldier), `by` (Lurker); `released` may carry `why`: "struggle", "reach" or "stunned" |
+| `struggle` | `unit` (pinned soldier), `by` (Lurker), `freed`: bool (`Encounter.STRUGGLE_CHANCE`%) |
 | `regenerate` | `unit`, `healed`, `hp` |
 | `immune` | `unit`, `source`, `reason` (kind it is tethered to) — damage was ignored, no `damage` event follows |
 | `untethered` | `unit` |

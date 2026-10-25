@@ -105,12 +105,17 @@ func deselect() -> void:
 
 
 ## Next controllable soldier, preferring ones that still have actions.
+## Actions left, or a pinned soldier who can still Struggle this turn.
+func has_something_to_do(u: Unit) -> bool:
+	return u.actions_left > 0 or Encounter.validate_struggle(view.state, u) == ""
+
+
 func cycle(dir := 1) -> void:
 	var list := controllable()
 	if list.is_empty():
 		deselect()
 		return
-	var with_actions := list.filter(func(u: Unit) -> bool: return u.actions_left > 0)
+	var with_actions := list.filter(func(u: Unit) -> bool: return has_something_to_do(u))
 	if not with_actions.is_empty():
 		list.assign(with_actions)
 	var idx := -1
@@ -123,8 +128,8 @@ func cycle(dir := 1) -> void:
 ## Called when the event queue has finished playing.
 func on_drained() -> void:
 	var u := selected_unit()
-	if u == null or u.actions_left <= 0:
-		if controllable().any(func(c: Unit) -> bool: return c.actions_left > 0):
+	if u == null or not has_something_to_do(u):
+		if controllable().any(func(c: Unit) -> bool: return has_something_to_do(c)):
 			cycle(1)
 			return
 		if u == null:
@@ -407,6 +412,13 @@ func actions() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var u := selected_unit()
 	if u == null:
+		return out
+	if u.status.has("pinned_by"):
+		# Pinned: the only thing left to do is fight the Lurker off.
+		var why := Encounter.validate_struggle(view.state, u)
+		out.append({"key": "struggle", "label": "Struggle", "targeting": "none", "type": Types.STRUGGLE,
+			"enabled": why == "", "reason": why, "hotkey": "1",
+			"desc": "%d%% chance to throw the Lurker off. Costs nothing, once a turn." % Encounter.STRUGGLE_CHANCE})
 		return out
 	var has_ap := u.actions_left > 0
 	var gun: Dictionary = Weapons.of(u)

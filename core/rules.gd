@@ -90,6 +90,8 @@ static func validate(s: GameState, action: Dictionary) -> String:
 	var u := s.get_unit(action.get("unit", -1))
 	if u == null or not u.is_alive():
 		return "No such unit"
+	if action.get("type") == Types.STRUGGLE:
+		return Encounter.validate_struggle(s, u)
 	if u.actions_left <= 0:
 		return "No actions left"
 	var blocked := Encounter.validate(s, u, action)
@@ -114,6 +116,10 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		s.emit({"type": "rejected", "action": action, "reason": err})
 		return false
 	var u := s.get_unit(action.unit)
+	if action.type == Types.STRUGGLE:
+		Encounter.struggle(s, u)
+		Vision.refresh(s)
+		return true
 	_expose_attacker(s, u, action)
 	if action.type == Types.ABILITY and EnemyAbilities.handles(str(action.ability)):
 		EnemyAbilities.apply(s, u, action)
@@ -134,6 +140,35 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 	check_end(s)
 	_auto_ready(s)   # this action may have cost a player their last soldier
 	return true
+
+
+## Why `u` started this team phase short of actions, for the HUD: one entry per cause, each
+## {"key": glossary term, "icon": Icons id, "title": short caps word, "text": one plain line,
+## "lost": actions taken (Types.ACTIONS_PER_TURN = the whole turn)}. Pure; [] when nothing.
+static func action_losses(s: GameState, u: Unit) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if u == null or not u.is_alive() or u.team != Types.Team.PLAYER or u.ai_controlled:
+		return out
+	if u.status.has("pinned_by"):
+		var l := s.get_unit(int(u.status.pinned_by))
+		var who := l.display_name if l != null and l.display_name != "" else "a Lurker"
+		var tried: bool = u.status.get("struggled", -1) == s.turn
+		out.append({"key": "pinned", "icon": "pinned", "title": "Pinned", "lost": Types.ACTIONS_PER_TURN,
+			"text": "Pinned by %s: can't act. %s, or a teammate hitting it frees them." % [who,
+				"Struggled this turn and failed, try again next turn" if tried
+				else "Struggle for a %d%% chance to break free" % Encounter.STRUGGLE_CHANCE]})
+	if s.phase != Types.Phase.TEAM:
+		return out
+	if s.turn == 1 and u.status.get("first_turn_action_loss", false):
+		out.append({"key": "", "icon": "event", "title": "Shaken", "lost": 1,
+			"text": "Whispers: fighting the voices costs 1 action this first turn."})
+	if u.status.get("k_lose_action") == s.turn:
+		out.append({"key": "", "icon": "mutation", "title": "Twin Sight", "lost": 1,
+			"text": "Twin Sight: strayed too far from the bonded soldier, 1 action lost this turn."})
+	if u.status.get("k_surge_penalty") == s.turn:
+		out.append({"key": "", "icon": "mutation", "title": "Crash", "lost": 1,
+			"text": "Adrenal Surge crash: only 1 action this turn."})
+	return out
 
 
 ## Fog of war: shooting at or attacking a hostile gives the attacker's position away, and so

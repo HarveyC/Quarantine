@@ -16,7 +16,7 @@ const ELITE_SCALE := 1.2
 
 
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
-	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released",
+	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
 	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell"]
 
 
@@ -128,6 +128,11 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				fx.floating_text(head.call(uv), "FELL", Palette.DANGER, 48)
 				uv.hit_react(uv.position + Vector3(0, 1, 0), 1.0)
 			return {"dur": 0.4}
+		"struggle":
+			if uv != null and not ev.get("freed", false):
+				fx.floating_text(head.call(uv), "STILL PINNED", Palette.DANGER, 40)
+				uv.hit_react(uv.position + Vector3(0, 1, 0), 0.5)
+			return {"dur": 0.4}
 		"pinned", "released":
 			if uv != null:
 				fx.floating_text(head.call(uv), "PINNED" if ev.type == "pinned" else "FREED", Palette.DANGER if ev.type == "pinned" else Palette.AMBER, 48)
@@ -198,6 +203,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"revealed": return "[color=#%s]%s was hiding![/color]" % [red, who.call("unit")]
 		"pinned": return "[color=#%s]%s is pinned by %s[/color]" % [red, who.call("unit"), who.call("by")]
 		"released": return "%s breaks free" % who.call("unit")
+		"struggle": return "%s struggles free" % who.call("unit") if ev.get("freed", false) \
+			else "[color=#%s]%s struggles but %s holds on[/color]" % [red, who.call("unit"), who.call("by")]
 		"regenerate": return "%s regenerates %d" % [who.call("unit"), int(ev.get("healed", 0))]
 		"immune": return "%s is immune (tethered)" % who.call("unit")
 		"untethered": return "%s is no longer tethered" % who.call("unit")
