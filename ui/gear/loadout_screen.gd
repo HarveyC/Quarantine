@@ -49,6 +49,31 @@ func setup(r: RunState, s) -> void:
 	_refresh()
 
 
+## Opens a loadout over `host` (the reward screen or a node screen) without touching what is
+## under it, so a half-made pick is still there after Back. Starts on soldier `sid` when it's
+## given. Returns the screen; it frees itself when closed.
+static func open_over(host: Control, r: RunState, s, sid := -1) -> Control:
+	var scr: Control = load("res://ui/gear/loadout_screen.gd").new()
+	scr.name = "LoadoutOverlay"
+	# Above everything on the host, lifted reward cards included, on a solid backdrop.
+	scr.z_index = 10
+	host.add_child(scr)
+	scr.setup(r, s)
+	(scr.get_child(0) as ColorRect).color.a = 1.0
+	if sid != -1 and not r.get_soldier(sid).is_empty():
+		scr.focus(sid)
+	scr.closed.connect(scr.queue_free)
+	return scr
+
+
+## Shows soldier `sid`.
+func focus(sid: int) -> void:
+	_sid = sid
+	_held = -1
+	_preview_id = ""
+	_refresh()
+
+
 func _local_players() -> Array:
 	return session.local_players() if session != null and session.has_method("local_players") else run.players
 

@@ -26,7 +26,8 @@ static func _screens() -> Array[String]:
 		"survivors", "reward", "loadout", "doctrine", "kit", "rankup", "rankup_reward", "hud", "aim", "quick", "debrief", "lost",
 		"runend", "pause", "settings_graphics", "settings_audio", "settings_gameplay", "settings_accessibility",
 		"settings_controls", "depot_grafts", "hospital_grafts", "reward_grafts", "loadout_grafts", "hq_unlocks", "hq_severity", "hq_record", "hq_achievements", "archive", "story",
-		"ending_vote", "offer_training"]
+		"ending_vote", "offer_training", "reward_compare", "mutation_compare", "guns_compare", "kit_compare", "reward_loadout", "depot_compare",
+		"event_loadout"]
 	for i in TutorialScript.STEPS.size():
 		out.append("training:%d" % i)
 	return out
@@ -146,6 +147,51 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 			var run := GearDemo.make_run(screen)
 			var ctl: Control = (GearRun.loadout_screen() if screen.begins_with("loadout") else GearRun.reward_screen()).new()
 			_full_screen(root, ctl, run)
+		"reward_compare", "mutation_compare", "guns_compare", "kit_compare", "reward_loadout":
+			# The compare column with a card hovered (the Marksman's set-completing flare
+			# launcher, a gun, a deployment order), or the loadout opened over the pick.
+			var run := GearDemo.make_run(screen.trim_suffix("_compare").replace("reward_loadout", "reward").replace("mutation", "reward"))
+			var ctl: Control = GearRun.reward_screen().new()
+			_full_screen(root, ctl, run)
+			if screen != "kit_compare" and screen != "mutation_compare":
+				ctl._sid = run.squad()[1].id
+				ctl._refresh()
+			ctl._select(0)
+			if screen == "reward_loadout":
+				ctl.open_loadout()
+			else:
+				ctl._hovered = 1 if screen in ["kit_compare", "mutation_compare"] else 0
+				ctl._show_compare()
+		"depot_compare", "event_loadout":
+			# A depot buy's compare card for real (TermTips), or the loadout over an event.
+			var run := RunRules.new_run(players, 31)
+			GearRun.init_run(run)
+			RunRules.start_run(run)
+			run.phase = RunState.Phase.NODE
+			run.supplies = 140
+			for r in run.squad():
+				Loadout.equip(run, r, GearData.items_with("", "common", "armor")[0])
+				Loadout.equip(run, r, "laser_sight")
+			NodeRules.enter(run, "depot" if screen == "depot_compare" else "event", "" if screen == "depot_compare" else "the_trial")
+			var scr: Control = NodeRules.screen("depot" if screen == "depot_compare" else "event").new()
+			_full_screen(root, scr, run)
+			for i in 4:
+				await tree.process_frame
+			if screen == "event_loadout":
+				scr.open_loadout()
+			else:
+				var tips := root.get_node_or_null("TermTips")
+				for b in scr.find_children("*", "Button", true, false):
+					if tips != null and b.has_meta("tip") and b.get_meta("tip").ctx is Callable and b.is_visible_in_tree():
+						# Rest the pointer on it too, so the card stays up.
+						var at: Vector2 = b.get_global_rect().get_center()
+						var mm := InputEventMouseMotion.new()
+						mm.position = at
+						mm.global_position = at
+						Input.parse_input_event(mm)
+						root.warp_mouse(at)
+						tips.show_for(b, at)
+						break
 		"rankup", "rankup_reward":
 			var run := RunRules.new_run(players, 81)
 			RunRules.start_run(run)

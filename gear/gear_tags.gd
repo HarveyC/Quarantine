@@ -143,6 +143,11 @@ static func preview_gun(record, id: String) -> Array[Dictionary]:
 	return _diff(before, after)
 
 
+## Tag changes between two counts() results, in GearData.TAGS order.
+static func diff(before: Dictionary, after: Dictionary) -> Array[Dictionary]:
+	return _diff(before, after)
+
+
 static func _diff(before: Dictionary, after: Dictionary) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for t in GearData.TAGS:
