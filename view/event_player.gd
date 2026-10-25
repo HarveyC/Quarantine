@@ -407,8 +407,11 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 	var uv := _uv(ev)
 	if uv == null:
 		return {}
-	var pts: Array[Vector3] = [Board.cell_to_world(ev.get("from", uv.cell))]
+	var cells: Array[Vector2i] = [ev.get("from", uv.cell)]
 	for c in ev.get("path", []):
+		cells.append(c)
+	var pts: Array[Vector3] = []
+	for c in cells:
 		pts.append(Board.cell_to_world(c))
 	if pts.size() < 2:
 		return {}
@@ -433,7 +436,7 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 	var update := func(t: float) -> void:
 		var f := (1.0 - pow(1.0 - t, 2.0) if shoved else t) * steps
 		var i := mini(int(f), steps - 1)
-		uv.position = pts[i].lerp(pts[i + 1], f - i)
+		uv.position = Board.walk_point(cells[i], cells[i + 1], f - i)   # up and down the steps
 		if not shoved:
 			uv.face_towards(pts[i + 1])
 		if not seen.is_empty():
