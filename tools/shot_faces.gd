@@ -30,6 +30,8 @@ func _init() -> void:
 func _run(closes: PackedStringArray) -> void:
 	root.msaa_3d = Viewport.MSAA_DISABLED
 	root.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	if _opt.begins_with("shade"):
+		_patch_shader()
 	_lineup = Lineup.new()
 	root.add_child(_lineup)
 	_lineup.set_process(false)
@@ -37,7 +39,7 @@ func _run(closes: PackedStringArray) -> void:
 	await process_frame
 	_cam = _lineup._cam
 	for uv in _lineup.views:
-		if _opt != "base":
+		if not (_opt == "base" or _opt.begins_with("shade")):
 			var att := Face.dress(uv._model, uv.kind, _opt)
 			if att != null:
 				ModelKit.apply_materials(att, uv.owner_player, uv.soldier_body)
@@ -101,3 +103,20 @@ func _head_marker(uv: Node3D) -> Node3D:
 	sk.add_child(att)
 	att.bone_name = "Head"
 	return att
+
+
+## Face-darkening: bare skin on the head (rest-space height above the neck, front half) goes
+## near black; the glowing eyes are separate meshes and stay lit.
+func _patch_shader() -> void:
+	var sh := load("res://view/character.gdshader") as Shader
+	var amt := "0.97" if _opt == "shade" else "0.78"
+	var code := sh.code
+	code = code.replace("uniform bool textured = false;", "uniform bool textured = false;\nuniform float face_dark = 1.0;")
+	code = code.replace("		NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), texture(normal_tex, UV).rgb, bare);", """		float fdp = face_dark * smoothstep(1.50, 1.57, obj_pos.z) * smoothstep(0.03, -0.04, obj_pos.y);
+		NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), texture(normal_tex, UV).rgb, bare * (1.0 - fdp));""")
+	code = code.replace("	ALBEDO = col;", """	float fd_head = smoothstep(1.50, 1.57, p.z);
+	float fd_front = smoothstep(0.03, -0.04, p.y);
+	float fd = face_dark * fd_head * fd_front * max(skin, skin_all);
+	col *= 1.0 - fd * %s;
+	ALBEDO = col;""" % amt)
+	sh.code = code
