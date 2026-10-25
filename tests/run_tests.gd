@@ -17,7 +17,19 @@ func _init() -> void:
 	var only := OS.get_environment("TEST_ONLY")   # e.g. TEST_ONLY=destruction runs test_destruction.gd
 	if only != "":
 		files = files.filter(func(f): return f.contains(only))
+	# TEST_SHARD="i/n" runs every nth file starting at i, so CI can split the suite across jobs.
+	var shard := OS.get_environment("TEST_SHARD")
+	if shard.contains("/"):
+		var parts := shard.split("/")
+		var idx := int(parts[0])
+		var n := maxi(int(parts[1]), 1)
+		var mine: Array = []
+		for i in files.size():
+			if i % n == idx:
+				mine.append(files[i])
+		files = mine
 	for f in files:
+		var t0 := Time.get_ticks_msec()
 		var script: GDScript = load("res://tests/" + f)
 		for m in script.get_script_method_list():
 			if not m.name.begins_with("test_"):
@@ -32,5 +44,6 @@ func _init() -> void:
 				print("  FAIL  %s::%s" % [f, m.name])
 				for msg in inst.failures:
 					print("        - " + msg)
+		print("  file  %s %d ms" % [f, Time.get_ticks_msec() - t0])
 	print("\n%d tests, %d failed" % [total, failed])
 	quit(1 if failed > 0 else 0)
