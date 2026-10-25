@@ -115,6 +115,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_121f10e6b2.ogg",
+		"text": "She's lost it. No more sacs. Finish her.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_133a6bec4b.ogg",
 		"text": "Haddad",
 		"voice": "okafor"
@@ -650,6 +655,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_7ddf2bc107.ogg",
+		"text": "She's coming straight at you. Put her down.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_7df215aef6.ogg",
 		"text": "forty-nine",
 		"voice": "okafor"
@@ -672,6 +682,11 @@
 	{
 		"file": "okafor_85414954fe.ogg",
 		"text": "Movement on every side. It's a trap.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_85a82a559d.ogg",
+		"text": "Sacs are down. She's open. Hit her now.",
 		"voice": "okafor"
 	},
 	{
@@ -1025,6 +1040,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_cd4e204ea8.ogg",
+		"text": "She's tunnelling! Watch the ground and get off the roofs.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_d03341a475.ogg",
 		"text": "forty-seven",
 		"voice": "okafor"
@@ -1062,6 +1082,11 @@
 	{
 		"file": "okafor_d98c1dc99c.ogg",
 		"text": "Every power it gives you pulls you closer to the Source. Use them anyway.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d9b7cfb6bd.ogg",
+		"text": "That's the last sac. Light her up.",
 		"voice": "okafor"
 	},
 	{
@@ -1112,6 +1137,11 @@
 	{
 		"file": "okafor_e1561a8f63.ogg",
 		"text": "Novak",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_e794f0d8ae.ogg",
+		"text": "She's under you somewhere. Move when the ground cracks.",
 		"voice": "okafor"
 	},
 	{
