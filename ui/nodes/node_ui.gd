@@ -6,6 +6,7 @@ extends RefCounted
 
 const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const BG := Color(0.039, 0.055, 0.094, 0.9)
 const PANEL := Color(0.05, 0.07, 0.11, 0.9)
@@ -248,7 +249,7 @@ static func effect_row(desc: String, size := 15) -> Control:
 		box.add_child(row)
 	var rest: String = e.rest
 	if rest != "" and rest.to_lower() != "nothing" and rest.to_lower() != "nothing happens":
-		box.add_child(label(rest, size - 1, DIM, true))
+		box.add_child(Tips.text(rest, size - 1, DIM))
 	elif e.chips.is_empty():
 		box.add_child(label("No effect", size - 1, FAINT))
 	return box

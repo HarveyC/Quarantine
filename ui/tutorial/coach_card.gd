@@ -7,12 +7,13 @@ signal pressed(id: String)
 
 const W := preload("res://ui/widgets.gd")
 const Tips := preload("res://ui/tips/tips.gd")
+const TermText := preload("res://ui/tips/term_text.gd")
 
 const WIDTH := 430.0
 
 var _kicker: Label
 var _title: Label
-var _text: Label
+var _text: TermText
 var _keys: HBoxContainer
 var _terms: HFlowContainer
 var _visual: Control
@@ -38,15 +39,14 @@ func _init() -> void:
 	box.add_child(head)
 	_title = Styles.caps("", 24)
 	box.add_child(_title)
-	_text = Styles.label("", 15, Styles.TEXT)
-	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_text.custom_minimum_size.x = WIDTH - 36
+	_text = TermText.new()
+	_text.setup("", Styles.fs(15), Styles.TEXT, WIDTH - 36)
 	box.add_child(_text)
 	_visual = Diagram.new()
 	box.add_child(_visual)
 	_keys = Styles.hbox(8)
 	box.add_child(_keys)
-	# Glossary terms named in the text: hover one for its card.
+	# Terms the title names that the text doesn't (those are bold links in the text already).
 	_terms = HFlowContainer.new()
 	_terms.add_theme_constant_override("h_separation", 6)
 	_terms.add_theme_constant_override("v_separation", 6)
@@ -68,7 +68,7 @@ func show_card(kicker: String, title: String, text: String, keys: Array = [], vi
 		buttons: Array = [], step := 0, steps := 0) -> void:
 	_kicker.text = kicker.to_upper()
 	_title.text = title.to_upper()
-	_text.text = text
+	_text.set_text_terms(text)
 	(_dots as Dots).set_values(step, steps)
 	(_visual as Diagram).kind = visual
 	_visual.visible = visual != ""
@@ -82,7 +82,7 @@ func show_card(kicker: String, title: String, text: String, keys: Array = [], vi
 	for c in _terms.get_children():
 		_terms.remove_child(c)
 		c.queue_free()
-	for k in Glossary.scan(title + ". " + text).slice(0, 4):
+	for k in Glossary.scan(title).filter(func(k: String) -> bool: return not _text.terms.has(k)).slice(0, 4):
 		_terms.add_child(Tips.chip(k, 11))
 	_terms.visible = _terms.get_child_count() > 0
 	for c in _buttons.get_children():
