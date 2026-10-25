@@ -171,15 +171,29 @@ func play_once(pose: String, rate := 1.0) -> void:
 	_shot_left = player.current_animation_length / rate - FADE
 
 
-## Death: plays the death clip at `t` (0..1) of its length.
-func set_death(t: float) -> void:
-	if not has_clip("death"):
-		return
-	if not _dying:
-		_dying = true
-		player.play(clips.death, 0.1)
-	var length := player.current_animation_length
-	player.seek(clampf(t * 1.15, 0.0, 1.0) * length * 0.999, true)
+## Death clips per style: "collapse" crumples and falls (the rig's own death clip),
+## "knockdown" is blown off the feet by a heavy hit. Seconds into each clip when the body
+## hits the floor; clips not listed land just past half way.
+const DEATH_CLIPS := {"knockdown": "Hit_Knockback"}
+const LAND_AT := {"Death01": 0.95, "Hit_Knockback": 0.3, "SpiderArmature|Spider_Death": 0.5}
+
+
+## Death: plays a death clip from its start, advanced by `advance` like any other clip (so
+## slow motion slows the fall), holding the last frame with the body on the floor.
+## Returns the seconds until the body lands at `rate`, or 0 if it has no death clip.
+func start_death(style := "collapse", rate := 1.0) -> float:
+	var clip: String = DEATH_CLIPS.get(style, "")
+	if clip == "" or not player.has_animation(clip):
+		clip = clips.get("death", "")
+	if clip == "" or not player.has_animation(clip):
+		return 0.0
+	_dying = true
+	_shot = ""
+	armed = false
+	player.play(clip, 0.06, rate)
+	player.seek(0.0, true)
+	var length := player.get_animation(clip).length
+	return float(LAND_AT.get(clip, length * 0.55)) / rate
 
 
 ## `aim` 0..1 from low ready to shouldered; `recoil` 0..1 kicks the weapon back.
@@ -190,9 +204,10 @@ func advance(delta: float, aim := 0.0, recoil := 0.0) -> void:
 			_shot = ""
 			if not _dying:
 				player.play(_base, FADE)
-	var rate := speed if _base == clips.walk and _shot == "" else 1.0
 	if _dying:
+		player.advance(delta)
 		return
+	var rate := speed if _base == clips.walk and _shot == "" else 1.0
 	player.advance(delta * rate)
 	_pitch_chest(aim)
 	if melee == "warden" and aim > 0.3 and _shot != clips.get("melee", ""):
