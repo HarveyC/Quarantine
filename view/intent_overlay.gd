@@ -24,6 +24,7 @@ var _m_spore: StandardMaterial3D
 var _m_vent: StandardMaterial3D
 var _m_line: StandardMaterial3D
 var _m_tether: StandardMaterial3D
+var _m_trail: StandardMaterial3D
 var _m_ripple: StandardMaterial3D
 var _m_ghost: StandardMaterial3D
 var _m_blip: StandardMaterial3D
@@ -37,6 +38,7 @@ func _ready() -> void:
 	_m_vent = Palette.overlay(Color(Palette.AMBER, 0.5))
 	_m_line = Palette.overlay(Color(Palette.DANGER, 0.55))
 	_m_tether = Palette.overlay(Color(Palette.TEAL, 0.6))
+	_m_trail = Palette.overlay(Color(0.62, 0.5, 0.34, 0.5))
 	_m_ripple = Palette.overlay(Color(Palette.TEAL, 0.25))
 	_m_ghost = Palette.overlay(Color(Palette.DANGER, 0.22))
 	_m_blip = Palette.overlay(Color(Palette.DANGER, 0.7))
@@ -55,8 +57,13 @@ func refresh() -> void:
 	for c in EnemyIntent.incoming(s):
 		_tile(c, _m_vent, 0.02)
 	for d in EnemyIntent.dangers(s):
+		var dig: bool = d.kind == "trail"
 		for c in d.cells:
-			_tile(c, _m_danger, 0.022)
+			_tile(c, _m_trail if dig else _m_danger, 0.022)
+		if d.kind == "erupt" and not d.cells.is_empty():   # the boss itself is underground and unlabelled
+			var q := Palette.label3d("ERUPTS", 46, Palette.DANGER)
+			q.position = Board.cell_to_world(d.cells[d.cells.size() / 2], 1.4)
+			add_child(q)
 	for c in EnemyIntent.ripples(s):
 		var r := Palette.ring(0.25, 0.42, _m_ripple)
 		r.position = Board.cell_to_world(c, 0.04)

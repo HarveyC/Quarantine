@@ -63,3 +63,60 @@ func test_hidden_lurker_is_not_drawn_until_revealed() -> void:
 	_drain(v)
 	assert_true(v.view_for(l.id).visible, "revealed")
 	v.free()
+
+
+## The Brood Mother's phase 2 through the real view: she walks up and claws, dives with a visible
+## sink, the dig trail and eruption tiles are drawn, and she bursts up out of the floor again.
+func test_brood_mother_phase_2_plays_burrow_trail_and_eruption() -> void:
+	var v := _view_for_fight({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 4, "squad": 2, "players": 2})
+	_drain(v)
+	var s: GameState = v.state
+	var bm: Unit = s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "brood_mother")[0]
+	for o in s.living(Types.Team.ENEMY):
+		if o.kind == "egg_sac":
+			Encounter.kill(s, o)
+	bm.status.erase("tether")
+	bm.status.boss_phase = 2
+	bm.mobility = BroodMother.MOBILITY[2]
+	bm.hp = BroodMother.gates(bm)[0]
+	for u in s.living(Types.Team.PLAYER):
+		u.max_hp = 99
+		u.hp = 99
+	var uv = v.view_for(bm.id)
+	var seen := {"sunk": 0.0, "trail": false, "eruption_tiles": false, "label": false, "moved": 0, "erupted": false}
+	v.player.beat_finished.connect(func(ev: Dictionary) -> void:
+		if int(ev.get("unit", -1)) != bm.id:
+			return
+		if ev.get("type") == "ability" and ev.get("ability") == "burrow":
+			seen.sunk = uv._sink
+		if ev.get("type") == "ability" and ev.get("ability") == "erupt":
+			seen.erupted = true
+		if ev.get("type") == "move" and ev.get("tunnel", false):
+			seen.moved += 1)
+	var walked := 0
+	var last := bm.pos
+	for turn in 14:
+		if s.phase == Types.Phase.ENDED:
+			break
+		for p in s.players:
+			Rules.set_ready(s, p, true)
+		_drain(v)
+		if bm.pos != last and not seen.erupted:
+			walked += 1
+		last = bm.pos
+		if bm.status.has("emerge_cell"):
+			v.intents.refresh()
+			var kinds: Array = EnemyIntent.dangers(s).map(func(d): return d.kind)
+			seen.trail = seen.trail or (kinds.has("trail") and kinds.has("erupt"))
+			seen.eruption_tiles = seen.eruption_tiles or v.intents.get_child_count() > 0
+			for c in v.intents.get_children():
+				if c is Label3D and (c as Label3D).text == "ERUPTS":
+					seen.label = true
+	assert_true(walked >= 1, "she walks up to the squad on her surfaced turns")
+	assert_eq(seen.sunk, 1.0, "the dive sinks her fully into the floor")
+	assert_true(seen.trail and seen.eruption_tiles, "the dig trail and the eruption tiles are drawn")
+	assert_true(seen.label, "the eruption is labelled")
+	assert_true(seen.erupted and seen.moved >= 1, "she tunnels under and erupts")
+	assert_true(not v.player.generic_log.any(func(x): return str(x).contains("burrow") or str(x).contains("erupt")), "no bare-label fallback beats")
+	assert_true(bm.is_alive() and uv.visible and uv._sink == 0.0, "and she is back above ground afterwards")
+	v.free()

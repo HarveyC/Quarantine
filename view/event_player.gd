@@ -541,6 +541,8 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 		_focus(uv)
 	# Knocked back (Brute slam, Shield Bash): shoved along the path facing the blow, not walking.
 	var shoved: bool = ev.get("knockback", false)
+	if ev.get("tunnel", false):
+		return _tunnel_beat(ev, uv, cells, pts, seen)
 	if shoved:
 		uv.hit_react(pts[0] - (pts[1] - pts[0]), 1.4)
 	uv.set_moving(not shoved)
@@ -561,6 +563,36 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 		if not seen.is_empty():
 			uv.visible = bool(seen[seen.size() - 1])
 	return {"dur": STEP_TIME * steps * (0.6 if shoved else 1.0), "update": update, "finish": finish}
+
+
+## A burrowed enemy digs along its trail: the body stays underground and a heaving mound of dirt
+## and dust runs along the cells the squad can see, the camera following it to the eruption.
+func _tunnel_beat(ev: Dictionary, uv: UnitView, cells: Array[Vector2i], pts: Array[Vector3], seen: Array) -> Dictionary:
+	var last: Vector2i = ev.path[ev.path.size() - 1]
+	var steps := pts.size() - 1
+	var fx = view.fx
+	var shown := func(i: int) -> bool:
+		return seen.is_empty() or bool(seen[mini(i, seen.size() - 1)])
+	uv.visible = false
+	uv.set_sink(1.0)
+	var state := {"i": -1}
+	_sfx("concrete", -3.0)
+	var update := func(t: float) -> void:
+		var f := t * steps
+		var i := mini(int(f), steps - 1)
+		var w := Board.walk_point(cells[i], cells[i + 1], f - i)
+		if i != state.i:
+			state.i = i
+			if shown.call(i):
+				fx.puff(pts[i + 1] + Vector3(0, 0.15, 0), DIRT, 0.9, 0.7, 0.3)
+				fx.burst(pts[i + 1] + Vector3(0, 0.1, 0), Vector3.UP, DIRT, 6, 3.0, false, 0.06)
+				fx.crumble(pts[i + 1], 0.5, DIRT)
+		if enemy_phase and shown.call(i):
+			view.camera_rig.focus(w)
+	var finish := func() -> void:
+		uv.set_cell(last)
+		uv.face_towards(pts[steps] + (pts[steps] - pts[0]))
+	return {"dur": maxf(0.5, 0.18 * steps), "update": update, "finish": finish}
 
 
 ## The shot timeline. Quick version (no camera, no slow motion) when cinematics are off.
@@ -1196,6 +1228,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 ## Ability ids with a beat of their own below; the rest go to ItemBeats (gadgets, pocket items,
 ## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
+	"burrow", "erupt",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit"]
 
 
@@ -1203,6 +1236,10 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 	match str(ev.get("ability", "")):
 		"claw", "slam", "pounce", "maul", "spore_drop":
 			return _melee_beat(ev)
+		"burrow":
+			return _burrow_beat(ev)
+		"erupt":
+			return _erupt_beat(ev)
 		"bloom_claw":
 			return _melee_beat(ev, {"sound": "claw", "title": "BLOOM CLAW", "fx": "claw"})
 		"lunge", "riposte":
@@ -1242,6 +1279,60 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 		return ItemBeats.beat(self, ev)
 	generic_log.append("ability:" + str(ev.get("ability", "")))
 	return _power_beat(ev, str(ev.get("name", str(ev.get("ability", "ability")).replace("_", " "))), Palette.AMBER)
+
+
+const DIRT := Color(0.5, 0.42, 0.32)
+
+
+## A burrowing enemy (Brood Mother phase 2, Burrower) digs in: the body sinks into the floor in a
+## ring of dust and rubble, and the line it will dig along is marked on the ground.
+func _burrow_beat(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	_focus(uv)
+	var fx = view.fx
+	var at := uv.position
+	for c in ev.get("trail", []):
+		fx.pulse(Board.cell_to_world(c), DIRT, 0.9)
+	fx.floating_text(_head(uv), "BURROWS", Palette.DANGER, 48)
+	_sfx("collapse", -4.0)
+	var update := func(t: float) -> void:
+		uv.set_sink(t)
+		if int(t * 10.0) % 3 == 0:
+			fx.burst(at + Vector3(0, 0.1, 0), Vector3.UP, DIRT, 3, 2.4, false, 0.07)
+	var finish := func() -> void:
+		fx.puff(at + Vector3(0, 0.2, 0), DIRT, 1.3, 0.9, 0.3)
+		fx.crumble(at, 1.2, Color("5d5a52"))
+		uv.set_sink(1.0)
+	view.camera_rig.shake(0.5)
+	return {"dur": 0.9, "update": update, "finish": finish}
+
+
+## The eruption: the ground cracks open on the marked tiles, the body bursts up out of it and the
+## shockwave rolls across the 3x3 (the damage lands as its own beats right after).
+func _erupt_beat(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	uv.visible = true
+	_focus(uv)
+	var fx = view.fx
+	var cells: Array = ev.get("cells", [])
+	var mid := Board.cell_to_world(ev.get("cell", uv.cell))
+	for c in cells:
+		fx.burst(Board.cell_to_world(c, 0.1), Vector3.UP, DIRT, 8, 4.0, false, 0.08)
+		fx.pulse(Board.cell_to_world(c), Palette.DANGER, 0.8)
+	fx.flash_light(mid + Vector3(0, 1.0, 0), Palette.AMBER, 7.0, 0.35, 6.0)
+	fx.floating_text(_head(uv), "ERUPTS!", Palette.DANGER, 56)
+	view.camera_rig.shake(1.3)
+	_sfx("collapse")
+	_sfx("breach", -4.0, 0.1)
+	var update := func(t: float) -> void:
+		uv.set_sink(1.0 - clampf(t * 1.6, 0.0, 1.0))
+	var finish := func() -> void:
+		uv.set_sink(0.0)
+	return {"dur": 0.8, "update": update, "finish": finish}
 
 
 ## Melee strike: wind-up, lunge, impact. Runner claws and the like get the wide two-shot;
