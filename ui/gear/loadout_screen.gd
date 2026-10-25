@@ -31,6 +31,7 @@ var _stash_title: Label
 var _toast: Label
 var _supplies: Label
 var _build_box: VBoxContainer
+var _fit: Container
 
 
 func setup(r: RunState, s) -> void:
@@ -74,15 +75,15 @@ func _build() -> void:
 	bg.color = Color(UI.BG, 0.96)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
-	var fit := W.FitBox.new()
-	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(fit)
+	_fit = W.FitBox.new()
+	_fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_fit)
 	var m := MarginContainer.new()
 	for side in ["left", "right"]:
 		m.add_theme_constant_override("margin_" + side, 36)
 	m.add_theme_constant_override("margin_top", 20)
 	m.add_theme_constant_override("margin_bottom", 20)
-	fit.add_child(m)
+	_fit.add_child(m)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
 	m.add_child(v)
@@ -186,9 +187,13 @@ func _refresh() -> void:
 		_held = -1
 	_supplies.text = "%d Supplies" % run.supplies
 	_build_squad_bar()
+	# Take the old tiles out now: queued for deletion they still count toward the size, and the
+	# FitBox would zoom the next soldier out to fit both. Then fit the new content from full size.
 	for n in [_guns, _slots, _pockets, _tags, _stash_row, _build_box]:
 		for c in n.get_children():
+			n.remove_child(c)
 			c.queue_free()
+	_fit.refit()
 	if r.is_empty():
 		return
 	_name.text = UI.short_name(r).to_upper()
@@ -217,6 +222,7 @@ func _player_name(p: int) -> String:
 
 func _build_squad_bar() -> void:
 	for c in _squad_bar.get_children():
+		_squad_bar.remove_child(c)
 		c.queue_free()
 	for r in run.squad():
 		var on: bool = r.id == _sid
