@@ -1200,6 +1200,10 @@ const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lun
 
 
 func _beat_ability(ev: Dictionary) -> Dictionary:
+	if str(ev.get("ability", "")).begins_with("item:"):
+		var user := _uv(ev)
+		if user != null:
+			user.spend_pocket(str(ev.ability).trim_prefix("item:"))   # the pouch empties on the body
 	match str(ev.get("ability", "")):
 		"claw", "slam", "pounce", "maul", "spore_drop":
 			return _melee_beat(ev)

@@ -980,3 +980,61 @@ func test_grafted_soldiers_wear_their_parts() -> void:
 	bare.build(UnitData.make("trooper", Types.Team.PLAYER))
 	assert_eq(GraftKit.props(bare._model), [] as Array[String], "no grafts, no props")
 	bare.free()
+
+
+## Every armour, gadget and pocket item, and every mutation, has a look on the body.
+func test_every_item_and_mutation_has_a_look() -> void:
+	var GearKit := preload("res://view/gear_kit.gd")
+	var MutationKit := preload("res://view/mutation_kit.gd")
+	var items := GearData.ITEMS.duplicate()
+	items.merge(GearData.PROTOTYPES)
+	for id in items:
+		match str(items[id].slot):
+			"armor":
+				assert_true(GearKit.ARMOR_LOOK.has(id), "armour %s has a look" % id)
+			"gadget":
+				assert_true(GearKit.GADGET_LOOK.has(id), "gadget %s has a look" % id)
+	for id in GearData.CONSUMABLES:
+		assert_true(not GearKit._pocket(id, 0).is_empty() and GearKit.POCKET_LOOKS.has(id), "pocket item %s has a look" % id)
+	for id in MutationData.MUTATIONS:
+		assert_true(not MutationKit._parts(id).is_empty(), "mutation %s has growths" % id)
+
+
+## A soldier wears the armour, gadget and loaded pockets in their replicated state, and the
+## pouch comes off when its last charge is used.
+func test_soldiers_wear_their_gear() -> void:
+	var GearKit := preload("res://view/gear_kit.gd")
+	var u := UnitData.make("trooper", Types.Team.PLAYER)
+	u.owner_player = 0
+	u.status["gear"] = {"armor": {"id": "plated_rig", "mk": 1}, "gadget": {"id": "sentry_turret", "mk": 1}}
+	u.status["pockets"] = [{"id": "medkit", "charges": 1}, null]
+	var uv = preload("res://view/unit_view.gd").new()
+	uv.build(u)
+	var props: Array[String] = GearKit.props(uv._model)
+	for p in ["gear_rig", "gear_paul_l", "gear_guard_r", "gear_sentry", "pocket_0_item"]:
+		assert_true(props.has(p), "%s worn" % p)
+	uv.spend_pocket("medkit")
+	assert_true(not (uv._model.find_child("pocket_0_item", true, false) as Node3D).visible, "the empty pouch comes off")
+	uv.free()
+	var bare = preload("res://view/unit_view.gd").new()
+	bare.build(UnitData.make("trooper", Types.Team.PLAYER))
+	assert_eq(GearKit.props(bare._model), [] as Array[String], "no gear, no props")
+	bare.free()
+
+
+## Mutation growths glow while Infection is at their tier and go dull below it.
+func test_mutation_growths_dim_while_dormant() -> void:
+	var MutationKit := preload("res://view/mutation_kit.gd")
+	var u := UnitData.make("trooper", Types.Team.PLAYER)
+	u.owner_player = 0
+	u.status["mutations"] = {"exposed": "spore_sense", "critical": "rampage"}
+	u.infection = 30
+	var uv = preload("res://view/unit_view.gd").new()
+	uv.build(u)
+	var nodes := MutationKit.nodes(uv._model)
+	assert_true(nodes.has("spore_sense") and nodes.has("rampage"), "both mutations grow on the body")
+	assert_true((nodes.spore_sense[0] as MeshInstance3D).material_override == null, "Exposed is awake at 30")
+	assert_true((nodes.rampage[0] as MeshInstance3D).material_override != null, "Critical is dormant at 30")
+	uv.set_infection(80, Infection.tier(80))
+	assert_true((nodes.rampage[0] as MeshInstance3D).material_override == null, "and wakes when Infection climbs")
+	uv.free()

@@ -32,6 +32,13 @@ func _ready() -> void:
 		elif a.begins_with("--lineup-mode="):
 			mode = a.trim_prefix("--lineup-mode=")
 	_build_stage()
+	var spec := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--lineup-spec="):
+			spec = a.trim_prefix("--lineup-spec=")
+	if spec != "":
+		_spec_lineup(spec)
+		return
 	var kinds_arg := ""
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--lineup-kinds="):
@@ -84,6 +91,48 @@ func _ready() -> void:
 	_cam.look_at(Vector3(0, 1.0, 0))
 
 
+## `--lineup-spec=kind:key=val;key=val|kind:...` puts one soldier per entry in a row. Keys: inf
+## (Infection), armor, gadget, ammo, weapon (gear ids), pocket (a medkit,frag_grenade list), mut
+## (mutation ids, comma list), graft (head=id,arm=id), cam (row camera distance, first entry).
+func _spec_lineup(spec: String) -> void:
+	var entries := spec.split("|")
+	for i in entries.size():
+		var kind := entries[i].get_slice(":", 0)
+		var opts := {}
+		for kv in entries[i].get_slice(":", 1).split(";", false):
+			opts[kv.get_slice("=", 0)] = kv.substr(kv.find("=") + 1)
+		var status := {}
+		var gear := {}
+		for slot in ["armor", "gadget", "ammo", "weapon"]:
+			if opts.has(slot):
+				gear[slot] = {"id": opts[slot], "mk": 1}
+		status["gear"] = gear
+		var pockets := []
+		for id in str(opts.get("pocket", "")).split(",", false):
+			pockets.append({"id": id, "charges": 2})
+		status["pockets"] = pockets
+		var muts := {}
+		for id in str(opts.get("mut", "")).split(",", false):
+			muts[MutationData.get_def(id).get("slot", "exposed")] = id
+		status["mutations"] = muts
+		var grafts := {}
+		for kv in str(opts.get("graft", "")).split(",", false):
+			grafts[kv.get_slice("=", 0)] = kv.get_slice("=", 1)
+		var uv := _spawn(kind, i % 2, int(opts.get("inf", 0)), grafts, status)
+		uv.position = Vector3((i - (entries.size() - 1) * 0.5) * float(opts.get("gap", 1.15)), 0, 0)
+		uv.face_towards(uv.position + Vector3(0.3, 0, 1), true)
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--lineup-yaw="):
+				uv.set_yaw(deg_to_rad(float(a.trim_prefix("--lineup-yaw="))))
+		if int(opts.get("inf", 0)) >= 100:
+			uv.set_turned()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--lineup-cam="):   # "z,y" of the camera
+			var c := a.trim_prefix("--lineup-cam=").split(",")
+			_cam.position = Vector3(0, float(c[1]), float(c[0]))
+	_cam.look_at(Vector3(0, 1.0, 0))
+
+
 static func _path_set(path: String) -> Dictionary:
 	var out := {}
 	for slot in GraftData.SLOTS:
@@ -91,7 +140,7 @@ static func _path_set(path: String) -> Dictionary:
 	return out
 
 
-func _spawn(kind: String, player: int, infection: int, grafts := {}) -> Node3D:
+func _spawn(kind: String, player: int, infection: int, grafts := {}, status := {}) -> Node3D:
 	var u := Unit.new()
 	u.id = views.size() + 1
 	u.kind = kind
@@ -103,6 +152,8 @@ func _spawn(kind: String, player: int, infection: int, grafts := {}) -> Node3D:
 	u.infection = infection
 	if not grafts.is_empty():
 		u.status["grafts"] = grafts
+	for k in status:
+		u.status[k] = status[k]
 	var uv := UnitView.new()
 	uv.build(u)
 	uv.set_overlays_visible(false)
