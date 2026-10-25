@@ -78,8 +78,8 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 		"brood_mother":
 			BroodMother.setup(s, _place(s, "brood_mother", _marker(s, "boss", _far_spawn(s))), squad)
 		"colonel_hale":
-			var h := _place(s, "colonel_hale", _marker(s, "boss", _far_spawn(s)))
-			h.cooldowns["airstrike"] = 1
+			var h := _place(s, "colonel_hale", ColonelHale.post_near(s.grid, _marker(s, "boss", _far_spawn(s))))
+			ColonelHale.setup(s, h, squad)
 		"the_source":
 			var centre := Vector2i(s.grid.width / 2, s.grid.height / 2)
 			var src := _place(s, "the_source", _marker(s, "boss", centre))
@@ -87,6 +87,7 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 			for i in SOURCE_ROOTS[squad]:
 				var root := _place(s, "source_root", src.pos + offsets[i])
 				root.status["spawner"] = {"kinds": ["runner", "spitter"], "every": 3 + slower, "next": 2 + i, "i": i}
+			src.status["alerted"] = true
 	var mult := float(enc.get("boss_health_mult", 1.0))
 	for u in s.living(Types.Team.ENEMY):
 		if EnemyRoster.is_static(u) or enc.get("ambush", false):
@@ -368,7 +369,7 @@ static func on_enemy_phase_start(s: GameState) -> void:
 		return
 	_resolve_telegraphs(s)
 	var src := _boss(s, "the_source")
-	if src != null and int(src.status.get("boss_phase", 1)) == 1:
+	if src != null and src.status.has("tether"):
 		var hit: Array[int] = []
 		for u in s.living(Types.Team.PLAYER):
 			hit.append(u.id)
@@ -388,6 +389,12 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			keep.append(t)
 			continue
 		var src := s.get_unit(int(t.get("source", -1)))
+		if t.get("collapse", false):
+			s.emit({"type": "strike", "kind": t.kind, "cells": t.cells, "unit": t.get("unit", -1), "units": [], "damage": 0})
+			EnemyTerrain.collapse(s, t.cells, src)
+			if s.phase == Types.Phase.ENDED:
+				return
+			continue
 		var victims: Array[Unit] = []
 		for u in s.living():
 			if t.cells.has(u.pos) and u != src:
@@ -477,12 +484,16 @@ static func on_enemy_phase_end(s: GameState) -> void:
 ## The Source fight: spore zones grow one ring inward from the map edge every turn.
 static func _spread_spore_ring(s: GameState, src: Unit) -> void:
 	var ring := s.turn - 1
+	var last := ring
+	if int(src.status.get("boss_phase", 1)) >= 3:   # the collapse: the ring runs two rings ahead each turn
+		ring += s.turn - int(src.status.get("phase3_turn", s.turn))
+		last = ring + 1
 	var cells: Array[Vector2i] = []
 	for y in s.grid.height:
 		for x in s.grid.width:
 			var c := Vector2i(x, y)
 			var edge := mini(mini(x, y), mini(s.grid.width - 1 - x, s.grid.height - 1 - y))
-			if edge == ring and EnemyAbilities._cheb(c, src.pos) > SOURCE_SAFE_RADIUS:
+			if edge >= ring and edge <= last and EnemyAbilities._cheb(c, src.pos) > SOURCE_SAFE_RADIUS:
 				cells.append(c)
 	add_spores(s, cells, Hazards.PERMANENT, src)
 
@@ -538,9 +549,10 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		amount = ceili(amount * CARRIER_BONUS)
 	if target.kind == "brood_mother":
 		return BroodMother.clamp_damage(target, amount)
-	# Phase-1 Hale always reaches his second phase rather than dying outright.
-	if target.kind == "colonel_hale" and int(target.status.get("boss_phase", 1)) == 1:
-		amount = mini(amount, target.hp - 1)
+	if target.kind == "colonel_hale":
+		return ColonelHale.clamp_damage(target, amount)
+	if target.kind == "the_source":
+		return SourceBoss.clamp_damage(target, amount)
 	return amount
 
 
@@ -563,15 +575,9 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 		"brood_mother":
 			BroodMother.on_damaged(s, target)
 		"colonel_hale":
-			if int(target.status.boss_phase) == 1 and target.hp * 2 <= target.max_hp:
-				target.status.boss_phase = 2
-				target.hp += 20
-				target.max_hp = target.hp
-				target.status["armour"] = 1
-				target.display_name = "Hale, Mutated"
-				target.cooldowns.clear()
-				s.emit({"type": "boss_phase", "unit": target.id, "phase": 2, "boss": target.kind,
-					"hp": target.hp, "max_hp": target.max_hp, "text": "Colonel Hale mutates!"})
+			ColonelHale.on_damaged(s, target)
+		"the_source":
+			SourceBoss.on_damaged(s, target)
 
 
 static func on_died(s: GameState, u: Unit) -> void:
@@ -601,10 +607,7 @@ static func on_died(s: GameState, u: Unit) -> void:
 				o.status.erase("tether")
 				s.emit({"type": "untethered", "unit": o.id})
 				if o.kind == "the_source":
-					o.status.boss_phase = 2
-					s.encounter["lapse_double"] = true
-					s.emit({"type": "boss_phase", "unit": o.id, "phase": 2, "boss": o.kind,
-						"text": "The core opens!"})
+					SourceBoss.on_roots_dead(s, o)
 
 
 static func _any_alive(s: GameState, kind: String) -> bool:

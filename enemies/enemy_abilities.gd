@@ -23,7 +23,7 @@ const DEFS := {
 		"desc": "Infected within 6 tiles get +2 move and +10 aim next turn, and every dormant pod wakes."},
 	"acid_rain": {"name": "Acid rain", "targeting": "cell", "cost": 1, "cooldown": 2,
 		"desc": "Lobs acid onto a 3x3 that lands next enemy phase: 3 damage and a spore patch for 2 turns."},
-	"airstrike": {"name": "Airstrike", "targeting": "cell", "cost": 1, "cooldown": 3, "phase": 1,
+	"airstrike": {"name": "Airstrike", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
 		"desc": "Calls a 3x3 airstrike that lands next enemy phase: 4 damage and destroys half cover."},
 	"flashbang": {"name": "Flashbang", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
 		"desc": "Removes overwatch and hunker from soldiers in a 3x3."},
@@ -41,13 +41,27 @@ const DEFS := {
 		"desc": "Tunnels toward a soldier and marks where it will erupt next turn."},
 	"erupt": {"name": "Erupt", "targeting": "none", "cost": -1, "cooldown": 0,
 		"desc": "Bursts out: 3 damage in a 3x3, destroys half cover and collapses high ground there."},
-	"pull": {"name": "Pull", "targeting": "none", "cost": 1, "cooldown": 0, "phase": 2,
+	"pull": {"name": "Pull", "targeting": "none", "cost": 1, "cooldown": 0, "phases": [2, 3],
 		"desc": "Drags the soldier with the most Infection 2 tiles toward the Source."},
-	"core_slam": {"name": "Core slam", "targeting": "cell", "cost": -1, "cooldown": 0, "phase": 2,
+	"core_slam": {"name": "Core slam", "targeting": "cell", "cost": -1, "cooldown": 0, "phases": [2, 3],
 		"desc": "Marks a whole row or column; it slams for 4 damage next enemy phase."},
+	"smoke_screen": {"name": "Smoke screen", "targeting": "cell", "cost": 1, "cooldown": 4,
+		"desc": "Pops a 3x3 smoke cloud to cover a fall back: +defense inside it."},
+	"stomp": {"name": "Stomp", "targeting": "none", "cost": -1, "cooldown": 3,
+		"desc": "Stamps the ground around him: 3 damage in a 3x3 next enemy phase, smashes cover."},
+	"hurl": {"name": "Hurl", "targeting": "cell", "cost": 1, "cooldown": 2,
+		"desc": "Hurls wreckage onto a 3x3 that lands next enemy phase: 4 damage, smashes cover and roofs."},
+	"danger_close": {"name": "Danger close", "targeting": "none", "cost": 1, "cooldown": 3,
+		"desc": "Calls an airstrike on his own position: 4 damage in a 5x5 next enemy phase, hits his own adds too."},
+	"lash": {"name": "Lash", "targeting": "cell", "cost": 1, "cooldown": 0, "phases": [1, 3],
+		"desc": "Roots lash a 3x3 next enemy phase: 3 damage and spores. Aims at the highest ground."},
 }
-## Hale only gets slam/charge after he mutates, and loses airstrike/flashbang.
-const HALE_PHASE2: Array[String] = ["slam", "charge"]
+## Hale's abilities by phase (ColonelHale): radio and air support, then the Brute, then the wreck.
+const HALE_PHASES := {
+	1: ["airstrike", "flashbang", "smoke_screen"],
+	2: ["slam", "charge", "stomp"],
+	3: ["slam", "charge", "stomp", "hurl", "danger_close"],
+}
 
 const CHARGE_RANGE := 6
 const BURST_DAMAGE := 3
@@ -66,6 +80,11 @@ const LEAP_DAMAGE := 4
 const DROP_RANGE := 2
 const BURROW_RANGE := 8
 const ERUPT_DAMAGE := 3
+const STOMP_DAMAGE := 3
+const SMOKE_RANGE := 6.0
+const SMOKE_TURNS := 3
+const HURL_RANGE := 9.0
+const LASH_RANGE := 24.0
 
 
 static func handles(id: String) -> bool:
@@ -85,8 +104,10 @@ static func describe(s: GameState, u: Unit) -> Array[Dictionary]:
 static func _phase_ok(u: Unit, id: String) -> bool:
 	var phase: int = u.status.get("boss_phase", 1)
 	if u.kind == "colonel_hale":
-		return HALE_PHASE2.has(id) == (phase >= 2)
+		return HALE_PHASES[clampi(phase, 1, 3)].has(id)
 	var need: int = DEFS[id].get("phase", 0)
+	if DEFS[id].has("phases"):
+		return DEFS[id].phases.has(phase)
 	return need == 0 or need == phase
 
 
@@ -142,6 +163,12 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			"core_slam":
 				if not action.get("axis", "") in ["row", "col"]:
 					return "No axis"
+			"smoke_screen":
+				if u.pos.distance_to(cell) > SMOKE_RANGE:
+					return "Out of range"
+			"hurl":
+				if u.pos.distance_to(cell) > HURL_RANGE or _cheb(u.pos, cell) <= 1:
+					return "Out of range"
 			"drift":
 				var c: Vector2i = cell
 				if s.grid.tile(c) == Types.Tile.WALL or s.unit_at(c) != null or c == u.pos:
@@ -219,6 +246,25 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			Encounter.add_telegraph(s, {"kind": "acid_rain", "cells": cells, "turn": s.turn + 1,
 				"damage": ACID_RAIN_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "spores": SPORE_TURNS})
 		"flashbang": _flashbang(s, u, action.cell)
+		"smoke_screen":
+			var cells := square(s.grid, action.cell, 1)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
+			Hazards.add(s, cells, "smoke", SMOKE_TURNS, u.id)
+		"stomp", "danger_close":
+			var cells := square(s.grid, u.pos, 1 if id == "stomp" else 2)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": u.pos, "cells": cells})
+			Encounter.add_telegraph(s, {"kind": id, "cells": cells, "turn": s.turn + 1,
+				"damage": STOMP_DAMAGE if id == "stomp" else STRIKE_DAMAGE, "source": u.id, "smash": true, "unit": u.id})
+		"hurl":
+			var cells := square(s.grid, action.cell, 1)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
+			Encounter.add_telegraph(s, {"kind": "hurl", "cells": cells, "turn": s.turn + 1,
+				"damage": STRIKE_DAMAGE, "source": u.id, "smash": true, "unit": u.id})
+		"lash":
+			var cells := square(s.grid, action.cell, 1)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
+			Encounter.add_telegraph(s, {"kind": "lash", "cells": cells, "turn": s.turn + 1,
+				"damage": SourceBoss.LASH_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "spores": SPORE_TURNS})
 		"pull": _pull(s, u)
 		"core_slam":
 			var cells := slam_line(s, u, action.cell, action.axis)
@@ -289,6 +335,12 @@ static func _charge(s: GameState, u: Unit) -> void:
 	if not path.is_empty():
 		u.pos = path[-1]
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": path})
+		if u.kind == "colonel_hale":   # the Brute's run shakes every roof along its lane down
+			var shaken := {}
+			for c in path:
+				for n in square(s.grid, c, 1):
+					shaken[n] = true
+			EnemyTerrain.collapse(s, shaken.keys(), u)
 	var dmg := 0
 	if hit != null and u.is_enemy_of(hit):
 		dmg = s.rng.randi_range(u.damage.x, u.damage.y)

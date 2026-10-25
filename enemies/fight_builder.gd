@@ -93,7 +93,7 @@ static func build(spec: Dictionary) -> Dictionary:
 		enc["boss"] = EnemyRoster.BOSS_OF_ACT[act]
 		if act == 2:
 			enemies.append_array(HALE_ADDS[squad])
-		var share: Dictionary = BroodMother.HEALTH if act == 1 else SQUAD_BOSS_HEALTH
+		var share: Dictionary = [BroodMother.HEALTH, ColonelHale.HEALTH, SourceBoss.HEALTH][act - 1]
 		var mult := float(mods.get("boss_health_mult", 1.0)) * float(share[squad])
 		if mult != 1.0:
 			enc["boss_health_mult"] = mult

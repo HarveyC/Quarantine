@@ -40,10 +40,10 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		return {"icon": "dormant", "label": "", "target": -1}
 	var phase := int(u.status.get("boss_phase", 1))
 	if u.kind == "the_source":
-		if phase == 1:
-			return {"icon": "pulse", "label": "INFECTION +%d" % Encounter.SOURCE_PULSE, "target": -1}
+		if u.status.has("tether"):
+			return {"icon": "pulse", "label": "LASH + INFECTION +%d" % Encounter.SOURCE_PULSE, "target": -1}
 		var pt := EnemyAbilities.pull_target(s, u)
-		return {"icon": "pull", "label": "PULL + SLAM", "target": pt.id if pt else -1}
+		return {"icon": "pull", "label": "PULL + SLAM" if phase == 2 else "LASH + SLAM", "target": pt.id if pt else -1}
 	if not EnemyAI.is_alerted(u) and not u.status.get("turned", false) and UnitData.ENEMIES.has(u.kind):
 		return {"icon": "dormant", "label": "UNAWARE", "target": -1}
 	if u.status.has("pinning"):
@@ -80,8 +80,19 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			if int(u.cooldowns.get("acid_rain", 0)) <= 1:
 				return {"icon": "strike", "label": "ACID RAIN", "target": -1}
 		"colonel_hale":
-			if phase == 1 and int(u.cooldowns.get("airstrike", 0)) <= 1:
-				return {"icon": "strike", "label": "AIRSTRIKE", "target": -1}
+			var near := ColonelHale._nearest_dist(u.pos, hostiles)
+			if phase == 1:
+				if int(u.cooldowns.get("airstrike", 0)) <= 1:
+					return {"icon": "strike", "label": "AIRSTRIKE", "target": -1}
+				if near <= ColonelHale.FALL_BACK:
+					return {"icon": "hide", "label": "FALLING BACK", "target": -1}
+			elif phase == 3 and near <= 2 and int(u.cooldowns.get("danger_close", 0)) <= 1:
+				return {"icon": "strike", "label": "DANGER CLOSE", "target": -1}
+			elif phase == 3 and near > 2 and int(u.cooldowns.get("hurl", 0)) <= 1:
+				return {"icon": "strike", "label": "HURL", "target": -1}
+			elif phase >= 2 and int(u.cooldowns.get("stomp", 0)) <= 1 and \
+					hostiles.filter(func(h: Unit) -> bool: return s.grid.melee_reach(u.pos, h.pos)).size() >= 2:
+				return {"icon": "strike", "label": "STOMP", "target": -1}
 	if UnitData.is_melee_only(u.kind) or (u.kind == "colonel_hale" and phase >= 2):
 		return {"icon": "claw", "label": "", "target": _most_exposed(s, u, hostiles)}
 	return {"icon": "shoot", "label": "", "target": _best_visible(s, u)}

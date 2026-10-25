@@ -54,16 +54,21 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 		"telegraph":
 			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
 				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
-				"acid_rain": "ACID RAIN"}
+				"acid_rain": "ACID RAIN", "stomp": "STOMP", "hurl": "WRECKAGE INCOMING", "danger_close": "DANGER CLOSE",
+				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES"}
 			if uv != null:
 				fx.floating_text(head.call(uv), text.get(ev.get("kind", ""), "DANGER"), Palette.DANGER, 44)
 			_flash_cells(fx, ev.get("cells", []), Palette.DANGER)
 			ep._sfx("alert", -6.0)
 			return {"dur": 0.6}
 		"strike":
+			if ev.get("kind") == "collapse":   # the floor's own events (level_changed, fell) carry the show
+				view.camera_rig.shake(1.4)
+				ep._sfx("collapse")
+				return {"dur": 0.6}
 			for c in ev.get("cells", []):
 				var w := Board.cell_to_world(c)
-				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") == "airstrike" else Palette.TEAL, 6, 4.0, true, 0.05)
+				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "danger_close"] else Palette.TEAL, 6, 4.0, true, 0.05)
 			if not (ev.get("cells", []) as Array).is_empty():
 				var mid := Board.cell_to_world(ev.cells[ev.cells.size() / 2])
 				fx.flash_light(mid + Vector3(0, 1.0, 0), Palette.AMBER, 8.0, 0.35, 6.0)
