@@ -3,9 +3,16 @@ on:
   push:
     branches: [main]
   pull_request:
+
+# A new push to a PR cancels that PR's older run. Runs on main are never cancelled.
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Install Godot
@@ -14,6 +21,8 @@ jobs:
           unzip -q godot.zip
           echo "GODOT=$PWD/Godot_v4.4.1-stable_linux.x86_64" >> "$GITHUB_ENV"
       - name: Run tests
+        timeout-minutes: 25
         run: ./tests/run.sh
       - name: Network playtest (host + client processes)
+        timeout-minutes: 12
         run: ./tests/net_playtest.sh
