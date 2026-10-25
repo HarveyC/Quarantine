@@ -169,7 +169,7 @@ static func build_mesh(parts: Array, by_role := {}, colors := {}) -> ArrayMesh:
 				var a: Vector3 = p[2]
 				var e: Vector3 = p[3]
 				var c := CylinderMesh.new()
-				c.top_radius = p[4]
+				c.top_radius = p[5] if p.size() > 5 else p[4]   # a sixth element tapers the tube to a cone
 				c.bottom_radius = p[4]
 				c.height = a.distance_to(e)
 				c.radial_segments = 10
