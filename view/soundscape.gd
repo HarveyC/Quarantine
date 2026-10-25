@@ -358,6 +358,10 @@ func _follow_view(view: Variant) -> void:
 	var player: Node = view.get("player")
 	if player != null and player.has_signal("beat_started"):
 		player.beat_started.connect(_on_beat)
+	if player != null and player.has_signal("unit_killed"):
+		player.unit_killed.connect(func(id: int) -> void:
+			if _voices != null:
+				_voices.on_beat({"type": "killed", "unit": id}))
 
 
 func _on_beat(ev: Dictionary) -> void:

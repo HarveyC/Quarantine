@@ -602,10 +602,73 @@ def alert():
     return screech(620, 0.55, 0.7, 1.5)
 
 
-def enemy_death():
-    x = screech(380, 0.9, 0.8, 0.45)
-    wet = lowpass(noise(0.9), 700) * env(int(0.9 * SR), 0.2, 0.3) * 0.6
-    return mix(x, wet)
+def room(x, decay=0.12, mix_=0.25, bright=3000):
+    """A smooth small-room tail: convolution with decaying filtered noise (no discrete echoes)."""
+    n_ir = int(decay * 5 * SR)
+    ir = lowpass(noise(decay * 5), bright) * np.exp(-np.arange(n_ir) / (decay * SR))
+    ir /= np.sqrt(np.sum(ir ** 2))
+    size = len(x) + n_ir
+    wet = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)
+    dry = np.concatenate([x, np.zeros(n_ir)])
+    return dry * (1 - mix_) + wet * mix_ * 0.6
+
+
+def _grains(dur, count, start, spread, lo, hi, glen, gain, seed_gap=None):
+    """Short filtered noise grains scattered over `spread` seconds from `start`: wet squelch,
+    bubbling, crackle."""
+    out = np.zeros(int(dur * SR))
+    for k in range(count):
+        s0 = int((start + rng.uniform(0, spread) * (k / max(1, count - 1)) ** 0.7) * SR)
+        g_len = rng.uniform(glen * 0.5, glen * 1.5)
+        g = bandpass(noise(g_len), lo * rng.uniform(0.7, 1.3), hi * rng.uniform(0.7, 1.3))
+        g *= env(len(g), 0.002, g_len * 0.3) * gain * rng.uniform(0.4, 1.0)
+        out[s0:s0 + len(g)] += g[:max(0, len(out) - s0)]
+    return out
+
+
+def kill_hit():
+    """The killing blow: a hard crack and bone snap, a chest-deep meaty thump, then wet
+    tearing as the round goes through."""
+    d = 0.9
+    n = int(d * SR)
+    crack = pad(highpass(noise(0.012), 2500) * env(int(0.012 * SR), 0.0002, 0.003) * 1.4, d)
+    snap = _grains(d, 3, 0.004, 0.025, 1400, 4200, 0.006, 0.9)
+    thump = sine(np.linspace(150, 42, n) ** 1.0, d) * env(n, 0.001, 0.11) * 1.6
+    sub = sine(48, d) * env(n, 0.004, 0.12) * 0.8
+    meat = lowpass(noise(d), 900) * env(n, 0.001, 0.05) * 2.6
+    squelch = _grains(d, 9, 0.03, 0.32, 250, 1300, 0.05, 0.75)
+    drip = _grains(d, 5, 0.18, 0.45, 600, 2200, 0.02, 0.25)
+    body = distort(thump + sub + meat, 2.6) * env(n, 0.0005, 0.14)
+    return room(mix(crack * 1.5, snap * 1.3, body, squelch, drip), 0.08, 0.3)
+
+
+def spore_burst():
+    """The infected burst: a wet pop, a gush of spores hissing out and a bubbling settle."""
+    d = 1.3
+    n = int(d * SR)
+    pop = sine(np.linspace(260, 70, n), d) * env(n, 0.001, 0.05) * 1.2
+    pop += lowpass(noise(d), 1200) * env(n, 0.001, 0.035) * 1.1
+    gush = bandpass(noise(d), 1800, 7500) * env(n, 0.03, 0.32) * 0.55
+    gush *= 1 + 0.35 * np.sin(2 * np.pi * 13 * t(d))
+    bubbles = _grains(d, 14, 0.12, 0.9, 300, 900, 0.03, 0.4)
+    return room(mix(distort(pop, 2.0), gush, bubbles), 0.14, 0.35)
+
+
+def body_fall(heavy=False):
+    """A body hitting the floor: a dead-weight thud, the slap of limbs, a smaller bounce."""
+    d = 0.9 if heavy else 0.7
+    n = int(d * SR)
+    f0 = 85 if heavy else 110
+    thud = sine(np.linspace(f0, 38, n), d) * env(n, 0.002, 0.16 if heavy else 0.1) * 1.4
+    slap = lowpass(noise(d), 1400) * env(n, 0.001, 0.035) * 1.2
+    grit = bandpass(noise(d), 1500, 5000) * env(n, 0.002, 0.05) * 0.3
+    bounce = np.zeros(n)
+    b0 = int((0.13 if heavy else 0.1) * SR)
+    bl = int(0.25 * SR)
+    bounce[b0:b0 + bl] = (sine(np.linspace(f0 * 1.2, 50, bl), 0.25) * env(bl, 0.002, 0.05) * 0.5
+                          + lowpass(noise(0.25), 1000) * env(bl, 0.001, 0.02) * 0.5)
+    limbs = _grains(d, 4, 0.05, 0.3, 400, 1800, 0.02, 0.35)
+    return room(distort(mix(thud, slap, grit, bounce, limbs), 2.0), 0.07, 0.3, 2000)
 
 
 def soldier_death():
@@ -944,7 +1007,8 @@ def order_call():
 SOUNDS = {
     "rifle": rifle, "sniper": sniper, "shotgun": shotgun, "spit": enemy_spit, "claw": claw,
     "whiz": tracer_whiz, "impact_flesh": impact_flesh, "impact_armor": impact_armor,
-    "ricochet": ricochet, "concrete": concrete_hit, "alert": alert, "enemy_death": enemy_death,
+    "ricochet": ricochet, "concrete": concrete_hit, "alert": alert, "kill_hit": kill_hit,
+    "spore_burst": spore_burst, "body_fall": body_fall, "body_fall_heavy": lambda: body_fall(True),
     "soldier_death": soldier_death, "turned": turned, "infect": infect_rise, "mutation": mutation,
     "heal": heal, "lapse": lapse, "breach": breach, "ui_click": ui_click, "ui_hover": ui_hover,
     "ui_confirm": ui_confirm, "ui_deny": ui_deny, "radio": radio_beep, "sting_squad": sting_squad,

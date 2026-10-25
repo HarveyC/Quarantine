@@ -16,6 +16,8 @@ signal beat_started(ev: Dictionary)
 ## After an event's beat has played out (the body has fallen, the flash has faded).
 signal beat_finished(ev: Dictionary)
 signal drained
+## A unit's death starts (the killing blow lands), before its `died` event plays.
+signal unit_killed(unit_id: int)
 
 const Board := preload("res://view/board.gd")
 const Palette := preload("res://view/palette.gd")
@@ -27,6 +29,7 @@ const ShotCamera := preload("res://view/shot_camera.gd")
 const GunFeel := preload("res://view/gun_feel.gd")
 const MeleeFx := preload("res://view/melee_beats.gd")
 const ShotMoments := preload("res://view/shot_moments.gd")
+const DeathFx := preload("res://view/death_fx.gd")
 const ENEMY_PAD := 0.3   # extra hold after each enemy-phase action
 const HEAL_TEXT_LIFT := Vector3(0, 0.35, 0)   # "+N HP" sits above the ability title
 ## Events that keep an open shot cinematic on screen (the shot's consequences).
@@ -64,6 +67,10 @@ var _cur: Dictionary = {}
 ## For tests/test_item_audit.gd: events that fell through to a bare label (the generic power
 ## beat or an unknown event type), and the sounds asked for (newest last, capped).
 var generic_log: Array[String] = []
+## Where each unit was last hit from (unit id -> world position): a death falls away from it.
+var _hit_from := {}
+## On the shot camera, a unit whose fall the camera tilts down to follow (see _kill).
+var _fall_cam: UnitView = null
 var sfx_log: Array[String] = []
 
 
@@ -103,6 +110,8 @@ func advance(delta: float) -> void:
 	view.fx.advance(budget * world_scale)
 	for uv in view.unit_views.values():
 		uv.tick(budget * world_scale)
+	if _fall_cam != null and in_cinematic:
+		view.camera_rig.cine_progress(_fall_cam.death_progress())
 	var was_busy := is_busy()
 	while true:
 		if _cur.is_empty():
@@ -265,6 +274,7 @@ func _begin_cinematic() -> void:
 
 func _end_cinematic() -> void:
 	in_cinematic = false
+	_fall_cam = null
 	world_scale = 1.0
 	view.camera_rig.end_cinematic()
 	for uv in view.unit_views.values():
@@ -359,6 +369,9 @@ func phase_now() -> int:
 
 
 func _expire_tags() -> void:
+	for key in _hit_from.keys():   # a blast only throws the bodies it kills there and then
+		if key is String:
+			_hit_from.erase(key)
 	for uv in view.unit_views.values():
 		uv.expire_tags(phase_now())
 
@@ -469,6 +482,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var feel := _feel(shooter)
 	var cine := _use_cinematic(shooter, ev)
 	var hero := shooter.is_soldier and not shooter.turned and not reaction
+	var kill := hit and _dies_next(target.unit_id)
 	var n_rounds: int = feel.rounds
 	# Bursts play out in the slow motion, so space them out further on the shot camera.
 	var gap: float = feel.gap * (2.2 if cine else 1.0)
@@ -560,7 +574,11 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 			if feel.get("smoke", false) and k == 0:
 				view.fx.smoke_trail(r.from, imp.pos)
 			_impact_at(shooter, target, imp, r.last and k == 0, crit, graze, cine, impact_style, col, k == 0)
-		if r.last and r.hit:
+		if r.last and r.hit and kill:
+			# the killing round drops the body there and then
+			target.flash(Color(1.0, 0.85, 0.7) if crit else Palette.DANGER)
+			_kill(target, shooter.position, crit or impact_style in ["slug", "pellets"] or feel.shake >= 1.0)
+		elif r.last and r.hit:
 			target.hit_react(shooter.position, 1.6 if crit else (0.6 if graze else 1.0))
 			target.flash(Color(1.0, 0.85, 0.7) if crit else Palette.DANGER)
 			view.camera_rig.shake(1.0 if crit else (0.4 if graze else 0.7))
@@ -800,8 +818,13 @@ func _beat_damage(ev: Dictionary) -> Dictionary:
 	if uv == null:
 		return {}
 	uv.set_hp(int(ev.get("hp", uv.hp)))
+	var src := view.view_for(int(ev.get("source", -1))) if ev.has("source") else null
+	if src != null and src != uv and not _hit_from.has("blast_%d" % uv.unit_id):
+		_hit_from[uv.unit_id] = src.position
 	uv.flash(Palette.DANGER)
 	view.fx.floating_text(_head(uv), "-%d" % int(ev.get("amount", 0)), Color("ff6b4f"), 72 if in_cinematic else 64)
+	if uv.dying:   # already falling: the number floats up over the body without holding the turn
+		return {"dur": 0.15}
 	return {"dur": 0.6 if in_cinematic else 0.4}
 
 
@@ -811,20 +834,43 @@ func _beat_died(ev: Dictionary) -> Dictionary:
 		return {}
 	uv.set_targeted(false)
 	uv.set_selected(false)
-	var infected := not uv.is_soldier or uv.turned
-	_sfx("soldier_death" if not infected else "enemy_death")
-	var dur := 1.4 if in_cinematic else 0.8
-	var st := {"dissolved": false}
-	var update := func(t: float) -> void:
-		if in_cinematic:
-			world_scale = lerpf(0.35, 1.0, t)
-		uv.set_death_progress(t)
-		if infected and t > 0.55 and not st.dissolved:
-			st.dissolved = true
-			view.fx.puff(uv.position + Vector3(0, 0.3, 0), Palette.TEAL_DIM, 1.2, 1.2, 0.6)
-			view.fx.burst(uv.position + Vector3(0, 0.3, 0), Vector3.UP, Palette.TEAL, 16, 2.0, true, 0.04)
-			view.fx.decal(uv.position, Palette.TEAL_DIM.darkened(0.4), 0.55, true)
-	return {"dur": dur, "update": update}
+	if not uv.dying:
+		# not dropped by a shot or strike (a burn, bleed, blast, the boss falling): fall away
+		# from whatever hit it last
+		var from: Vector3 = _hit_from.get(uv.unit_id, uv.position - uv.facing())
+		_kill(uv, from, _hit_from.get("blast_%d" % uv.unit_id, false))
+	_hit_from.erase(uv.unit_id)
+	_hit_from.erase("blast_%d" % uv.unit_id)
+	# hold until the body is down, plus a beat to take it in
+	return {"dur": uv.death_left() + (0.45 if in_cinematic else 0.2)}
+
+
+## A unit dies now: the body drops from the blow at `from` (knocked off its feet when
+## `heavy`), gore and spores burst out, and its fall lands with a thud (view/death_fx.gd).
+func _kill(uv: UnitView, from: Vector3, heavy: bool) -> void:
+	if uv.dying:
+		return
+	uv.start_death(from, heavy)
+	unit_killed.emit(uv.unit_id)
+	var away := _flat(uv.position - from).normalized()
+	if away == Vector3.ZERO:
+		away = -uv.facing()
+	for snd in DeathFx.blow(view.fx, uv, away, heavy):
+		_sfx(snd, 0.0 if snd == "kill_hit" else -3.0)
+	view.camera_rig.shake(1.2 if heavy else 0.9)
+	if in_cinematic and uv.visible:
+		# the shot camera tilts down after the body so it lands in frame
+		var pose := view.camera_rig.transform * view.camera_rig.camera.transform
+		var floor_at := uv.position + away * 0.55 + Vector3(0, 0.3, 0)
+		var eye := pose.origin + Vector3(0, 0.5, 0) + _flat(pose.origin - floor_at).normalized() * 0.4
+		if not _clear_view(eye, floor_at):
+			eye = pose.origin
+		view.camera_rig.cine(pose, CameraRig.look_pose(eye, floor_at), Vector2(view.camera_rig.camera.fov, 44))
+		_fall_cam = uv
+	uv.landed.connect(func() -> void:
+		for snd in DeathFx.land(view.fx, uv):
+			_sfx(snd, -2.0)
+		view.camera_rig.shake(0.35), CONNECT_ONE_SHOT)
 
 
 func _status_beat(ev: Dictionary, ow: bool, text: String) -> Dictionary:
@@ -1153,7 +1199,7 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 	# Time the sound so its impact (`lead` seconds into the file) lands with the strike.
 	var lead: float = {"blade": 0.2, "bash": 0.0}.get(style.get("sound", "claw"), 0.35)
 	_sfx(str(style.get("sound", "claw")), 0.0, maxf(0.0, t_hit - lead))
-	var st := {"landed": false}
+	var st := {"landed": false, "kill": hit and _dies_next(tv.unit_id)}
 	var update := func(k: float) -> void:
 		var s := k * dur
 		if cine:
@@ -1169,7 +1215,10 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 			if hit:
 				view.fx.burst(at, dir, _blood(tv), 10 if graze else 16, 3.5, _blood(tv) == Palette.TEAL)
 				view.fx.decal(tv.position, _blood(tv).darkened(0.3), 0.25 if graze else 0.35)
-				tv.hit_react(uv.position, (0.6 if graze else 1.2) * (1.4 if fx == "shock" else 1.0))
+				if st.kill:
+					_kill(tv, uv.position, fx == "shock" or style.get("sound", "") == "bash")
+				else:
+					tv.hit_react(uv.position, (0.6 if graze else 1.2) * (1.4 if fx == "shock" else 1.0))
 				tv.flash(MeleeFx.SHOCK if fx == "shock" else Palette.DANGER)
 				if fx == "claw":
 					_sfx("impact_armor" if tv.is_soldier else "impact_flesh")
@@ -1305,6 +1354,8 @@ func _beat_explosion(ev: Dictionary) -> Dictionary:
 		var tv: UnitView = view.view_for(int(id))
 		if tv != null:
 			tv.hit_react(w, 1.2)
+			_hit_from[tv.unit_id] = w
+			_hit_from["blast_%d" % tv.unit_id] = true
 	return {"dur": 0.75 if kind == "barrel" else 0.6}
 
 

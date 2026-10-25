@@ -84,7 +84,7 @@ func test_synthetic_events_play_without_errors() -> void:
 	assert_true(not v.player.is_busy(), "queue drained by stepping")
 	var ev_view := v.view_for(enemy.id)
 	assert_eq(ev_view.hp, 0, "enemy hp from event")
-	assert_true(ev_view.dead and not ev_view.visible, "enemy death played")
+	assert_true(ev_view.dead and ev_view.dying and ev_view.death_left() == 0.0, "enemy death played")
 	var sv := v.view_for(soldier.id)
 	assert_eq(sv.infection, 45, "infection value")
 	assert_eq(sv.tier, 2, "infection tier")
@@ -361,6 +361,51 @@ func test_sound_files_exist() -> void:
 	for s in Sfx.SOUNDS:
 		assert_true(ResourceLoader.exists("res://audio/%s.wav" % s), "sound %s" % s)
 	assert_true(ResourceLoader.exists("res://audio/ambience.wav"), "ambience")
+
+
+func test_deaths_fall_and_stay_down() -> void:
+	for kind in ["runner", "brute", "lurker", "hive_node", "trooper"]:
+		var u := Unit.new()
+		u.id = 7
+		u.kind = kind
+		u.team = Types.Team.PLAYER if kind == "trooper" else Types.Team.ENEMY
+		u.max_hp = 4
+		u.hp = 4
+		var uv: Node3D = preload("res://view/unit_view.gd").new()
+		uv.build(u)
+		var falls := [0]
+		uv.landed.connect(func() -> void: falls[0] += 1)
+		uv.start_death(uv.position + Vector3(0, 0, 3), kind == "runner")
+		assert_true(uv.dead and uv.dying, "%s is dying" % kind)
+		var left: float = uv.death_left()
+		assert_true(left > 0.1 and left < 1.0, "%s lands quickly (%.2fs)" % [kind, left])
+		uv.start_death(uv.position, false)   # a second blow changes nothing
+		for i in 60:
+			uv.tick(1.0 / 30.0)
+		assert_eq(falls[0], 1, "%s hit the floor once" % kind)
+		assert_eq(uv.death_left(), 0.0, "%s is down" % kind)
+		assert_true(uv.visible, "%s stays on the floor instead of vanishing" % kind)
+		uv.free()
+
+
+func test_killing_round_drops_the_body_at_impact() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldier := v.state.controllable_units(0)[0]
+	var enemy := v.state.living(Types.Team.ENEMY)[0]
+	var ev_view := v.view_for(enemy.id)
+	v.player.enqueue({"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": true, "graze": false, "crit": false, "damage": 9, "chance": 70, "reaction": false})
+	v.player.enqueue({"type": "damage", "unit": enemy.id, "amount": 9, "hp": 0, "source": soldier.id})
+	v.player.enqueue({"type": "died", "unit": enemy.id})
+	var steps := 0
+	while v.player.pending() == 3 and steps < 400:
+		v.player.advance(1.0 / 30.0)
+		steps += 1
+	assert_true(ev_view.dying, "falling before the shot beat is over")
+	assert_true(v.player.sfx_log.has("kill_hit"), "the kill sound plays at the blow")
+	v.player.flush()
+	assert_true(v.player.sfx_log.has("body_fall") or v.player.sfx_log.has("body_fall_heavy"), "the body lands with a thud")
+	v.free()
 
 
 func test_characters_are_rigged() -> void:

@@ -13,6 +13,7 @@ extends Node3D
 ## cinematic slows the bodies too.
 
 signal stepped   # a foot landed while walking (for footstep sounds)
+signal landed    # a dying body hit the floor (for the thud and the dust)
 
 const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
@@ -45,6 +46,7 @@ var guard := false        # Warden's Guard stance (shield up until the next squa
 var lapsed := false
 var turned := false
 var dead := false
+var dying := false        # the death is playing out (or over: the body stays down)
 var concealed := false    # squad Concealed: a cold-blue dashed ring at the feet
 ## Timed tags the beats put on this unit (MARKED, SUPPRESSED, STUNNED, CONTAINED):
 ## key -> the phase index (Combat.phase_index) it ends on. Shown on the status line.
@@ -61,6 +63,7 @@ var _prop_y := 0.0
 var _sac: Node3D         # spitter / bloater glowing sac
 var _skin: SkinnedBody   # characters (everything but props)
 var _glow: OmniLight3D
+var _key: OmniLight3D    # the soft character light that travels with the unit
 var _mats := {}          # role -> ShaderMaterial (this unit's own copies)
 var _growths := []       # [stage, MeshInstance3D] infection growths
 var _shown_stage := 0
@@ -96,7 +99,15 @@ var _hit := 0.0
 var _hit_dir := Vector3.ZERO
 var _lunge := 0.0
 var _crouch := 0.0
-var _death := 0.0
+# death (see start_death)
+var _death_t := 0.0              # seconds since the killing blow, on the unit clock
+var _death_land := 0.5           # when the body hits the floor
+var _death_dir := Vector3.ZERO   # away from the blow (world, flat)
+var _death_shove := 0.0          # how far the blow carries the body
+var _death_heavy := false
+var _death_landed := false
+var _death_glow := 0.0           # enemy glow at the moment of death, fading out
+var _death_emit := {}            # infected: glowing material -> its emission at death
 # fitting the body to stairs and ramps under its feet (see _fit_ground)
 var _feet: Array[Vector3] = []   # foot points in the body's frame, before it turns
 var _crawler := false            # many-legged (Lurker, Burrower): tilts with the slope
@@ -169,6 +180,7 @@ func _build_lights() -> void:
 	# a soft key light that travels with the unit so it reads at tactical zoom
 	# on the dark map (XCOM-style character light); no shadows, cheap
 	var key := OmniLight3D.new()
+	_key = key
 	key.light_color = Color("ffe6c4") if soldier_body else Color("9fc9c0")
 	key.light_energy = 0.75 if soldier_body else 0.5
 	key.omni_range = 2.4
@@ -363,11 +375,11 @@ func expire_tags(now: int) -> void:
 
 
 func set_selected(on: bool) -> void:
-	_select_ring.visible = on
+	_select_ring.visible = on and not dead
 
 
 func set_targeted(on: bool) -> void:
-	_target_ring.visible = on
+	_target_ring.visible = on and not dead
 
 
 ## Hides the floating HP / labels / rings, e.g. during a shot cinematic.
@@ -473,6 +485,10 @@ func _to_world(node: Node3D, local: Vector3) -> Vector3:
 ## Advances procedural animation and fades; called by the event player's clock.
 func tick(delta: float) -> void:
 	_time += delta
+	if dying:
+		_advance_death(delta)
+		_fit_ground(delta)
+		return
 	if _yaw != _yaw_target and not dead:
 		_yaw = rotate_toward(_yaw, _yaw_target, delta * TURN_SPEED)
 		_body.rotation.y = _yaw
@@ -650,24 +666,109 @@ func _apply_flash() -> void:
 			m.set_shader_parameter("flash_color", _flash_color)
 
 
-## Death animation progress 0..1: fall away from the killing blow, then sink.
-## Infected collapse and dissolve into the ground.
-func set_death_progress(t: float) -> void:
-	dead = t > 0.0
-	_death = t
+## Death: starts the fall at the killing blow, from `from_world` (the killer or the blast).
+## Skinned bodies turn into the blow and play their death clip: a crumpling collapse, or
+## with `heavy` (crits, slugs, blasts) knocked clean off their feet. The Bloom's props
+## swell, rupture and slump into a husk. Plays on the unit clock (`tick`), so the shot
+## camera's slow motion and hit-stop slow it too. The body then stays down: fallen soldiers
+## where they fell, the infected as dead husks whose glow goes out.
+func start_death(from_world: Vector3, heavy := false) -> void:
+	if dying:
+		return
+	dying = true
+	dead = true
+	_death_t = 0.0
+	_death_landed = false
+	_death_heavy = heavy
+	var away := position - from_world
+	away.y = 0.0
+	_death_dir = away.normalized() if away.length() > 0.01 else -facing()
+	_death_glow = _glow.light_energy if _glow != null else 0.0
+	if not soldier_body:
+		for m in _mats.values():
+			var e: Variant = m.get_shader_parameter("emission_energy")
+			if m.get_meta("role") in ModelKit.GLOWING and e != null:
+				_death_emit[m] = float(e)
+	_hit = 0.0
+	_lunge = 0.0
+	_moving = false
+	_rig.position = Vector3.ZERO
 	if _skin != null:
-		_skin.set_death(t)
-	elif _model != null:
-		_model.scale = Vector3.ONE * MODEL_SCALE * maxf(0.05, 1.0 - t * 0.9)   # props wither
-	# the infected (and turned) sink into the ground at the end; fallen soldiers stay
-	var sink := maxf(0.0, t - 0.7) / 0.3
-	_rig.position.y = -sink * (0.9 if not soldier_body or turned else 0.0)
-	if _glow != null:
-		_glow.light_energy *= 1.0 - t * 0.5
+		# face the blow (a little off square) so the fall carries the body away from it
+		var jitter := (fposmod(float(unit_id) * 0.618, 1.0) - 0.5) * 0.6
+		set_yaw(atan2(-_death_dir.x, -_death_dir.z) + jitter)
+		var big := ModelKit.size_of(kind) > 1.15
+		var style := "knockdown" if heavy and not big else "collapse"
+		var rate := (1.0 if style == "knockdown" else 1.45) * (0.8 if big else 1.0)
+		_death_land = _skin.start_death(style, rate)
+		if _death_land <= 0.0:
+			_death_land = 0.4
+		_death_shove = (0.45 if style == "knockdown" else 0.18) * (0.5 if big else 1.0)
+	else:
+		_death_land = 0.32
+		_death_shove = 0.0
 	for n in [_hp_sprite, _class_label, _status_label, _infection_ring, _select_ring, _target_ring, _guard_ring, _cloak_ring]:
-		n.visible = n.visible and t < 0.3
-	if t >= 1.0:
-		visible = false
+		n.visible = false
+
+
+## Seconds until the dying body hits the floor (0 once it has, or when not dying).
+func death_left() -> float:
+	return maxf(0.0, _death_land - _death_t) if dying else 0.0
+
+
+## How far the body is through its death: 0 at the blow, 1 at rest on the floor.
+func death_progress() -> float:
+	return clampf(_death_t / (_death_land + 0.5), 0.0, 1.0) if dying else 0.0
+
+
+## Plays the rest of the death at once (skipping, tests).
+func finish_death() -> void:
+	if dying and _death_t < _death_land + 2.0:
+		_advance_death(_death_land + 2.0 - _death_t)
+
+
+func _advance_death(delta: float) -> void:
+	_death_t += delta
+	var k := clampf(_death_t / maxf(0.05, _death_land), 0.0, 1.0)
+	if _skin != null:
+		_skin.advance(delta)
+		# the blow carries the body back as it falls, easing out on the floor
+		var local := _body.basis.inverse() * _death_dir
+		_rig.position = local * _death_shove * (1.0 - pow(1.0 - k, 3.0))
+	elif _model != null:
+		_animate_rupture()
+	if not _death_landed and _death_t >= _death_land:
+		_death_landed = true
+		landed.emit()
+	# the corpse goes cold: the infected's veins and glow die out, the travelling light dims
+	var cold := clampf((_death_t - _death_land) / 1.4, 0.0, 1.0)
+	if _glow != null:
+		_glow.light_energy = _death_glow * (1.0 - cold)
+		_glow.visible = _glow.light_energy > 0.01
+	if _key != null:
+		_key.light_energy = lerpf(0.75 if soldier_body else 0.5, 0.18, cold)
+	if not soldier_body:
+		_set_veins(lerpf(0.62, 0.08, cold))
+		for m in _death_emit:
+			m.set_shader_parameter("emission_energy", _death_emit[m] * lerpf(1.0, 0.15, cold))
+
+
+## Props (hive nodes, egg sacs, the Drifter): swell, burst, slump into a deflated husk.
+func _animate_rupture() -> void:
+	var base := MODEL_SCALE * ModelKit.size_of(kind)
+	var t := _death_t
+	var swell := 0.12
+	var s := Vector3.ONE
+	if t < swell:
+		var w := t / swell
+		s = Vector3.ONE * (1.0 + 0.2 * w * w)
+	else:
+		var w := clampf((t - swell) / (_death_land + 0.25 - swell), 0.0, 1.0)
+		var e := 1.0 - pow(1.0 - w, 3.0)
+		s = Vector3(lerpf(1.2, 1.18, e), lerpf(1.2, 0.32, e), lerpf(1.2, 1.18, e))
+	_model.scale = s * base
+	if _prop != null and kind == "drifter":   # the floating sac drops to the floor
+		_prop.position.y = lerpf(_prop_y, 0.1, clampf((t - swell) / 0.3, 0.0, 1.0))
 
 
 func pulse_infection(t: float) -> void:

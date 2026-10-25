@@ -36,7 +36,7 @@ func _init(view: Node) -> void:
 
 func on_beat(ev: Dictionary) -> void:
 	var type := str(ev.get("type", ""))
-	if type == "died":
+	if type == "killed":   # the death cry goes up with the killing blow
 		var uv := _unit(ev)
 		if uv != null and (not uv.is_soldier or uv.turned):
 			bark(uv, 0.0, true)
