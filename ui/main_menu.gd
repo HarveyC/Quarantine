@@ -962,19 +962,6 @@ class Backdrop extends Control:
 		v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		add_child(v)
 		_veins = v
-		var cap := Styles.vbox(2)
-		cap.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 40)
-		cap.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		cap.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		cap.offset_right = -110
-		cap.offset_bottom = -170
-		var a := Styles.display("The Source", 18, Styles.TEAL)
-		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		cap.add_child(a)
-		var b := Styles.label("waits at the bottom of the shaft", 16, Styles.DIM)
-		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		cap.add_child(b)
-		add_child(cap)
 
 	func _process(delta: float) -> void:
 		if not is_visible_in_tree():
