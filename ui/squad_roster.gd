@@ -100,7 +100,7 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 	# The name already says the class and the portrait shows it, so the line under it is just
 	# HP, Infection and (online, or someone else's soldier) the owner.
 	var mid := Styles.hbox(10)
-	var hp := W.Pips.new(Vector2(11, 5))
+	var hp := W.HpPips.new(Vector2(11, 5), 3.0)
 	hp.set_values(uv.max_hp, uv.hp, 0, Styles.DANGER if uv.hp * 3 <= uv.max_hp else Styles.HP)
 	hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mid.add_child(hp)

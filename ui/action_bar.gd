@@ -28,7 +28,7 @@ var _name: Label
 var _class: Label
 var _ap: W.Diamonds
 var _loss: HBoxContainer
-var _hp: W.Pips
+var _hp: W.HpPips
 var _empty: Label
 var _soldier_box: VBoxContainer
 var _buttons: Control
@@ -73,7 +73,7 @@ func build() -> void:
 	_soldier_box.add_child(_class)
 	var hp := Styles.hbox(0)
 	hp.alignment = BoxContainer.ALIGNMENT_CENTER
-	_hp = W.Pips.new(Vector2(12, 5))
+	_hp = W.HpPips.new(Vector2(12, 5), 3.0)
 	hp.add_child(_hp)
 	_soldier_box.add_child(hp)
 	_empty = Styles.label("Select a soldier\n(click or Tab)", 14, Styles.DIM)

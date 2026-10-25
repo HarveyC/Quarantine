@@ -103,7 +103,7 @@ func _build() -> void:
 func _hp_row(hp_to: int) -> Control:
 	var row := NodeUi.hbox(8)
 	row.add_child(W.Icon.new("health", NodeUi.HEALTH, 15, 1.7))
-	var pips := W.Pips.new(Vector2(12, 6) if compact else Vector2(14, 7))
+	var pips := W.HpPips.new(Vector2(12, 6) if compact else Vector2(14, 7), 3.0)
 	var low: bool = mini(rec.hp, hp_to) * 3 <= rec.max_hp
 	pips.set_values(rec.max_hp, rec.hp, maxi(0, rec.hp - hp_to), Styles.DANGER if low else Styles.HP, maxi(0, hp_to - rec.hp))
 	pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER

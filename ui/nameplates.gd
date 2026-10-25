@@ -139,12 +139,11 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 		# A Lurker pin has no set length, so it comes from the state rather than a timed tag.
 		if uv.tags.has(k) or (k == "pinned" and not uv.dead and held != null and held.status.has("pinned_by")):
 			row.add_child(W.Icon.new(TAG_ICONS[k][0], TAG_ICONS[k][1], 14.0, 2.0))
-	var hp := W.Pips.new(Vector2(7, 4))
+	var hp := W.HpPips.new(Vector2(7, 4))
 	var lose := 0
 	if targeted and shooter != null:
 		lose = mini(shooter.damage.y, uv.hp)
 	hp.set_values(uv.max_hp, uv.hp, lose, Styles.HP if uv.is_soldier else Styles.DANGER)
-	hp.gap = 2.0
 	hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(hp)
 	if uv.is_soldier and uv.tier >= 2:

@@ -407,7 +407,7 @@ func _soldier_card(r: Dictionary) -> Control:
 	mid.add_child(Styles.label(sub, 13, Styles.DIM))
 	mid.add_child(Styles.spacer())
 	mid.add_child(Styles.mono("%d/%d" % [r.hp, r.max_hp], 11, Styles.DIM))
-	var hp := W.Pips.new(Vector2(10, 5))
+	var hp := W.HpPips.new(Vector2(10, 5), 3.0)
 	hp.set_values(r.max_hp, r.hp, 0, Styles.DANGER if r.hp * 3 <= r.max_hp else Styles.HP)
 	mid.add_child(hp)
 	col.add_child(mid)

@@ -84,7 +84,7 @@ func build() -> void:
 	_dmg = Styles.caps("", 13)
 	dmg.add_child(_dmg)
 	dmg.add_child(Styles.spacer())
-	_hp = W.Pips.new(Vector2(14, 6))
+	_hp = W.HpPips.new(Vector2(14, 6), 3.0)
 	_hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	dmg.add_child(_hp)
 	box.add_child(dmg)
@@ -113,7 +113,7 @@ func show_shot(s: GameState, u: Unit, t: Unit) -> Dictionary:
 	_dmg.text = "DAMAGE %d–%d" % [lo, hi]
 	_dmg.add_theme_color_override("font_color", Styles.TEXT)
 	_hp.visible = true
-	(_hp as W.Pips).set_values(t.max_hp, t.hp, mini(hi, t.hp), Styles.DANGER)
+	(_hp as W.HpPips).set_values(t.max_hp, t.hp, mini(hi, t.hp), Styles.DANGER)
 	var notes := PackedStringArray()
 	if odds.get("flanked", false):
 		notes.append("Flanked: no cover, crits more likely")
