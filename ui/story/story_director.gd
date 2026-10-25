@@ -32,6 +32,7 @@ var _radio_box: VBoxContainer
 var _whisper: Label
 var _whisper_t := 0.0
 var _contact_said := false
+var _boss_said := {}   # boss bark keys already said this fight
 var _tiers := {}           # unit id -> last infection tier seen
 var _whispered := {}       # "sid:tier" -> true
 var _last_stage := 0
@@ -135,6 +136,7 @@ func _bind_player(pl: Node, st: GameState) -> void:
 	_player = pl
 	_state = st
 	_contact_said = false
+	_boss_said.clear()
 	_tiers.clear()
 	if pl == null or st == null:
 		_player = null
@@ -263,6 +265,19 @@ func _on_beat_finished(ev: Dictionary) -> void:
 			var u := st.get_unit(ev.unit)
 			if u != null and u.status.has("sid"):
 				_bark("turned", {"name": _surname(u)})
+		"boss_phase":
+			_boss_bark("%s_%d" % [ev.get("boss", ""), int(ev.get("phase", 0))])
+		"untethered":
+			var u := st.get_unit(ev.unit)
+			if u != null:
+				_boss_bark(u.kind + "_open")
+
+
+## Boss fight lines (StoryData.BARKS "<boss>_<phase>", "<boss>_open"), each once a fight.
+func _boss_bark(key: String) -> void:
+	if StoryData.BARKS.has(key) and not _boss_said.has(key):
+		_boss_said[key] = true
+		_bark(key, {})
 
 
 func _surname(u: Unit) -> String:

@@ -1,7 +1,8 @@
 extends Node3D
 ## Team-phase readability layer for enemies (design doc, Enemy AI and readability): an intent
 ## label over each enemy with a thin line to its likely target, red tiles for everything that
-## hits next enemy phase, amber vents for incoming reinforcements,
+## hits next enemy phase, amber vents for incoming reinforcements, teal threads from shields to
+## the enemy they keep immune,
 ## and a faint ripple over hidden Lurkers in sight. Fog of war markers: a dim red "?" where an
 ## enemy was last seen, and a pulsing red contact for Motion tracker blips.
 ## Reads GameState through EnemyIntent and Vision; never mutates it.
@@ -22,6 +23,7 @@ var _m_danger: StandardMaterial3D
 var _m_spore: StandardMaterial3D
 var _m_vent: StandardMaterial3D
 var _m_line: StandardMaterial3D
+var _m_tether: StandardMaterial3D
 var _m_ripple: StandardMaterial3D
 var _m_ghost: StandardMaterial3D
 var _m_blip: StandardMaterial3D
@@ -34,6 +36,7 @@ func _ready() -> void:
 	_m_spore = Palette.overlay(Color(Palette.TEAL, 0.16))
 	_m_vent = Palette.overlay(Color(Palette.AMBER, 0.5))
 	_m_line = Palette.overlay(Color(Palette.DANGER, 0.55))
+	_m_tether = Palette.overlay(Color(Palette.TEAL, 0.6))
 	_m_ripple = Palette.overlay(Color(Palette.TEAL, 0.25))
 	_m_ghost = Palette.overlay(Color(Palette.DANGER, 0.22))
 	_m_blip = Palette.overlay(Color(Palette.DANGER, 0.7))
@@ -76,6 +79,12 @@ func refresh() -> void:
 		wave.position = b.position
 		add_child(wave)
 		_blips.append(wave)
+	# Teal threads from each shield (egg sac, root, hive node) to the enemy it keeps immune.
+	for pair in EnemyIntent.tethers(s):
+		var a: Node3D = view.view_for(pair[0])
+		var b: Node3D = view.view_for(pair[1])
+		if a != null and b != null and a.visible and b.visible:
+			_line(a.position + Vector3(0, 0.1, 0), b.position + Vector3(0, 0.1, 0), _m_tether, 0.05)
 	for it in EnemyIntent.intents(s):
 		var uv: Node3D = view.view_for(it.unit)
 		if uv == null or not uv.visible:
@@ -110,11 +119,11 @@ func _tile(c: Vector2i, m: Material, y: float) -> void:
 	add_child(q)
 
 
-func _line(a: Vector3, b: Vector3) -> void:
+func _line(a: Vector3, b: Vector3, m: Material = null, width := 0.03) -> void:
 	var length := a.distance_to(b)
 	if length < 0.1:
 		return
-	var beam := Palette.box(Vector3(0.03, 0.01, length), _m_line)
+	var beam := Palette.box(Vector3(width, 0.01, length), m if m != null else _m_line)
 	beam.position = (a + b) * 0.5
 	beam.basis = Basis.looking_at(b - a, Vector3.UP)
 	add_child(beam)

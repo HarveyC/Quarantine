@@ -28,7 +28,6 @@ func _init() -> void:
 	var seed0 := int(args.get("seed", 1))
 	var rank := int(args.get("rank", RANK_BY_ACT[act]))
 	objective_override = str(args.get("objective", ""))
-	brood_variant = str(args.get("variant", ""))
 	for i in n:
 		var seed := seed0 + i
 		print(JSON.stringify(run_fight(squad_kinds, act, node, int(args.get("outbreak", 0)), seed, rank,
@@ -37,7 +36,6 @@ func _init() -> void:
 
 
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
-var brood_variant := ""        # variant= (Brood Mother prototype: nest | stalker | tide)
 
 
 func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, seed: int, rank: int,
@@ -67,8 +65,6 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var built := FightBuilder.build(spec)
 	var enemies: Array = built.enemies
 	var enc: Dictionary = built.encounter
-	if brood_variant != "" and str(enc.get("boss", "")) == "brood_mother":
-		enc["brood_variant"] = brood_variant
 	if enemy_override != "":
 		enemies = Array(enemy_override.split(","))
 		enc = {}
@@ -131,8 +127,6 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 				boss_acts["moved"] = int(boss_acts.get("moved", 0)) + ev.path.size()
 			elif ev.type == "boss_phase":
 				boss_acts["phase%d" % int(ev.phase)] = s.turn
-			elif ev.type == "pinned":
-				pass
 		if ev.type == "pinned" and boss_ids.has(int(ev.get("by", -1))):
 			boss_acts["pins"] = int(boss_acts.get("pins", 0)) + 1
 		if ev.type == "shot" and boss_ids.has(int(ev.get("unit", -1))):
