@@ -422,7 +422,7 @@ func test_hits_flinch_without_falling_and_aim_at_the_chest() -> void:
 		var uv := preload("res://view/unit_view.gd").new()
 		uv.build(u)
 		uv.tick(0.05)
-		var chest: float = uv.chest_world().y
+		var chest: float = uv.aim_point().y
 		assert_true(chest > 1.0 and chest < 2.2, "%s is shot in the chest, not the hips (%.2f)" % [kind, chest])
 		var standing: float = uv.head_world().y
 		uv.hit_react(Vector3(0, 0, 3), 1.0)
