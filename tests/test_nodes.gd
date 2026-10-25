@@ -2,7 +2,7 @@ extends TestCase
 
 const OPS := ["gun", "supplies", "intel", "outbreak", "infection", "heal_pct", "hurt_pct", "mutation",
 	"remove_mutation", "perk_pick", "serum", "recruit", "item", "modifier", "mark", "fight",
-	"send_home", "chance", "if_infected", "sit_out"]
+	"send_home", "chance", "if_infected", "sit_out", "bloom_graft"]
 
 
 ## A 2-player run in the NODE phase: trooper + marksman for player 0, medic + breacher for player 1,

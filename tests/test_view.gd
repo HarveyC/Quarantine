@@ -917,3 +917,21 @@ func test_objective_zones_are_labelled_on_the_map() -> void:
 	assert_true(label != null and label.text == "EVAC", "the evac pad is named on the map")
 	assert_true(b.active_overlays().has("evac"), "and listed in the map key")
 	b.free()
+
+
+## A grafted soldier wears a prop on the skeleton for each part, Machine and Bloom alike.
+func test_grafted_soldiers_wear_their_parts() -> void:
+	var GraftKit := preload("res://view/graft_kit.gd")
+	var u := UnitData.make("trooper", Types.Team.PLAYER)
+	u.owner_player = 0
+	Grafts.apply_to_unit(u, {"grafts": {"head": "targeting_optic", "arm": "bloom_limb", "chest": "plated_ribs", "legs": "runner_legs"}})
+	var uv = preload("res://view/unit_view.gd").new()
+	uv.build(u)
+	var props: Array[String] = GraftKit.props(uv._model)
+	for p in ["graft_head", "graft_arm", "graft_claw", "graft_chest", "graft_thigh_l", "graft_calf_r"]:
+		assert_true(props.has(p), "%s worn" % p)
+	uv.free()
+	var bare = preload("res://view/unit_view.gd").new()
+	bare.build(UnitData.make("trooper", Types.Team.PLAYER))
+	assert_eq(GraftKit.props(bare._model), [] as Array[String], "no grafts, no props")
+	bare.free()

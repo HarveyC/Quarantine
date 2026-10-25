@@ -65,7 +65,8 @@ static func add_serum(run: RunState, player: int, samples: int, reason := "node"
 
 
 static func set_infection(run: RunState, rec: Dictionary, value: int) -> void:
-	rec.infection = clampi(value, 0, MAX_INFECTION_OUT_OF_FIGHT)
+	var low: int = RunHooks.call_static("Grafts", "record_floor", [rec], 0)   # Bloom grafts
+	rec.infection = clampi(value, mini(low, MAX_INFECTION_OUT_OF_FIGHT), MAX_INFECTION_OUT_OF_FIGHT)
 	emit(run, {"type": "soldier_infection", "sid": rec.id, "value": rec.infection})
 
 

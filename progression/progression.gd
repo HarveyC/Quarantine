@@ -9,7 +9,7 @@ extends RefCounted
 ##   bonus_picks (extra picks that don't raise rank), picks_taken (counter, seeds the offers),
 ##   mutations: {slot: id}, inoculated (fights left at half Infection gain),
 ##   bond: {"id", "partner"} (partner = soldier sid), offers: Array of pending mutation offers
-##   ({"cards": [ids], "source": "nest"|"event"}).
+##   ({"cards": [ids], "source": "nest"|"event"}), grafts: {slot: id} and bedding (see Grafts).
 ## Functions that take `record` accept the framework soldier record (Infection lives there as
 ## record.infection; prog at record.prog) or a bare prog Dictionary.
 
@@ -56,7 +56,7 @@ const WARDEN_HITS_TAKEN := 4
 
 static func new_record(kind: String) -> Dictionary:
 	return {"kind": kind, "rank": 1, "perks": [], "picks": 0, "bonus_picks": 0, "picks_taken": 0,
-		"mutations": {}, "inoculated": 0, "bond": {}, "offers": []}
+		"mutations": {}, "inoculated": 0, "bond": {}, "offers": [], "grafts": {}, "bedding": false}
 
 
 static func quick_play_record(kind: String) -> Dictionary:
@@ -92,6 +92,7 @@ static func apply_record(u: Unit, prog: Dictionary) -> void:
 	if int(prog.get("inoculated", 0)) > 0:
 		u.status["inoculated"] = true
 	u.max_hp = max_hp(u.kind, prog)
+	Grafts.apply_to_unit(u, prog)
 	u.hp = u.max_hp
 	for id in prog.get("perks", []):
 		var p: Dictionary = PerkData.PERKS.get(id, {})
@@ -112,6 +113,7 @@ static func after_fight(prog: Dictionary, u: Unit, fight_number: int) -> bool:
 		prog.inoculated = INOCULATED_FIGHTS
 	elif int(prog.get("inoculated", 0)) > 0:
 		prog.inoculated = int(prog.inoculated) - 1
+	prog.bedding = false   # a fresh Machine part has bedded in
 	if RANK_FIGHTS.has(fight_number) and int(prog.get("rank", 1)) < MAX_RANK:
 		prog.rank = int(prog.get("rank", 1)) + 1
 		prog.picks = int(prog.get("picks", 0)) + 1
@@ -259,14 +261,15 @@ static func remove_mutation(record: Dictionary, id: String) -> void:
 		p.bond = {}
 
 
-## Full cure between fights: Infection 0, every mutation wiped, Inoculated for 2 fights.
+## Full cure between fights: Infection to its floor (0 without Bloom grafts), every mutation
+## wiped, Inoculated for 2 fights. Grafts stay.
 static func full_cure(record: Dictionary) -> void:
 	var p := _prog(record)
 	p.mutations = {}
 	p.bond = {}
 	p.inoculated = INOCULATED_FIGHTS
 	if record.has("prog"):
-		record.infection = 0
+		record.infection = Grafts.record_floor(record)
 
 
 ## Slot a mutation card should come from: weighted toward the tier the soldier's Infection is
@@ -333,7 +336,17 @@ static func apply_card(record: Dictionary, card: Dictionary) -> String:
 			return ""
 		"mutation":
 			return graft(record, card.id)
+		"graft":
+			if Grafts.of(record).has(GraftData.slot_of(card.id)):
+				return "That slot is taken"
+			Grafts.take(record, card.id)
+			return ""
 	return "Unknown card"
+
+
+## GearRun.on_fight_won: a Bloom graft card in the offer after a nest or a Critical fight end.
+static func add_graft_card(run: RunState, record: Dictionary, fight_kind: String, cards: Array) -> void:
+	Grafts.add_reward_card(run, record, fight_kind, cards)
 
 
 ## Who `record` can share a Bonded mutation with: in co-op a soldier of another player, solo any
@@ -376,19 +389,19 @@ static func grant_random_mutation(run: RunState, record: Dictionary) -> String:
 
 # ---------------------------------------------------------------- tags
 
-## Tag counts from class perks and awake mutations (+1 Strain per awake mutation), only tags
-## above 0, e.g. {"Guard": 2, "Strain": 1}. GearRun adds gear.
+## Tag counts from class perks, grafts and awake mutations (+1 Strain per awake mutation), only
+## tags above 0, e.g. {"Guard": 2, "Strain": 1}. GearRun adds gear.
 static func tag_counts(record: Dictionary) -> Dictionary:
 	var p := _prog(record)
-	return _count(p.get("perks", []), p.get("mutations", {}), _tier(record))
+	return _count(p.get("perks", []), p.get("mutations", {}), _tier(record), Grafts.of(record))
 
 
 static func unit_tag_counts(u: Unit) -> Dictionary:
-	return _count(u.status.get("perks", []), u.status.get("mutations", {}), Infection.tier(u.infection))
+	return _count(u.status.get("perks", []), u.status.get("mutations", {}), Infection.tier(u.infection), Grafts.of_unit(u))
 
 
-static func _count(perks: Array, mutations: Dictionary, tier: int) -> Dictionary:
-	var out := {}
+static func _count(perks: Array, mutations: Dictionary, tier: int, grafts: Dictionary = {}) -> Dictionary:
+	var out := Grafts.tag_counts(grafts)
 	for id in perks:
 		var tag: String = PerkData.PERKS.get(id, {}).get("tag", "")
 		if tag != "":
@@ -419,6 +432,7 @@ static func unlocked_classes(meta: Dictionary) -> Array[String]:
 ## surviving, un-Turned soldier ended it: at Mutating or higher (Vector), with 3 kills on adjacent
 ## enemies (Reaper), or after taking 4 hits (Warden). See CLASS_UNLOCK_HINTS.
 static func on_fight_end(run: RunState, outcome: Dictionary) -> void:
+	Grafts.on_fight_end(run, outcome)
 	if outcome.get("result", Types.Result.NONE) != Types.Result.VICTORY:
 		return
 	for e in outcome.get("soldiers", []):

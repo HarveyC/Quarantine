@@ -24,7 +24,8 @@ extends RefCounted
 ##             requires: {"supplies": n, "intel": n, "waived_by": class} (waived_by drops the cost
 ##                       requirement when that class is in the squad; pair it with unless_class on the effect)
 ##             target "own_soldier": the chooser picks one of their own soldiers ({soldier} in text)
-##             target_requires: {"has_mutation": true, "infection_at_least": n, "infection_below": n}
+##             target_requires: {"has_mutation": true, "infection_at_least": n, "infection_below": n,
+##                              "graft_ready": true (Rank 3+ with a free graft slot, from Act 2)}
 ##             default: picked for players who run out the timer (otherwise the last option)
 ##   next      step after this one ("" or missing = the event ends); an option's next wins
 ##   nobody    volunteer only: {"effects", "outcome", "next"} when every player passes
@@ -38,6 +39,7 @@ extends RefCounted
 ##   supplies / intel / outbreak  {amount, unless_class?}
 ##   infection {amount, who}  heal_pct {pct, who}  hurt_pct {pct, who}
 ##   mutation {who}  remove_mutation {who, serum}  perk_pick {who}
+##   bloom_graft {who}           a Bloom graft in a random free slot, with its Infection (Grafts)
 ##   serum {samples, to: "player"|"least_serum"}
 ##   recruit {count, infection, to: "player"|"fewest", carrier}   (carrier: one of them is a hidden carrier)
 ##   item {count, rarity, who}   (drawn and equipped on that soldier)
@@ -479,6 +481,10 @@ const EVENTS := {
 					{"id": "graft", "label": "Take a graft", "desc": "A random mutation and +10 Infection", "target": "own_soldier",
 						"effects": [{"op": "mutation", "who": "soldier"}, {"op": "infection", "amount": 10, "who": "soldier"}],
 						"outcome": "She presses a jar against {soldier}'s wrist. Whatever was inside isn't in the jar any more."},
+					{"id": "root", "label": "Let it take root", "desc": "A Bloom graft for a free body slot. It never leaves", "target": "own_soldier",
+						"target_requires": {"graft_ready": true},
+						"effects": [{"op": "bloom_graft", "who": "soldier"}],
+						"outcome": "She hums a note too low to hear and lays her hand flat on {soldier}. Something under the plate carrier answers."},
 					{"id": "sell", "label": "Sell a mutation", "desc": "Remove the newest mutation for 1 Serum sample and 15 Supplies", "target": "own_soldier",
 						"target_requires": {"has_mutation": true},
 						"effects": [{"op": "remove_mutation", "who": "soldier", "serum": 1}, {"op": "supplies", "amount": 15}],

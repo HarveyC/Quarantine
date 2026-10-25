@@ -191,9 +191,10 @@ static func visible_enemies(s: GameState, team: int = Types.Team.PLAYER) -> Arra
 ## Spore Sense radius of `u`: SENSE_RADIUS while the mutation is awake (Kit), or
 ## `status["sense_radius"]` for anything else that grants the sense; 0 if it has none.
 static func sense_radius(u: Unit) -> int:
+	var own := maxi(int(u.status.get("sense_radius", 0)), Grafts.sense_radius(u))   # Lattice sight
 	if Kit.awake(u, "spore_sense"):
-		return maxi(SENSE_RADIUS, int(u.status.get("sense_radius", 0)))
-	return int(u.status.get("sense_radius", 0))
+		return maxi(SENSE_RADIUS, own)
+	return own
 
 
 static func _infected(u: Unit) -> bool:

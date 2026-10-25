@@ -1039,7 +1039,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 
 ## Ability ids with a beat of their own below; the rest go to ItemBeats (gadgets, pocket items,
 ## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
-const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge",
+const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit"]
 
 
@@ -1047,6 +1047,8 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 	match str(ev.get("ability", "")):
 		"claw", "slam", "pounce", "maul", "spore_drop":
 			return _melee_beat(ev)
+		"bloom_claw":
+			return _melee_beat(ev, {"sound": "claw", "title": "BLOOM CLAW", "fx": "claw"})
 		"lunge", "riposte":
 			var title := "RIPOSTE" if ev.ability == "riposte" else ("CLEAVE" if ev.get("cleave", false) else "LUNGE")
 			return _melee_beat(ev, {"sound": "blade", "title": title, "fx": "blade"})

@@ -72,10 +72,12 @@ static func make_run(screen: String) -> RunState:
 	r.act = 2
 	r.supplies = 140
 	r.gear.fights_won = 3
+	if screen.ends_with("_grafts"):   # Rank 3 squad, some of it already grafted
+		_graft_squad(sq)
 	if screen == "doctrine":
 		r.phase = RunState.Phase.REWARD
 		GearRun._open_doctrine_vote(r)
-	elif screen == "reward" or screen == "guns":
+	elif screen == "reward" or screen == "guns" or screen == "reward_grafts":
 		r.phase = RunState.Phase.REWARD
 		GearRun.on_fight_won(r, "skirmish")
 		# Make the Marksman's offer show a set completion, an upgrade and a Prototype (or guns).
@@ -84,6 +86,9 @@ static func make_run(screen: String) -> RunState:
 		if screen == "guns":
 			r.gear.offers[sq[1].id].cards = [{"kind": "gun", "id": "battle_rifle", "rarity": "uncommon", "tags": ["Suppress"]}, GearRun._gear_card("flare_launcher"),
 				{"kind": "gun", "id": "scout_carbine", "rarity": "uncommon", "tags": ["Close"]}]
+		if screen == "reward_grafts":   # the Bloom card a Critical soldier is offered
+			r.gear.offers[sq[1].id].cards[2] = Grafts.card_for(sq[1], "lattice_sight")
+			r.gear.offers[sq[0].id].cards[2] = Grafts.card_for(sq[0], "bloom_limb")
 		var first: Dictionary = r.gear.offers[sq[1].id]
 		r.gear.offers.erase(sq[1].id)
 		var rest: Dictionary = r.gear.offers.duplicate()
@@ -92,6 +97,17 @@ static func make_run(screen: String) -> RunState:
 		for k in rest:
 			r.gear.offers[k] = rest[k]
 	return r
+
+
+## Rank 3 all round; the first soldier wears a mixed set, the third a Bloom heart.
+static func _graft_squad(sq: Array) -> void:
+	for rec in sq:
+		rec.prog.rank = maxi(int(rec.prog.get("rank", 1)), GraftData.FROM_RANK)
+	sq[0].prog.grafts = {"head": "targeting_optic", "legs": "runner_legs"}
+	if sq.size() > 2:
+		sq[2].prog.grafts = {"chest": "heart_knot"}
+	for rec in sq:
+		rec.infection = maxi(int(rec.infection), Grafts.record_floor(rec))
 
 
 func _process(_d: float) -> void:

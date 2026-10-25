@@ -89,7 +89,8 @@ static func record_run(run: RunState) -> void:
 				cf.set_value(SECTION, "endings", seen)
 		for t in run.echoes:
 			cf.set_value(ECHO_SECTION, "%d_%d" % [run.seed, t.sid],
-				{"key": "%d_%d" % [run.seed, t.sid], "kind": t.kind, "name": t.name, "act": t.act, "wave": st.get("wave", 0)})
+				{"key": "%d_%d" % [run.seed, t.sid], "kind": t.kind, "name": t.name, "act": t.act, "wave": st.get("wave", 0),
+					"grafts": t.get("grafts", {})})
 		_trim_pool(cf)
 		changed = true
 	if changed:

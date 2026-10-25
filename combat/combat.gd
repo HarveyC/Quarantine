@@ -474,7 +474,7 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
 			GearFx.on_suppress(s, u, t)
 		"tag":
-			t.status["tagged"] = phase_index(s) + (2 if s.phase != Types.Phase.ENEMY else 3)
+			t.status["tagged"] = phase_index(s) + (2 if s.phase != Types.Phase.ENEMY else 3) + Grafts.tag_bonus(s, u)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
 		"stim":
 			var healed := mini(Kit.medic_heal(t, STIM_HEAL), t.max_hp - t.hp)

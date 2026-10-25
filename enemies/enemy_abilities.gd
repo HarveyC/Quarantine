@@ -470,6 +470,7 @@ static func _scream(s: GameState, u: Unit) -> void:
 			Encounter.frenzy(s, o)
 			buffed.append(o.id)
 	s.emit({"type": "ability", "unit": u.id, "ability": "scream", "units": buffed})
+	Grafts.jam(s, u, SCREAM_RADIUS)   # the scream jams soldiers' Machine parts
 	for o in s.living(u.team):
 		EnemyAI.alert(s, o)
 

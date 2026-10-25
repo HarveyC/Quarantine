@@ -104,6 +104,7 @@ static func refresh_stats(s: GameState, u: Unit) -> void:
 			want.aim += 10
 	if s != null and u.status.has("k_pinned") and Combat.has_status(s, u, "k_pinned"):
 		want.mobility -= 2
+	Grafts.stat_mods(s, u, want)
 	var old: Dictionary = u.status.get("kit_mods", {})
 	for stat in want:
 		var delta: int = want[stat] - int(old.get(stat, 0))
@@ -143,6 +144,7 @@ static func on_team_phase_start(s: GameState) -> void:
 		if awake(u, "regenerator"):
 			_heal(s, u, 3, "regenerator")
 			Infection.add(s, u, 2)
+		Grafts.on_team_phase_start(s, u)
 		_ride_the_wave_tick(s, u)
 	for u in s.units:
 		refresh_stats(s, u)
@@ -427,6 +429,7 @@ static func _bleed_tick(s: GameState, team: int) -> void:
 static func after_melee(s: GameState, attacker: Unit, target: Unit, dmg: int) -> void:
 	if dmg <= 0 or not attacker.is_alive():
 		return
+	Grafts.after_melee(s, attacker, target)
 	var back := 0
 	if has_perk(target, "brawler"):
 		back += 2
@@ -597,7 +600,7 @@ static func infection_change(s: GameState, u: Unit, amount: int) -> int:
 		amount = maxi(1, amount / 2)
 	if u.status.get("inoculated", false):
 		amount = maxi(1, amount / 2)
-	return amount
+	return Grafts.infection_gain(s, u, amount)
 
 
 ## Called when a soldier would Turn. Returns true if something stopped it.

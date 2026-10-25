@@ -3,6 +3,7 @@ extends "res://ui/nodes/node_screen.gd"
 ## your own soldiers, plus reroll and sell-back.
 
 const Icons := preload("res://ui/icons.gd")
+const GraftFigure := preload("res://ui/graft_figure.gd")
 const SLOT_LABELS := {"weapon": "Weapon mod", "ammo": "Ammo", "armor": "Armor", "gadget": "Gadget"}
 
 
@@ -93,6 +94,10 @@ func _info(e: Dictionary) -> Dictionary:
 		"serum":
 			return {"slot": "Serum", "name": "Serum dose", "desc": "+2 Serum samples. Once per depot.",
 				"tag": "", "rarity": "", "rarity_color": NodeUi.TEAL, "icon": "serum"}
+		"graft":
+			var d := GraftData.get_def(e.id)
+			return {"slot": "Refit · " + GraftData.SLOT_NAMES[d.slot], "name": d.name, "desc": d.desc + " Beds in: -1 move next fight.",
+				"tag": d.tag, "rarity": "Machine", "rarity_color": GraftFigure.STEEL, "icon": "refit"}
 	var svc := {
 		"recruit": {"name": "Recruit", "desc": "A fresh soldier for your reserve.", "icon": "recruit"},
 		"scar": {"name": "Scar removal", "desc": "Remove one Scar from one of your soldiers.", "icon": "patch"},
@@ -126,7 +131,10 @@ func _buy_actions(i: int) -> Array:
 				for rec in run.soldiers_of(p):
 					var a := base.duplicate()
 					a.soldier = rec.id
-					out.append(_entry("For %s" % rec.name, a, Icons.for_class(rec.kind)))
+					var text := "For %s" % rec.name
+					if e.type == "graft" and Depot.price_of(run, e, "", rec) != Depot.price_of(run, e):
+						text += "  %d" % Depot.price_of(run, e, "", rec)   # Hazmat refits for less
+					out.append(_entry(text, a, Icons.for_class(rec.kind)))
 	return out
 
 
@@ -150,6 +158,8 @@ func _hook(b: Control, what: String, action: Dictionary) -> void:
 					d = {"gun": 1}
 				"consumable":
 					d = {"pocket": GearData.CONSUMABLES[e.id].name}
+				"graft":
+					d = {"graft": e.id}
 				"service":
 					if e.id == "armorer":
 						d = {"gear": {"slot": action.slot, "mode": "upgrade"}}

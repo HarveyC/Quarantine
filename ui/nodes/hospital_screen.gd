@@ -1,11 +1,14 @@
 extends "res://ui/nodes/node_screen.gd"
 ## Field hospital: one card per soldier with their HP pips, Infection bar, mutations and gear,
-## and the four treatments as icon tiles (cost on each tile, details on hover). Hovering a
+## and the treatments as icon tiles (cost on each tile, details on hover): the four basics,
+## plus Refit and Amputate when grafts are open to that soldier. Hovering a
 ## treatment previews it on the card. Each player treats their own soldiers; one treatment each.
 
 const Icons := preload("res://ui/icons.gd")
 const SoldierCard := preload("res://ui/nodes/soldier_card.gd")
-const ICON_COLORS := {"patch": NodeUi.HEALTH, "purge": NodeUi.TEAL, "train": NodeUi.AMBER, "cure": NodeUi.TEAL}
+const GraftFigure := preload("res://ui/graft_figure.gd")
+const ICON_COLORS := {"patch": NodeUi.HEALTH, "purge": NodeUi.TEAL, "train": NodeUi.AMBER, "cure": NodeUi.TEAL,
+	"refit": GraftFigure.STEEL, "amputate": GraftFigure.STEEL}
 
 
 func _build(into: VBoxContainer) -> void:
@@ -56,18 +59,30 @@ func _card(rec: Dictionary) -> Control:
 	tiles.columns = 2
 	tiles.add_theme_constant_override("h_separation", 8)
 	tiles.add_theme_constant_override("v_separation", 8)
-	for t in FieldHospital.ORDER:
+	for t in FieldHospital.options(ns(), rec):
 		var info: Dictionary = FieldHospital.TREATMENTS[t]
 		var action := {"type": "node_treat", "player": rec.owner, "soldier": rec.id, "treatment": t}
 		var why := NodeRules.validate(run, action)
-		var tip: String = info.desc + ("\n" + why if why != "" else "")
-		var b := NodeUi.tile_button(t, info.name, ICON_COLORS[t], NodeUi.cost_chip(info.cost), why == "", tip)
+		var tip: String = _tip(rec, t) + ("\n" + why if why != "" else "")
+		var b := NodeUi.tile_button(t, info.name, ICON_COLORS[t], NodeUi.cost_chip(FieldHospital.cost_text(rec, t)), why == "", tip)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(submit.bind(action))
-		_hook(b, sc, FieldHospital.preview(rec, t))
+		_hook(b, sc, FieldHospital.preview_in(ns(), rec, t))
 		tiles.add_child(b)
 	v.add_child(tiles)
 	return card
+
+
+## Refit and Amputate name the part on their tile's hover.
+func _tip(rec: Dictionary, t: String) -> String:
+	var desc: String = FieldHospital.TREATMENTS[t].desc
+	var id: String = FieldHospital.preview_in(ns(), rec, t).get("graft", "")
+	if id == "":
+		return desc
+	var lead := "%s: %s" % [GraftData.SLOT_NAMES[GraftData.slot_of(id)], GraftData.name_of(id)]
+	if t == "amputate":
+		lead = "Cuts out the %s for a %s, costs %d HP" % [GraftData.name_of(Grafts.of(rec)[GraftData.slot_of(id)]), GraftData.name_of(id), GraftData.AMPUTATE_HP]
+	return "%s. %s\n%s" % [lead, GraftData.get_def(id).desc, desc]
 
 
 ## Hovering or focusing a treatment tile shows `delta` on the soldier's card.

@@ -7,6 +7,7 @@ extends Node3D
 ##   action:    the classes and enemies aiming / lunging mid-animation
 ##   hit:       everyone flinching from a non-lethal hit
 ##   melee:     everyone mid-strike; every second Warden in its Guard stance instead
+##   grafts:    a bare soldier, full Machine, full Bloom, two mixed, and a Turned Bloom soldier
 ## `--lineup-kinds=runner,spitter` shows just those models, closer up; `--lineup-yaw=90`
 ## turns them (degrees) to check a pose side-on.
 
@@ -45,6 +46,19 @@ func _ready() -> void:
 		_cam.look_at(Vector3(0, 0.9, 0))
 		return
 	match mode:
+		"grafts":
+			var sets := [{}, _path_set(GraftData.MACHINE), _path_set(GraftData.BLOOM),
+				{"head": "targeting_optic", "arm": "bloom_limb", "chest": "plated_ribs", "legs": "runner_legs"},
+				{"head": "lattice_sight", "arm": "servo_arm", "chest": "heart_knot", "legs": "hydraulic_legs"},
+				_path_set(GraftData.BLOOM)]
+			var who := ["trooper", "marksman", "reaper", "breacher", "medic", "trooper"]
+			var inf := [0, 10, 60, 30, 55, 100]
+			for i in sets.size():
+				var uv := _spawn(who[i], i % 2, inf[i], sets[i])
+				uv.position = Vector3((i - 2.5) * 1.15, 0, 0)
+				uv.face_towards(uv.position + Vector3(0.3, 0, 1), true)
+				if inf[i] >= 100:
+					uv.set_turned()
 		"infection":
 			var values := [0, 30, 60, 85, 100]
 			for i in values.size():
@@ -65,12 +79,19 @@ func _ready() -> void:
 				var uv := _spawn(k, -1, 0)
 				uv.position = Vector3(x, 0, -1.6)
 				x += w * 0.5 + 0.25
-	var cam_z := 6.2 if mode == "infection" else 9.5
-	_cam.position = Vector3(0, 2.2 if mode != "infection" else 1.75, cam_z)
+	var cam_z: float = {"infection": 6.2, "grafts": 5.4}.get(mode, 9.5)
+	_cam.position = Vector3(0, 2.2 if not mode in ["infection", "grafts"] else 1.75, cam_z)
 	_cam.look_at(Vector3(0, 1.0, 0))
 
 
-func _spawn(kind: String, player: int, infection: int) -> Node3D:
+static func _path_set(path: String) -> Dictionary:
+	var out := {}
+	for slot in GraftData.SLOTS:
+		out[slot] = GraftData.for_slot(slot, path)
+	return out
+
+
+func _spawn(kind: String, player: int, infection: int, grafts := {}) -> Node3D:
 	var u := Unit.new()
 	u.id = views.size() + 1
 	u.kind = kind
@@ -80,6 +101,8 @@ func _spawn(kind: String, player: int, infection: int) -> Node3D:
 	u.max_hp = 6
 	u.hp = 6
 	u.infection = infection
+	if not grafts.is_empty():
+		u.status["grafts"] = grafts
 	var uv := UnitView.new()
 	uv.build(u)
 	uv.set_overlays_visible(false)
