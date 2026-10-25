@@ -373,7 +373,6 @@ func _beat_team_phase(ev: Dictionary) -> Dictionary:
 			uv.set_guard(false)
 	if turn == 1 and concealed:
 		view.hud.banner("SQUAD CONCEALED", Palette.STEALTH)
-		view.hud.toast("Unseen. Stay out of the red ground and hold fire to stay hidden")
 		_sfx("sting_squad", -4.0)
 		return {"dur": 1.4}
 	if turn == 1 and not Concealment.used(view.state) and not view.state.encounter.is_empty():
