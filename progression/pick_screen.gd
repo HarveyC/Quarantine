@@ -19,6 +19,8 @@ const CARD_W := 250.0
 const CARD_H := 460.0
 const HERO_W := 330.0
 const MAX_W := 1380.0
+## Headroom above the soldier strip for the lit tab's glow (primary button glow is 16 px, 22 on hover).
+const STRIP_GLOW := 24
 
 var run: RunState
 var session
@@ -86,7 +88,11 @@ func rebuild() -> void:
 			cur = w
 	_sel = cur[1].id
 	if waiting.size() > 1:
-		_list.add_child(_strip(waiting))
+		# The scroll box clips, so leave room above the strip for the lit tab's glow.
+		var pad := MarginContainer.new()
+		pad.add_theme_constant_override("margin_top", STRIP_GLOW)
+		pad.add_child(_strip(waiting))
+		_list.add_child(pad)
 	var main := Styles.hbox(18)
 	main.alignment = BoxContainer.ALIGNMENT_CENTER
 	main.add_child(_hero(cur[0], cur[1]))

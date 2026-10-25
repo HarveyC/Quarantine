@@ -170,7 +170,12 @@ func footer(note: String, can_leave := true, leave_text := "Leave") -> Control:
 		b.custom_minimum_size = Vector2(220, 50)
 		b.pressed.connect(submit.bind({"type": "node_leave", "player": p}))
 		row.add_child(b)
-	return row
+	# The scroll box clips, so keep the leave buttons' glow clear of its right and bottom edges.
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_right", 22)
+	pad.add_theme_constant_override("margin_bottom", 22)
+	pad.add_child(row)
+	return pad
 
 
 ## A teammate's state in the footer: their colour, name and a check once they're done.
