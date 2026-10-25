@@ -28,6 +28,8 @@ static func for_action(a: Dictionary) -> String:
 			return "overwatch"
 		"hunker":
 			return "hunker"
+		"struggle":
+			return "pinned"
 	return ABILITY_ICON.get(str(a.get("id", "")), "ability")
 
 

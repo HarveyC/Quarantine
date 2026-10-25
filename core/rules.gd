@@ -90,6 +90,8 @@ static func validate(s: GameState, action: Dictionary) -> String:
 	var u := s.get_unit(action.get("unit", -1))
 	if u == null or not u.is_alive():
 		return "No such unit"
+	if action.get("type") == Types.STRUGGLE:
+		return Encounter.validate_struggle(s, u)
 	if u.actions_left <= 0:
 		return "No actions left"
 	var blocked := Encounter.validate(s, u, action)
@@ -114,6 +116,10 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		s.emit({"type": "rejected", "action": action, "reason": err})
 		return false
 	var u := s.get_unit(action.unit)
+	if action.type == Types.STRUGGLE:
+		Encounter.struggle(s, u)
+		Vision.refresh(s)
+		return true
 	_expose_attacker(s, u, action)
 	if action.type == Types.ABILITY and EnemyAbilities.handles(str(action.ability)):
 		EnemyAbilities.apply(s, u, action)
@@ -146,10 +152,11 @@ static func action_losses(s: GameState, u: Unit) -> Array[Dictionary]:
 	if u.status.has("pinned_by"):
 		var l := s.get_unit(int(u.status.pinned_by))
 		var who := l.display_name if l != null and l.display_name != "" else "a Lurker"
-		var left := Encounter.pin_turns_left(s, u)
+		var tried: bool = u.status.get("struggled", -1) == s.turn
 		out.append({"key": "pinned", "icon": "pinned", "title": "Pinned", "lost": Types.ACTIONS_PER_TURN,
-			"text": "Pinned by %s: can't act. Breaks free %s, or as soon as a teammate hits it." % [
-				who, "next turn" if left <= 1 else "in %d turns" % left]})
+			"text": "Pinned by %s: can't act. %s, or a teammate hitting it frees them." % [who,
+				"Struggled this turn and failed, try again next turn" if tried
+				else "Struggle for a %d%% chance to break free" % Encounter.STRUGGLE_CHANCE]})
 	if s.phase != Types.Phase.TEAM:
 		return out
 	if s.turn == 1 and u.status.get("first_turn_action_loss", false):

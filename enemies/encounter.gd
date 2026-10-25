@@ -30,7 +30,7 @@ const REGEN := 3
 const FRENZY_MOB := 2
 const FRENZY_AIM := 10
 const PERMANENT := 1 << 20
-const PIN_TURNS := 2             # team phases a Lurker pin holds before the soldier shakes it off
+const STRUGGLE_CHANCE := 50      # % a pinned soldier's Struggle throws the Lurker off
 
 
 # --- setup ---------------------------------------------------------------------------------
@@ -244,12 +244,33 @@ static func check_pins(s: GameState) -> void:
 			release_pin(s, l, "stunned")
 
 
-## Team phases `u` has left before it shakes off a Lurker pin on its own (0 if not pinned).
-static func pin_turns_left(s: GameState, u: Unit) -> int:
+## Whether `u` may Struggle now: "" if so, else why not. Pinned soldiers have no actions, so
+## this is checked instead of the action count.
+static func validate_struggle(s: GameState, u: Unit) -> String:
+	if s.phase != Types.Phase.TEAM:
+		return "Not your turn"
+	if u.team != Types.Team.PLAYER or u.ai_controlled:
+		return "Can't struggle"
 	if not u.status.has("pinned_by"):
-		return 0
-	var at := int(u.status.get("pinned_at", s.turn))
-	return maxi(1, at + PIN_TURNS + 1 - s.turn)
+		return "Not pinned"
+	if u.status.get("struggled", -1) == s.turn:
+		return "Already struggled this turn"
+	return ""
+
+
+## Struggle: one roll per turn to throw the Lurker off. Free or not, the turn is spent.
+static func struggle(s: GameState, u: Unit) -> void:
+	var l := s.get_unit(int(u.status.pinned_by))
+	u.status["struggled"] = s.turn
+	var freed := l == null or s.rng.randi_range(1, 100) <= STRUGGLE_CHANCE
+	s.emit({"type": "struggle", "unit": u.id, "by": l.id if l != null else -1, "freed": freed})
+	if not freed:
+		return
+	if l != null:
+		release_pin(s, l, "struggle")
+	else:
+		u.status.erase("pinned_by")
+		u.status.erase("pinned_at")
 
 
 ## Removes a unit without damage (boss death clears the adds).
@@ -267,7 +288,7 @@ static func kill(s: GameState, u: Unit) -> void:
 ## Extra legality checks, run by Rules.validate before module dispatch. "" = allowed.
 static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	if u.status.has("pinned_by"):
-		return "Pinned by a Lurker"
+		return "Pinned by a Lurker: Struggle or wait for a teammate"
 	if action.has("target"):
 		var t := s.get_unit(action.get("target", -1))
 		if t != null and t.status.get("hidden", false) and u.is_enemy_of(t):
@@ -301,8 +322,6 @@ static func on_team_phase_start(s: GameState) -> void:
 			if l == null or not l.is_alive():
 				u.status.erase("pinned_by")
 				u.status.erase("pinned_at")
-			elif s.turn > int(u.status.get("pinned_at", s.turn)) + PIN_TURNS:
-				release_pin(s, l, "broke_free")   # held long enough: shakes it off and acts
 			else:
 				u.actions_left = 0
 	if s.encounter.get("lapse_double", false):

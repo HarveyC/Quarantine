@@ -189,7 +189,7 @@ func _pinned(s: GameState) -> Array:
 	return [a, b, l]
 
 
-func test_pinned_soldier_breaks_free_after_pin_turns() -> void:
+func test_pinned_soldier_can_struggle_once_a_turn() -> void:
 	var s := make_blank(_open(14, 3))
 	var p := _pinned(s)
 	var b: Unit = p[1]
@@ -198,21 +198,51 @@ func test_pinned_soldier_breaks_free_after_pin_turns() -> void:
 	l.max_hp = 999
 	b.hp = 999
 	b.max_hp = 999
-	for i in Encounter.PIN_TURNS:
+	var tries := 0
+	var freed := false
+	while not freed and tries < 30:
 		Rules.start_team_phase(s)
-		assert_eq(b.actions_left, 0, "still pinned on team phase %d" % (i + 1))
-		assert_true(not Rules.action_losses(s, b).is_empty(), "the HUD has a reason")
-		assert_eq(str(Rules.action_losses(s, b)[0].key), "pinned", "the reason is the pin")
-		# The squad readies without touching the lurker; its turn mauls again.
-		s.phase = Types.Phase.TEAM
-		_enemy_turn(s, l)
-	Rules.start_team_phase(s)
-	assert_true(not b.status.has("pinned_by"), "shakes it off after %d turns" % Encounter.PIN_TURNS)
+		assert_eq(b.actions_left, 0, "pinned soldiers have no actions")
+		assert_eq(Rules.validate(s, {"type": Types.MOVE, "unit": b.id, "to": b.pos + Vector2i(-1, 0)}), "No actions left", "can't move")
+		assert_eq(Rules.validate(s, {"type": Types.STRUGGLE, "unit": b.id}), "", "can struggle")
+		assert_true(Rules.apply(s, {"type": Types.STRUGGLE, "unit": b.id}), "struggle applies")
+		tries += 1
+		freed = not b.status.has("pinned_by")
+		if not freed:
+			assert_true(Rules.validate(s, {"type": Types.STRUGGLE, "unit": b.id}) != "", "once a turn")
+			assert_true(str(Rules.action_losses(s, b)[0].text).contains("failed"), "the HUD says it failed")
+			s.phase = Types.Phase.TEAM
+			_enemy_turn(s, l)
+	assert_true(freed, "a 50% struggle frees them within 30 turns")
 	assert_true(not l.status.has("pinning"), "the lurker lets go")
-	assert_eq(b.actions_left, Types.ACTIONS_PER_TURN, "acts normally again")
+	assert_eq(_events(s, "struggle").size(), tries, "one struggle event per try")
+	assert_true(_events(s, "struggle")[-1].freed, "the last one freed them")
+	assert_eq(_events(s, "released")[-1].get("why", ""), "struggle", "released by struggling")
+	assert_eq(b.actions_left, 0, "struggling spends the turn")
+	Rules.start_team_phase(s)
+	assert_eq(b.actions_left, Types.ACTIONS_PER_TURN, "acts normally next turn")
 	assert_true(Rules.action_losses(s, b).is_empty(), "nothing to explain")
-	var rel := _events(s, "released")
-	assert_true(not rel.is_empty() and rel[-1].get("why", "") == "broke_free", "broke free event")
+
+
+func test_struggle_rolls_match_the_chance() -> void:
+	var freed := 0
+	for seed in 200:
+		var s := make_blank(_open(14, 3), seed + 1)
+		var p := _pinned(s)
+		s.phase = Types.Phase.TEAM
+		Rules.apply(s, {"type": Types.STRUGGLE, "unit": p[1].id})
+		if not p[1].status.has("pinned_by"):
+			freed += 1
+	assert_true(freed > 70 and freed < 130, "about %d%% break free (%d / 200)" % [Encounter.STRUGGLE_CHANCE, freed])
+
+
+func test_only_pinned_soldiers_struggle() -> void:
+	var s := make_blank(_open(14, 3))
+	var p := _pinned(s)
+	s.phase = Types.Phase.TEAM
+	assert_eq(Rules.validate(s, {"type": Types.STRUGGLE, "unit": p[0].id}), "Not pinned", "free soldier")
+	s.phase = Types.Phase.ENEMY
+	assert_true(Rules.validate(s, {"type": Types.STRUGGLE, "unit": p[1].id}) != "", "not in the enemy phase")
 
 
 func test_pin_breaks_when_lurker_is_knocked_away() -> void:
@@ -246,7 +276,8 @@ func test_pin_hud_reason_names_the_lurker() -> void:
 	assert_eq(why.size(), 1, "one reason")
 	assert_eq(str(why[0].title), "Pinned", "corner word")
 	assert_eq(str(why[0].icon), "pinned", "icon")
-	assert_true(str(why[0].text).contains("Lurker") and str(why[0].text).contains("teammate"), "says who and how to free")
+	assert_true(str(why[0].text).contains("Lurker") and str(why[0].text).contains("teammate") \
+		and str(why[0].text).contains("Struggle"), "says who and how to get free")
 	assert_true(Glossary.has("pinned"), "glossary term for the hover card")
 	assert_eq(Glossary.find("Pinned"), "pinned", "the word Pinned means the Lurker pin, not suppression")
 	assert_true(Rules.action_losses(s, p[0]).is_empty(), "the free soldier has nothing to explain")
