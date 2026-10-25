@@ -109,7 +109,7 @@ func _head_marker(uv: Node3D) -> Node3D:
 ## near black; the glowing eyes are separate meshes and stay lit.
 func _patch_shader() -> void:
 	var sh := load("res://view/character.gdshader") as Shader
-	var amt := "0.97" if _opt == "shade" else "0.78"
+	var amt := "1.0" if _opt == "shade" else "0.78"
 	var code := sh.code
 	code = code.replace("uniform bool textured = false;", "uniform bool textured = false;\nuniform float face_dark = 1.0;")
 	code = code.replace("		NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), texture(normal_tex, UV).rgb, bare);", """		float fdp = face_dark * smoothstep(1.50, 1.57, obj_pos.z) * smoothstep(0.03, -0.04, obj_pos.y);
@@ -119,4 +119,5 @@ func _patch_shader() -> void:
 	float fd = face_dark * fd_head * fd_front * max(skin, skin_all);
 	col *= 1.0 - fd * %s;
 	ALBEDO = col;""" % amt)
+	code = code.replace("	EMISSION = emit;", "	EMISSION = emit * (1.0 - fd);\n	SPECULAR = 1.0 - fd;")
 	sh.code = code

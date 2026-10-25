@@ -35,6 +35,7 @@ from mathutils import Matrix, Vector  # noqa: E402
 ROOT = G.ROOT
 OUT = os.path.join(ROOT, "assets", "characters")
 SRC = os.path.expanduser("~/cc0/x")
+FACELESS = os.environ.get("FACELESS", "1") == "1"
 UBC = "Quaternius_UniversalBaseCharacters_Standard/Universal Base Characters[Standard]/Base Characters/Godot - UE/"
 UAL1 = "Quaternius_UniversalAnimationLibrary_Standard/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb"
 UAL2 = "Quaternius_UniversalAnimationLibrary2_Standard/Universal Animation Library 2[Standard]/Unreal-Godot/UAL2_Standard.glb"
@@ -613,10 +614,45 @@ def _h(p, n=4):
     return int(abs(math.sin(p.x * 91.7 + p.y * 47.3 + p.z * 13.1) * 43758.5)) % n
 
 
+def _smooth(a, b, x):
+    t = min(1.0, max(0.0, (x - a) / (b - a)))
+    return t * t * (3 - 2 * t)
+
+
+def faceless(r, slit=True):
+    """Smooths the stock face away: the front of the head becomes a blank egg (no nose, lips,
+    brows or eye sockets), so nothing human looks back. The shader's face_dark then shadows
+    the skin; `slit` adds one glowing band across the eye line."""
+    ob = r.body()
+    me = ob.data
+    mw = ob.matrix_world
+    inv = mw.inverted()
+    c = Vector((0.0, 0.004, 1.705))
+    rad = Vector((0.092, 0.099, 0.125))
+    for v in me.vertices:
+        w = mw @ v.co
+        d = w - c
+        if w.z < 1.60 or w.z > 1.82 or d.y > 0.03 or abs(d.x) > 0.085:
+            continue
+        wt = _smooth(1.585, 1.625, w.z) * _smooth(0.03, -0.01, d.y) * _smooth(0.085, 0.07, abs(d.x))
+        if wt <= 0.0:
+            continue
+        L = math.sqrt((d.x / rad.x) ** 2 + (d.y / rad.y) ** 2 + (d.z / rad.z) ** 2)
+        if L < 1e-4:
+            continue
+        v.co = inv @ (w + (c + d / L - w) * wt)
+    me.update()
+    r.drop_meshes("Eyes", "Eyebrows", "Hair")
+    if slit:
+        r.add("Head", G.box((0.12, 0.012, 0.009), (0, -0.094, 1.727), 0.003), "glow", "slit")
+
+
 def infected(r, rags=True, claws=True, k=1.0):
     """Shared look of a turned civilian: glowing eyes, torn rags, claws. `k` scales the
     landmarks for the smaller female body."""
     r.drop_meshes("Eyebrows", "Hair")
+    if FACELESS:
+        faceless(r)
     for o in bpy.data.objects:
         if o.type == "MESH" and o.name.startswith("Eyes"):
             o.data.materials.clear()
