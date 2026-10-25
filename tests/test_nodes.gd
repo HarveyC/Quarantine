@@ -216,7 +216,7 @@ func test_sealed_armoury_volunteer_hurts() -> void:
 	NodeRules.enter(run, "event", "sealed_armoury")
 	assert_eq(run.node_state.step, "door", "no breacher")
 	_choose(run, 0, "force", 1)
-	assert_eq(run.get_soldier(1).hp, 4, "trooper 7 HP loses 30% (3)")
+	assert_eq(run.get_soldier(1).hp, 6, "trooper 9 HP loses 30% (3)")
 	assert_eq(run.node_state.step, "loot", "then loot")
 
 

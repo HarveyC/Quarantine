@@ -14,7 +14,7 @@ const LEVELS: Array[Dictionary] = [
 	{"name": "Hot zone", "rule": "The run starts at Outbreak 3", "icon": "outbreak"},
 	{"name": "Price gouging", "rule": "Depot prices +15%", "icon": "depot"},
 	{"name": "Short rations", "rule": "Start with 30 Supplies instead of 60", "icon": "supplies"},
-	{"name": "Thin medicine", "rule": "Heal 15% after fights instead of 25%", "icon": "hospital"},
+	{"name": "Thin medicine", "rule": "Heal 15% after fights instead of 35%", "icon": "hospital"},
 	{"name": "Swollen hosts", "rule": "Bosses have 25% more health", "icon": "boss"},
 	{"name": "Lean pickings", "rule": "Fights pay 25% fewer Supplies", "icon": "supplies"},
 	{"name": "No reserves", "rule": "Nobody starts with a reserve recruit", "icon": "survivors"},

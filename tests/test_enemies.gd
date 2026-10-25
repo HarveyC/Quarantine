@@ -155,7 +155,9 @@ func test_brute_armour_reduces_damage() -> void:
 	assert_eq(br.hp, 7, "armour 1")
 	var el := _enemy(s, "brute!armoured", Vector2i(4, 2))
 	Rules.deal_damage(s, el, 2, t)
-	assert_eq(el.hp, 19, "armoured + armour, min 1")
+	assert_eq(el.hp, 19, "armoured, min 1")
+	Rules.deal_damage(s, el, 5, t)
+	assert_eq(el.hp, 16, "Armoured replaces the Brute's own armour instead of stacking")
 
 
 # --- lurker -------------------------------------------------------------------------------
@@ -372,7 +374,10 @@ func test_hive_node_spawns_runners() -> void:
 	assert_eq(_events(s, "spawned").size(), 1, "spawns on turn 2")
 	s.turn = 4
 	Encounter.on_enemy_phase_start(s)
-	assert_eq(_events(s, "spawned").size(), 2, "every 2 turns")
+	assert_eq(_events(s, "spawned").size(), 1, "not again on turn 4")
+	s.turn = 5
+	Encounter.on_enemy_phase_start(s)
+	assert_eq(_events(s, "spawned").size(), 2, "every 3 turns")
 	assert_true(EnemyAI.is_alerted(s.get_unit(_events(s, "spawned")[0].unit)), "spawn is alerted")
 	assert_true(hive.is_alive(), "node alive")
 

@@ -242,7 +242,7 @@ const STARTER_CHARGES := 1
 ## Squad-wide passives voted on after each act boss (stored in run.modifiers.doctrines).
 const DOCTRINES := {
 	"buddy_system": {"name": "Buddy system", "desc": "+10 aim while next to a teammate"},
-	"field_rations": {"name": "Field rations", "desc": "Heal 40% after fights instead of 25%"},
+	"field_rations": {"name": "Field rations", "desc": "Heal 50% after fights instead of 35%"},
 	"quartermaster": {"name": "Quartermaster", "desc": "Depot prices -15%"},
 	"hazard_pay": {"name": "Hazard pay", "desc": "+10 Supplies per fight"},
 	"spore_filters": {"name": "Spore filters", "desc": "-25% Infection from spore zones"},

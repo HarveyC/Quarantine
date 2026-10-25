@@ -28,6 +28,9 @@ static func play_player(s: GameState, player: int) -> void:
 
 
 static func play_soldier(s: GameState, u: Unit) -> void:
+	var struggle := {"type": Types.STRUGGLE, "unit": u.id}
+	if Rules.validate(s, struggle) == "":
+		Rules.apply(s, struggle)   # a pinned soldier always tries to throw the Lurker off
 	for step in 6:
 		if not u.is_alive() or u.actions_left <= 0 or s.phase != Types.Phase.TEAM:
 			return
@@ -186,8 +189,12 @@ static func _shot_value(s: GameState, u: Unit, t: Unit, from: Vector2i) -> float
 		v += p * 1.5
 	if _immune(s, t):
 		return 0.01
-	if _is_tether(s, t):
+	if t.status.has("pinning"):
+		v = v * 2.0 + 2.0   # any hit frees the pinned squadmate
+	elif _is_tether(s, t):
 		v = v * 2.0 + 1.0
+	elif t.status.has("spawner"):
+		v = v * 1.5 + 0.5   # nests, hive nodes and sacs keep spawning: worth clearing
 	elif EnemyRoster.is_static(t):
 		v *= 0.6
 	return v

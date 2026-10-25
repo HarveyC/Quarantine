@@ -27,7 +27,7 @@ const ACTION_TYPES: Array[String] = ["gear_pick", "gear_doctrine", "gear_stash_t
 ## Odds (percent) that a gun card from act 2 on is Rare rather than Uncommon.
 const RARE_GUN_CHANCE := 35
 const HAZARD_PAY := 10
-const FIELD_RATIONS_HEAL := 0.4
+const FIELD_RATIONS_HEAL := 0.5
 
 
 # --- Run access (works on an object or a Dictionary) -------------------------------------
