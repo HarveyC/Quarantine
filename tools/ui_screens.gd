@@ -25,7 +25,7 @@ static func _screens() -> Array[String]:
 	var out: Array[String] = ["title", "lobby", "solo-lobby", "hotseat-lobby", "sound", "map", "map_start", "event", "depot", "hospital",
 		"survivors", "reward", "loadout", "doctrine", "kit", "rankup", "rankup_reward", "hud", "aim", "quick", "debrief", "lost",
 		"runend", "pause", "settings_graphics", "settings_audio", "settings_gameplay", "settings_accessibility",
-		"settings_controls", "hq_unlocks", "hq_severity", "hq_record", "hq_achievements", "archive", "story",
+		"settings_controls", "depot_grafts", "hospital_grafts", "reward_grafts", "loadout_grafts", "hq_unlocks", "hq_severity", "hq_record", "hq_achievements", "archive", "story",
 		"ending_vote", "offer_training"]
 	for i in TutorialScript.STEPS.size():
 		out.append("training:%d" % i)
@@ -117,7 +117,7 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 				for i in 4:
 					await tree.process_frame
 				view._map.set_hover(run.reachable_nodes()[0])
-		"event", "depot", "hospital", "survivors":
+		"event", "depot", "hospital", "survivors", "depot_grafts", "hospital_grafts":
 			var run := RunRules.new_run(players, 31)
 			GearRun.init_run(run)
 			RunRules.start_run(run)
@@ -135,11 +135,16 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 					RunAccess.add_random_mutation(run, r)
 				if i % 4 == 0:
 					Loadout.equip(run, r, GearData.items_with("", "uncommon", "armor")[0])
-			NodeRules.enter(run, screen, "the_trial" if screen == "event" else "")
-			_full_screen(root, NodeRules.screen(screen).new(), run)
-		"reward", "loadout", "doctrine", "kit":
+			var kind := screen.trim_suffix("_grafts")
+			if kind != screen:   # Act 2, Rank 3: Refit and Amputate on offer
+				run.act = 2
+				GearDemo._graft_squad(run.squad())
+				run.squad()[0].prog.grafts["arm"] = "bloom_limb"
+			NodeRules.enter(run, kind, "the_trial" if screen == "event" else "")
+			_full_screen(root, NodeRules.screen(kind).new(), run)
+		"reward", "loadout", "doctrine", "kit", "reward_grafts", "loadout_grafts":
 			var run := GearDemo.make_run(screen)
-			var ctl: Control = (GearRun.loadout_screen() if screen == "loadout" else GearRun.reward_screen()).new()
+			var ctl: Control = (GearRun.loadout_screen() if screen.begins_with("loadout") else GearRun.reward_screen()).new()
 			_full_screen(root, ctl, run)
 		"rankup", "rankup_reward":
 			var run := RunRules.new_run(players, 81)

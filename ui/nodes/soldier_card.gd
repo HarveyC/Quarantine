@@ -1,13 +1,14 @@
 extends VBoxContainer
 ## One soldier's state at a glance, for the node screens: portrait with the Infection ring,
 ## name, class and rank, HP pips, the Infection bar and tier, mutations (dormant ones dimmed)
-## and key gear. `show_delta` overlays what a hovered choice would do (EventRules.preview /
+## and key gear, plus the graft body diagram once grafts are open. `show_delta` overlays what a hovered choice would do (EventRules.preview /
 ## FieldHospital.preview shape): ghost pips and arcs, "30 > 45" with the tier it lands in,
 ## incoming or purged mutations and gear. No frame; SquadPanel and the hospital wrap it.
 
 const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 const Tips := preload("res://ui/tips/tips.gd")
+const GraftFigure := preload("res://ui/graft_figure.gd")
 
 var run: RunState
 var session
@@ -56,6 +57,13 @@ func _build() -> void:
 		sub += " · " + NodeUi.player_name(session, rec.owner)
 	names.add_child(NodeUi.label(sub, 13, NodeUi.DIM))
 	head.add_child(names)
+	var grafts := Grafts.of(rec)
+	var incoming: String = delta.get("graft", "")
+	if not grafts.is_empty() or incoming != "" or Grafts.eligible(run, rec):
+		var fig := GraftFigure.new(Vector2(30, 46) if compact else Vector2(36, 54))
+		fig.setup(grafts, incoming)
+		fig.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head.add_child(fig)
 	var rank := NodeUi.chip("rank", str(rec.get("prog", {}).get("rank", 1)), NodeUi.DIM, 13)
 	rank.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	Tips.term(rank, "rank")

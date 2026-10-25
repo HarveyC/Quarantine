@@ -11,7 +11,8 @@ const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "b
 	"item:suppressant_shot": "purge", "item:recon_drone": "drone", "gear:flare_launcher": "tag",
 	"gear:concussion_launcher": "suppress", "gear:thermite_charge": "incinerate", "gear:med_injector": "purge",
 	"gear:adrenal_pump": "mutation", "gear:deployable_cover": "cover_half", "gear:grapple": "move",
-	"gear:containment_emitter": "cure", "gear:sentry_turret": "overwatch", "item:containment_foam": "lock"}
+	"gear:containment_emitter": "cure", "gear:sentry_turret": "overwatch", "item:containment_foam": "lock",
+	"bloom_claw": "bloom_claw", "runner_leap": "runner_leap"}
 
 
 static func for_class(kind: String) -> String:
@@ -542,5 +543,28 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 				var p1 := Vector2(12, 12) + Vector2(cos(a + 0.35), sin(a + 0.35)) * 8.5
 				line.call([[p0.x, p0.y], [p1.x, p1.y]])
 				dot.call(p1.x, p1.y, 1.4)
+		"refit", "graft":   # a hex bolt head in a spanner's jaw
+			line.call([[12, 7], [16.3, 9.5], [16.3, 14.5], [12, 17], [7.7, 14.5], [7.7, 9.5], [12, 7]])
+			circle.call(12, 12, 1.8)
+			line.call([[17, 4], [20, 7]])
+			line.call([[18.5, 5.5], [21, 3]])
+			line.call([[4, 17], [7, 20]])
+			line.call([[3, 21], [5.5, 18.5]])
+		"amputate":   # a limb cut across, the cut line dashed
+			line.call([[5, 20], [10, 13]])
+			line.call([[14, 9], [19, 4]])
+			line.call([[3, 18], [7, 22]])
+			line.call([[12, 7], [16, 11]])
+			for i in 4:
+				dot.call(6 + i * 4, 15 - i * 2, 1.0)
+		"bloom_claw":   # three hooked claws raking down
+			for i in 3:
+				var x := 6.0 + i * 5.0
+				line.call([[x, 3], [x + 2, 10], [x + 1, 17], [x - 2, 21]])
+			dot.call(11, 3, 1.2)
+		"runner_leap":   # a jump arc over a low wall
+			arc.call(12, 17, 8, PI, TAU)
+			line.call([[17, 9], [20, 17], [22, 13]])
+			line.call([[10, 21], [14, 21], [14, 17], [10, 17], [10, 21]])
 		_:
 			circle.call(12, 12, 8)

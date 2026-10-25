@@ -560,6 +560,10 @@ static func mutation_cost(s: GameState, u: Unit, cost: int) -> int:
 
 # --- Gadgets and pocket items as abilities ---------------------------------------------
 
+## Thrown pocket items: a Servo arm graft throws them further.
+const THROWN := ["frag_grenade", "flashbang", "smoke_grenade"]
+
+
 static func owns(id: String) -> bool:
 	return id.begins_with("gear:") or id.begins_with("item:")
 
@@ -573,7 +577,8 @@ static func _def(u: Unit, id: String) -> Dictionary:
 			"range": g.get("range", 1.5), "name": GearData.item_name(key), "desc": GearData.desc(key, m)}
 	if id.begins_with("item:") and CONSUMABLE_USE.has(key) and charges(u, key) > 0:
 		var c: Dictionary = CONSUMABLE_USE[key]
-		return {"targeting": c.targeting, "cost": c.cost, "uses": 0, "cooldown": 0, "range": c.get("range", 1.5),
+		var reach: float = c.get("range", 1.5) + (Grafts.throw_bonus(u) if key in THROWN else 0.0)
+		return {"targeting": c.targeting, "cost": c.cost, "uses": 0, "cooldown": 0, "range": reach,
 			"name": "%s ×%d" % [GearData.item_name(key), charges(u, key)], "desc": GearData.desc(key)}
 	return {}
 

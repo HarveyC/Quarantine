@@ -276,7 +276,7 @@ func _update_hover(force: bool) -> void:
 	var u := selected_unit()
 	if u != null and can_act() and c != NO_CELL:
 		if mode == Mode.MOVE and _reach.has(c):
-			var path := view.state.grid.find_path(u.pos, c, view.state.occupied(u.id))
+			var path := view.state.grid.find_path(u.pos, c, view.state.occupied(u.id), false, Grafts.climbs(u))
 			view.board.show_path(path, spotted_step(path))
 			view.board.show_cover(c, view.state.grid.cover_sides(c))
 		elif mode == Mode.TARGET_CELL:

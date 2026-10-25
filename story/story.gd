@@ -18,6 +18,7 @@ const ECHOES_PER_RUN := 2
 const ECHO_AFTER: Array[int] = [1, 4]
 const ECHO_SUPPLIES := 15
 const ECHO_HP_MULT := 2
+const ECHO_BLOOM_HP := 2
 const CRITICAL := 75
 
 
@@ -32,7 +33,7 @@ static func init_run(run: RunState) -> void:
 			break
 		if UnitData.SOLDIERS.has(e.get("kind", "")):
 			echoes.append({"key": e.key, "kind": e.kind, "name": e.name, "wave": e.get("wave", 0),
-				"met": false, "laid": false})
+				"met": false, "laid": false, "grafts": e.get("grafts", {})})
 	run.story = {
 		"wave": snap.get("wave", StoryData.FIRST_WAVE), "runs": snap.get("runs", 0),
 		"last_result": snap.get("last_result", ""), "last_ending": snap.get("last_ending", ""),
@@ -79,12 +80,27 @@ static func setup_echo(s: GameState, echo: Dictionary) -> Unit:
 	u.aim += 10        # the Turned tier passives (Infection.add skips Turned units)
 	u.mobility += 1
 	u.display_name = "Echo %s" % echo.name
+	_wear_grafts(u, echo.get("grafts", {}))
 	var spawns: Array = s.grid.enemy_spawns
 	var spawn: Vector2i = spawns[s.units.size() % spawns.size()] if not spawns.is_empty() else Vector2i.ZERO
 	if s.unit_at(spawn) != null or not s.grid.is_walkable(spawn):
 		spawn = Rules._nearest_free(s, spawn)
 	s.add_unit(u, spawn)
 	return u
+
+
+## An Echo comes back wearing its grafts (the model shows them): every Bloom part makes it a
+## worse elite (+2 HP, +1 damage), every Machine part a broken, sparking shell (-1 move).
+static func _wear_grafts(u: Unit, grafts: Dictionary) -> void:
+	if grafts.is_empty():
+		return
+	u.status["grafts"] = grafts.duplicate()
+	var bloom := Grafts.count(grafts, GraftData.BLOOM)
+	var machine := Grafts.count(grafts, GraftData.MACHINE)
+	u.max_hp += ECHO_BLOOM_HP * bloom
+	u.hp = u.max_hp
+	u.damage += Vector2i(bloom, bloom)
+	u.mobility = maxi(2, u.mobility - machine)
 
 
 ## Keys of the Echoes killed in a finished fight (RunRules.fight_outcome adds them).

@@ -1,8 +1,8 @@
 class_name Depot
 extends RefCounted
 ## Supply depot: an 8-slot shop paid from shared Supplies (design doc, Economy and rewards).
-## Stock: 2 gear, 1 alternate gun, 3 consumables, 1 Serum dose and 1 service (recruit, Scar
-## removal or Armorer).
+## Stock: 2 gear, 1 alternate gun, 3 consumables, 1 Serum dose, a Machine graft from Act 2 (when a
+## soldier can take one) and 1 service (recruit, Scar removal or Armorer).
 ## Anyone buys for their own soldiers; there is no vote. OWNER: nodes workstream.
 
 const SERUM_PRICE := 50
@@ -23,6 +23,9 @@ static func enter(run) -> Dictionary:
 	run.node_state = ns
 	_roll_goods(run, ns)
 	ns.stock.append({"type": "serum", "id": "serum", "price": SERUM_PRICE, "sold": false})
+	var refit := _roll_refit(run)
+	if refit != "":
+		ns.stock.append({"type": "graft", "id": refit, "price": GraftData.REFIT_PRICE, "sold": false})
 	ns.stock.append({"type": "service", "id": _roll_service(run), "price": 0, "sold": false})
 	RunAccess.emit(run, {"type": "depot_open", "stock": ns.stock.duplicate(true)})
 	return ns
@@ -51,7 +54,7 @@ static func _roll_goods(run, ns: Dictionary) -> void:
 	for i in CONSUMABLE_SLOTS:
 		var id: String = ids.pop_at(run.rng.randi_range(0, ids.size() - 1))
 		goods.append({"type": "consumable", "id": id, "price": GearData.price(id), "sold": false})
-	var kept: Array = ns.stock.filter(func(e): return e.type in ["serum", "service"])
+	var kept: Array = ns.stock.filter(func(e): return e.type in ["serum", "graft", "service"])
 	ns.stock = goods + kept
 
 
@@ -64,6 +67,16 @@ static func _roll_gun(run) -> String:
 	var rec = squad[run.rng.randi_range(0, squad.size() - 1)]
 	var rarity := "rare" if run.act >= 2 and run.rng.randf() < 0.4 else "uncommon"
 	return GearRun.gun_card(run.rng, rec, rarity).get("id", "")
+
+
+## A Machine graft (Refit) for one of the squad's soldiers who can take one: from Act 2, Rank 3.
+## "" when nobody can. Stays through rerolls, like Serum.
+static func _roll_refit(run) -> String:
+	var squad: Array = RunAccess.active_soldiers(run).filter(func(r): return Grafts.eligible(run, r))
+	if squad.is_empty():
+		return ""
+	var rec = squad[run.rng.randi_range(0, squad.size() - 1)]
+	return Grafts.machine_offer(run, rec, "depot%d" % int(run.fights_won))
 
 
 static func _roll_service(run) -> String:
@@ -84,9 +97,12 @@ static func _mult(run) -> float:
 	return (QUARTERMASTER_MULT if RunAccess.has_doctrine(run, "quartermaster") else 1.0) * Severity.depot_mult(run)
 
 
-## What a stock entry costs right now. The Armorer's price depends on the item upgraded.
-static func price_of(run, entry: Dictionary, upgrade_item: String = "") -> int:
+## What a stock entry costs right now. The Armorer's price depends on the item upgraded, a
+## Refit's on the soldier (Hazmat pays less).
+static func price_of(run, entry: Dictionary, upgrade_item: String = "", rec = null) -> int:
 	var base: int = entry.price
+	if entry.type == "graft" and rec != null:
+		base = Grafts.refit_price(rec)
 	if entry.type == "service":
 		match entry.id:
 			"recruit": base = RECRUIT_PRICE
@@ -136,6 +152,12 @@ static func validate(run, ns: Dictionary, action: Dictionary) -> String:
 						return "pick one of your soldiers"
 					if not Loadout.can_add_consumable(rec, entry.id):
 						return "no free pocket"
+				["graft", _]:
+					if rec == null:
+						return "pick one of your soldiers"
+					var why := Grafts.can_take_error(run, rec, entry.id)
+					if why != "":
+						return why
 				["service", "scar"]:
 					if rec == null or rec.scars.is_empty():
 						return "pick a soldier with a Scar"
@@ -148,7 +170,7 @@ static func validate(run, ns: Dictionary, action: Dictionary) -> String:
 					if g.mk >= 2:
 						return "already Mk II"
 					upgrade_item = g.id
-			if run.supplies < price_of(run, entry, upgrade_item):
+			if run.supplies < price_of(run, entry, upgrade_item, rec):
 				return "Not enough Supplies"
 			return ""
 		"node_sell":
@@ -171,7 +193,7 @@ static func apply(run, ns: Dictionary, action: Dictionary) -> void:
 		"node_buy":
 			var entry: Dictionary = ns.stock[action.index]
 			var rec = RunAccess.soldier(run, action.get("soldier", -1))
-			var cost := price_of(run, entry)
+			var cost := price_of(run, entry, "", rec)
 			match [entry.type, entry.id]:
 				["gear", _]:
 					Loadout.equip(run, rec, entry.id)
@@ -179,6 +201,9 @@ static func apply(run, ns: Dictionary, action: Dictionary) -> void:
 					Loadout.add_gun(rec, entry.id)
 				["consumable", _]:
 					Loadout.add_consumable(rec, entry.id)
+				["graft", _]:
+					Grafts.take(rec, entry.id)
+					RunAccess.emit(run, {"type": "soldier_graft", "sid": rec.id, "graft": entry.id})
 				["serum", _]:
 					RunAccess.add_serum(run, player, SERUM_SAMPLES)
 				["service", "recruit"]:

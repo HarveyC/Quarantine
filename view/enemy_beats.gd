@@ -17,7 +17,8 @@ const ELITE_SCALE := 1.2
 
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
-	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell"]
+	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell",
+	"jammed", "slowed"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -123,6 +124,19 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			if uv != null:
 				fx.floating_text(head.call(uv), "LOST THE SHOT", Color(0.8, 0.82, 0.8), 40)
 			return {"dur": 0.3}
+		"jammed":   # a Shrieker's scream through a soldier's Machine grafts
+			if uv != null:
+				fx.floating_text(head.call(uv), "GRAFTS JAMMED", Palette.DANGER, 40)
+				fx.burst(uv.chest_world(), Vector3.UP, Color(0.75, 0.82, 0.86), 10, 2.2, true, 0.03)
+				uv.flash(Color(0.75, 0.82, 0.86))
+			ep._sfx("impact_shock", -6.0)
+			return {"dur": 0.35}
+		"slowed":   # a Heart knot's barbs in a melee attacker
+			if uv != null:
+				fx.floating_text(head.call(uv), "SLOWED", Palette.TEAL, 40)
+				fx.pulse(uv.position, Palette.TEAL)
+			ep._sfx("infect", -8.0)
+			return {"dur": 0.3}
 		"fell":
 			if uv != null:
 				fx.floating_text(head.call(uv), "FELL", Palette.DANGER, 48)
@@ -211,6 +225,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"boss_phase": return "[color=#%s]%s[/color]" % [red, str(ev.get("text", "The boss changes"))]
 		"burrowed": return "%s burrows underground" % who.call("unit")
 		"lock_lost": return "%s loses its target" % who.call("unit")
+		"jammed": return "[color=#%s]%s's Machine grafts jam[/color]" % [red, who.call("unit")]
+		"slowed": return "%s is slowed by %s's Heart knot" % [who.call("unit"), who.call("by")]
 		"fell": return "[color=#%s]%s falls off the ledge (%d)[/color]" % [red, who.call("unit"), int(ev.get("damage", 0))]
 		"boss_defeated": return "[b]%s is defeated[/b]" % name_of.call(int(ev.get("unit", -1)))
 	return ""

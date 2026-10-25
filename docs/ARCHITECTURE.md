@@ -219,6 +219,35 @@ without triggering overwatch; Overgrowth turns empty cells into walls (the view 
 is just the line shape (the AI already avoids fire through Hazards). Spore Sense is live through `Vision.sense_radius`
 (and its double spore Infection in `Hazards`).
 
+### Grafts (progression/grafts.gd, graft_data.gd)
+
+Body-part upgrades from Act 2 and Rank 3 (`GraftData.FROM_ACT`/`FROM_RANK`). Four slots (`head`, `arm`, `chest`,
+`legs`), each holding one Machine Refit or one Bloom part; paths mix freely on one soldier. (Not to be confused with
+"grafting" a mutation, which is the older `prog_graft` action.) The record keeps `prog.grafts` ({slot: id}) and
+`prog.bedding` (a fresh Refit, cleared by `after_fight`).
+
+| Path | Cost | Drawback | Upside |
+|---|---|---|---|
+| Machine Refit | 40 Supplies (Hazmat 25) | -1 move the next fight while it beds in; a Shrieker scream jams it for a turn | -10% Infection gain per part, max -30% |
+| Bloom part | +15 Infection (Vector +10) | Infection floor 10 per part, held through Serum | stronger effects, Strain/Close tags |
+
+- Sources: hospital `refit` and `amputate` treatments (30 Supplies + 3 HP, swaps a Bloom part for that slot's Machine
+  part), one depot `graft` stock entry, a Bloom reward card after a nest fight or a fight ended at 75+ Infection
+  (`Grafts.add_reward_card`, not after a boss), and the Choir stall's "Let it take root" (`bloom_graft` effect op).
+  Offers roll from `run.seed`, the soldier id and a salt, so no offer state is stored.
+- Floor: `Infection.add` and `RunAccess.set_infection` never go below `Grafts.unit_floor` / `record_floor`;
+  `Progression.full_cure` stops at it.
+- Mission: `Grafts.apply_to_unit` stamps `status.grafts` and `graft_bedding`, and grants `bloom_claw` (Bloom limb) and
+  `runner_leap` (Runner legs) through ClassAbilities. Stat effects come in through `Kit.refresh_stats`
+  (`Grafts.stat_mods`); the other hooks are one-liners in Kit, Infection, Hazards, Vision, Combat (Mark length),
+  GearFx (throw range), Rules/Grid (`climb`: Hydraulic legs take ladders for 1 move) and EnemyAbilities (`jam`).
+- Events: `jammed` (`unit`, `screamer`), `slowed` (`unit`, `by`), the two ability events, and the run event
+  `soldier_graft` (`sid`, `graft`, `removed`).
+- Echoes carry their grafts (`run.echoes[].grafts`); each Bloom part is +2 HP and +1 damage, each Machine part -1 move
+  (minimum 2).
+- View: `view/graft_kit.gd` hangs the parts on the soldier skeleton; `ui/graft_figure.gd` is the four-slot body
+  diagram on soldier cards, the hospital, depot, reward card and loadout. `--lineup-mode=grafts` renders them.
+
 ## Equipment (gear/)
 
 Run-level and pure data, like the rules core. Design: "Equipment and builds" in the design doc.

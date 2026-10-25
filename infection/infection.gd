@@ -75,7 +75,10 @@ static func add(s: GameState, u: Unit, amount: int) -> void:
 		if amount == 0:
 			return
 	var before := tier(u.infection)
-	u.infection = clampi(u.infection + amount, 0, MAX)
+	var low := Grafts.unit_floor(u)   # Bloom grafts: Infection never drops below 10 per part
+	if amount < 0 and u.infection <= low:
+		return
+	u.infection = clampi(u.infection + amount, mini(low, u.infection), MAX)
 	var after := tier(u.infection)
 	s.emit({"type": "infection", "unit": u.id, "value": u.infection, "tier": after})
 	if after != before:
@@ -182,7 +185,10 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 		return
 	if source.team != Types.Team.ENEMY or target.team != Types.Team.PLAYER or not target.is_alive():
 		return
-	add(s, target, GearFx.bite_infection(s, target, damage_gain(amount)))
+	var gain := GearFx.bite_infection(s, target, damage_gain(amount))
+	if Grafts.is_spitter(source):
+		gain = Grafts.filtered(s, target, gain)   # Plated ribs
+	add(s, target, gain)
 
 
 ## Infection gained from taking `amount` damage from an Infected.

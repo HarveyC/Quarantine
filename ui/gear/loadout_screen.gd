@@ -1,7 +1,7 @@
 extends Control
 ## Loadout screen (from the map, or during REWARD): squad bar, the selected soldier's guns
 ## (click one to carry it), 4 gear slots and pockets, their tag strip with 3 pips per tag and the set bonuses, and the shared
-## 4-item stash. Drag a stash item onto a slot to equip it (the old item swaps into the stash),
+## 4-item stash, and the soldier's graft body diagram. Drag a stash item onto a slot to equip it (the old item swaps into the stash),
 ## drag a slot onto the stash to store it, or click a stash item then a slot. While dragging or
 ## hovering a stash item, the tag strip previews the change (2→3 in gold) and the slots that
 ## feed that tag light up. Only soldiers a local player controls can be changed.
@@ -11,6 +11,7 @@ signal closed
 const Tips := preload("res://ui/tips/tips.gd")
 const UI := preload("res://ui/gear/gear_ui.gd")
 const W := preload("res://ui/widgets.gd")
+const GraftFigure := preload("res://ui/graft_figure.gd")
 
 var run: RunState
 var session
@@ -25,6 +26,7 @@ var _sub: Label
 var _guns: HBoxContainer
 var _slots: GridContainer
 var _pockets: HBoxContainer
+var _grafts: HBoxContainer
 var _tags: VBoxContainer
 var _stash_row: HBoxContainer
 var _stash_title: Label
@@ -138,6 +140,10 @@ func _build() -> void:
 	_pockets = HBoxContainer.new()
 	_pockets.add_theme_constant_override("separation", 10)
 	left.add_child(_pockets)
+	left.add_child(UI.caps("Grafts", 13, UI.DIM))
+	_grafts = HBoxContainer.new()
+	_grafts.add_theme_constant_override("separation", 18)
+	left.add_child(_grafts)
 	left.add_child(UI.caps("Build", 13, UI.DIM))
 	_build_box = VBoxContainer.new()
 	_build_box.add_theme_constant_override("separation", 4)
@@ -189,7 +195,7 @@ func _refresh() -> void:
 	_build_squad_bar()
 	# Take the old tiles out now: queued for deletion they still count toward the size, and the
 	# FitBox would zoom the next soldier out to fit both. Then fit the new content from full size.
-	for n in [_guns, _slots, _pockets, _tags, _stash_row, _build_box]:
+	for n in [_guns, _slots, _pockets, _grafts, _tags, _stash_row, _build_box]:
 		for c in n.get_children():
 			n.remove_child(c)
 			c.queue_free()
@@ -209,6 +215,7 @@ func _refresh() -> void:
 	var ps := Loadout.pockets(r)
 	for i in ps.size():
 		_pockets.add_child(_pocket_tile(ps[i]))
+	_build_grafts(r)
 	_build_tags(r)
 	_build_stash(r)
 	_build_summary(r)
@@ -491,6 +498,40 @@ func _build_summary(r: Dictionary) -> void:
 	if not d.is_empty():
 		var names := d.map(func(id): return GearData.DOCTRINES.get(id, {}).get("name", id))
 		_build_box.add_child(UI.label("Squad Doctrines: " + ", ".join(names), 14, UI.DIM))
+
+
+## The body diagram and one line per slot: the part's name in its path colour, or open.
+func _build_grafts(r: Dictionary) -> void:
+	var g := Grafts.of(r)
+	var locked := g.is_empty() and Grafts.eligible_error(run, r) not in ["", "Every slot is grafted"]
+	var fig := GraftFigure.new(Vector2(52, 78))
+	fig.setup(g, "", locked)
+	_grafts.add_child(fig)
+	if locked:
+		var why := UI.label("Body grafts open in Act %d, from Rank %d: a Machine Refit at the hospital or depot, or a Bloom part from nests." % [
+			GraftData.FROM_ACT, GraftData.FROM_RANK], 13, UI.FAINT)
+		why.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_grafts.add_child(UI.wrap(why, 420))
+		return
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 4)
+	grid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for slot in GraftData.SLOTS:
+		grid.add_child(UI.caps(GraftData.SLOT_NAMES[slot], 12, UI.FAINT))
+		var id: String = g.get(slot, "")
+		var l := UI.label(GraftData.name_of(id) if id != "" else "Open", 15, GraftFigure.path_color(id) if id != "" else UI.FAINT, "bold" if id != "" else "body")
+		if id != "":
+			l.tooltip_text = GraftData.get_def(id).desc
+			l.mouse_filter = Control.MOUSE_FILTER_PASS
+		grid.add_child(l)
+	_grafts.add_child(grid)
+	var floor_at := Grafts.floor_of(g)
+	if floor_at > 0:
+		var fl := UI.label("Infection floor %d" % floor_at, 13, UI.TEAL)
+		fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_grafts.add_child(fl)
 
 
 func _bonus_line(text: String, col: Color) -> Control:

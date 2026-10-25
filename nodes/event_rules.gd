@@ -167,6 +167,8 @@ static func _eligible_soldiers(run, opt: Dictionary, player: int) -> Array:
 	return RunAccess.soldiers_of(run, player).filter(func(rec):
 		if tr.get("has_mutation", false) and RunAccess.mutations_of(rec).is_empty():
 			return false
+		if tr.get("graft_ready", false) and not Grafts.eligible(run, rec):
+			return false
 		if rec.infection < tr.get("infection_at_least", 0):
 			return false
 		return rec.infection < tr.get("infection_below", 1000))
@@ -455,6 +457,12 @@ static func _run_effects(run, ns: Dictionary, effects: Array, ctx: Dictionary) -
 					var m := RunAccess.add_random_mutation(run, rec)
 					if m != "":
 						ns.results.append("%s gains %s." % [rec.name, RunAccess.mutation_name(m)])
+			"bloom_graft":
+				for rec in _targets(run, ns, e.who, ctx):
+					var g := Grafts.grant_bloom(run, rec)
+					if g != "":
+						RunAccess.emit(run, {"type": "soldier_graft", "sid": rec.id, "graft": g})
+						ns.results.append("%s's %s takes root: %s." % [rec.name, GraftData.SLOT_NAMES[GraftData.slot_of(g)].to_lower(), GraftData.name_of(g)])
 			"remove_mutation":
 				for rec in _targets(run, ns, e.who, ctx):
 					var muts := RunAccess.mutations_of(rec)
@@ -554,7 +562,7 @@ static func _fill(run, ns: Dictionary, text: String, ctx: Dictionary = {}) -> St
 ## What picking option `id` would do to each soldier, without touching the run, for the squad
 ## panel's hover preview: {soldier id: {"infection": new value, "hp": new value, "mutation": +n,
 ## "lose_mutation": n, "perk": n, "items": n, "gun": n, "sit_out": n, "leaves": true,
-## "maybe": true}}. Walks the same effect list as _run_effects; a chance roll previews its
+## "graft": id, "maybe": true}}. Walks the same effect list as _run_effects; a chance roll previews its
 ## hit branch, marked "maybe".
 static func preview(run, ns: Dictionary, id: String, player: int, soldier_id := -1) -> Dictionary:
 	var out := {}
@@ -600,6 +608,12 @@ static func _preview_effects(run, ns: Dictionary, effects: Array, ctx: Dictionar
 							d.mutation = d.get("mutation", 0) + 1
 						"remove_mutation":
 							d.lose_mutation = d.get("lose_mutation", 0) + 1
+						"bloom_graft":
+							var g := Grafts.bloom_offer(run, rec, "event%d" % int(run.fights_won))
+							if g != "":
+								d.graft = g
+								var from: int = d.get("infection", rec.infection)
+								d.infection = mini(RunAccess.MAX_INFECTION_OUT_OF_FIGHT, from + Grafts.bloom_infection(rec))
 						"perk_pick":
 							d.perk = d.get("perk", 0) + 1
 						"item":

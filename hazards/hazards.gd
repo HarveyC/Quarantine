@@ -160,6 +160,8 @@ static func _hit(s: GameState, u: Unit, cell: Vector2i) -> void:
 	var infection: int = k.infection if _takes_infection(u) else 0
 	if h.kind == "spore" and Kit.awake(u, "spore_sense"):
 		infection *= 2   # Spore Sense drawback
+	if h.kind == "spore":
+		infection = Grafts.filtered(s, u, infection)   # Plated ribs
 	var hit := GearFx.hazard_hit(s, u, h, k.damage, infection)  # coats, masks, Scorched earth
 	if hit == Vector2i.ZERO:
 		return

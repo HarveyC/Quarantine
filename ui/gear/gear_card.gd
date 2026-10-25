@@ -1,6 +1,6 @@
 extends PanelContainer
-## One reward card (gear, Prototype, alternate gun, perk, mutation, consumable, cache, or a
-## run-start deployment order bundling several of those). Shows the slot,
+## One reward card (gear, Prototype, alternate gun, perk, mutation, Bloom graft, consumable,
+## cache, or a run-start deployment order bundling several of those). Shows the slot,
 ## rarity and Mk, the tags, the effect, the threshold preview (a tag about to reach 3 glows
 ## gold with the bonus it switches on), and what it replaces. Hover lifts it; selected cards
 ## get an amber frame; Prototypes get a shifting multicolour frame.
@@ -9,6 +9,7 @@ signal pressed
 
 const Tips := preload("res://ui/tips/tips.gd")
 const UI := preload("res://ui/gear/gear_ui.gd")
+const GraftFigure := preload("res://ui/graft_figure.gd")
 const W := 330
 const H := 470
 
@@ -42,9 +43,17 @@ func setup(c: Dictionary, rec: Dictionary, index: int) -> void:
 		"consumable": _build_consumable(v)
 		"cache": _build_cache(v)
 		"order": _build_order(v)
-	var art := Art.new()
-	art.kind = _art_kind()
-	art.color = _art_color()
+		"graft": _build_graft(v)
+	var art: Control
+	if str(c.get("kind", "")) == "graft":
+		# The soldier's body diagram, the offered slot pulsing.
+		var fig := GraftFigure.new()
+		fig.setup(Grafts.of(rec), str(c.id))
+		art = fig
+	else:
+		art = Art.new()
+		art.kind = _art_kind()
+		art.color = _art_color()
 	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	art.custom_minimum_size = Vector2(0, 70)
 	v.add_child(art)
@@ -228,6 +237,22 @@ func _build_power(v: VBoxContainer) -> void:
 			b.add_child(UI.wrap(UI.label("Set bonus: " + GearData.TAG_INFO[t].bonus, 14, UI.AMBER, "bold"), W - 70))
 	if is_mut:
 		v.add_child(UI.wrap(UI.label("Grafting adds Infection. Works only while Infection is at its tier.", 13, UI.TEAL), W - 40))
+
+
+## Bloom graft: the slot it takes, what it does, and what it costs for good.
+func _build_graft(v: VBoxContainer) -> void:
+	var slot: String = GraftData.SLOT_NAMES.get(str(card.get("slot", "")), "")
+	_row(v, UI.label("BLOOM GRAFT", 12, UI.FAINT, "mono"), UI.caps(slot, 13, UI.TEAL))
+	v.add_child(UI.wrap(UI.caps(str(card.get("name", "")), 36), W - 40))
+	var t := GearTags.normalize(str(card.get("tag", "")))
+	if t != "":
+		var tags := HBoxContainer.new()
+		tags.add_child(UI.tag_chip(t))
+		v.add_child(tags)
+	v.add_child(UI.wrap(UI.label(str(card.get("desc", "")), 15, UI.COPY), W - 40))
+	_art_at = v.get_child_count()
+	v.add_child(UI.wrap(UI.label("+%d Infection. For good: Infection can't drop below %d per Bloom part, even with Serum." % [
+		int(card.get("infection", GraftData.BLOOM_INFECTION)), GraftData.FLOOR_PER_PART], 13, UI.TEAL), W - 40))
 
 
 func _build_consumable(v: VBoxContainer) -> void:

@@ -246,7 +246,7 @@ static func run_enemy_phase(s: GameState) -> void:
 
 ## Cells `u` can move to with one move action.
 static func move_range(s: GameState, u: Unit) -> Dictionary:
-	return s.grid.reachable(u.pos, u.mobility, s.occupied(u.id))
+	return s.grid.reachable(u.pos, u.mobility, s.occupied(u.id), false, Grafts.climbs(u))
 
 
 static func _validate_move(s: GameState, u: Unit, to: Vector2i) -> String:
@@ -266,7 +266,7 @@ static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
 ## Spends no actions (a MOVE action costs one; Lunge and Shield Charge move as part of a strike).
 ## A Warden's Guard bash can stop the move short (ClassAbilities.resolve_guards).
 static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
-	var path := s.grid.find_path(u.pos, to, s.occupied(u.id))
+	var path := s.grid.find_path(u.pos, to, s.occupied(u.id), false, Grafts.climbs(u))
 	u.hunkered = false
 	GearFx.on_move(s, u)
 	var segment: Array[Vector2i] = []

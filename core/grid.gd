@@ -430,7 +430,8 @@ func cover_sides(c: Vector2i) -> Dictionary:
 ## ledge (one way, 1 per level dropped, no damage). `ignore_levels` (leapers, flyers) changes level
 ## anywhere for 1. Diagonals never cut a wall corner nor a ledge corner, nor pass any edge.
 ## Edge walls block; vaulting a low wall or a window costs VAULT_COST extra; doorways are free.
-func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_levels := false) -> int:
+## `climb` (Hydraulic legs) takes ladders for a normal step.
+func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_levels := false, climb := false) -> int:
 	var to := from + d
 	if not is_walkable(to) or blocked.has(to):
 		return -1
@@ -453,7 +454,7 @@ func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_lev
 	if absi(rise) == 1 and (is_stairs(from) or is_stairs(to)):
 		return 1 + extra
 	if absi(rise) == 1 and (is_ladder(from) or is_ladder(to)):
-		return LADDER_COST + extra
+		return (1 if climb else LADDER_COST) + extra
 	return -rise + extra if rise < 0 else -1
 
 
@@ -465,16 +466,16 @@ func _can_step(from: Vector2i, d: Vector2i, blocked: Dictionary, ignore_levels :
 ## Cells reachable from `from` within `max_steps` movement (8-way; see step_cost).
 ## `blocked` is a set (Dictionary keys) of occupied cells. Returns {cell: cost}, including `from`.
 ## `ignore_levels` lets the walker change level anywhere (see step_cost).
-func reachable(from: Vector2i, max_steps: int, blocked: Dictionary = {}, ignore_levels := false) -> Dictionary:
-	return _search(from, max_steps, blocked, ignore_levels, Vector2i(-1, -1)).dist
+func reachable(from: Vector2i, max_steps: int, blocked: Dictionary = {}, ignore_levels := false, climb := false) -> Dictionary:
+	return _search(from, max_steps, blocked, ignore_levels, Vector2i(-1, -1), climb).dist
 
 
 ## Cheapest path from `from` to `to`, excluding `from`. Empty if unreachable.
-func find_path(from: Vector2i, to: Vector2i, blocked: Dictionary = {}, ignore_levels := false) -> Array[Vector2i]:
+func find_path(from: Vector2i, to: Vector2i, blocked: Dictionary = {}, ignore_levels := false, climb := false) -> Array[Vector2i]:
 	var path: Array[Vector2i] = []
 	if to == from:
 		return path
-	var r := _search(from, 1 << 20, blocked, ignore_levels, to)
+	var r := _search(from, 1 << 20, blocked, ignore_levels, to, climb)
 	if not r.parent.has(to):
 		return path
 	var c := to
@@ -499,7 +500,7 @@ func path_cost(from: Vector2i, path: Array[Vector2i], blocked: Dictionary = {}, 
 
 ## Dijkstra with small integer costs (bucket queue). Neighbours are tried in DIRS8 order and
 ## buckets are FIFO, so results are deterministic on every peer. Stops early once `goal` settles.
-func _search(from: Vector2i, max_cost: int, blocked: Dictionary, ignore_levels: bool, goal: Vector2i) -> Dictionary:
+func _search(from: Vector2i, max_cost: int, blocked: Dictionary, ignore_levels: bool, goal: Vector2i, climb := false) -> Dictionary:
 	var dist := {from: 0}
 	var parent := {from: from}
 	var buckets := [[from]]
@@ -515,7 +516,7 @@ func _search(from: Vector2i, max_cost: int, blocked: Dictionary, ignore_levels: 
 			if c == goal:
 				return {"dist": dist, "parent": parent}
 			for d in DIRS8:
-				var cost := step_cost(c, d, blocked, ignore_levels)
+				var cost := step_cost(c, d, blocked, ignore_levels, climb)
 				if cost < 0:
 					continue
 				var n := c + d

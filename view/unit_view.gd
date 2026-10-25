@@ -21,6 +21,7 @@ const ModelKit := preload("res://view/model_kit.gd")
 const GunModels := preload("res://view/gun_models.gd")
 const SkinnedBody := preload("res://view/skinned_body.gd")
 const MeleeKit := preload("res://view/melee_kit.gd")
+const GraftKit := preload("res://view/graft_kit.gd")
 const TURN_SPEED := 9.0   # radians per second
 ## Units are drawn a little larger than life so they read from the tactical camera.
 const MODEL_SCALE := 1.12
@@ -48,6 +49,8 @@ var concealed := false    # squad Concealed: a cold-blue dashed ring at the feet
 ## Timed tags the beats put on this unit (MARKED, SUPPRESSED, STUNNED, CONTAINED):
 ## key -> the phase index (Combat.phase_index) it ends on. Shown on the status line.
 var tags := {}
+## Grafts the body wears ({slot: id}), hung on the skeleton by GraftKit.
+var grafts := {}
 
 var _body: Node3D        # yaw only
 var _rig: Node3D         # bob, lean, knockback, lunge
@@ -116,6 +119,7 @@ func build(u: Unit) -> void:
 	infection = u.infection
 	tier = Infection.tier(u.infection)
 	lapsed = u.status.get("lapsed", false)
+	grafts = Grafts.of_unit(u).duplicate()
 	name = "Unit%d" % unit_id
 	_time = float(unit_id) * 1.37
 	_body = Node3D.new()
@@ -139,6 +143,8 @@ func _build_model() -> void:
 	_model = ModelKit.instantiate(kind, soldier_body)
 	if is_soldier and Weapons.look_of(weapon) != GunModels.kind_look(kind):
 		GunModels.swap_look(_model, Weapons.look_of(weapon))
+	if soldier_body:
+		GraftKit.dress(_model, grafts)
 	_rig.add_child(_model)
 	_mats = ModelKit.apply_materials(_model, owner_player, soldier_body)
 	MeleeKit.tint(kind, _mats)

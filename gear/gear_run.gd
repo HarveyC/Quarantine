@@ -170,8 +170,12 @@ static func on_fight_won(run, fight_kind: String = "skirmish") -> void:
 	var gs := state(run)
 	gs.fights_won += 1
 	gs.reward_source = fight_kind
+	var prog = GearTags.progression()
 	for r in squad(run):
-		offers(run)[int(r.id)] = {"source": fight_kind, "cards": roll_offer(run, r, fight_kind)}
+		var cards := roll_offer(run, r, fight_kind)
+		if GearTags.provides(prog, "add_graft_card"):
+			prog.add_graft_card(run, r, fight_kind, cards)
+		offers(run)[int(r.id)] = {"source": fight_kind, "cards": cards}
 	if doctrines(run).has("hazard_pay"):
 		add_supplies(run, HAZARD_PAY, "Hazard pay")
 	if fight_kind == "boss":
@@ -465,7 +469,7 @@ static func apply(run, action: Dictionary) -> bool:
 static func _card_error(r, card: Dictionary) -> String:
 	if card.kind == "consumable" and not Loadout.can_add_consumable(r, card.id):
 		return "Pockets are full"
-	if (card.kind == "perk" or card.kind == "mutation") and not GearTags.provides(GearTags.progression(), "apply_card"):
+	if card.kind in ["perk", "mutation", "graft"] and not GearTags.provides(GearTags.progression(), "apply_card"):
 		return "Can't take that card yet"
 	if card.kind == "gun" and not Weapons.can_carry(str(r.get("kind", "")), card.id):
 		return "Wrong class for that gun"
@@ -497,7 +501,7 @@ static func _grant(run, r, card: Dictionary, to_stash: bool) -> void:
 				Loadout.stash_add(run, card.id, 2 if card.rarity == "prototype" else 1)
 			else:
 				Loadout.equip(run, r, card.id)
-		"perk", "mutation":
+		"perk", "mutation", "graft":
 			GearTags.progression().apply_card(r, card)
 		"consumable":
 			Loadout.add_consumable(r, card.id, int(card.get("charges", GearData.CONSUMABLE_CHARGES)))

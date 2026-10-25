@@ -36,6 +36,7 @@ const SOLDIER := {
 	"squad_order": {"title": "SQUAD LEADER", "color": Palette.AMBER, "sound": "order_call", "fx": "order", "text": "+1 ACTION"},
 	"talk_down": {"title": "TALK DOWN", "color": Palette.STEALTH, "sound": "order_call", "fx": "order", "text": "STAND DOWN"},
 	"tag": {"title": "MARKSMAN TAG", "color": Color("ff5c86"), "sound": "radio", "fx": "tag"},
+	"runner_leap": {"title": "LEAP", "color": Palette.TEAL, "sound": "grapple", "fx": "leap"},
 }
 ## Gadgets and pocket items with a beat here (the rest of item:/gear: are frag, demo and medkit,
 ## which EventPlayer plays itself).
@@ -316,6 +317,15 @@ static func _soldier(ep: Node, ev: Dictionary, look: Dictionary) -> Dictionary:
 				tv.flash(col)
 				fx.floating_text(ep._head(tv) + Vector3(0, 0.35, 0), "MARKED", col, 40, 1.4)
 			return {"dur": 0.7}
+		"leap":
+			# Runner legs: dust where it took off, a burst of spores where it lands.
+			var from: Vector2i = ev.get("from", Vector2i(-1, -1))
+			if from.x >= 0:
+				fx.puff(Board.cell_to_world(from) + Vector3(0, 0.2, 0), Color(0.45, 0.42, 0.36), 1.0, 0.8, 0.5)
+			fx.burst(uv.position + Vector3(0, 0.15, 0), Vector3.UP, col, 14, 2.5, true, 0.04)
+			fx.pulse(uv.position, col)
+			ep._sfx("step3", -4.0, 0.15)
+			return {"dur": 0.55}
 		"drain":
 			if tv != null:
 				for i in 3:

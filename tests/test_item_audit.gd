@@ -177,6 +177,13 @@ func _cases() -> Dictionary:
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "bash") else "no strike"}
 	c["lunge"] = {"kind": "reaper", "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "lunge") else "no strike"}
+	# Bloom graft abilities (Grafts): the arm's claw and the legs' leap.
+	c["bloom_claw"] = {"kind": "trooper", "pre": func(x): Grafts.apply_to_unit(x.u, {"grafts": {"arm": "bloom_limb"}}),
+		"act": func(x): return {"target": x.near.id},
+		"check": func(x): return "" if x.near.hp < 30 else "no damage"}
+	c["runner_leap"] = {"kind": "trooper", "pre": func(x): Grafts.apply_to_unit(x.u, {"grafts": {"legs": "runner_legs"}}),
+		"act": func(x): return {"cell": Vector2i(6, 7)},
+		"check": func(x): return "" if x.u.pos == Vector2i(6, 7) else "didn't land"}
 	return c
 
 

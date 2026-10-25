@@ -30,6 +30,11 @@ const ABILITIES := {
 		"desc": "Talk an adjacent Lapsed ally back to their senses. 1 action."},
 	"serum": {"name": "Serum", "targeting": "unit", "cost": 2, "cooldown": 0, "any": true,
 		"desc": "Full cure for an adjacent ally: Infection to 0, every mutation wiped, ends a Lapse. 2 actions, uses a Serum."},
+	# Bloom grafts (Grafts): a Bloom limb's claw and Runner legs' jump.
+	"bloom_claw": {"name": "Bloom Claw", "targeting": "unit", "cost": 1, "cooldown": 1,
+		"desc": "Rake an adjacent enemy for 3-5, +1 per Infection tier. A kill heals 1 HP. 1 action."},
+	"runner_leap": {"name": "Leap", "targeting": "cell", "cost": 1, "cooldown": 0,
+		"desc": "Once per fight: jump up to 4 tiles to a free cell, over cover and past overwatch. 1 action."},
 }
 
 const INCINERATE_DAMAGE := 3
@@ -75,9 +80,12 @@ static func available(s: GameState, u: Unit) -> Array[Dictionary]:
 			continue
 		var cd: int = int(u.cooldowns.get(id, 0))
 		var has_targets: bool = def.targeting != "unit" or not targets.is_empty()
-		out.append({"id": id, "name": def.name, "targeting": def.targeting, "cost": def.cost,
+		var entry := {"id": id, "name": def.name, "targeting": def.targeting, "cost": def.cost,
 			"cooldown": cd, "desc": def.desc, "targets": targets,
-			"ready": cd <= 0 and u.actions_left >= maxi(1, def.cost) and u.is_alive() and has_targets and _extra_error(u, id) == ""})
+			"ready": cd <= 0 and u.actions_left >= maxi(1, def.cost) and u.is_alive() and has_targets and _extra_error(u, id) == ""}
+		if id == "runner_leap":
+			entry["range"] = GraftData.LEAP_RANGE
+		out.append(entry)
 	return out
 
 
@@ -96,6 +104,8 @@ static func _extra_error(u: Unit, id: String) -> String:
 		return "Already used this fight"
 	if id == "serum" and int(u.status.get("serum", 0)) <= 0:
 		return "No Serum"
+	if id == "runner_leap" and u.status.get("k_leapt", false):
+		return "Already used this fight"
 	return ""
 
 
@@ -104,6 +114,10 @@ static func target_error(s: GameState, u: Unit, id: String, t: Unit) -> String:
 		return "No such target"
 	if id in ["lunge", "bash", "shield_charge"]:
 		return _strike_target_error(s, u, id, t)
+	if id == "bloom_claw":
+		if not u.is_enemy_of(t):
+			return "Not an enemy"
+		return "" if s.grid.melee_reach(u.pos, t.pos) else "Not adjacent"
 	if t == u or not Kit.is_soldier(t):
 		return "Not an ally"
 	var dist := Kit.cheb(u.pos, t.pos)
@@ -150,6 +164,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		return extra
 	if def.targeting == "none":
 		return ""
+	if id == "runner_leap":
+		return Grafts.leap_error(s, u, action.get("cell"))
 	if def.targeting == "cell":
 		var cell: Variant = action.get("cell")
 		if not cell is Vector2i or not s.grid.in_bounds(cell) or cell == u.pos:
@@ -211,6 +227,12 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 		return
 	if id in ["lunge", "bash", "shield_charge"]:
 		_melee_ability(s, u, id, s.get_unit(action.target))
+		return
+	if id == "runner_leap":
+		Grafts.leap(s, u, action.cell)
+		return
+	if id == "bloom_claw":
+		Grafts.claw(s, u, s.get_unit(action.target))
 		return
 	var t := s.get_unit(action.target)
 	var ev := {"type": "ability", "unit": u.id, "ability": id, "target": t.id}
@@ -359,8 +381,9 @@ static func _melee_ability(s: GameState, u: Unit, id: String, t: Unit) -> void:
 		strike(s, u, t, "bash", {"charge": true} if id == "shield_charge" else {})
 
 
-## One melee strike from a Reaper ("lunge", "riposte") or Warden ("bash"): rolls, emits the
-## ability event, deals damage and runs the on-hit / on-kill effects. Spends no actions.
+## One melee strike from a Reaper ("lunge", "riposte"), Warden ("bash") or a Bloom limb
+## ("bloom_claw"): rolls, emits the ability event, deals damage and runs the on-hit / on-kill
+## effects. A Servo arm adds +1. Spends no actions.
 ## Returns the damage dealt.
 static func strike(s: GameState, u: Unit, t: Unit, kind: String, extra: Dictionary = {}) -> int:
 	var odds := strike_odds(s, u, t)
@@ -369,8 +392,8 @@ static func strike(s: GameState, u: Unit, t: Unit, kind: String, extra: Dictiona
 	var bash := kind == "bash"
 	var dmg := 0
 	if r.hit or r.graze:
-		var roll_range := MAUL_DAMAGE if bash else BLADE_DAMAGE
-		var base := s.rng.randi_range(roll_range.x, roll_range.y)
+		var roll_range := MAUL_DAMAGE if bash else (GraftData.CLAW_DAMAGE if kind == "bloom_claw" else BLADE_DAMAGE)
+		var base := s.rng.randi_range(roll_range.x, roll_range.y) + Grafts.melee_bonus(s, u)
 		if bash and t.status.get("turned", false):
 			base += QUARANTINE_DAMAGE
 		elif not bash:
