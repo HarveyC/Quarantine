@@ -393,7 +393,7 @@ static func boss_spec(run: RunState, boss: String) -> Dictionary:
 		return {}
 	var lines: Array = b.lines.duplicate()
 	if boss == "the_source" and run.story.get("last_ending", "") == "burn":
-		lines.insert(1, ["SOURCE", "Last time, you burned me. I grew back."])
+		lines.insert(1, StoryData.SOURCE_BURNED)
 	return {"stage": "boss", "boss": boss, "title": b.title, "sub": b.sub, "lines": _lines(run, lines),
 		"cast": cast_of(run)}
 

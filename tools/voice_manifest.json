@@ -1,0 +1,1412 @@
+[
+	{
+		"file": "hale_0d6ba12fc6.ogg",
+		"text": "Lantern Company. You are carrying company property.",
+		"voice": "hale"
+	},
+	{
+		"file": "hale_0fd6b68e4f.ogg",
+		"text": "Recovery team, move up.",
+		"voice": "hale"
+	},
+	{
+		"file": "hale_8bb1b076d1.ogg",
+		"text": "Stand down and we'll take you home. In jars.",
+		"voice": "hale"
+	},
+	{
+		"file": "hale_a5727195bc.ogg",
+		"text": "Take the carriers alive. The rest is optional.",
+		"voice": "hale"
+	},
+	{
+		"file": "hale_bb8ed61135.ogg",
+		"text": "Keep them pinned. I want those samples intact.",
+		"voice": "hale"
+	},
+	{
+		"file": "hale_ebd64fe80c.ogg",
+		"text": "Suppress them. Nobody leaves.",
+		"voice": "hale"
+	},
+	{
+		"file": "hale_turned_5ad8cfd184.ogg",
+		"text": "Company property. All of it. All of us.",
+		"voice": "hale_turned"
+	},
+	{
+		"file": "hale_turned_b7d29a55bc.ogg",
+		"text": "It's warm down here. Why is it so warm.",
+		"voice": "hale_turned"
+	},
+	{
+		"file": "hale_turned_fb6a947585.ogg",
+		"text": "Stand down. Stand down. Come home.",
+		"voice": "hale_turned"
+	},
+	{
+		"file": "hv_09c10c3a8f.ogg",
+		"text": "Sample secured. Your contracts are complete.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_a87eb208ca.ogg",
+		"text": "The colony was never the product.",
+		"voice": "hv"
+	},
+	{
+		"file": "okafor_00401955df.ogg",
+		"text": "Outbreak is climbing. The Bloom is moving faster than you are.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_01e5159ab0.ogg",
+		"text": "fifty-one's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_053ec06c5e.ogg",
+		"text": "thirty-eight's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_05571bdd7a.ogg",
+		"text": "Lindqvist's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_094d90c768.ogg",
+		"text": "eleven's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_0acd2100f8.ogg",
+		"text": "The glow is spreading behind you. Don't stop.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_0d196b89b3.ogg",
+		"text": "twenty-six's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_0e6fc146d3.ogg",
+		"text": "Quinn",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_102d76b781.ogg",
+		"text": "Abara",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_10575335e0.ogg",
+		"text": "Abara's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1162fc95f6.ogg",
+		"text": "thirty-three's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_116e9394fc.ogg",
+		"text": "fifty-five's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_133a6bec4b.ogg",
+		"text": "Haddad",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_15f6f8dc03.ogg",
+		"text": "twelve",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_180de050b8.ogg",
+		"text": "Duarte's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_193f784d56.ogg",
+		"text": "Osei",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1a3161e2dd.ogg",
+		"text": "thirty",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1a415f5ae0.ogg",
+		"text": "Rook",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1b6e0f7a97.ogg",
+		"text": "carrier is still down there, holding it shut. The Bore is quiet. Mostly.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1b6ecd67f8.ogg",
+		"text": "Cruz",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1bad62a81f.ogg",
+		"text": "ten's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1bbb81cb1c.ogg",
+		"text": "Supply drop at the depot. Take what you need.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1c6b89ab00.ogg",
+		"text": "Quinn's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1cda29ff44.ogg",
+		"text": "Adeyemi's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1d56cec552.ogg",
+		"text": "nineteen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1e2ec159ee.ogg",
+		"text": "twelve's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_1f1105dc13.ogg",
+		"text": "forty-five",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_20d771c052.ogg",
+		"text": "Break the egg sacs first. While they live, she can't be hurt.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_20f0d99417.ogg",
+		"text": "fifty-three",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2126aaee90.ogg",
+		"text": "Kowalski",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_23809d8d17.ogg",
+		"text": "Ferreira",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_24d27c169c.ogg",
+		"text": "eight",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_25d6f2870a.ogg",
+		"text": "Lindqvist",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_26199193e4.ogg",
+		"text": "twenty-six",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_262b4120aa.ogg",
+		"text": "twenty-five",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_27232be292.ogg",
+		"text": "Sato's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_279e962ea6.ogg",
+		"text": "fourteen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_27b8eb6240.ogg",
+		"text": "fifty's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_291d082d12.ogg",
+		"text": "nineteen's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_293c9db342.ogg",
+		"text": "We lost",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_29fcb85392.ogg",
+		"text": "Osei's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2b2df99caa.ogg",
+		"text": "is down. They're not getting up.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2b54fd1b55.ogg",
+		"text": "forty",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2ba5d47ba3.ogg",
+		"text": "five's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2cbdaf9ce4.ogg",
+		"text": "eighteen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2dd6f84b2c.ogg",
+		"text": "Petrov's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2e457d2f9f.ogg",
+		"text": "seventeen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2f9dab8efa.ogg",
+		"text": "Civilians on thermals. Bring them home.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2ffd56bc4e.ogg",
+		"text": "forty-four's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_30056e1cab.ogg",
+		"text": "five",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3016b74b0f.ogg",
+		"text": "Medical tent ahead. Get the wounded seen to.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_30317a13ab.ogg",
+		"text": "twenty-four's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_30ad4dc419.ogg",
+		"text": "thirty's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_30d1ef7099.ogg",
+		"text": "twenty-eight",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_331102a21e.ogg",
+		"text": "forty-one's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_336ae8a5a3.ogg",
+		"text": "Hostiles on thermals. Your call how you go in.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_34b88f6d52.ogg",
+		"text": "six's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3559cd8996.ogg",
+		"text": "sixty's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_35d6d33467.ogg",
+		"text": "three",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_36684da1b2.ogg",
+		"text": "one's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_39d3d10611.ogg",
+		"text": "thirty-six's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3a7ae59743.ogg",
+		"text": "Something up ahead. Eyes open.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3af30b2713.ogg",
+		"text": "Brennan",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3afbb9fc02.ogg",
+		"text": "Moreau",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3c34acc2dd.ogg",
+		"text": "forty-six's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3d5d202592.ogg",
+		"text": "thirty-one's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3d5fbb101c.ogg",
+		"text": "Cruz's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3d8df2e61b.ogg",
+		"text": "We can see the fire from the wall. Come home, Lanterns.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_3fbc25523d.ogg",
+		"text": "twenty-seven's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_40009f14a7.ogg",
+		"text": "tags recovered. Rest easy.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_40521ce366.ogg",
+		"text": "Tanaka's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_40a15367ff.ogg",
+		"text": "you're up.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_41165ed468.ogg",
+		"text": "fifty-eight's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_422ecc084f.ogg",
+		"text": "thirteen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_4368bc610a.ogg",
+		"text": "thirty-four",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_44d29acb85.ogg",
+		"text": "thirty-five's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_4501ef4ace.ogg",
+		"text": "That's what has been feeding on the camps.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_45becc00ca.ogg",
+		"text": "forty-eight's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_4b92315c7d.ogg",
+		"text": "is gone. That isn't them any more.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_4ba67ffbec.ogg",
+		"text": "fifty-five",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_4bd761d4cf.ogg",
+		"text": "Tanaka",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_4c33d2132b.ogg",
+		"text": "fifteen's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_4dd8773d23.ogg",
+		"text": "Survivors. Alive, for now.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_4ef0ea6610.ogg",
+		"text": "thirty-seven's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_4ef1ab9bbd.ogg",
+		"text": "Rook's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_52852120cc.ogg",
+		"text": "Intel recovered.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_53da04b867.ogg",
+		"text": "two's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_5743867f3f.ogg",
+		"text": "They aren't ours any more.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_593d0c47e9.ogg",
+		"text": "Volkov's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_5ad077bb30.ogg",
+		"text": "Achebe",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_5c99060b4f.ogg",
+		"text": "thirty-five",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_5d4734079b.ogg",
+		"text": "Contact. That's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_5e99ac035f.ogg",
+		"text": "Vasquez",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_5eb24b6aea.ogg",
+		"text": "fifty-three's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_60a15bf871.ogg",
+		"text": "Vasquez's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_612708cdb6.ogg",
+		"text": "fifty-nine's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_6189c2e3fb.ogg",
+		"text": "They've seen us.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_61a4999c5a.ogg",
+		"text": "Kowalski's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_640b2ec045.ogg",
+		"text": "Okafor's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_65fecb4411.ogg",
+		"text": "Contacts ahead. Keep it tight.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_6672359670.ogg",
+		"text": "is moving up to the line.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_683b898429.ogg",
+		"text": "Through the breach, down the Bore. Burn the Source and come home.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_6954729b04.ogg",
+		"text": "Depot's still stocked. Spend it before the Bloom does.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_69d13fa56b.ogg",
+		"text": "Mercer",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_6bbe0a55ca.ogg",
+		"text": "turned. Don't hesitate.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_6be5f9d6d5.ogg",
+		"text": "forty-six",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_6d39f601c0.ogg",
+		"text": "I know that one.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_6d693087da.ogg",
+		"text": "Larsen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_6ded9e9198.ogg",
+		"text": "nine's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_6f5de84e35.ogg",
+		"text": "eighteen's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_70d4e89a04.ogg",
+		"text": "Spore readings off the scale. That's a nest.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_734ffceeba.ogg",
+		"text": "Sato",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_743942eb54.ogg",
+		"text": "fifty-four's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_7565481bb4.ogg",
+		"text": "forty-five's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_761329f955.ogg",
+		"text": "Haddad's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_7700143085.ogg",
+		"text": "You're past the wall. Port Ardent is ahead of you.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_7b6ab2ee51.ogg",
+		"text": "Whitlock's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_7b97285aa4.ogg",
+		"text": "You are Lantern Company. You carry the Bloom, so it lets you walk where it lives.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_7df215aef6.ogg",
+		"text": "forty-nine",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_7f4e307680.ogg",
+		"text": "Signal's -- breaking up. The labs -- Halden-Voss knew -- don't trust --",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_808a8f5523.ogg",
+		"text": "Mercer's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_84249807ef.ogg",
+		"text": "Halden-Voss got its sample. Their shuttle left this morning. Nobody told us where.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_8484ed6ecb.ogg",
+		"text": "Halloran's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_85414954fe.ogg",
+		"text": "Movement on every side. It's a trap.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_85ed8467e3.ogg",
+		"text": "seventeen's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_8602aa6a4c.ogg",
+		"text": "twenty-one",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_86b979c3b8.ogg",
+		"text": "Picking up something strange. Go and look.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_87cb31913c.ogg",
+		"text": "Big signature ahead. This is it.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_8854dba962.ogg",
+		"text": "Larsen's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_896e67823d.ogg",
+		"text": "twenty's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_89a0476e8a.ogg",
+		"text": "twenty-three",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_8bea065677.ogg",
+		"text": "Mbeki's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_8cb8ea05b2.ogg",
+		"text": "Moreau's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_8cbad96ace.ogg",
+		"text": "four",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_8ff5fa099c.ogg",
+		"text": "forty-three",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_92a2132e01.ogg",
+		"text": "fifteen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_9459b92017.ogg",
+		"text": "Adeyemi",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_958d450b24.ogg",
+		"text": "thirty-two's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_96def9efec.ogg",
+		"text": "Put them down gently.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_97a9bccc3d.ogg",
+		"text": "fifty",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_98dc4e386a.ogg",
+		"text": "fifty-nine",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_99098a4f76.ogg",
+		"text": "Field hospital. Patch up while you can.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_9c8454ddf7.ogg",
+		"text": "eleven",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_9c955f9f93.ogg",
+		"text": "burned the Source. The drones already see regrowth.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_9f55c0919e.ogg",
+		"text": "Halloran",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_9f91b27c1d.ogg",
+		"text": "forty-three's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a067db36ae.ogg",
+		"text": "Whitlock",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a09e42a624.ogg",
+		"text": "forty-one",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a0e39f33be.ogg",
+		"text": "Brennan's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a16ca146e5.ogg",
+		"text": "forty-two",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a18c2ef25d.ogg",
+		"text": "Novak's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a1a81dfedd.ogg",
+		"text": "sixteen's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a1fe065cd0.ogg",
+		"text": "never came back. Their lanterns are still moving out there.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a2aeac37f9.ogg",
+		"text": "seven's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a63d963ac6.ogg",
+		"text": "Everything past it belongs to the Bloom.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a72a4e80bd.ogg",
+		"text": "thirty-one",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a7cfe6aca7.ogg",
+		"text": "Volkov",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a7fdcc0aa5.ogg",
+		"text": "twenty-two's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ab389edaab.ogg",
+		"text": "twenty",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_abcacc28f7.ogg",
+		"text": "Castillo's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ad12664d44.ogg",
+		"text": "fifty-six's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_aed3dfe887.ogg",
+		"text": "Port Ardent fell in eleven days. The wall has held for two hundred.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_aedd949d12.ogg",
+		"text": "twenty-two",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b012fb4661.ogg",
+		"text": "thirty-two",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b0a8e91b19.ogg",
+		"text": "thirty-six",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b1b9a972cc.ogg",
+		"text": "ten",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b1dc44a218.ogg",
+		"text": "twenty-three's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b2d20d2fe3.ogg",
+		"text": "Duarte",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b2d7d7656e.ogg",
+		"text": "wave",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b43e5e8798.ogg",
+		"text": "forty-nine's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b4b7db66a5.ogg",
+		"text": "eight's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b5b54f2b89.ogg",
+		"text": "thirty-seven",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b5f46ab072.ogg",
+		"text": "three's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b73c9c15a0.ogg",
+		"text": "fifty-seven",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b8a9f715db.ogg",
+		"text": "two",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b8f353e0b4.ogg",
+		"text": "four's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_b9fca8911e.ogg",
+		"text": "Castillo",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ba3eb230d3.ogg",
+		"text": "thirty-eight",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_bb3aec0fdc.ogg",
+		"text": "seven",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_bc58a33318.ogg",
+		"text": "forty's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_bd2c775d9e.ogg",
+		"text": "sixteen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_bf571e9909.ogg",
+		"text": "Ferreira's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_c2b0770977.ogg",
+		"text": "Contact. Here they come.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_c4449d26bf.ogg",
+		"text": "Iyer",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_c4a0c659a1.ogg",
+		"text": "thirty-three",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_c7456ed20c.ogg",
+		"text": "thirty-four's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_c785e1ed29.ogg",
+		"text": "nine",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_c8856a58d0.ogg",
+		"text": "forty-seven's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ca1a365907.ogg",
+		"text": "fifty-one",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ca1a979fd8.ogg",
+		"text": "thirty-nine",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ca1f4ad63b.ogg",
+		"text": "thirty-nine's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ca84b97a51.ogg",
+		"text": "Mbeki",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_cb7aa90880.ogg",
+		"text": "twenty-seven",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_cd0dd38642.ogg",
+		"text": "sixty",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d03341a475.ogg",
+		"text": "forty-seven",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d1183241d2.ogg",
+		"text": "That's a nest. Burn it out before it spreads.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d3d1a582b7.ogg",
+		"text": "Nakamura",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d496a894c0.ogg",
+		"text": "fifty-four",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d4d104f306.ogg",
+		"text": "Petrov",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d50f016152.ogg",
+		"text": "forty-two's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d911b34823.ogg",
+		"text": "Wave",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d98c1dc99c.ogg",
+		"text": "Every power it gives you pulls you closer to the Source. Use them anyway.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d9f7aaa6a4.ogg",
+		"text": "twenty-nine's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_da7ea4f101.ogg",
+		"text": "fourteen's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_daec795696.ogg",
+		"text": "twenty-five's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_db7ba4835d.ogg",
+		"text": "Achebe's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ddc9acfdb8.ogg",
+		"text": "Iyer's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ddea728b8d.ogg",
+		"text": "twenty-one's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_dfb03c9dea.ogg",
+		"text": "twenty-eight's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_e0001e4aaf.ogg",
+		"text": "Whatever is holding this district, it's right there.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_e03b75c98d.ogg",
+		"text": "Reyes's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_e1561a8f63.ogg",
+		"text": "Novak",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_e7ec4c603e.ogg",
+		"text": "Reyes",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_e8c5bf75ac.ogg",
+		"text": "fifty-two's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_e97f3ebdf0.ogg",
+		"text": "That was too quiet. Weapons up.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ecb0b1874d.ogg",
+		"text": "Infected in the street. Clear it and move on.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ededcdf4fa.ogg",
+		"text": "fifty-eight",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_ef83e005d2.ogg",
+		"text": "forty-four",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_f325fc5953.ogg",
+		"text": "twenty-four",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_f4d56c17de.ogg",
+		"text": "twenty-nine",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_f52b5e449a.ogg",
+		"text": "six",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_f535aade3a.ogg",
+		"text": "fifty-seven's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_f5cad81c58.ogg",
+		"text": "fifty-two",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_f653b8aeff.ogg",
+		"text": "Okafor",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_f97c5d2994.ogg",
+		"text": "one",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_faaa32d15d.ogg",
+		"text": "forty-eight",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_fb2b164d67.ogg",
+		"text": "fifty-six",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_fbc57a2ff7.ogg",
+		"text": "thirteen's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_fe9d1c12f4.ogg",
+		"text": "Nakamura's",
+		"voice": "okafor"
+	},
+	{
+		"file": "source_0e6fc146d3.ogg",
+		"text": "Quinn",
+		"voice": "source"
+	},
+	{
+		"file": "source_102d76b781.ogg",
+		"text": "Abara",
+		"voice": "source"
+	},
+	{
+		"file": "source_133a6bec4b.ogg",
+		"text": "Haddad",
+		"voice": "source"
+	},
+	{
+		"file": "source_193f784d56.ogg",
+		"text": "Osei",
+		"voice": "source"
+	},
+	{
+		"file": "source_1a415f5ae0.ogg",
+		"text": "Rook",
+		"voice": "source"
+	},
+	{
+		"file": "source_1b6ecd67f8.ogg",
+		"text": "Cruz",
+		"voice": "source"
+	},
+	{
+		"file": "source_1d377d3bc9.ogg",
+		"text": "Cut my roots, and then we will talk.",
+		"voice": "source"
+	},
+	{
+		"file": "source_2126aaee90.ogg",
+		"text": "Kowalski",
+		"voice": "source"
+	},
+	{
+		"file": "source_22d943c9e7.ogg",
+		"text": "You're nearly home.",
+		"voice": "source"
+	},
+	{
+		"file": "source_23809d8d17.ogg",
+		"text": "Ferreira",
+		"voice": "source"
+	},
+	{
+		"file": "source_25d6f2870a.ogg",
+		"text": "Lindqvist",
+		"voice": "source"
+	},
+	{
+		"file": "source_28cca4f008.ogg",
+		"text": "I know all of your names.",
+		"voice": "source"
+	},
+	{
+		"file": "source_29e7549cfd.ogg",
+		"text": "Come down to me,",
+		"voice": "source"
+	},
+	{
+		"file": "source_3af30b2713.ogg",
+		"text": "Brennan",
+		"voice": "source"
+	},
+	{
+		"file": "source_3afbb9fc02.ogg",
+		"text": "Moreau",
+		"voice": "source"
+	},
+	{
+		"file": "source_3e785defc6.ogg",
+		"text": "You came.",
+		"voice": "source"
+	},
+	{
+		"file": "source_430f293c7e.ogg",
+		"text": "Every one of you is already part of me. Come down.",
+		"voice": "source"
+	},
+	{
+		"file": "source_4bd761d4cf.ogg",
+		"text": "Tanaka",
+		"voice": "source"
+	},
+	{
+		"file": "source_5ad077bb30.ogg",
+		"text": "Achebe",
+		"voice": "source"
+	},
+	{
+		"file": "source_5e99ac035f.ogg",
+		"text": "Vasquez",
+		"voice": "source"
+	},
+	{
+		"file": "source_5fdfeb8c7a.ogg",
+		"text": "They will burn you too, when this is over.",
+		"voice": "source"
+	},
+	{
+		"file": "source_69d13fa56b.ogg",
+		"text": "Mercer",
+		"voice": "source"
+	},
+	{
+		"file": "source_6d693087da.ogg",
+		"text": "Larsen",
+		"voice": "source"
+	},
+	{
+		"file": "source_734ffceeba.ogg",
+		"text": "Sato",
+		"voice": "source"
+	},
+	{
+		"file": "source_74c0fa200d.ogg",
+		"text": "Last time, you burned me. I grew back.",
+		"voice": "source"
+	},
+	{
+		"file": "source_9459b92017.ogg",
+		"text": "Adeyemi",
+		"voice": "source"
+	},
+	{
+		"file": "source_9f55c0919e.ogg",
+		"text": "Halloran",
+		"voice": "source"
+	},
+	{
+		"file": "source_a067db36ae.ogg",
+		"text": "Whitlock",
+		"voice": "source"
+	},
+	{
+		"file": "source_a18ae8d5d6.ogg",
+		"text": "I can feel you,",
+		"voice": "source"
+	},
+	{
+		"file": "source_a7cfe6aca7.ogg",
+		"text": "Volkov",
+		"voice": "source"
+	},
+	{
+		"file": "source_aaaafae674.ogg",
+		"text": "You came back. I remember the fire.",
+		"voice": "source"
+	},
+	{
+		"file": "source_b2d20d2fe3.ogg",
+		"text": "Duarte",
+		"voice": "source"
+	},
+	{
+		"file": "source_b9fca8911e.ogg",
+		"text": "Castillo",
+		"voice": "source"
+	},
+	{
+		"file": "source_c4449d26bf.ogg",
+		"text": "Iyer",
+		"voice": "source"
+	},
+	{
+		"file": "source_ca84b97a51.ogg",
+		"text": "Mbeki",
+		"voice": "source"
+	},
+	{
+		"file": "source_d3d1a582b7.ogg",
+		"text": "Nakamura",
+		"voice": "source"
+	},
+	{
+		"file": "source_d4d104f306.ogg",
+		"text": "Petrov",
+		"voice": "source"
+	},
+	{
+		"file": "source_e1561a8f63.ogg",
+		"text": "Novak",
+		"voice": "source"
+	},
+	{
+		"file": "source_e7ec4c603e.ogg",
+		"text": "Reyes",
+		"voice": "source"
+	},
+	{
+		"file": "source_f48204c0ac.ogg",
+		"text": "You were cold. You're not cold now.",
+		"voice": "source"
+	},
+	{
+		"file": "source_f653b8aeff.ogg",
+		"text": "Okafor",
+		"voice": "source"
+	},
+	{
+		"file": "source_fa41e1ceb5.ogg",
+		"text": "Use it. Use all of it.",
+		"voice": "source"
+	}
+]
