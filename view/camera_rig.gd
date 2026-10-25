@@ -97,6 +97,14 @@ func rotate_step(dir: int) -> void:
 	_target_yaw += dir * PI * 0.5
 
 
+## Starts looking along `dir` (a world heading), snapped to the nearest of the four
+## diagonal views the rotate buttons step through.
+func face_heading(dir: Vector3) -> void:
+	var yaw := atan2(-dir.x, -dir.z)
+	_target_yaw = roundf((yaw - PI * 0.25) / (PI * 0.5)) * PI * 0.5 + PI * 0.25
+	snap()
+
+
 func zoom_step(dir: int) -> void:
 	_target_dist = clampf(_target_dist * (1.0 + 0.12 * dir), MIN_DIST, MAX_DIST)
 
