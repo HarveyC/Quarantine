@@ -16,6 +16,21 @@ PORT=${PORT:-24690}
 LOG=$(mktemp -d)
 fail=0
 
+# Waits for the host and client of a scenario, but kills them after SCENARIO_TIMEOUT seconds so a hung
+# peer fails the scenario instead of hanging CI for hours.
+SCENARIO_TIMEOUT=${SCENARIO_TIMEOUT:-240}
+wait_peers() {
+  local t=0
+  while kill -0 $H 2>/dev/null || kill -0 $C 2>/dev/null; do
+    sleep 1; t=$((t + 1))
+    if [ $t -ge $SCENARIO_TIMEOUT ]; then
+      echo "FAIL: scenario timed out after ${SCENARIO_TIMEOUT}s, killing peers"; fail=1
+      kill -9 $H $C 2>/dev/null; break
+    fi
+  done
+  wait $H $C 2>/dev/null
+}
+
 check() {  # name hostlog clientlog
   local hsum csum
   hsum=$(grep -o "checksum [-0-9]*" "$2" | tail -1)
@@ -37,7 +52,7 @@ check() {  # name hostlog clientlog
 "$GODOT" --headless -- --host=$PORT --name=Host --autostart=2 --autoplay >"$LOG/h1.txt" 2>&1 & H=$!
 sleep 2
 "$GODOT" --headless -- --join=127.0.0.1:$PORT --name=Client --autoplay >"$LOG/c1.txt" 2>&1 & C=$!
-wait $H; wait $C
+wait_peers
 check "play a match" "$LOG/h1.txt" "$LOG/c1.txt"
 
 # Scenario 2
@@ -47,7 +62,7 @@ sleep 2
 "$GODOT" --headless -- --join=127.0.0.1:$PORT2 --name=Client >"$LOG/dead.txt" 2>&1 & DEAD=$!
 sleep 1; kill -9 $DEAD 2>/dev/null; wait $DEAD 2>/dev/null
 "$GODOT" --headless -- --join=127.0.0.1:$PORT2 --name=Client --autoplay >"$LOG/c2.txt" 2>&1 & C=$!
-wait $H; wait $C
+wait_peers
 check "crash and rejoin in lobby" "$LOG/h2.txt" "$LOG/c2.txt"
 
 # Scenario 3
@@ -55,7 +70,7 @@ PORT3=$((PORT + 2))
 "$GODOT" --headless -- --host=$PORT3 --name=Host --autostart=2 --autostart-run --autoplay >"$LOG/h3.txt" 2>&1 & H=$!
 sleep 2
 "$GODOT" --headless -- --join=127.0.0.1:$PORT3 --name=Client --autoplay >"$LOG/c3.txt" 2>&1 & C=$!
-wait $H; wait $C
+wait_peers
 check "play a run" "$LOG/h3.txt" "$LOG/c3.txt"
 grep -q "run finished" "$LOG/h3.txt" || { echo "FAIL [play a run]: the run did not finish"; tail -5 "$LOG/h3.txt"; fail=1; }
 
@@ -64,7 +79,7 @@ PORT4=$((PORT + 3))
 "$GODOT" --headless -- --host=$PORT4 --name=Host --autostart=2 --autoplay --drop-client-at=6 >"$LOG/h4.txt" 2>&1 & H=$!
 sleep 2
 "$GODOT" --headless -- --join=127.0.0.1:$PORT4 --name=Client --autoplay >"$LOG/c4.txt" 2>&1 & C=$!
-wait $H; wait $C
+wait_peers
 check "drop and reconnect mid-match" "$LOG/h4.txt" "$LOG/c4.txt"
 grep -q "cutting off player 2" "$LOG/h4.txt" || { echo "FAIL [drop and reconnect mid-match]: the host never cut the client off"; fail=1; }
 grep -q "reconnected at action" "$LOG/c4.txt" || { echo "FAIL [drop and reconnect mid-match]: the client did not reconnect"; grep "\[net\]" "$LOG/c4.txt" | tail -5; fail=1; }
@@ -74,7 +89,7 @@ PORT5=$((PORT + 4))
 "$GODOT" --headless -- --host=$PORT5 --name=Host --autostart=2 --autoplay --autoplay-marks >"$LOG/h5.txt" 2>&1 & H=$!
 sleep 2
 "$GODOT" --headless -- --join=127.0.0.1:$PORT5 --name=Client --autoplay --autoplay-marks >"$LOG/c5.txt" 2>&1 & C=$!
-wait $H; wait $C
+wait_peers
 check "pings and drawing" "$LOG/h5.txt" "$LOG/c5.txt"
 for want in "player 1 sees a ping from player 2" "player 1 sees a stroke from player 2"; do
   grep -q "$want" "$LOG/h5.txt" || { echo "FAIL [pings and drawing]: host log lacks '$want'"; fail=1; }
