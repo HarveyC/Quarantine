@@ -38,7 +38,7 @@ const INTRO_ORDERS := [
 const ACT_SCENES := {
 	2: {"title": "Act II · Port Ardent", "sub": "Downtown and the Halden-Voss labs", "stage": "port", "lines": [
 		["OKAFOR", "You're past the wall. Port Ardent is ahead of you."],
-		["OKAFOR", "Signal's -- breaking up. The labs -- Halden-Voss knew -- don't trust --"],
+		["OKAFOR", "Signal's breaking up. The labs... Halden-Voss knew... don't trust..."],
 		["SQUAD", "Command's gone. We keep moving."],
 	]},
 	3: {"title": "Act III · The Bore", "sub": "Nine kilometres down", "stage": "bore", "lines": [
@@ -180,10 +180,16 @@ static func fill(text: String, vars: Dictionary) -> String:
 	return out
 
 
-## Drops every STATIC_EVERY-th word for "--": a radio signal breaking up.
+## Drops every STATIC_EVERY-th word and trails the line off with "...": a radio signal breaking up.
 static func garble(text: String, salt: int = 0) -> String:
+	var out: PackedStringArray = []
 	var words := text.split(" ")
 	for i in words.size():
 		if (i + salt) % STATIC_EVERY == STATIC_EVERY - 1 and words[i].length() > 2:
-			words[i] = "--"
-	return " ".join(words)
+			if out.is_empty():
+				out.append("...")
+			elif not out[-1].ends_with("..."):
+				out[-1] = out[-1].rstrip(".,!?") + "..."
+			continue
+		out.append(words[i])
+	return " ".join(out)
