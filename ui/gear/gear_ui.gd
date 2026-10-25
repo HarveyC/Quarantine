@@ -89,18 +89,16 @@ static func wrap(l: Label, width := 0) -> Label:
 	return l
 
 
-## A tag chip: outlined in the tag's colour. `dashed` = dormant / preview look.
+## A tag: a dot and the name in the tag's colour, straight on the card (no pill round it).
+## `dim` = dormant / preview look.
 static func tag_chip(tag: String, text := "", dim := false) -> PanelContainer:
 	var c := GearData.tag_color(tag)
 	if dim:
 		c = c.darkened(0.45)
 	var p := PanelContainer.new()
-	var sb := box(Color(c, 0.08), Color(c, 0.6), 1, Styles.PILL, 0)
-	sb.content_margin_left = 9
-	sb.content_margin_right = 10
-	sb.content_margin_top = 2
-	sb.content_margin_bottom = 2
-	p.add_theme_stylebox_override("panel", sb)
+	var gap := StyleBoxEmpty.new()
+	gap.content_margin_right = 8   # without a pill, a little air keeps neighbours apart
+	p.add_theme_stylebox_override("panel", gap)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 5)
 	var dot := Panel.new()

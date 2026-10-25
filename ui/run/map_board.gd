@@ -459,7 +459,8 @@ func _draw() -> void:
 		draw_arc(kp, 12, 0, TAU, 32, Color(Styles.AMBER, 0.7), 1.5, true)
 		_text_c(Styles.FONT_MONO, str(i + 1), kp + Vector2(0, 5), 12, Styles.AMBER_LIGHT)
 
-	# Vote chips: one per voter in their colour, under the node they picked.
+	# Votes: each voter's name in their colour over the node they picked (no pills; the side
+	# panel says who hosts).
 	var per_node := {}
 	for pl in run.votes:
 		var id: int = run.votes[pl]
@@ -474,16 +475,15 @@ func _draw() -> void:
 		var total := 0.0
 		for pl in voters:
 			var t := _voter_name(pl).to_upper()
-			var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 14
+			var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 			chips.append([pl, t, w])
-			total += w + 4
-		var cx := node_pos(n).x - (total - 4) * 0.5
-		var cy := node_pos(n).y - _r(id) - 30
+			total += w + 12
+		var cx := node_pos(n).x - (total - 12) * 0.5
+		var cy := node_pos(n).y - _r(id) - 14
 		for ch in chips:
-			var r := Rect2(cx, cy, ch[2], 20)
-			W.Draw.capsule(self, r, Styles.player_color(ch[0]))
-			draw_string(font, Vector2(cx + 7, cy + 15), ch[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Styles.GROUND)
-			cx += ch[2] + 4
+			draw_string_outline(font, Vector2(cx, cy), ch[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 5, Color(Styles.GROUND, 0.9))
+			draw_string(font, Vector2(cx, cy), ch[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Styles.player_color(ch[0]))
+			cx += ch[2] + 12
 
 	# Legend.
 	var lx := 0.0
@@ -528,10 +528,7 @@ func _r(id: int) -> float:
 
 func _voter_name(p: int) -> String:
 	var n: String = names.get(p, "")
-	var s := n if n != "" else "P%d" % (p + 1)
-	if p == run.host_player and not run.is_solo():
-		s += " · host"
-	return s
+	return n if n != "" else "P%d" % (p + 1)
 
 
 ## A link between two node centres, trimmed to the rings. Dotted for routes not taken.

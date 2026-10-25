@@ -1,7 +1,8 @@
 extends VBoxContainer
-## Left-hand squad roster: one rounded card per soldier for the whole squad, owner shown by a
-## colour pill and the portrait's inner ring. Cards show the portrait with its teal Infection
-## ring, HP pips, lantern action orbs and statuses. Clicking a card selects that soldier.
+## Left-hand squad roster: one entry per soldier for the whole squad, straight on the scene over
+## a soft haze (no card box), owner shown by a colour stripe and the portrait's inner ring.
+## Entries show the portrait with its teal Infection ring, HP pips, lantern action orbs and
+## statuses; soldiers with nothing left to do this turn fade back. Clicking one selects it.
 
 signal unit_clicked(id: int)
 
@@ -20,13 +21,7 @@ func build() -> void:
 	add_theme_constant_override("separation", 8)
 	custom_minimum_size = Vector2(WIDTH, 0)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var head := Styles.hbox(6)
-	head.add_child(Styles.caps("Squad", 13, Styles.DIM))
-	head.add_child(Styles.spacer())
-	head.add_child(W.keycap("Tab"))
-	head.add_child(Styles.caps("cycle", 11, Styles.MUTED, false))
-	add_child(head)
-	_cards = Styles.vbox(6)
+	_cards = Styles.vbox(2)
 	add_child(_cards)
 
 
@@ -51,19 +46,18 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 	var out_of_play := uv.dead or uv.turned or uv.lapsed
 	var mine: bool = view.session.is_local(uv.owner_player)
 	var pcol := Styles.player_color(uv.owner_player)
-	var card := W.Frame.new(Vector4(8, 7, 18, 7))
+	var card := W.Frame.new(Vector4(10, 7, 18, 7))
 	card.stripe = pcol
 	card.radius = 40
+	# No box: the selected soldier gets a warm lantern haze, the rest a plain dark one.
 	if selected:
-		card.set_look(Color(0.13, 0.1, 0.06, 0.92), Styles.AMBER, Styles.AMBER, false)
-	elif uv.tier >= 2 and not uv.dead:
-		card.set_look(Color(0.03, 0.09, 0.1, 0.88), Color(Styles.TEAL, 0.4), Styles.AMBER, false)
+		card.set_haze(0.13, Styles.AMBER)
 	else:
-		card.set_look(Color(0.04, 0.055, 0.09, 0.82), Styles.BORDER_SOFT, Styles.AMBER, false)
+		card.set_haze(0.4)
 	if out_of_play:
-		card.modulate = Color(1, 1, 1, 0.55)
-	elif not mine or (u != null and u.actions_left == 0):
-		card.modulate = Color(1, 1, 1, 0.82)
+		card.modulate = Color(1, 1, 1, 0.45)
+	elif not selected and (not mine or (u != null and u.actions_left == 0)):
+		card.modulate = Color(1, 1, 1, 0.6)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.mouse_default_cursor_shape = Control.CURSOR_ARROW if out_of_play else Control.CURSOR_POINTING_HAND
 	card.gui_input.connect(func(e: InputEvent) -> void:
@@ -80,7 +74,8 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 	row.add_child(col)
 
 	var top := Styles.hbox(6)
-	top.add_child(Styles.bold(uv.display_name, 16))
+	var name_l := Styles.bold(uv.display_name, 16, Styles.AMBER_LIGHT if selected else Styles.TEXT)
+	top.add_child(name_l)
 	top.add_child(Styles.spacer())
 	var status := _status(view, uv, u)
 	var corner: Control
@@ -94,24 +89,30 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 		top.add_child(d)
 	col.add_child(top)
 
-	var mid := Styles.hbox(6)
-	var sub := UnitData.SOLDIERS.get(uv.kind, {}).get("name", uv.kind.capitalize()) as String
-	if sub == uv.display_name:
-		sub = "HP %d/%d" % [uv.hp, uv.max_hp]
-	if not mine or not view.session is LocalSession:
-		sub += " · " + owner_name(view, uv.owner_player)
-	mid.add_child(Styles.label(sub, 13, Styles.DIM))
-	mid.add_child(Styles.spacer())
+	# The name already says the class and the portrait shows it, so the line under it is just
+	# HP, Infection and (online, or someone else's soldier) the owner.
+	var mid := Styles.hbox(10)
 	var hp := W.Pips.new(Vector2(11, 5))
 	hp.set_values(uv.max_hp, uv.hp, 0, Styles.DANGER if uv.hp * 3 <= uv.max_hp else Styles.HP)
+	hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mid.add_child(hp)
-	col.add_child(mid)
-
 	# Infection is the teal ring round the portrait; the words say how far gone.
-	var inf := Styles.hbox(6)
-	inf.add_child(W.Icon.new("infection", Styles.TEAL if uv.tier >= 1 else Styles.TEAL_DIM, 13, 1.6))
-	inf.add_child(Styles.label("Infection %d · %s" % [uv.infection, Infection.tier_name(uv.tier)], 12, Styles.TEAL if uv.tier >= 1 else Styles.TEAL_DIM))
-	col.add_child(inf)
+	var inf := Styles.hbox(4)
+	var inf_col := Styles.TEAL if uv.tier >= 1 else Styles.TEAL_DIM
+	inf.add_child(W.Icon.new("infection", inf_col, 13, 1.6))
+	inf.add_child(Styles.mono(str(uv.infection), 12, inf_col))
+	if uv.tier >= 1:
+		inf.add_child(Styles.label(Infection.tier_name(uv.tier), 12, inf_col))
+	mid.add_child(inf)
+	col.add_child(mid)
+	var sub := ""
+	var kind_name := UnitData.SOLDIERS.get(uv.kind, {}).get("name", uv.kind.capitalize()) as String
+	if not uv.display_name.contains(kind_name):
+		sub = kind_name
+	if not mine or not view.session is LocalSession:
+		sub += (" · " if sub != "" else "") + owner_name(view, uv.owner_player)
+	if sub != "":
+		col.add_child(Styles.label(sub, 12, Styles.DIM))
 
 	var flags := PackedStringArray()
 	if uv.overwatch:

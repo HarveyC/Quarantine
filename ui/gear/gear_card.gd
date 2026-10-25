@@ -203,11 +203,12 @@ func _build_gun(v: VBoxContainer) -> void:
 func _build_power(v: VBoxContainer) -> void:
 	var is_mut: bool = card.kind == "mutation"
 	var col := UI.TEAL if is_mut else UI.GOOD
+	# The left caption already says Mutation / Class perk; the right one adds only the tier.
 	var sub := "Mutation" if is_mut else "Perk"
 	if card.has("tier"):
-		sub += " · " + Infection.tier_name(int(card.tier))
+		sub = Infection.tier_name(int(card.tier))
 	elif card.has("rarity"):
-		sub += " · " + str(card.rarity).capitalize()
+		sub = str(card.rarity).capitalize()
 	var sub_label := UI.caps(sub, 13, col)
 	Tips.term(sub_label, "mutation" if is_mut else "perk", {"value": Infection.THRESHOLDS[clampi(int(card.get("tier", 1)), 0, 4)]} if is_mut else {})
 	_row(v, UI.label(("MUTATION" if is_mut else "CLASS PERK"), 12, UI.FAINT, "mono"), sub_label)
@@ -285,8 +286,9 @@ func _content_row(c: Dictionary) -> Control:
 			what = "Mutation · %s" % Infection.tier_name(int(c.get("tier", 1)))
 			desc = str(c.get("desc", ""))
 			tags = [GearTags.normalize(str(c.get("tag", "")))]
+	# No box: the colour stripe alone ties the block together.
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", UI.box(Color(col, 0.07), Color(col, 0.55), 1, 0, 8))
+	p.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 10)
 	var stripe := ColorRect.new()
@@ -311,14 +313,20 @@ func _content_row(c: Dictionary) -> Control:
 	return p
 
 
+## A callout inside the card (an upgrade, a set step): a colour stripe on its left, no box.
 func _boxed(v: VBoxContainer, col: Color) -> VBoxContainer:
-	var p := PanelContainer.new()
-	var sb := UI.box(Color(col, 0.07), col, 1, 0, 10)
-	p.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	var stripe := ColorRect.new()
+	stripe.color = col
+	stripe.custom_minimum_size = Vector2(3, 0)
+	stripe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(stripe)
 	var inner := VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 4)
-	p.add_child(inner)
-	v.add_child(p)
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(inner)
+	v.add_child(h)
 	return inner
 
 
@@ -362,7 +370,7 @@ func _art_color() -> Color:
 	return UI.DIM
 
 
-## Line-art glyph for the card's slot or kind on a faint grid, like the mockup's art panel.
+## Line-art glyph for the card's slot or kind.
 class Art:
 	extends Control
 
@@ -373,18 +381,7 @@ class Art:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var r := Rect2(Vector2.ZERO, size)
-		draw_rect(r, Color(1, 1, 1, 0.02))
-		draw_rect(r, UI.BORDER, false, 1.0)
-		var g := Color(1, 1, 1, 0.025)
-		var x := 0.0
-		while x < size.x:
-			draw_line(Vector2(x, 0), Vector2(x, size.y), g)
-			x += 24.0
-		var y := 0.0
-		while y < size.y:
-			draw_line(Vector2(0, y), Vector2(size.x, y), g)
-			y += 24.0
+		# The glyph straight on the card: no framed grid box round it.
 		var c := size / 2
 		var s := minf(size.y * 0.36, 60.0)
 		var w := 2.0
