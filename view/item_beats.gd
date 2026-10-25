@@ -267,7 +267,7 @@ static func _foam(ep: Node, ev: Dictionary) -> Dictionary:
 	var update := func(k: float) -> void:
 		while st.n < int(k * 8.0) and st.n < 8:
 			st.n += 1
-			var to: Vector3 = tv.chest_world() + Vector3(sin(st.n * 1.9) * 0.2, cos(st.n * 2.7) * 0.2, 0)
+			var to: Vector3 = tv.aim_point() + Vector3(sin(st.n * 1.9) * 0.2, cos(st.n * 2.7) * 0.2, 0)
 			fx.tracer(src, to, FOAM, 0.25)
 			fx.puff(to, FOAM, 0.7, 1.6, 0.05)
 	var finish := func() -> void:
@@ -296,9 +296,9 @@ static func _soldier(ep: Node, ev: Dictionary, look: Dictionary) -> Dictionary:
 		"inject":
 			var on: Node3D = tv if tv != null else uv
 			if on != uv:
-				fx.tracer(uv.position + Vector3(0, 1.2, 0), on.chest_world(), col, 0.35)
+				fx.tracer(uv.position + Vector3(0, 1.2, 0), on.aim_point(), col, 0.35)
 			fx.puff(on.position + Vector3(0, 0.9, 0), col, 1.0, 0.9, 0.5)
-			fx.burst(on.chest_world(), Vector3.UP, col, 14, 2.0, true, 0.03)
+			fx.burst(on.aim_point(), Vector3.UP, col, 14, 2.0, true, 0.03)
 			fx.flash_light(on.position + Vector3(0, 1.0, 0), col, 3.0, 0.5)
 			fx.pulse(on.position, col)
 			on.flash(col)
@@ -312,7 +312,7 @@ static func _soldier(ep: Node, ev: Dictionary, look: Dictionary) -> Dictionary:
 		"tag":
 			ep._sfx("ui_confirm", -4.0, 0.2)
 			if tv != null:
-				fx.tracer(uv.muzzle_world(), tv.chest_world(), col, 0.9)
+				fx.tracer(uv.muzzle_world(), tv.aim_point(), col, 0.9)
 				fx.pulse(tv.position, col)
 				tv.flash(col)
 				fx.floating_text(ep._head(tv) + Vector3(0, 0.35, 0), "MARKED", col, 40, 1.4)
@@ -329,8 +329,8 @@ static func _soldier(ep: Node, ev: Dictionary, look: Dictionary) -> Dictionary:
 		"drain":
 			if tv != null:
 				for i in 3:
-					fx.tracer(tv.chest_world(), uv.chest_world() + Vector3(0, 0.1 * i, 0), col, 0.6 + 0.15 * i)
-				fx.burst(tv.chest_world(), Vector3.UP, col, 10, 1.5, true, 0.03)
+					fx.tracer(tv.aim_point(), uv.aim_point() + Vector3(0, 0.1 * i, 0), col, 0.6 + 0.15 * i)
+				fx.burst(tv.aim_point(), Vector3.UP, col, 10, 1.5, true, 0.03)
 			fx.pulse(uv.position, col)
 			return {"dur": 0.7}
 		"cone":

@@ -127,7 +127,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 		"jammed":   # a Shrieker's scream through a soldier's Machine grafts
 			if uv != null:
 				fx.floating_text(head.call(uv), "GRAFTS JAMMED", Palette.DANGER, 40)
-				fx.burst(uv.chest_world(), Vector3.UP, Color(0.75, 0.82, 0.86), 10, 2.2, true, 0.03)
+				fx.burst(uv.aim_point(), Vector3.UP, Color(0.75, 0.82, 0.86), 10, 2.2, true, 0.03)
 				uv.flash(Color(0.75, 0.82, 0.86))
 			ep._sfx("impact_shock", -6.0)
 			return {"dur": 0.35}

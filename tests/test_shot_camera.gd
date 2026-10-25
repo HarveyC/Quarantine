@@ -39,7 +39,7 @@ func test_camera_backs_off_a_wall_behind_the_shooter() -> void:
 	]))
 	var from := Vector3(4, 0, 3)
 	var at := Vector3(4, 0, 9)
-	var eye: Vector3 = v.player._ots_eye(from, at, Vector3(0, 0, 0.5))
+	var eye: Vector3 = v.player._ots_eye(from, at, at + Vector3(0, 1.3, 0), Vector3(0, 0, 0.5))
 	assert_true(ShotCamera.eye_clear(v.state.grid, eye), "lens not inside the wall")
 	assert_true(ShotCamera.line_clear(v.state.grid, eye, from + Vector3(0, 1.3, 0)), "shooter in view")
 	v.free()
@@ -69,7 +69,7 @@ func test_shot_cameras_stay_out_of_generated_maps() -> void:
 					var from := _pos(g, a)
 					var at := _pos(g, b)
 					var dir := Vector3(at.x - from.x, 0, at.z - from.z).normalized()
-					var eye: Vector3 = v.player._ots_eye(from, at, dir * 0.5)
+					var eye: Vector3 = v.player._ots_eye(from, at, at + Vector3(0, 1.3, 0), dir * 0.5)
 					shots += 1
 					assert_true(ShotCamera.eye_clear(g, eye) and ShotCamera.eye_clear(g, eye + dir * 0.5),
 						"%s/%d %s>%s: lens clear at %s" % [obj, seed, a, b, eye])
