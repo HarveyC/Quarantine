@@ -30,7 +30,7 @@ func _init() -> void:
 			v.fog.visible = false
 		for c in v.find_children("*", "CanvasLayer", true, false):
 			(c as CanvasLayer).visible = false
-		v.camera_rig._target_dist = v.camera_rig.MAX_DIST
+		v.camera_rig._target_dist = v.camera_rig.MAX_DIST * 1.2
 		v.camera_rig.focus(v.board.center())
 		v.camera_rig.snap()
 		for i in 30:

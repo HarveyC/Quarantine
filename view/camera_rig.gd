@@ -11,7 +11,7 @@ extends Node3D
 const Board := preload("res://view/board.gd")
 const PITCH_DEG := 55.0
 const MIN_DIST := 6.0
-const MAX_DIST := 26.0
+const MAX_DIST := 32.0
 const PAN_SPEED := 12.0
 const EDGE_PX := 12
 

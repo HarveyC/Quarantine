@@ -33,7 +33,8 @@ func test_every_objective_generates_valid_maps() -> void:
 				var g := MapGen.generate(_spec(o, seed, biome))
 				var tag := "%s %s seed %d" % [biome, o, seed]
 				assert_true(not g.markers.is_empty(), tag + " did not fall back to the handmade map")
-				assert_true(g.width >= 16 and g.width <= 20 and g.height >= 16 and g.height <= 20, tag + " size")
+				var low := 20 if o == "boss" else 22
+				assert_true(g.width >= low and g.width <= 28 and g.height >= low and g.height <= 28, tag + " size")
 				assert_eq(g.biome, biome, tag + " biome")
 				assert_true(g.player_spawns.size() >= 4, tag + " deploy cells")
 				assert_true(g.enemy_spawns.size() >= MapGen.MIN_ENEMY_SPAWNS, tag + " enemy spawns")
@@ -73,6 +74,25 @@ func test_pods_sit_inside_two_moves() -> void:
 			assert_true(dist[c] >= MapGen.POD_STEPS.x, "no enemy spawns next to the squad")
 			nearest = mini(nearest, dist[c])
 		assert_true(nearest <= MapGen.POD_STEPS.y, "contact within two moves")
+
+
+func test_streets_between_parcels_stay_open() -> void:
+	# Streets are the MIN_LANES-wide strips between parcels: open ground apart from the cordon wall
+	# and the odd sandbag line.
+	var step := MapGen.PARCEL + MapGen.MIN_LANES
+	for biome in BIOMES:
+		var street := 0
+		var open := 0
+		for seed in range(1, 11):
+			var g := MapGen.generate(_spec("skirmish", seed, biome))
+			for y in g.height:
+				for x in g.width:
+					if x % step < MapGen.PARCEL and y % step < MapGen.PARCEL:
+						continue
+					street += 1
+					if g.tile(Vector2i(x, y)) == Types.Tile.FLOOR:
+						open += 1
+		assert_true(open >= street * 0.75, "%s: streets mostly open (%d/%d)" % [biome, open, street])
 
 
 func test_unknown_biome_and_objective_fall_back_to_act_1_skirmish() -> void:
