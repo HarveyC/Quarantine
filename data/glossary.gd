@@ -317,6 +317,15 @@ static func _build() -> Dictionary:
 		"more": ["Bosses and nests can't be stunned; a flashbang only Suppresses them."],
 		"see": ["suppress"],
 		"aliases": ["Stun", "Stuns", "Flashbang"]}
+	t["pinned"] = {"name": "Pinned", "kind": "status", "icon": "pinned", "tone": "danger",
+		"line": "A Lurker has the soldier down: no actions until it lets go, and it mauls every turn.",
+		"art": "",
+		"stats": [["0", "actions"], ["%d" % Encounter.PIN_TURNS, "turns max"]],
+		"more": ["Any teammate who hits the Lurker frees them at once.",
+			"Knocking the Lurker away or stunning it breaks the hold too.",
+			"Otherwise the soldier shakes it off after %d turns." % Encounter.PIN_TURNS],
+		"see": ["stunned"],
+		"aliases": ["Pinned down", "Mauling"]}
 	t["hunker"] = {"name": "Hunker down", "kind": "action", "icon": "hunker", "tone": "amber",
 		"line": "Get low behind {cover} until your next turn. Doubles it.",
 		"art": "cover", "art_ctx": {"hunker": true},
@@ -330,7 +339,7 @@ static func _build() -> Dictionary:
 		"stats": [["-%d" % Combat.SUPPRESS_PENALTY, "aim"], ["1", "shot"]],
 		"more": ["The Trooper's Suppress ends their turn.", "With 3 {tag_suppress|Suppress} gear, moving while suppressed gives a free shot."],
 		"see": ["overwatch", "tag_suppress"],
-		"aliases": ["Suppression", "Pinned"], "labels": ["Suppress"]}
+		"aliases": ["Suppression"], "labels": ["Suppress"]}
 	t["mark"] = {"name": "Marked", "kind": "status", "icon": "tag", "tone": Color("#ff5c86"),
 		"line": "Tagged by a Marksman: every soldier aims better against it.",
 		"art": "",

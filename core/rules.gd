@@ -136,6 +136,34 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 	return true
 
 
+## Why `u` started this team phase short of actions, for the HUD: one entry per cause, each
+## {"key": glossary term, "icon": Icons id, "title": short caps word, "text": one plain line,
+## "lost": actions taken (Types.ACTIONS_PER_TURN = the whole turn)}. Pure; [] when nothing.
+static func action_losses(s: GameState, u: Unit) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if u == null or not u.is_alive() or u.team != Types.Team.PLAYER or u.ai_controlled:
+		return out
+	if u.status.has("pinned_by"):
+		var l := s.get_unit(int(u.status.pinned_by))
+		var who := l.display_name if l != null and l.display_name != "" else "a Lurker"
+		var left := Encounter.pin_turns_left(s, u)
+		out.append({"key": "pinned", "icon": "pinned", "title": "Pinned", "lost": Types.ACTIONS_PER_TURN,
+			"text": "Pinned by %s: can't act. Breaks free %s, or as soon as a teammate hits it." % [
+				who, "next turn" if left <= 1 else "in %d turns" % left]})
+	if s.phase != Types.Phase.TEAM:
+		return out
+	if s.turn == 1 and u.status.get("first_turn_action_loss", false):
+		out.append({"key": "", "icon": "event", "title": "Shaken", "lost": 1,
+			"text": "Whispers: fighting the voices costs 1 action this first turn."})
+	if u.status.get("k_lose_action") == s.turn:
+		out.append({"key": "", "icon": "mutation", "title": "Twin Sight", "lost": 1,
+			"text": "Twin Sight: strayed too far from the bonded soldier, 1 action lost this turn."})
+	if u.status.get("k_surge_penalty") == s.turn:
+		out.append({"key": "", "icon": "mutation", "title": "Crash", "lost": 1,
+			"text": "Adrenal Surge crash: only 1 action this turn."})
+	return out
+
+
 ## Fog of war: shooting at or attacking a hostile gives the attacker's position away, and so
 ## do the area attacks below (lobbed spit, airstrike calls). Anything that deals damage also
 ## exposes its source (deal_damage).

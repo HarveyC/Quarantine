@@ -162,6 +162,11 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 				var r1 := 10.0 if k % 2 == 0 else 7.0
 				line.call([[12 + cos(a) * r0, 12 + sin(a) * r0], [12 + cos(a) * r1, 12 + sin(a) * r1]])
 			dot.call(12, 12, 2)
+		"pinned":   # three claw rakes coming down onto a figure's ground line
+			line.call([[6, 3], [8.5, 10], [7, 16]])
+			line.call([[12, 2], [13, 9.5], [11.5, 16]])
+			line.call([[18, 3], [17.5, 10], [16, 16]])
+			line.call([[3.5, 20.5], [20.5, 20.5]])
 		"stun":   # a jagged bolt
 			line.call([[14, 2.5], [7, 13], [12, 13], [9, 21.5], [17, 10], [12, 10], [14, 2.5]])
 		"drone":   # four rotors round a body

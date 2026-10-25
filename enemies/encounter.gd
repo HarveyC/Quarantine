@@ -30,6 +30,7 @@ const REGEN := 3
 const FRENZY_MOB := 2
 const FRENZY_AIM := 10
 const PERMANENT := 1 << 20
+const PIN_TURNS := 2             # team phases a Lurker pin holds before the soldier shakes it off
 
 
 # --- setup ---------------------------------------------------------------------------------
@@ -214,12 +215,41 @@ static func reveal(s: GameState, u: Unit) -> void:
 		EnemyAI.alert(s, u)
 
 
-static func release_pin(s: GameState, lurker: Unit) -> void:
+static func release_pin(s: GameState, lurker: Unit, why := "") -> void:
 	var t := s.get_unit(lurker.status.get("pinning", -1))
 	lurker.status.erase("pinning")
 	if t != null:
 		t.status.erase("pinned_by")
-		s.emit({"type": "released", "unit": t.id, "by": lurker.id})
+		t.status.erase("pinned_at")
+		var ev := {"type": "released", "unit": t.id, "by": lurker.id}
+		if why != "":
+			ev["why"] = why
+		s.emit(ev)
+
+
+## Ends every pin that can no longer hold: the Lurker was knocked or dragged out of reach, or
+## stunned. A pin left behind would keep a soldier out of the fight with nothing to break it.
+static func check_pins(s: GameState) -> void:
+	for l in s.living(Types.Team.ENEMY):
+		if not l.status.has("pinning"):
+			continue
+		var t := s.get_unit(int(l.status.pinning))
+		if t == null or not t.is_alive() or int(t.status.get("pinned_by", -1)) != l.id:
+			if t != null and int(t.status.get("pinned_by", -1)) == l.id:
+				t.status.erase("pinned_by")
+			l.status.erase("pinning")
+		elif not s.grid.melee_reach(l.pos, t.pos):
+			release_pin(s, l, "reach")
+		elif l.status.get("k_skip_turn", false):
+			release_pin(s, l, "stunned")
+
+
+## Team phases `u` has left before it shakes off a Lurker pin on its own (0 if not pinned).
+static func pin_turns_left(s: GameState, u: Unit) -> int:
+	if not u.status.has("pinned_by"):
+		return 0
+	var at := int(u.status.get("pinned_at", s.turn))
+	return maxi(1, at + PIN_TURNS + 1 - s.turn)
 
 
 ## Removes a unit without damage (boss death clears the adds).
@@ -246,6 +276,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 
 
 static func after_action(s: GameState, u: Unit, action: Dictionary) -> void:
+	check_pins(s)   # a knock, pull or stun this action may have broken a Lurker's hold
 	if action.get("type") == Types.ABILITY and action.get("ability") == "spit" and action.has("cell"):
 		add_spores(s, [action.cell], EnemyAbilities.SPORE_TURNS, u)
 	if action.get("type") == Types.MOVE and u.team == Types.Team.PLAYER:
@@ -263,11 +294,15 @@ static func _reveal_near(s: GameState) -> void:
 
 
 static func on_team_phase_start(s: GameState) -> void:
+	check_pins(s)
 	for u in s.living(Types.Team.PLAYER):
 		if u.status.has("pinned_by"):
 			var l := s.get_unit(u.status.pinned_by)
 			if l == null or not l.is_alive():
 				u.status.erase("pinned_by")
+				u.status.erase("pinned_at")
+			elif s.turn > int(u.status.get("pinned_at", s.turn)) + PIN_TURNS:
+				release_pin(s, l, "broke_free")   # held long enough: shakes it off and acts
 			else:
 				u.actions_left = 0
 	if s.encounter.get("lapse_double", false):

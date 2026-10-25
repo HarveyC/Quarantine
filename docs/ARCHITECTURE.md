@@ -99,7 +99,7 @@ Rules for parallel work:
 | `source_pulse` | `unit` (the Source), `units`, `amount` |
 | `reinforcements_incoming` | `cells`, `turn`, `count` — a wave arrives at these vents next enemy phase |
 | `revealed` | `unit` (a hidden Lurker) |
-| `pinned` / `released` | `unit` (soldier), `by` (Lurker) |
+| `pinned` / `released` | `unit` (soldier), `by` (Lurker); `released` may carry `why`: "broke_free" (held `Encounter.PIN_TURNS` team phases), "reach" or "stunned" |
 | `regenerate` | `unit`, `healed`, `hp` |
 | `immune` | `unit`, `source`, `reason` (kind it is tethered to) — damage was ignored, no `damage` event follows |
 | `untethered` | `unit` |

@@ -84,7 +84,15 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 	top.add_child(Styles.spacer())
 	var status := _status(view, uv, u)
 	var corner: Control
-	if status[0] != "":
+	var losses: Array = Rules.action_losses(view.state, u) if u != null and not out_of_play else []
+	var why := "\n".join(PackedStringArray(losses.map(func(l: Dictionary) -> String: return str(l.text))))
+	if not losses.is_empty() and int(losses[0].lost) >= Types.ACTIONS_PER_TURN:
+		# Out of the turn through no choice of theirs: say why in the corner, not "Ready".
+		corner = Styles.hbox(4)
+		corner.add_child(W.Icon.new(str(losses[0].icon), Styles.DANGER_TEXT, 14, 1.8))
+		corner.add_child(Styles.caps(str(losses[0].title), 12, Styles.DANGER_TEXT))
+		top.add_child(corner)
+	elif status[0] != "":
 		corner = Styles.caps(status[0], 12, status[1])
 		top.add_child(corner)
 	else:
@@ -132,6 +140,12 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 		Tips.auto(corner, str(status[0]))
 	if flag_label != null:
 		Tips.terms(flag_label, Glossary.scan(flag_label.text))
+	if why != "":
+		# The card's whole corner explains the lost actions: the cause, then the term card.
+		corner.tooltip_text = why
+		if str(losses[0].key) != "":
+			Tips.term(corner, str(losses[0].key))
+		corner.mouse_filter = Control.MOUSE_FILTER_PASS
 	return card
 
 
