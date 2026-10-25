@@ -121,6 +121,11 @@ const BARKS := {
 	"echo": ["Contact. That's {name}, wave {wave}. They aren't ours any more.",
 		"I know that one. {name}. Put them down gently."],
 	"echo_laid": ["{name}'s tags recovered. Rest easy."],
+	# Boss fights: "<boss>_<phase>" on a phase change, "<boss>_open" when its shield breaks.
+	"brood_mother_open": ["Sacs are down. She's open. Hit her now.", "That's the last sac. Light her up."],
+	"brood_mother_2": ["She's tunnelling! Watch the ground and get off the roofs.",
+		"She's under you somewhere. Move when the ground cracks."],
+	"brood_mother_3": ["She's lost it. No more sacs. Finish her.", "She's coming straight at you. Put her down."],
 	"lore": ["Intel recovered."],
 }
 ## Colonel Hale's voice in his boss fight, by phase: on the company radio, then after the Bloom

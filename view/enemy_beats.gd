@@ -53,7 +53,8 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			return {"dur": 0.45}
 		"telegraph":
 			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
-				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING"}
+				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
+				"acid_rain": "ACID RAIN"}
 			if uv != null:
 				fx.floating_text(head.call(uv), text.get(ev.get("kind", ""), "DANGER"), Palette.DANGER, 44)
 			_flash_cells(fx, ev.get("cells", []), Palette.DANGER)

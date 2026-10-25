@@ -1,6 +1,6 @@
 extends Control
-## Letterbox bars and captions for shot cinematics: who is shooting whom and the odds
-## while the camera pushes in, then a large HIT / MISS / CRITICAL stamp on impact.
+## Letterbox bars for shot cinematics, and a large HIT / MISS / CRITICAL stamp on impact.
+## Who is attacking whom sits in the bottom bar as the attack callout (ui/attack_callout.gd).
 
 const Styles := preload("res://ui/styles.gd")
 
@@ -9,8 +9,6 @@ const BAR_FRACTION := 0.11   # of screen height, each bar
 var active := false
 var _top: ColorRect
 var _bottom: ColorRect
-var _caption: Label
-var _sub: Label
 var _result: Label
 var _k := 0.0          # letterbox slide 0..1
 var _result_t := 0.0
@@ -22,19 +20,6 @@ func build() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_top = _bar()
 	_bottom = _bar()
-	_caption = Styles.label("", 22)
-	_caption.add_theme_constant_override("outline_size", 6)
-	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_caption.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
-	_caption.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_caption.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	add_child(_caption)
-	_sub = Styles.label("", 16, Styles.AMBER)
-	_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sub.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
-	_sub.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_sub.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	add_child(_sub)
 	_result = Styles.label("", 64)
 	_result.add_theme_constant_override("outline_size", 12)
 	_result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -58,14 +43,11 @@ func set_active(on: bool) -> void:
 	active = on
 	if not on:
 		_result_t = 0.0
-		_caption.text = ""
-		_sub.text = ""
 
 
-func caption(text: String, sub: String) -> void:
-	_caption.text = text
-	_sub.text = sub
-	_result_t = 0.0
+## Height of each letterbox bar as it stands now (0 when they are away).
+func bar_height() -> float:
+	return (size.y if size.y > 0.0 else 900.0) * BAR_FRACTION * _k
 
 
 func result(word: String, color: Color) -> void:
@@ -94,10 +76,6 @@ func _apply() -> void:
 	_bottom.size = Vector2(w, bar)
 	_top.visible = _k > 0.0
 	_bottom.visible = _k > 0.0
-	_caption.modulate.a = _k
-	_sub.modulate.a = _k
-	_caption.position.y = h - bar * 0.5 - 30
-	_sub.position.y = h - bar * 0.5 + 2
 	# Stamp: punches in large, then settles and fades.
 	var r := _result_t / 1.4
 	_result.modulate.a = clampf(_result_t / 0.4, 0.0, 1.0)

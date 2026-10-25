@@ -44,7 +44,7 @@ func on_beat(ev: Dictionary) -> void:
 	var type := str(ev.get("type", ""))
 	if type == "boss_phase":
 		_phase[int(ev.get("unit", -1))] = int(ev.get("phase", 2))
-	if type == "died":
+	if type == "killed":   # the death cry goes up with the killing blow
 		var uv := _unit(ev)
 		if uv != null and (not uv.is_soldier or uv.turned):
 			bark(uv, 0.0, true)

@@ -9,12 +9,15 @@ const W := preload("res://ui/widgets.gd")
 const Tips := preload("res://ui/tips/tips.gd")
 const TipArt := preload("res://ui/tips/tip_art.gd")
 const ClassTip := preload("res://ui/tips/class_tip.gd")
+const CompareView := preload("res://ui/gear/compare_view.gd")
 
 const WIDTH := 300.0
 const WIDE := 340.0
 ## A soldier class card (ClassTip) has more to lay out side by side.
 const CLASS_WIDTH := 330.0
 const CLASS_WIDE := 380.0
+## An item compare (two items side by side plus the stat and tag rows).
+const COMPARE_WIDTH := 420.0
 
 var terms: Array = []
 var text := ""
@@ -69,6 +72,8 @@ func term_at(c: Control) -> String:
 func width() -> float:
 	if ctx.has("class"):
 		return CLASS_WIDE if expanded else CLASS_WIDTH
+	if ctx.has("compare"):
+		return COMPARE_WIDTH
 	return WIDE if expanded else WIDTH
 
 
@@ -84,6 +89,13 @@ func _build() -> void:
 		ClassTip.build(self, _box, str(ctx["class"]), bool(ctx.get("locked", false)), inner, expanded)
 		if not expanded:
 			_box.add_child(_footer())
+		reset_size()
+		return
+	if ctx.has("compare"):
+		if str(ctx.get("note", "")) != "":
+			# Why the buy is blocked, above the compare.
+			_box.add_child(rich(str(ctx.note), inner, 13, Styles.DANGER_TEXT))
+		CompareView.build(_box, ctx["compare"], inner, ctx.get("who_color", Styles.DIM))
 		reset_size()
 		return
 	if text != "":

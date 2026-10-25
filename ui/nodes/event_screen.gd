@@ -162,6 +162,11 @@ func _player_options(p: int) -> Control:
 				b.custom_minimum_size.x = 170
 				b.pressed.connect(submit.bind({"type": "node_choose", "player": p, "option": o.id, "soldier": rec.id}))
 				_hook(b, "%s · %s" % [o.label, rec.name], p, o.id, rec.id)
+				if step.has("generate") and GearData.exists(o.id):
+					var who: Dictionary = rec
+					var item: String = o.id
+					Tips.compare(b, func() -> Dictionary: return GearCompare.compare(run, who, {"kind": "gear", "id": item}),
+						NodeUi.player_color(rec.owner))
 				act.add_child(b)
 		else:
 			var voted: bool = step.kind == "vote" and s.choices.get(p, {}).get("option", "") == o.id

@@ -391,6 +391,11 @@ static func _build() -> Dictionary:
 		"more": ["Bosses and nests can't be stunned; a flashbang only Suppresses them."],
 		"see": ["suppress"],
 		"aliases": ["Stun", "Stuns", "Flashbang"]}
+	t["bleeding"] = {"name": "Bleeding", "kind": "status", "icon": "wound", "tone": "danger",
+		"line": "Loses 1 HP at the start of each of its turns until the wound closes.",
+		"art": "",
+		"stats": [["1", "HP a turn"], ["%d" % ClassAbilities.BLEED_TURNS, "turns"]],
+		"see": []}
 	t["pinned"] = {"name": "Pinned", "kind": "status", "icon": "pinned", "tone": "danger",
 		"line": "A Lurker has the soldier down: no actions until it lets go, and it mauls every turn.",
 		"art": "",
@@ -598,6 +603,13 @@ static func _build() -> Dictionary:
 		"art": "",
 		"stats": [["4", "gear slots"], ["2", "pockets"]],
 		"aliases": ["Pockets", "Consumable", "Consumables"]}
+	t["stash"] = {"name": "Stash", "kind": "gear", "icon": "loadout", "tone": "amber",
+		"line": "The squad's shared shelf for spare gear. Anyone can equip from it in the loadout.",
+		"art": "",
+		"stats": [["%d" % GearData.STASH_SIZE, "items"], ["+%d" % Loadout.SCRAP_SUPPLIES, "Supplies per scrapped item"]],
+		"more": ["An item replaced on a soldier goes here.", "When the stash is full, a replaced item is scrapped for Supplies instead."],
+		"see": ["supplies", "mk2"],
+		"aliases": ["Shared stash"]}
 	t["rank"] = {"name": "Rank", "kind": "progress", "icon": "rank", "tone": "amber",
 		"line": "Soldiers rank up after set fights and pick a {perk}.",
 		"art": "rank",
@@ -621,8 +633,11 @@ static func _build() -> Dictionary:
 	t["outbreak"] = {"name": "Outbreak", "kind": "run meter", "icon": "outbreak", "tone": "teal",
 		"line": "How far the Bloom has spread. Higher stages make every fight harder.",
 		"art": "outbreak",
-		"stats": [["+1", "per node"], ["-%d" % RunRules.BOSS_OUTBREAK_DROP, "per boss"]],
-		"more": ["Healing or purging at the field hospital adds 1.", "{severity} can start it higher."],
+		"stats": [["+1", "per node"], ["-%d" % RunRules.BONUS_OUTBREAK_DROP, "bonus objective"], ["-%d" % RunRules.BOSS_OUTBREAK_DROP, "per boss"]],
+		"more": ["Winning a nest or a Purge takes off %d more." % RunRules.NEST_OUTBREAK_DROP,
+			"Each soldier who Turns adds %d. Healing or purging at the field hospital adds 1." % RunRules.TURNED_OUTBREAK,
+			"Every point makes regular fights a little harder. From Critical, risky event choices go wrong more often.",
+			"{severity} can start it higher."],
 		"see": ["severity", "infection"],
 		"aliases": ["Outbreak stage", "Contained", "Spreading", "Rampant", "Collapse"]}
 	t["supplies"] = {"name": "Supplies", "kind": "resource", "icon": "supplies", "tone": Color("#e0b44a"),

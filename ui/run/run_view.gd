@@ -325,7 +325,7 @@ func refresh() -> void:
 	var stage := RunRules.outbreak_stage(run.outbreak)
 	_outbreak.text = "OUTBREAK %d · %s" % [run.outbreak, RunRules.OUTBREAK_NAMES[stage].to_upper()]
 	_outbreak.set_meta("full_text", _outbreak.text)
-	_outbreak_tier.text = "+1 each node · -%d per boss" % RunRules.BOSS_OUTBREAK_DROP
+	_outbreak_tier.text = "+1 each node · -%d clean wins · -%d per boss" % [RunRules.BONUS_OUTBREAK_DROP, RunRules.BOSS_OUTBREAK_DROP]
 	_outbreak_bar.value = run.outbreak
 	_outbreak_bar.queue_redraw()
 	Tips.term(_outbreak_bar.get_parent(), "outbreak", {"value": run.outbreak})

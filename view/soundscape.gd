@@ -18,6 +18,11 @@ extends Node
 ## hits and the combat stems come in with pulse and danger forced up for ASSAULT_HOLD seconds.
 ## Boss fights swap to the boss loop: base, high (boss hurt or in a later phase), bloom (always
 ## full against the Source).
+##
+## A fight's end gets an outcome stinger (a win, a boss down, a failed objective, a lost squad),
+## and the run summary gets one for the whole run. Each kind has variants that rotate. Stingers
+## play on their own bus, which follows the Music volume but isn't ducked by gunfire, and while
+## one plays the music and ambience duck under it.
 
 const EnemyVoices := preload("res://view/enemy_voices.gd")
 const VoicePlayer := preload("res://view/voice_player.gd")
@@ -45,7 +50,17 @@ const SPOTS := {
 	"amb_bore": ["spot_drip", "spot_whisper_1", "spot_whisper_2", "spot_rumble", "spot_bloom", "spot_howl_1", "spot_creak"],
 	"amb_map": ["spot_rotor", "spot_gunfire_1", "spot_siren_2"],
 }
-const STINGERS := ["st_win", "st_lose", "st_contact", "st_reveal", "st_boss", "st_node", "st_rank"]
+const STINGERS := ["st_contact", "st_reveal", "st_boss", "st_node", "st_rank"]
+## Outcome stingers by kind; each play picks a variant other than the last one heard.
+const OUTCOMES := {
+	"win": ["st_win_1", "st_win_2", "st_win_3"], "boss_win": ["st_win_boss"],
+	"fail": ["st_fail_1", "st_fail_2", "st_fail_3"], "wipe": ["st_wipe_1", "st_wipe_2"],
+	"run_won": ["st_run_won"], "run_lost": ["st_run_lost"],
+}
+## Music and ambience gain while an outcome stinger plays, and how fast they dip and come back.
+const DUCK_GAIN := 0.22
+const DUCK_DOWN := 5.0
+const DUCK_UP := 0.5
 const UI_SOUNDS := {"hover": "res://audio/ui_hover.wav", "click": "res://audio/ui_click.wav",
 	"open": "res://audio/ui/open.ogg", "close": "res://audio/ui/close.ogg", "tick": "res://audio/ui/tick.ogg",
 	"deny": "res://audio/ui_deny.wav"}
@@ -84,6 +99,9 @@ var _view_at := 0.0
 var _boss_announced := false
 var _ended := false
 var _phase_key := ""
+var _duck := 1.0
+var _duck_until := -1.0
+var _last_outcome := ""
 var _clock := 0.0
 var _settings: Control
 var volumes := {}
@@ -95,7 +113,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_rng.randomize()
 	load_settings()
-	_stinger = _player("Music")
+	_stinger = _player("Stingers")
 	_spot_player = _player("Ambience")
 	for i in 4:
 		_ui_players.append(_player("UI"))
@@ -134,6 +152,10 @@ func _apply_volume(bus: String) -> void:
 	var idx := AudioServer.get_bus_index(bus)
 	if idx >= 0:
 		AudioServer.set_bus_volume_db(idx, linear_to_db(maxf(volumes[bus], 0.0001)) if volumes[bus] > 0.0 else -80.0)
+	if bus == "Music":   # stingers skip the Music bus's gunfire ducking but follow its slider
+		var st := AudioServer.get_bus_index("Stingers")
+		if st >= 0:
+			AudioServer.set_bus_volume_db(st, AudioServer.get_bus_volume_db(idx))
 
 
 func set_muted(on: bool, save := true) -> void:
@@ -240,6 +262,11 @@ func set_mood(m: String, a := 1) -> void:
 		stinger("st_node")
 	elif m == "rest" and was in ["stealth", "combat", "boss", "after"]:
 		stinger("st_rank")
+	elif m == "summary" and was != "summary":
+		var app := get_tree().root.get_node_or_null("App")
+		var rv: Node = app.get("run_view") if app != null else null
+		if rv != null and rv.get("run") != null:
+			outcome("run_won" if (rv.run as RunState).result == Types.Result.VICTORY else "run_lost")
 
 
 func _direct_combat(d: Dictionary) -> void:
@@ -362,6 +389,10 @@ func _follow_view(view: Variant) -> void:
 	var player: Node = view.get("player")
 	if player != null and player.has_signal("beat_started"):
 		player.beat_started.connect(_on_beat)
+	if player != null and player.has_signal("unit_killed"):
+		player.unit_killed.connect(func(id: int) -> void:
+			if _voices != null:
+				_voices.on_beat({"type": "killed", "unit": id}))
 
 
 func _on_beat(ev: Dictionary) -> void:
@@ -376,7 +407,18 @@ func _on_beat(ev: Dictionary) -> void:
 	if str(ev.get("type", "")) == "mission_end":
 		_ended = true
 		set_mood("after", act)
-		stinger("st_win" if int(ev.get("result", 0)) == Types.Result.VICTORY else "st_lose")
+		var boss := ""
+		if _view != null and is_instance_valid(_view) and _view.get("state") != null:
+			boss = str(_view.state.encounter.get("boss", ""))
+		outcome(outcome_kind(int(ev.get("result", 0)), str(ev.get("cause", "")), boss))
+
+
+## Which outcome stinger a fight's end earns. Matches the debrief headline: "Mission failed" for
+## a lost beacon (the squad walked out), "Squad lost" for everything else.
+static func outcome_kind(result: int, cause: String, boss: String) -> String:
+	if result == Types.Result.VICTORY:
+		return "boss_win" if boss != "" else "win"
+	return "fail" if cause == "beacon" else "wipe"
 
 
 # --- story voices -------------------------------------------------------------------------
@@ -454,6 +496,8 @@ func _set_bed(bed: String) -> void:
 
 
 func _fade(delta: float) -> void:
+	var ducked := _clock < _duck_until
+	_duck = move_toward(_duck, DUCK_GAIN if ducked else 1.0, delta * (DUCK_DOWN if ducked else DUCK_UP))
 	for key in _tracks.keys():
 		var t: Dictionary = _tracks[key]
 		t.gain = move_toward(t.gain, t.target, delta * (FADE_IN if t.target > t.gain else FADE_OUT))
@@ -474,6 +518,12 @@ func _fade(delta: float) -> void:
 		if b.gain <= 0.0 and b.target <= 0.0:
 			b.player.queue_free()
 			_beds.erase(name)
+	var duck_db := linear_to_db(_duck)
+	for t in _tracks.values():
+		for p in t.players:
+			p.volume_db += duck_db
+	for b in _beds.values():
+		b.player.volume_db += duck_db
 
 
 func _tick_spots(delta: float) -> void:
@@ -521,6 +571,38 @@ func stinger(name: String) -> void:
 	_stinger.stream = s
 	_stinger.volume_db = -2.0
 	_stinger.play()
+
+
+## Plays an outcome stinger (see OUTCOMES) and ducks the music and ambience under it.
+func outcome(kind: String) -> void:
+	var name := pick_variant(OUTCOMES.get(kind, []), _last_outcome, _rng.randi())
+	if name == "":
+		return
+	_last_outcome = name
+	stinger(name)
+	var s := _stream("res://audio/music/%s.ogg" % name)
+	if s != null:
+		_duck_until = _clock + duck_seconds(s.get_length())
+
+
+## A variant from `pool` other than `last` (unless it's the only one); `roll` is any random int.
+static func pick_variant(pool: Array, last: String, roll: int) -> String:
+	var choices := pool.filter(func(n: String) -> bool: return n != last)
+	if choices.is_empty():
+		choices = pool
+	return "" if choices.is_empty() else str(choices[absi(roll) % choices.size()])
+
+
+## How long the music stays ducked under a stinger of `length` seconds: its body, not the ~4s
+## reverb tail the files carry.
+static func duck_seconds(length: float) -> float:
+	return maxf(1.0, length - 4.5)
+
+
+## Seconds until the current outcome stinger's body is over (0 when none is playing). Radio
+## lines over a fight's end can wait for this.
+func outcome_left() -> float:
+	return maxf(0.0, _duck_until - _clock)
 
 
 # --- interface sounds -----------------------------------------------------------------------
