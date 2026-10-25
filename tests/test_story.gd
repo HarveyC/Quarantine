@@ -214,7 +214,7 @@ func test_scene_specs() -> void:
 	for boss in EnemyRoster.BOSS_OF_ACT.values():
 		assert_true(not Director.boss_spec(run, boss).is_empty(), "boss intro for %s" % boss)
 	assert_true(Director.act_spec(run, 1).is_empty(), "act 1 has the briefing instead")
-	assert_eq(StoryData.garble("one two three four five six seven eight", 0), "one two three -- five six seven --", "radio static")
+	assert_eq(StoryData.garble("one two three four five six seven eight", 0), "one two three... five six seven...", "radio static")
 
 
 func test_lore_runs_out_cleanly() -> void:
