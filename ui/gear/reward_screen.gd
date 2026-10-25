@@ -34,6 +34,7 @@ var _squad: VBoxContainer
 var _cards: Array = []
 var _prog_box: Control
 var _backdrop: Control
+var _fit: Container
 
 
 func setup(r: RunState, s) -> void:
@@ -65,15 +66,15 @@ func _build() -> void:
 	_backdrop = DropZone.new()
 	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_backdrop)
-	var fit := W.FitBox.new()
-	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(fit)
+	_fit = W.FitBox.new()
+	_fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_fit)
 	var m := MarginContainer.new()
 	for side in ["left", "right"]:
 		m.add_theme_constant_override("margin_" + side, 40)
 	m.add_theme_constant_override("margin_top", 26)
 	m.add_theme_constant_override("margin_bottom", 26)
-	fit.add_child(m)
+	_fit.add_child(m)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
 	m.add_child(v)
@@ -183,6 +184,7 @@ func _refresh() -> void:
 	_build_tabs()
 	_build_squad()
 	for c in _center.get_children():
+		_center.remove_child(c)
 		c.queue_free()
 	_cards.clear()
 	_prog_box = null
@@ -195,10 +197,13 @@ func _refresh() -> void:
 	else:
 		_show_waiting()
 	_update_take()
+	# Each soldier's offer is new content: fit it from full size, or the zoom only ratchets down.
+	_fit.refit()
 
 
 func _build_tabs() -> void:
 	for c in _tabs.get_children():
+		_tabs.remove_child(c)
 		c.queue_free()
 	var mine := _my_soldiers()
 	_tabs.visible = mine.size() > 1 and _sid != -1
@@ -253,6 +258,7 @@ func _build_tabs() -> void:
 
 func _build_squad() -> void:
 	for c in _squad.get_children():
+		_squad.remove_child(c)
 		c.queue_free()
 	_squad.add_child(UI.caps("Squad", 13, UI.DIM))
 	var names: Dictionary = session.player_names if session != null and "player_names" in session and session.player_names is Dictionary else {}
