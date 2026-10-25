@@ -598,14 +598,24 @@ func _build_stash(r: Dictionary) -> void:
 				tags.add_child(UI.tag_chip(tg))
 			v.add_child(tags)
 			t.tooltip_text = "%s (Mk %s)\n%s" % [GearData.item_name(it.id), "II" if it.mk >= 2 else "I", GearData.desc(it.id, it.mk)]
-			if editable:
-				t.drag_data = {"from": "stash", "index": i, "id": it.id}
-				t.drag_label = GearData.item_name(it.id)
+			# The stash is shared: viewing a teammate's soldier you can still pick from it. A click
+			# jumps to one of your own soldiers with the item in hand (a drag can't, the screen
+			# would rebuild under it).
+			var mine := _editable_soldiers()
+			if editable or not mine.is_empty():
 				var idx := i
+				if editable:
+					t.drag_data = {"from": "stash", "index": i, "id": it.id}
+					t.drag_label = GearData.item_name(it.id)
 				t.clicked = func() -> void:
+					var switched := not _can_edit(run.get_soldier(_sid))
+					if switched:
+						_sid = mine[0].id
 					_held = -1 if _held == idx else idx
 					_set_preview(st[idx].id if _held == idx else "")
 					UI.play(self, "ui_click")
+					if switched:
+						_refresh()
 				t.hovered = func(on: bool) -> void:
 					if _held == -1:
 						_set_preview(it.id if on else "")
