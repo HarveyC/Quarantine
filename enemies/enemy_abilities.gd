@@ -419,10 +419,26 @@ static func _burrow(s: GameState, u: Unit, t: Unit) -> void:
 	u.status["burrowed"] = true
 	u.status["hidden"] = true
 	u.status["emerge_cell"] = best
+	var trail := trail_cells(u.pos, best)
+	u.status["trail"] = trail
 	u.overwatch = false
-	s.emit({"type": "ability", "unit": u.id, "ability": "burrow", "target": t.id})
+	s.emit({"type": "ability", "unit": u.id, "ability": "burrow", "target": t.id, "cell": best, "trail": trail})
 	s.emit({"type": "burrowed", "unit": u.id})
-	s.emit({"type": "telegraph", "unit": u.id, "kind": "erupt", "cells": square(s.grid, best, 1), "turn": s.turn + 1})
+	s.emit({"type": "telegraph", "unit": u.id, "kind": "erupt", "cells": square(s.grid, best, 1), "turn": s.turn + 1,
+		"trail": trail})
+
+
+## The straight line of cells a tunnelling enemy digs along from `from` to `to`, ending on `to`.
+static func trail_cells(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var steps := maxi(absi(to.x - from.x), absi(to.y - from.y))
+	for i in range(1, steps + 1):
+		var c := Vector2i(roundi(lerpf(from.x, to.x, float(i) / steps)), roundi(lerpf(from.y, to.y, float(i) / steps)))
+		if out.is_empty() or out[-1] != c:
+			out.append(c)
+	if out.is_empty():
+		out.append(to)
+	return out
 
 
 static func _erupt(s: GameState, u: Unit) -> void:
@@ -432,8 +448,10 @@ static func _erupt(s: GameState, u: Unit) -> void:
 	if s.unit_at(cell) != null and s.unit_at(cell) != u or not s.grid.is_walkable(cell):
 		cell = Encounter.free_cell(s, cell)
 	var from := u.pos
+	var trail := trail_cells(from, cell)
+	u.status.erase("trail")
 	u.pos = cell
-	s.emit({"type": "move", "unit": u.id, "from": from, "path": [cell] as Array[Vector2i], "tunnel": true})
+	s.emit({"type": "move", "unit": u.id, "from": from, "path": trail, "tunnel": true})
 	Encounter.reveal(s, u)
 	var cells := square(s.grid, cell, 1)
 	var victims: Array[Unit] = []

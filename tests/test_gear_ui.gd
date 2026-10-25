@@ -9,9 +9,10 @@ class FakeSession:
 	var run: RunState
 	var sent: Array = []
 	var player_names := {}
+	var players: Array[int] = []
 
 	func local_players() -> Array[int]:
-		return run.players
+		return players if not players.is_empty() else run.players
 
 	func submit_run(action: Dictionary) -> void:
 		sent.append(action)
@@ -55,6 +56,36 @@ func test_reward_screen_doctrine_vote() -> void:
 	s.submit_run({"type": "gear_doctrine", "player": 0, "doctrine": GearRun.doctrine_vote(run).options[2]})
 	assert_eq(run.modifiers.doctrines.size(), 1, "solo vote resolves at once")
 	scr._refresh()
+	scr.free()
+
+
+## A client viewing the host's soldier can still pick from the shared stash: the click jumps to
+## their own soldier with the item held, and equipping sends the client's own action.
+func test_client_takes_from_stash_while_viewing_teammate() -> void:
+	GearTags.set_progression(false)
+	var run := RunRules.new_run(2, 4242)
+	RunRules.start_run(run)
+	run.gear.offers.clear()
+	Loadout.stash_add(run, "concussion_launcher")
+	run.phase = RunState.Phase.MAP
+	var s := _session(run)
+	s.players = [1] as Array[int]
+	var scr: Control = GearRun.loadout_screen().new()
+	scr.setup(run, s)
+	var mine: Array = scr._editable_soldiers()
+	assert_true(not mine.is_empty(), "client has a soldier")
+	var theirs: Array = run.squad().filter(func(r): return run.controller_of(r) == 0)
+	assert_true(not theirs.is_empty(), "host has a soldier")
+	scr.focus(theirs[0].id)
+	var idx := Loadout.stash(run).find_custom(func(it): return it.id == "concussion_launcher")
+	var tile = scr._stash_row.get_child(idx)
+	assert_true(tile.clicked.is_valid(), "stash tile clickable while viewing a teammate")
+	tile.clicked.call()
+	assert_eq(scr._sid, mine[0].id, "jumped to the client's own soldier")
+	assert_eq(scr._held, idx, "item held")
+	scr._equip_from_stash(idx)
+	assert_eq(s.sent.back().player, 1, "action sent as the client")
+	assert_eq(Loadout.item_at(run.get_soldier(mine[0].id), "gadget").id, "concussion_launcher", "equipped")
 	scr.free()
 
 

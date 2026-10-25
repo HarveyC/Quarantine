@@ -165,14 +165,22 @@ static func annotate(s: GameState, ev: Dictionary) -> Dictionary:
 	e["_sensed"] = Vision.sensed(s)
 	var type := str(ev.get("type", ""))
 	var u := s.get_unit(int(ev.get("unit", -1))) if ev.get("unit") is int else null
+	var tunnelling: bool = type == "move" and ev.get("tunnel", false)
 	if type == "move" and u != null and u.team != Types.Team.PLAYER:
 		var seen: Array[bool] = []
 		var exposed: bool = Vision.is_exposed(s, u) and not u.status.get("hidden", false)
 		for c in ev.get("path", []):
-			seen.append(exposed or (not u.status.get("hidden", false) and Vision.cell_visible(s, Types.Team.PLAYER, c)))
+			if tunnelling:   # a dug-under enemy is hidden, but the ground it heaves up is not
+				seen.append(Vision.cell_visible(s, Types.Team.PLAYER, c))
+			else:
+				seen.append(exposed or (not u.status.get("hidden", false) and Vision.cell_visible(s, Types.Team.PLAYER, c)))
 		e["_seen"] = seen
 	elif u != null and unseen.has(u.id) and not ALWAYS_SHOWN.has(type):
-		e["_hidden"] = true
+		# A burrowing enemy's dive and eruption play whenever the squad can see the ground it leaves or breaks.
+		var dig: bool = type in ["ability", "burrowed", "revealed"] and str(ev.get("ability", "burrow")) in ["burrow", "erupt"] \
+			and Vision.cell_visible(s, Types.Team.PLAYER, u.pos)
+		if not dig:
+			e["_hidden"] = true
 	if FOG_EVENTS.has(type) or (type == "move" and u != null and u.team == Types.Team.PLAYER):
 		e["_fog"] = Vision.fog_grid(s)
 	return e
