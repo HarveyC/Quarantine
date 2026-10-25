@@ -1154,5 +1154,17 @@ World, Echoes and endings from the design doc's "World and story". Rules live in
   that land mid-fight (Echo laid, intel, recruit, outbreak) are held until the queue drains, so the line
   never arrives before the attack has played on screen (host and clients alike). Scenes are `story_scene.gd` (letterbox, title card, captions; Space next, Esc skip)
   over `story_stage.gd` (a 3D set from primitives plus the game's models, own SubViewport world).
+- **Voices** (local only, through `Soundscape.say(speaker, text, opts)` -> `view/voice_player.gd`). Okafor,
+  the Source, Hale and Halden-Voss speak recorded clips in `audio/voice/`; `VoiceLines` (story/voice_lines.gd)
+  maps a filled caption back to its `StoryData` template and returns the clips, splicing a clip per
+  `{name}` / `{wave}` (names from `RunSoldier.NAMES`, waves 1-60 in words). Okafor gets a radio key-up and
+  release; in act 2 the words `StoryData.garble` blanked drop out under static (`VoicePlayer.dropouts`).
+  Soldiers (any speaker like "Trooper Reyes") speak mask babble made at play time by `view/babble.gd`, seeded
+  by class, name and text, so every peer hears the same thing. Scene captions stay up until their line is
+  said. Colonel Hale talks in his fight (`StoryData.HALE_BARKS`, phase 2 after the Bloom) through
+  `EnemyVoices.talk`, only on alert, abilities, telegraphs and his phase change.
+  Changing a voiced line: `godot --headless -s tools/voice_manifest.gd`, then on a machine with an Inworld key
+  `python3 tools/gen_voices.py render RAW_DIR`, then `python3 tools/gen_voices.py process RAW_DIR`
+  (`tests/test_voice.gd` fails until the manifest and clips match the text).
 - Dev aid: `godot -s tools/shot_story.gd -- out.png <intro|act2|act3|brood_mother|colonel_hale|the_source|burn|sample|carry|ending_vote> [secs]`
   (under xvfb, `--rendering-driver opengl3`) and `tools/shot_story_fight.gd` (an Echo, radio and a whisper in a fight).

@@ -1,7 +1,7 @@
 extends Node
 ## Music and soundscape director, autoloaded as "Soundscape". View-only: it watches which screen
 ## is up (title, route map, node screens, a fight) and what the squad can see, and drives the
-## music layers, ambience beds, spot sounds, stingers, enemy voices and button sounds. It never
+## music layers, ambience beds, spot sounds, stingers, enemy voices, story voices (say()) and button sounds. It never
 ## touches the rules, so it cannot affect online sync. All audio is synthesized by
 ## tools/gen_music.py (no third-party assets).
 ##
@@ -20,6 +20,7 @@ extends Node
 ## full against the Source).
 
 const EnemyVoices := preload("res://view/enemy_voices.gd")
+const VoicePlayer := preload("res://view/voice_player.gd")
 const AudioSettings := preload("res://ui/audio_settings.gd")
 
 const SETTINGS_PATH := "user://audio.cfg"
@@ -75,6 +76,7 @@ var _spot_in := 12.0
 var _bark_in := 8.0
 var _view: Node = null
 var _voices: EnemyVoices
+var _speech: VoicePlayer
 var _engaged_until := -1.0
 var _assault_until := -1.0
 var _last_contact := -1000.0
@@ -97,6 +99,8 @@ func _ready() -> void:
 	_spot_player = _player("Ambience")
 	for i in 4:
 		_ui_players.append(_player("UI"))
+	_speech = VoicePlayer.new()
+	add_child(_speech)
 	get_tree().node_added.connect(_on_node_added)
 
 
@@ -373,6 +377,18 @@ func _on_beat(ev: Dictionary) -> void:
 		_ended = true
 		set_mood("after", act)
 		stinger("st_win" if int(ev.get("result", 0)) == Types.Result.VICTORY else "st_lose")
+
+
+# --- story voices -------------------------------------------------------------------------
+
+## Speaks a story line (view/voice_player.gd). Returns its length in seconds, 0 if unvoiced.
+func say(speaker: String, text: String, opts := {}) -> float:
+	return _speech.say(speaker, text, opts) if _speech != null else 0.0
+
+
+func stop_speech() -> void:
+	if _speech != null:
+		_speech.stop()
 
 
 # --- players --------------------------------------------------------------------------------

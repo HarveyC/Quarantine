@@ -14,6 +14,7 @@ extends CanvasLayer
 
 const Styles := preload("res://ui/styles.gd")
 const StoryScene := preload("res://ui/story/story_scene.gd")
+const VoicePlayer := preload("res://view/voice_player.gd")
 
 const RADIO_SECS := 5.0
 const WHISPER_SECS := 4.5
@@ -280,6 +281,7 @@ func _whisper_to(u: Unit, tier: int) -> void:
 	_whispered[key] = true
 	var lines: Array = StoryData.WHISPERS[tier]
 	_whisper.text = StoryData.fill(lines[_rng.randi() % lines.size()], {"name": _surname(u)})
+	_say("SOURCE", _whisper.text)
 	_whisper_t = WHISPER_SECS
 
 
@@ -293,13 +295,21 @@ func _bark(key: String, vars: Dictionary) -> void:
 	var lines: Array = StoryData.BARKS.get(key, [])
 	if lines.is_empty():
 		return
-	var text := StoryData.fill(lines[_rng.randi() % lines.size()], vars)
+	var clean := StoryData.fill(lines[_rng.randi() % lines.size()], vars)
+	var text := clean
 	var who := "MAJOR OKAFOR"
 	if _run.act == 2 and key not in ["dead", "turned", "echo_laid"]:
 		text = StoryData.garble(text, _rng.randi() % 4)
 	elif _run.act >= 3:
 		who = _squad_voice(vars.get("name", ""))
 	_radio(who, text, Styles.AMBER)
+	_say(who, clean, {"radio": true, "dropouts": VoicePlayer.dropouts(clean, text)})
+
+
+func _say(who: String, text: String, opts := {}) -> void:
+	var s := get_node_or_null("/root/Soundscape")
+	if s != null:
+		s.say(who, text, opts)
 
 
 func _squad_voice(not_name: String) -> String:
