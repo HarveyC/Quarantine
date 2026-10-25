@@ -23,6 +23,8 @@ const DEFS := {
 		"desc": "Infected within 6 tiles get +2 move and +10 aim next turn, and every dormant pod wakes."},
 	"brood_spit": {"name": "Brood spit", "targeting": "cell", "cost": -1, "cooldown": 2, "phase": 2,
 		"desc": "Spits a Broodling that walks toward the squad and bursts."},
+	"acid_rain": {"name": "Acid rain", "targeting": "cell", "cost": 1, "cooldown": 2,
+		"desc": "Lobs acid onto a 3x3 that lands next enemy phase: damage and a spore patch."},
 	"airstrike": {"name": "Airstrike", "targeting": "cell", "cost": 1, "cooldown": 3, "phase": 1,
 		"desc": "Calls a 3x3 airstrike that lands next enemy phase: 4 damage and destroys half cover."},
 	"flashbang": {"name": "Flashbang", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
@@ -59,6 +61,8 @@ const SCREAM_RADIUS := 6.0
 const BROOD_SPIT_RANGE := 6.0
 const FLASH_RANGE := 7.0
 const STRIKE_DAMAGE := 4
+const ACID_RAIN_DAMAGE := 3
+const ACID_RAIN_RANGE := 10.0
 const PULL_STEPS := 2
 const LEAP_RANGE := 5
 const LEAP_DAMAGE := 4
@@ -134,6 +138,9 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		match id:
 			"brood_spit":
 				if u.pos.distance_to(cell) > BROOD_SPIT_RANGE or not Combat.can_see(s, u.pos, cell):
+					return "Out of range"
+			"acid_rain":
+				if u.pos.distance_to(cell) > ACID_RAIN_RANGE:
 					return "Out of range"
 			"flashbang":
 				if u.pos.distance_to(cell) > FLASH_RANGE or not Combat.can_see(s, u.pos, cell):
@@ -215,6 +222,11 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
 			Encounter.add_telegraph(s, {"kind": "airstrike", "cells": cells, "turn": s.turn + 1,
 				"damage": STRIKE_DAMAGE, "source": -1, "smash": true, "unit": u.id})
+		"acid_rain":
+			var cells := square(s.grid, action.cell, 1)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
+			Encounter.add_telegraph(s, {"kind": "acid_rain", "cells": cells, "turn": s.turn + 1,
+				"damage": ACID_RAIN_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "spores": SPORE_TURNS})
 		"flashbang": _flashbang(s, u, action.cell)
 		"pull": _pull(s, u)
 		"core_slam":

@@ -28,6 +28,7 @@ func _init() -> void:
 	var seed0 := int(args.get("seed", 1))
 	var rank := int(args.get("rank", RANK_BY_ACT[act]))
 	objective_override = str(args.get("objective", ""))
+	brood_variant = str(args.get("variant", ""))
 	for i in n:
 		var seed := seed0 + i
 		print(JSON.stringify(run_fight(squad_kinds, act, node, int(args.get("outbreak", 0)), seed, rank,
@@ -36,6 +37,7 @@ func _init() -> void:
 
 
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
+var brood_variant := ""        # variant= (Brood Mother prototype: nest | stalker | tide)
 
 
 func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, seed: int, rank: int,
@@ -65,6 +67,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var built := FightBuilder.build(spec)
 	var enemies: Array = built.enemies
 	var enc: Dictionary = built.encounter
+	if brood_variant != "" and str(enc.get("boss", "")) == "brood_mother":
+		enc["brood_variant"] = brood_variant
 	if enemy_override != "":
 		enemies = Array(enemy_override.split(","))
 		enc = {}
@@ -87,6 +91,11 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var stats := {}   # unit id -> {dealt, taken, kills}
 	for u in s.units:
 		stats[u.id] = {"dealt": 0, "taken": 0}
+	var boss_acts := {}   # what the boss did: ability ids, "moved" tiles, "phase2"/"phase3" turn reached
+	var boss_ids := {}
+	for u in s.units:
+		if EnemyRoster.is_boss(u):
+			boss_ids[u.id] = true
 	var counter := {"lapses": 0, "explosions": 0, "barrels": 0, "barrel_shots": 0, "barrel_hits": 0, "walls": 0, "cover": 0, "roofs": 0}
 	s.event.connect(func(ev: Dictionary) -> void:
 		if ev.type == "damage":
@@ -114,7 +123,20 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 					"break": counter.walls += 1
 					"clear": counter.cover += 1
 		elif ev.type == "level_changed":
-			counter.roofs += 1)
+			counter.roofs += 1
+		if boss_ids.has(int(ev.get("unit", -1))):
+			if ev.type == "ability":
+				boss_acts[str(ev.ability)] = int(boss_acts.get(str(ev.ability), 0)) + 1
+			elif ev.type == "move":
+				boss_acts["moved"] = int(boss_acts.get("moved", 0)) + ev.path.size()
+			elif ev.type == "boss_phase":
+				boss_acts["phase%d" % int(ev.phase)] = s.turn
+			elif ev.type == "pinned":
+				pass
+		if ev.type == "pinned" and boss_ids.has(int(ev.get("by", -1))):
+			boss_acts["pins"] = int(boss_acts.get("pins", 0)) + 1
+		if ev.type == "shot" and boss_ids.has(int(ev.get("unit", -1))):
+			boss_acts["shot"] = int(boss_acts.get("shot", 0)) + 1)
 	Rules.start_mission(s)
 	while s.phase != Types.Phase.ENDED and s.turn <= TURN_CAP:
 		var turn := s.turn
@@ -143,7 +165,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		"terrain": {"explosions": counter.explosions, "barrels": counter.barrels,
 			"barrel_shots": counter.barrel_shots, "barrel_hits": counter.barrel_hits, "walls": counter.walls,
 			"cover": counter.cover, "roofs": counter.roofs},
-		"soldiers": soldiers, "enemies": foes, "spawned": enemies}
+		"soldiers": soldiers, "enemies": foes, "spawned": enemies, "boss_acts": boss_acts}
 
 
 ## Gives every soldier the deployment order `id`: a record carrying its gear, gun and

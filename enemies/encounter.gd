@@ -78,6 +78,10 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 	match str(enc.get("boss", "")):
 		"brood_mother":
 			var b := _place(s, "brood_mother", _marker(s, "boss", _far_spawn(s)))
+			if BroodMother.variant(s) != "":
+				BroodMother.setup(s, b, squad)
+				continue_setup(s, enc)
+				return
 			var offsets: Array[Vector2i] = [Vector2i(-2, 0), Vector2i(2, 0), Vector2i(0, -2), Vector2i(0, 2)]
 			for i in BOSS_SACS[squad]:
 				var sac := _place(s, "egg_sac", b.pos + offsets[i])
@@ -92,11 +96,15 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 			for i in SOURCE_ROOTS[squad]:
 				var root := _place(s, "source_root", src.pos + offsets[i])
 				root.status["spawner"] = {"kinds": ["runner", "spitter"], "every": 3 + slower, "next": 2 + i, "i": i}
+	continue_setup(s, enc)
+
+
+static func continue_setup(s: GameState, enc: Dictionary) -> void:
 	var mult := float(enc.get("boss_health_mult", 1.0))
 	for u in s.living(Types.Team.ENEMY):
 		if EnemyRoster.is_static(u) or enc.get("ambush", false):
 			u.status["alerted"] = true
-		if EnemyRoster.is_boss(u) and mult != 1.0:
+		if EnemyRoster.is_boss(u) and mult != 1.0 and not u.status.has("brood_variant"):
 			u.max_hp = maxi(1, roundi(u.max_hp * mult))
 			u.hp = u.max_hp
 	Concealment.setup(s, enc)
@@ -380,6 +388,7 @@ static func on_enemy_phase_start(s: GameState) -> void:
 		s.emit({"type": "source_pulse", "unit": src.id, "units": hit, "amount": SOURCE_PULSE})
 		for id in hit:
 			Infection.add(s, s.get_unit(id), SOURCE_PULSE)
+	BroodMother.enemy_phase_start(s)
 	_run_spawners(s)
 	_spawn_incoming(s)
 	_reveal_near(s)
@@ -401,6 +410,8 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			"units": victims.map(func(x: Unit) -> int: return x.id), "damage": t.damage})
 		for u in victims:
 			Rules.deal_damage(s, u, int(t.damage), src if src != null and src.is_alive() else null)
+		if int(t.get("spores", 0)) > 0 and s.phase != Types.Phase.ENDED:
+			add_spores(s, t.cells, int(t.spores), src)
 		if t.get("smash", false) and s.phase != Types.Phase.ENDED:
 			var hits := {}
 			for c in t.cells:
@@ -539,6 +550,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 	if target.kind == "the_source" and source != null and source.team == Types.Team.PLAYER \
 			and Infection.tier(source.infection) >= Infection.Tier.MUTATING:
 		amount = ceili(amount * CARRIER_BONUS)
+	if target.status.has("brood_variant"):
+		return BroodMother.clamp_damage(target, amount)
 	# Phase-1 bosses always reach their second phase rather than dying outright.
 	if target.kind in ["brood_mother", "colonel_hale"] and int(target.status.get("boss_phase", 1)) == 1:
 		amount = mini(amount, target.hp - 1)
@@ -559,6 +572,9 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 			and source.id != int(target.status.pinning):
 		release_pin(s, target)
 	if not target.is_alive():
+		return
+	if target.status.has("brood_variant"):
+		BroodMother.on_damaged(s, target)
 		return
 	match target.kind:
 		"brood_mother":

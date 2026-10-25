@@ -22,6 +22,9 @@ static func handles(s: GameState, u: Unit) -> bool:
 static func custom_turn(s: GameState, u: Unit) -> bool:
 	if EnemyRoster.is_static(u):
 		return true
+	if u.status.has("brood_variant"):
+		BroodMother.take_turn(s, u)
+		return true
 	if u.status.has("swelling"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "burst"})
 		return true
