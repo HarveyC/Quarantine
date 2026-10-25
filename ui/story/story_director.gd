@@ -14,6 +14,7 @@ extends CanvasLayer
 
 const Styles := preload("res://ui/styles.gd")
 const StoryScene := preload("res://ui/story/story_scene.gd")
+const VoicePlayer := preload("res://view/voice_player.gd")
 
 const RADIO_SECS := 5.0
 const WHISPER_SECS := 4.5
@@ -307,8 +308,10 @@ func _whisper_to(u: Unit, tier: int) -> void:
 	_whisper_head.text = ("%s is %s" % [_surname(u), Infection.tier_name(tier)]).to_upper()
 	_whisper_head.add_theme_color_override("font_color", col)
 	_whisper_rule.text = tier_rule(tier)
-	_whisper_line.text = "\u201c%s\u201d" % StoryData.fill(lines[_rng.randi() % lines.size()], {"name": _surname(u)})
+	var said := StoryData.fill(lines[_rng.randi() % lines.size()], {"name": _surname(u)})
+	_whisper_line.text = "\u201c%s\u201d" % said
 	_whisper_line.modulate.a = 0.75
+	_say("SOURCE", said)
 	_whisper_t = WHISPER_SECS
 
 
@@ -337,13 +340,23 @@ func _bark(key: String, vars: Dictionary) -> void:
 	var lines: Array = StoryData.BARKS.get(key, [])
 	if lines.is_empty():
 		return
-	var text := StoryData.fill(lines[_rng.randi() % lines.size()], vars)
+	var clean := StoryData.fill(lines[_rng.randi() % lines.size()], vars)
+	var text := clean
 	var who := "MAJOR OKAFOR"
+	var salt := -1
 	if _run.act == 2 and key not in ["dead", "turned", "echo_laid"]:
-		text = StoryData.garble(text, _rng.randi() % 4)
+		salt = _rng.randi() % 4
+		text = StoryData.garble(text, salt)
 	elif _run.act >= 3:
 		who = _squad_voice(vars.get("name", ""))
 	_radio(who, text, Styles.AMBER)
+	_say(who, clean, {"radio": true, "dropouts": VoicePlayer.dropouts(clean, salt)})
+
+
+func _say(who: String, text: String, opts := {}) -> void:
+	var s := get_node_or_null("/root/Soundscape")
+	if s != null:
+		s.say(who, text, opts)
 
 
 func _squad_voice(not_name: String) -> String:
@@ -437,7 +450,7 @@ static func boss_spec(run: RunState, boss: String) -> Dictionary:
 		return {}
 	var lines: Array = b.lines.duplicate()
 	if boss == "the_source" and run.story.get("last_ending", "") == "burn":
-		lines.insert(1, ["SOURCE", "Last time, you burned me. I grew back."])
+		lines.insert(1, StoryData.SOURCE_BURNED)
 	return {"stage": "boss", "boss": boss, "title": b.title, "sub": b.sub, "lines": _lines(run, lines),
 		"cast": cast_of(run)}
 
