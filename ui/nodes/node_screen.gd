@@ -9,6 +9,7 @@ const W := preload("res://ui/widgets.gd")
 const Feel := preload("res://ui/ui_feel.gd")
 const SquadPanel := preload("res://ui/nodes/squad_panel.gd")
 const Tips := preload("res://ui/tips/tips.gd")
+const LoadoutScreen := preload("res://ui/gear/loadout_screen.gd")
 
 var run: RunState
 var session
@@ -17,6 +18,8 @@ var _body: VBoxContainer
 var _scroll: ScrollContainer
 ## The squad column beside the choices, on screens that call with_squad() (else null).
 var squad_panel: SquadPanel
+## The loadout opened over this screen (L or the header button), or null.
+var loadout: Control
 
 
 func setup(r: RunState, s) -> void:
@@ -110,6 +113,35 @@ func header(kicker: String, title: String, kicker_color: Color, right: Control =
 	return row
 
 
+## The Loadout button (or L): opens your soldiers' loadout over the screen. Sits in the squad panel's head.
+func loadout_button() -> Control:
+	var kb := NodeUi.hbox(8)
+	kb.name = "LoadoutButton"
+	if local_players().is_empty():
+		return kb
+	var b := NodeUi.button("Loadout", true, false, "Gear, guns, pockets and the stash  [L]", "loadout")
+	b.pressed.connect(open_loadout)
+	kb.add_child(b)
+	kb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return kb
+
+
+## Your soldiers' full loadout over this screen; Back comes back to it as it was.
+func open_loadout() -> void:
+	if is_instance_valid(loadout):
+		return
+	var mine := run.squad().filter(func(r): return run.controller_of(r) in local_players())
+	loadout = LoadoutScreen.open_over(self, run, session, mine[0].id if not mine.is_empty() else -1)
+	Feel.sound("open")
+
+
+func _unhandled_key_input(e: InputEvent) -> void:
+	if e.is_pressed() and not e.is_echo() and (e as InputEventKey).keycode == KEY_L and not is_instance_valid(loadout) \
+			and is_visible_in_tree() and not run.node_state.is_empty():
+		open_loadout()
+		get_viewport().set_input_as_handled()
+
+
 ## `main` with the squad panel to its right, so choices that depend on a soldier's state sit
 ## next to that state. Hook choices to it with squad_panel.hook().
 func with_squad(main: Control) -> Control:
@@ -118,6 +150,9 @@ func with_squad(main: Control) -> Control:
 	row.add_child(main)
 	squad_panel = SquadPanel.new()
 	squad_panel.setup(run, session)
+	var head := squad_panel.get_child(0) as HBoxContainer
+	head.add_child(Styles.spacer())
+	head.add_child(loadout_button())
 	row.add_child(squad_panel)
 	return row
 

@@ -21,7 +21,11 @@ func _build(into: VBoxContainer) -> void:
 	rule.add_child(NodeUi.label("Paid this visit" if paid else "The first heal or purge this visit", 14, NodeUi.DIM))
 	rule.tooltip_text = "Healing or purging anyone raises Outbreak by 1, once per visit. Training doesn't."
 	Tips.term(rule, "outbreak", {"value": run.outbreak})
-	into.add_child(rule)
+	var top := NodeUi.hbox(10)
+	top.add_child(rule)
+	top.add_child(Styles.spacer())
+	top.add_child(loadout_button())
+	into.add_child(top)
 	var grid := GridContainer.new()
 	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 18)

@@ -6,6 +6,7 @@ extends RefCounted
 ##   Tips.chip("lapse")                       a small hoverable term chip to put in a layout
 ##   Tips.auto(label)                         tags a label whose text is a term ("Half cover")
 ##   Tips.soldier_class(tile, "medic")        the full class card (stats, gun, abilities, passive)
+##   Tips.compare(button, func(): ...)        an item compare (GearCompare.compare result)
 ## Plain `tooltip_text` works too: it is drawn in the same card, with any glossary term in it
 ## turned into a hoverable link. Hold Shift (or rest the gamepad pointer) for the detailed view.
 
@@ -34,6 +35,25 @@ static func terms(c: Control, keys: Array, ctx := {}) -> Control:
 ## passive, and how to unlock it when `locked`.
 static func soldier_class(c: Control, kind: String, locked := false) -> Control:
 	c.set_meta(META, {"terms": [], "ctx": {"class": kind, "locked": locked}})
+	c.tooltip_text = ""
+	if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		c.mouse_filter = Control.MOUSE_FILTER_PASS
+	return c
+
+
+## Hovering `c` shows an item compare card (ui/gear/compare_view.gd). `data` is a
+## GearCompare.compare() result or a Callable returning one, worked out on first hover.
+## `who_color` tints the soldier's name (their player colour); `note` (why the choice is
+## blocked) goes on top in red. Takes over the control's plain tooltip.
+static func compare(c: Control, data: Variant, who_color := Styles.DIM, note := "") -> Control:
+	var memo := {}
+	var get_ctx := func() -> Dictionary:
+		if memo.is_empty():
+			memo["compare"] = data.call() if data is Callable else data
+			memo["who_color"] = who_color
+			memo["note"] = note
+		return memo
+	c.set_meta(META, {"terms": [], "ctx": get_ctx})
 	c.tooltip_text = ""
 	if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
 		c.mouse_filter = Control.MOUSE_FILTER_PASS

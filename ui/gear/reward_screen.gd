@@ -2,13 +2,22 @@ extends Control
 ## Reward screen (REWARD phase): the run-start deployment orders, then after each won fight one
 ## 1-of-3 pick per soldier each local player controls (solo picks for all four), the Doctrine
 ## vote after an act boss, and rank-up picks from Progression once the gear picks are done.
+## Beside the cards, the compare column: what the soldier has on now, and while a card is
+## hovered (or picked) that card against what it replaces, stat and tag deltas included.
+## L opens the soldier's full loadout over the screen; the pick waits underneath.
 ## Sends gear_pick / gear_doctrine through session.submit_run. Keys: 1-4 pick a card, Enter
-## take, S skip (not for orders), Tab next soldier.
+## take, S skip (not for orders), Tab next soldier, L loadout.
 
 const UI := preload("res://ui/gear/gear_ui.gd")
 const GearCard := preload("res://ui/gear/gear_card.gd")
 const W := preload("res://ui/widgets.gd")
 const Feel := preload("res://ui/ui_feel.gd")
+const CompareView := preload("res://ui/gear/compare_view.gd")
+const LoadoutScreen := preload("res://ui/gear/loadout_screen.gd")
+## Width of the compare column beside the cards.
+const COMPARE_W := 420
+## Text in the column runs a step larger than in a hover card, to sit with the cards' text.
+const BOOST := 2
 
 ## Eyebrow over the title for each reward source (GearRun.reward_source).
 const HEADERS := {"kit": "Act %d · Deployment", "skirmish": "Act %d · Fight won",
@@ -35,6 +44,11 @@ var _cards: Array = []
 var _prog_box: Control
 var _backdrop: Control
 var _fit: Container
+var _loadout_btn: Button
+var _compare: VBoxContainer   # the compare column's content (null when no offer is shown)
+var _compare_for := -2        # card index the column shows (-1 = the soldier's kit)
+var _hovered := -1
+var _overlay: Control         # loadout opened from here
 
 
 func setup(r: RunState, s) -> void:
@@ -113,6 +127,9 @@ func _build() -> void:
 	var bar := HBoxContainer.new()
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	bar.add_theme_constant_override("separation", 16)
+	_loadout_btn = UI.button("LOADOUT", false, "L")
+	_loadout_btn.pressed.connect(open_loadout)
+	bar.add_child(_loadout_btn)
 	_skip = UI.button("Skip for +%d Supplies" % GearRun.SKIP_SUPPLIES, false, "S")
 	_skip.pressed.connect(_skip_pick)
 	bar.add_child(_skip)
@@ -188,6 +205,9 @@ func _refresh() -> void:
 		c.queue_free()
 	_cards.clear()
 	_prog_box = null
+	_compare = null
+	_compare_for = -2
+	_hovered = -1
 	if _sid != -1:
 		_show_offer(run.get_soldier(_sid))
 	elif not vote.is_empty():
@@ -290,7 +310,7 @@ func _show_offer(r: Dictionary) -> void:
 	var offer := GearRun.offer_for(run, r.id)
 	var cards: Array = offer.get("cards", [])
 	if offer.get("source", "") == "kit":
-		_hint.text = "%s gives %s one order for the drop. It shapes their whole run." % [_player_name(run.controller_of(r)), UI.soldier_name(r)]
+		_hint.text = "%s gives %s one order for the drop." % [_player_name(run.controller_of(r)), UI.soldier_name(r)]
 	else:
 		_hint.text = "%s picks 1 of %d for %s" % [_player_name(run.controller_of(r)), cards.size(), UI.soldier_name(r)]
 	for i in cards.size():
@@ -298,6 +318,13 @@ func _show_offer(r: Dictionary) -> void:
 		c.setup(cards[i], r, i)
 		var idx := i
 		c.pressed.connect(func() -> void: _select(idx))
+		c.mouse_entered.connect(func() -> void:
+			_hovered = idx
+			_show_compare())
+		c.mouse_exited.connect(func() -> void:
+			if _hovered == idx:
+				_hovered = -1
+				_show_compare())
 		_center.add_child(c)
 		_cards.append(c)
 		c.set_selected(i == _card)
@@ -306,6 +333,69 @@ func _show_offer(r: Dictionary) -> void:
 		var tw := c.create_tween()
 		tw.tween_interval(0.06 * i)
 		tw.tween_property(c, "modulate:a", 1.0, 0.22)
+	_center.add_child(_compare_column(r))
+	_show_compare()
+
+
+## The column beside the cards: one glass panel, the compare drawn straight into it.
+func _compare_column(r: Dictionary) -> Control:
+	var p := PanelContainer.new()
+	p.name = "Compare"
+	p.add_theme_stylebox_override("panel", UI.box(UI.PANEL_SOFT, UI.BORDER, 1, 0, 18))
+	p.custom_minimum_size = Vector2(COMPARE_W, GearCard.H)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
+	var stripe_row := HBoxContainer.new()
+	stripe_row.add_theme_constant_override("separation", 14)
+	var stripe := ColorRect.new()
+	stripe.color = UI.player_color(r.owner)
+	stripe.custom_minimum_size = Vector2(3, 0)
+	stripe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stripe_row.add_child(stripe)
+	_compare = VBoxContainer.new()
+	_compare.add_theme_constant_override("separation", 9)
+	_compare.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stripe_row.add_child(_compare)
+	p.add_child(stripe_row)
+	return p
+
+
+## Fills the compare column for the hovered card, else the picked one, else the kit.
+func _show_compare() -> void:
+	if _compare == null or _sid == -1:
+		return
+	var idx := _hovered if _hovered >= 0 else _card
+	if idx >= _cards.size():
+		idx = -1
+	if idx == _compare_for:
+		return
+	_compare_for = idx
+	for c in _compare.get_children():
+		_compare.remove_child(c)
+		c.queue_free()
+	var r := run.get_soldier(_sid)
+	var inner := COMPARE_W - 18 * 2 - 17
+	if idx < 0:
+		CompareView.kit(_compare, r, inner, UI.player_color(r.owner), BOOST)
+	else:
+		CompareView.build(_compare, compare_data(idx), inner, UI.player_color(r.owner), BOOST)
+
+
+## GearCompare for card `idx` on the soldier picking (in co-op, always that player's soldier).
+func compare_data(idx: int) -> Dictionary:
+	return GearCompare.compare(run, run.get_soldier(_sid), _cards[idx].card)
+
+
+## The soldier's full loadout over this screen; Back returns to the same pick.
+func open_loadout() -> void:
+	if is_instance_valid(_overlay):
+		return
+	UI.play(self, "ui_click")
+	var sid := _sid
+	if sid == -1:
+		var mine := _my_soldiers()
+		sid = mine[0].id if not mine.is_empty() else -1
+	_overlay = LoadoutScreen.open_over(self, run, session, sid)
 
 
 func _show_doctrines(vote: Dictionary) -> void:
@@ -407,6 +497,7 @@ func _select(i: int) -> void:
 	UI.play(self, "ui_click")
 	for j in _cards.size():
 		_cards[j].set_selected(j == i)
+	_show_compare()
 	_update_take()
 
 
@@ -469,7 +560,13 @@ func _skip_pick() -> void:
 
 
 func _unhandled_key_input(ev: InputEvent) -> void:
-	if not ev.pressed or ev.echo or _sid == -1:
+	if not ev.pressed or ev.echo or is_instance_valid(_overlay):
+		return
+	if ev.keycode == KEY_L:
+		open_loadout()
+		get_viewport().set_input_as_handled()
+		return
+	if _sid == -1:
 		return
 	match ev.keycode:
 		KEY_1, KEY_2, KEY_3, KEY_4:
