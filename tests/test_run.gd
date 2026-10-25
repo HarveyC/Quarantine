@@ -406,3 +406,26 @@ func test_ambush_objective_avoids_the_acts_repeats() -> void:
 		if RunMap.roll_objective(run.rng, run.act, run.map) == "extract":
 			extracts += 1
 	assert_true(extracts < 400 * 0.1, "three extracts already on the map make a fourth rare (%d/400)" % extracts)
+
+
+func test_fights_move_outbreak() -> void:
+	var sum := func(changes: Array) -> int:
+		var n := 0
+		for c in changes:
+			n += int(c[0])
+		return n
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "extract", true, false, 0)), 0, "plain win")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "extract", true, true, 0)), -1, "bonus objective")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", true, true, 0)), -3, "bonus, nest and Purge")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", false, false, 1)), 2, "a loss only counts the Turned")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "", true, false, 2)), 4, "+2 per Turned soldier")
+	var run := RunRules.new_run(1, 11)
+	RunRules.start_run(run)
+	_rewards(run)
+	_vote_first(run)
+	var before := run.outbreak
+	var fight: Dictionary = run.fight_config.fight
+	var expect: int = before + sum.call(RunRules.fight_outbreak(fight.node, fight.objective, true, true, 0))
+	_win_fight(run, true)
+	assert_eq(run.outbreak, maxi(0, expect), "a clean win pushes Outbreak back")
+	assert_true(run.log.any(func(e): return e.type == "outbreak" and e.reason == "bonus objective"), "logged with its cause")

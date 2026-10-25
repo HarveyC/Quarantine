@@ -56,6 +56,11 @@ static func add_outbreak(run: RunState, amount: int, reason := "node") -> void:
 	RunRules.add_outbreak(run, amount, reason)
 
 
+## An event's risky roll chance at the run's current Outbreak (higher at Critical and up).
+static func event_risk(run: RunState, p: float) -> float:
+	return RunRules.event_risk(run, p)
+
+
 static func serum(run: RunState, player: int) -> int:
 	return run.serum.get(player, 0)
 
