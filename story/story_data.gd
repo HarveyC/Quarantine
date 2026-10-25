@@ -49,6 +49,8 @@ const ACT_SCENES := {
 }
 ## Act 3's second line when an earlier wave has reached the Source.
 const SOURCE_REMEMBERS := ["SOURCE", "You came back. I remember the fire."]
+## The Source's extra boss line when the last wave burned it.
+const SOURCE_BURNED := ["SOURCE", "Last time, you burned me. I grew back."]
 
 const BOSS_SCENES := {
 	"brood_mother": {"title": "The Brood Mother", "sub": "She nests in the breach", "lines": [
@@ -125,6 +127,13 @@ const BARKS := {
 		"She's under you somewhere. Move when the ground cracks."],
 	"brood_mother_3": ["She's lost it. No more sacs. Finish her.", "She's coming straight at you. Put her down."],
 	"lore": ["Intel recovered."],
+}
+## Colonel Hale's voice in his boss fight, by phase: on the company radio, then after the Bloom
+## takes him (phase 2). Heard, not captioned.
+const HALE_BARKS := {
+	1: ["Suppress them. Nobody leaves.", "Recovery team, move up.", "Take the carriers alive. The rest is optional.",
+		"Lantern Company. You are carrying company property.", "Keep them pinned. I want those samples intact."],
+	2: ["Stand down. Stand down. Come home.", "It's warm down here. Why is it so warm.", "Company property. All of it. All of us."],
 }
 ## In act 2 Okafor's signal breaks up: words are dropped for "--".
 const STATIC_EVERY := 4

@@ -13,12 +13,18 @@ const CUES := {
 }
 ## Below this gap (seconds) a new bark is dropped, so a swarm doesn't turn into noise.
 const MIN_GAP := 0.3
+## Bosses who talk: a spoken line from StoryData.HALE_BARKS for the phase, on these beats only
+## (never on moves, shots or the idle chatter), at least TALK_GAP seconds apart.
+const TALKERS := {"colonel_hale": ["alerted", "revealed", "boss_phase", "ability", "telegraph"]}
+const TALK_GAP := 6.0
 
 var _view: Node
 var _players: Array[AudioStreamPlayer3D] = []
 var _streams := {}
 var _last := -10.0
 var _last_unit := {}
+var _phase := {}   # unit id -> boss phase seen in the beats
+var _talk_i := 0
 
 
 func _init(view: Node) -> void:
@@ -36,6 +42,8 @@ func _init(view: Node) -> void:
 
 func on_beat(ev: Dictionary) -> void:
 	var type := str(ev.get("type", ""))
+	if type == "boss_phase":
+		_phase[int(ev.get("unit", -1))] = int(ev.get("phase", 2))
 	if type == "killed":   # the death cry goes up with the killing blow
 		var uv := _unit(ev)
 		if uv != null and (not uv.is_soldier or uv.turned):
@@ -45,6 +53,10 @@ func on_beat(ev: Dictionary) -> void:
 		return
 	var uv := _unit(ev)
 	if uv == null or uv.is_soldier:
+		return
+	if TALKERS.has(uv.kind):
+		if type in TALKERS[uv.kind]:
+			talk(uv, 2.0 if type == "boss_phase" else 0.0)
 		return
 	var cue: Array = CUES[type]
 	if type == "ability" and str(ev.get("ability", "")) == "scream":
@@ -61,9 +73,55 @@ static func voice_for(kind: String, die := false) -> String:
 	return "res://audio/vo/%s%s.ogg" % [k, "_die" if die else ""]
 
 
+## A talking boss's spoken lines for a phase.
+static func talk_lines(kind: String, phase: int) -> Array[String]:
+	var out: Array[String] = []
+	if kind == "colonel_hale":
+		var p := 2 if phase >= 2 else 1
+		for t in StoryData.HALE_BARKS[p]:
+			out.append(VoiceLines.clip("hale_turned" if p == 2 else "hale", t))
+	return out
+
+
+func talk(uv: Node3D, volume_db := 0.0) -> void:
+	if not is_instance_valid(uv) or not uv.is_inside_tree() or not uv.visible:
+		return
+	if _players.is_empty() or not is_instance_valid(_players[0]):
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	var phase := int(_phase.get(uv.unit_id, 1))
+	var key := "talk%d" % uv.unit_id
+	if now - float(_last_unit.get(key, -100.0)) < TALK_GAP and not (phase >= 2 and not _last_unit.has(key + "p2")):
+		return
+	var lines := talk_lines(uv.kind, phase)
+	if lines.is_empty():
+		return
+	_talk_i += 1
+	var path := lines[_talk_i % lines.size()]
+	if not _streams.has(path):
+		_streams[path] = load(path) if ResourceLoader.exists(path) else null
+	if _streams[path] == null:
+		return
+	_last_unit[key] = now
+	if phase >= 2:
+		_last_unit[key + "p2"] = true
+	var p := _players[0]
+	for q in _players:
+		if not q.playing:
+			p = q
+			break
+	p.stream = _streams[path]
+	p.global_position = uv.global_position + Vector3(0, 1.2, 0)
+	p.volume_db = volume_db + 4.0
+	p.pitch_scale = 1.0
+	p.play()
+
+
 func bark(uv: Node3D, volume_db := 0.0, die := false) -> void:
 	if not is_instance_valid(uv) or not uv.is_inside_tree() or (not uv.visible and not die):
 		return
+	if TALKERS.has(uv.kind) and not die:
+		return   # talking bosses speak through talk(), not the idle chatter
 	if _players.is_empty() or not is_instance_valid(_players[0]):
 		return   # the battle view (and its players) was freed while a beat was still queued
 	var now := Time.get_ticks_msec() / 1000.0

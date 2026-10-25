@@ -1,7 +1,8 @@
 extends Control
 ## A short story scene: a staged 3D shot (StoryStage) behind letterbox bars, a title card, then
-## one caption at a time with its speaker. Space, Enter or a click moves to the next caption,
-## Esc skips the scene. Local presentation only: nothing here touches the run.
+## one caption at a time with its speaker, spoken by Soundscape.say() (a voiced caption stays up
+## until its line is said). Space, Enter or a click moves to the next caption, Esc skips the
+## scene. Local presentation only: nothing here touches the run.
 ##
 ## play(spec) with spec = {stage, title, sub, lines: [[speaker, text]], cast, boss, carrier_index}.
 
@@ -160,13 +161,24 @@ func _next() -> void:
 	_speaker.modulate.a = 0.0
 	_fade = 0.25
 	_t = 0.0
-	_hold = _secs(l[1])
+	_hold = maxf(_secs(l[1]), _speak(who, l[1]) + 0.8)
+
+
+## Speaks a caption, returns its length (0 if unvoiced or there's no sound).
+func _speak(who: String, text: String) -> float:
+	var s := get_node_or_null("/root/Soundscape")
+	if s == null or who == "":
+		return 0.0
+	return s.say(who, text)
 
 
 func _finish() -> void:
 	if _done:
 		return
 	_done = true
+	var s := get_node_or_null("/root/Soundscape")
+	if s != null:
+		s.stop_speech()
 	var tw := create_tween()
 	tw.tween_property(self, "modulate:a", 0.0, 0.5)
 	tw.tween_callback(func() -> void:
