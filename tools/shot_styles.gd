@@ -36,6 +36,23 @@ var _enemies: Array = []
 var _char_shaders := {}
 var _env_shader: Shader
 var _mat_cache := {}
+var _shape := ""
+
+## Body proportion presets: bone name prefix -> uniform scale. A bone's scale carries down to its
+## children, so "head" also resizes helmets, masks and growths. Shapes are mock-ups of what a
+## rebuilt model would be proportioned like; the mesh itself is stretched, not re-modelled.
+const SHAPES := {
+	"chunky": {"Head": 1.3, "neck_01": 0.8, "hand_": 1.55, "foot_": 1.35, "thigh_": 0.8, "calf_": 0.9, "spine_01": 0.95,
+		"upperarm_": 1.1, "clavicle_": 1.05},
+	"squat": {"Head": 1.5, "neck_01": 0.7, "hand_": 1.4, "foot_": 1.3, "thigh_": 0.68, "calf_": 0.78, "spine_01": 0.88,
+		"upperarm_": 0.95, "lowerarm_": 0.9},
+	"heroic": {"Head": 0.82, "neck_01": 1.0, "thigh_": 1.14, "calf_": 1.12, "spine_01": 0.92, "spine_02": 1.0,
+		"clavicle_": 1.18, "upperarm_": 1.05, "hand_": 0.92},
+	"hulk": {"Head": 0.75, "neck_01": 0.8, "spine_01": 1.12, "spine_02": 1.15, "clavicle_": 1.3, "upperarm_": 1.28,
+		"lowerarm_": 1.15, "hand_": 1.3, "thigh_": 1.02, "calf_": 0.98, "foot_": 1.2},
+	"gaunt": {"Head": 0.85, "neck_01": 1.2, "spine_01": 1.05, "spine_02": 1.05, "clavicle_": 0.9, "upperarm_": 1.28,
+		"lowerarm_": 1.32, "hand_": 1.45, "thigh_": 1.08, "calf_": 1.1, "foot_": 1.1},
+}
 
 
 func _init() -> void:
@@ -43,6 +60,9 @@ func _init() -> void:
 	_out = args[0]
 	_style = args[1]
 	_what = args[2] if args.size() > 2 else "scene"
+	_shape = args[3] if args.size() > 3 else ""
+	if _shape != "":
+		RenderingServer.frame_pre_draw.connect(_shape_pass)
 	root.size = Vector2i(1600, 900)
 	if _what == "lineup":
 		_lineup = preload("res://view/lineup.gd").new()
@@ -157,7 +177,7 @@ func _save(tag: String) -> void:
 		_view.board.clear_overlays()
 		await process_frame
 		await process_frame
-	var path := "%s/%s-%s.png" % [_out, _style, tag]
+	var path := "%s/%s-%s.png" % [_out, _style if _shape == "" else _shape, tag]
 	root.get_texture().get_image().save_png(path)
 	print("[shot_styles] ", path)
 
@@ -645,3 +665,27 @@ void fragment() {
 }
 """,
 }
+
+
+func _shape_pass() -> void:
+	if not SHAPES.has(_shape):
+		return
+	var top: Node = _lineup if _lineup != null else _view
+	if top == null:
+		return
+	var sc: Dictionary = SHAPES[_shape]
+	for sk in top.find_children("*", "Skeleton3D", true, false):
+		var skel := sk as Skeleton3D
+		var eff := PackedFloat32Array()
+		eff.resize(skel.get_bone_count())
+		for i in skel.get_bone_count():
+			var nm := skel.get_bone_name(i)
+			var par := skel.get_bone_parent(i)
+			var pe := 1.0 if par < 0 else eff[par]
+			var want := pe
+			for pre in sc:
+				if nm == pre or nm.begins_with(pre):
+					want = sc[pre]
+					break
+			eff[i] = want
+			skel.set_bone_pose_scale(i, Vector3.ONE * (want / pe))
