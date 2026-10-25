@@ -524,6 +524,7 @@ func _build_grafts(r: Dictionary) -> void:
 		var l := UI.label(GraftData.name_of(id) if id != "" else "Open", 15, GraftFigure.path_color(id) if id != "" else UI.FAINT, "bold" if id != "" else "body")
 		if id != "":
 			l.tooltip_text = GraftData.get_def(id).desc
+			Tips.term(l, "graft")
 			l.mouse_filter = Control.MOUSE_FILTER_PASS
 		grid.add_child(l)
 	_grafts.add_child(grid)

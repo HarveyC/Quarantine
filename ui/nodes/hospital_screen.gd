@@ -7,6 +7,8 @@ extends "res://ui/nodes/node_screen.gd"
 const Icons := preload("res://ui/icons.gd")
 const SoldierCard := preload("res://ui/nodes/soldier_card.gd")
 const GraftFigure := preload("res://ui/graft_figure.gd")
+## The glossary card each treatment tile opens.
+const TERMS := {"patch": "patch_up", "purge": "purge", "train": "train", "cure": "full_cure", "refit": "refit", "amputate": "amputate"}
 const ICON_COLORS := {"patch": NodeUi.HEALTH, "purge": NodeUi.TEAL, "train": NodeUi.AMBER, "cure": NodeUi.TEAL,
 	"refit": GraftFigure.STEEL, "amputate": GraftFigure.STEEL}
 
@@ -18,7 +20,7 @@ func _build(into: VBoxContainer) -> void:
 	rule.add_child(NodeUi.chip("outbreak", "+1", NodeUi.TEAL, 14))
 	rule.add_child(NodeUi.label("Paid this visit" if paid else "The first heal or purge this visit", 14, NodeUi.DIM))
 	rule.tooltip_text = "Healing or purging anyone raises Outbreak by 1, once per visit. Training doesn't."
-	rule.mouse_filter = Control.MOUSE_FILTER_PASS
+	Tips.term(rule, "outbreak", {"value": run.outbreak})
 	into.add_child(rule)
 	var grid := GridContainer.new()
 	grid.columns = 4
@@ -44,7 +46,9 @@ func _card(rec: Dictionary) -> Control:
 	if done != "":
 		var d := NodeUi.hbox(10)
 		d.add_child(W.Icon.new(done, ICON_COLORS[done], 26, 1.9))
-		d.add_child(NodeUi.caption("Treated: " + FieldHospital.TREATMENTS[done].name, ICON_COLORS[done], 16))
+		var treated := NodeUi.caption("Treated: " + FieldHospital.TREATMENTS[done].name, ICON_COLORS[done], 16)
+		Tips.term(treated, TERMS[done])
+		d.add_child(treated)
 		d.add_child(Styles.spacer())
 		d.add_child(W.Icon.new("check", NodeUi.HEALTH, 20, 2.0))
 		v.add_child(d)
@@ -63,8 +67,9 @@ func _card(rec: Dictionary) -> Control:
 		var info: Dictionary = FieldHospital.TREATMENTS[t]
 		var action := {"type": "node_treat", "player": rec.owner, "soldier": rec.id, "treatment": t}
 		var why := NodeRules.validate(run, action)
-		var tip: String = _tip(rec, t) + ("\n" + why if why != "" else "")
+		var tip: String = "\n".join([_tip(rec, t), why].filter(func(s: String) -> bool: return s != ""))
 		var b := NodeUi.tile_button(t, info.name, ICON_COLORS[t], NodeUi.cost_chip(FieldHospital.cost_text(rec, t)), why == "", tip)
+		Tips.term(b, TERMS[t])
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(submit.bind(action))
 		_hook(b, sc, FieldHospital.preview_in(ns(), rec, t))
@@ -73,16 +78,16 @@ func _card(rec: Dictionary) -> Control:
 	return card
 
 
-## Refit and Amputate name the part on their tile's hover.
+## The line over a tile's treatment card (which explains the treatment itself): Refit and
+## Amputate name the part.
 func _tip(rec: Dictionary, t: String) -> String:
-	var desc: String = FieldHospital.TREATMENTS[t].desc
 	var id: String = FieldHospital.preview_in(ns(), rec, t).get("graft", "")
 	if id == "":
-		return desc
+		return ""
 	var lead := "%s: %s" % [GraftData.SLOT_NAMES[GraftData.slot_of(id)], GraftData.name_of(id)]
 	if t == "amputate":
 		lead = "Cuts out the %s for a %s, costs %d HP" % [GraftData.name_of(Grafts.of(rec)[GraftData.slot_of(id)]), GraftData.name_of(id), GraftData.AMPUTATE_HP]
-	return "%s. %s\n%s" % [lead, GraftData.get_def(id).desc, desc]
+	return "%s. %s" % [lead, GraftData.get_def(id).desc]
 
 
 ## Hovering or focusing a treatment tile shows `delta` on the soldier's card.

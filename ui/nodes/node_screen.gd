@@ -8,6 +8,7 @@ const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 const Feel := preload("res://ui/ui_feel.gd")
 const SquadPanel := preload("res://ui/nodes/squad_panel.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 var run: RunState
 var session
@@ -135,7 +136,8 @@ func wallet() -> Control:
 
 func _stat(icon: String, caption: String, value: String, color: Color) -> Control:
 	var h := NodeUi.hbox(8)
-	h.tooltip_text = caption
+	if not Tips.term(h, icon).has_meta(Tips.META):
+		h.tooltip_text = caption
 	h.mouse_filter = Control.MOUSE_FILTER_PASS
 	var ic := W.Icon.new(icon, color, 22, 1.8)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER

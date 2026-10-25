@@ -62,6 +62,7 @@ func _build() -> void:
 	if not grafts.is_empty() or incoming != "" or Grafts.eligible(run, rec):
 		var fig := GraftFigure.new(Vector2(30, 46) if compact else Vector2(36, 54))
 		fig.setup(grafts, incoming)
+		Tips.term(fig, "graft")
 		fig.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		head.add_child(fig)
 	var rank := NodeUi.chip("rank", str(rec.get("prog", {}).get("rank", 1)), NodeUi.DIM, 13)
@@ -184,6 +185,7 @@ func _mutation_row(inf_to: int) -> Control:
 			chip = NodeUi.chip("mutation", mname + " WAKES", NodeUi.TEAL, 12, tip)
 		else:
 			chip = NodeUi.chip("mutation", mname, NodeUi.TEAL if awake else NodeUi.FAINT, 12, tip)
+		Tips.term(chip, "mutation", {"value": inf_to})
 		flow.add_child(chip)
 	var gain: int = delta.get("mutation", 0)
 	if gain > 0:
@@ -261,19 +263,19 @@ func _extras() -> Control:
 	var inj_to: int = delta.get("injuries", inj)
 	if inj > 0 or inj_to > 0:
 		var t := str(inj) if inj_to == inj else "%d > %d" % [inj, inj_to]
-		flow.add_child(NodeUi.chip("wound", "INJURIES " + t, NodeUi.BAD, 12))
+		flow.add_child(Tips.term(NodeUi.chip("wound", "INJURIES " + t, NodeUi.BAD, 12, "Patch up closes one."), "injury"))
 	var scars: int = rec.get("scars", []).size()
 	var scars_to: int = maxi(0, scars + delta.get("scar", 0))
 	if scars > 0:
 		var t := str(scars) if scars_to == scars else "%d > %d" % [scars, scars_to]
-		flow.add_child(NodeUi.chip("wound", "SCARS " + t, NodeUi.DIM, 12, "Lasting wounds from going down. Full cure leaves them."))
+		flow.add_child(Tips.term(NodeUi.chip("wound", "SCARS " + t, NodeUi.DIM, 12, "Lasting wounds from going down. Full cure leaves them."), "scar"))
 	var sit: int = rec.get("sit_out", 0) + delta.get("sit_out", 0)
 	if sit > 0:
 		var c := NodeUi.chip("waiting", "SITS OUT %d" % sit, NodeUi.BAD, 12, "Misses the next %d fight%s" % [sit, "s" if sit > 1 else ""])
 		flow.add_child(c)
 	var perk: int = delta.get("perk", 0)
 	if perk > 0:
-		flow.add_child(NodeUi.chip("perk", "+%d PERK PICK" % perk, NodeUi.TEXT, 12, "Pick one of three perks from their class pool"))
+		flow.add_child(Tips.term(NodeUi.chip("perk", "+%d PERK PICK" % perk, NodeUi.TEXT, 12, "Pick one of three perks from their class pool"), "perk"))
 	if delta.get("leaves", false):
 		flow.add_child(NodeUi.chip("close", "LEAVES THE SQUAD", NodeUi.BAD, 12, "A fresh recruit takes their place in the reserve"))
 	if delta.get("maybe", false):
