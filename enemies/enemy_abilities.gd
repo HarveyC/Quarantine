@@ -41,6 +41,14 @@ const DEFS := {
 		"desc": "Tunnels toward a soldier and marks where it will erupt next turn."},
 	"erupt": {"name": "Erupt", "targeting": "none", "cost": -1, "cooldown": 0,
 		"desc": "Bursts out: 3 damage in a 3x3, destroys half cover and collapses high ground there."},
+	"hook": {"name": "Hook", "targeting": "unit", "cost": -1, "cooldown": 0,
+		"desc": "Locks a barbed line onto a soldier it can see. Next turn it reels them up to 3 tiles toward it for 2 damage, unless line of sight breaks or it is suppressed. The first soldier on the line is the one pulled."},
+	"reel": {"name": "Reel", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Yanks the soldier on the hooked line toward the Hooker. A pull off high ground takes fall damage."},
+	"satchel": {"name": "Satchel", "targeting": "cell", "cost": 1, "cooldown": 2,
+		"desc": "Throws a satchel onto a 3x3 that goes off next enemy phase: 3 damage to everyone in it and it cracks cover. Killing the Sapper does not stop it."},
+	"mend": {"name": "Mend", "targeting": "unit", "cost": 1, "cooldown": 1,
+		"desc": "Threads to a wounded Infected within 6 tiles in line of sight and heals it 3. Cut the thread by killing the Weaver or breaking line of sight."},
 	"pull": {"name": "Pull", "targeting": "none", "cost": 1, "cooldown": 0, "phase": 2,
 		"desc": "Drags the soldier with the most Infection 2 tiles toward the Source."},
 	"core_slam": {"name": "Core slam", "targeting": "cell", "cost": -1, "cooldown": 0, "phase": 2,
@@ -103,6 +111,12 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		var t := s.get_unit(action.get("target", -1))
 		if t == null or not t.is_alive():
 			return "No such target"
+		if id == "mend":
+			if t.team != u.team or t == u or EnemyRoster.is_static(t) or EnemyRoster.is_boss(t) or t.hp >= t.max_hp:
+				return "Nothing to mend"
+			if _cheb(u.pos, t.pos) > EnemyRoster.MEND_RANGE or not Combat.can_see(s, u.pos, t.pos):
+				return "Thread cut"
+			return ""
 		if not u.is_enemy_of(t):
 			return "Not an enemy"
 		match id:
@@ -115,6 +129,16 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			"sight":
 				if t.status.get("hidden", false) or not Combat.can_see(s, u.pos, t.pos):
 					return "No line of sight"
+			"hook":
+				if u.status.has("hooked"):
+					return "Already hooked"
+				if t.status.get("hidden", false) or not Combat.can_see(s, u.pos, t.pos):
+					return "No line of sight"
+				var hd := _cheb(u.pos, t.pos)
+				if hd < EnemyRoster.HOOK_MIN or hd > EnemyRoster.HOOK_RANGE:
+					return "Out of range"
+				if hook_victim(s, u, t) == null:
+					return "Snagged"
 			"burrow":
 				if u.status.has("burrowed"):
 					return "Already burrowed"
@@ -142,6 +166,9 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			"core_slam":
 				if not action.get("axis", "") in ["row", "col"]:
 					return "No axis"
+			"satchel":
+				if _cheb(u.pos, cell) > EnemyRoster.SATCHEL_RANGE or not Combat.can_see(s, u.pos, cell):
+					return "Out of range"
 			"drift":
 				var c: Vector2i = cell
 				if s.grid.tile(c) == Types.Tile.WALL or s.unit_at(c) != null or c == u.pos:
@@ -159,6 +186,14 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		"leap":
 			if not u.status.has("leap_cell"):
 				return "No landing marked"
+		"reel":
+			var h := s.get_unit(int(u.status.get("hooked", -1)))
+			if h == null or not h.is_alive() or not Combat.can_see(s, u.pos, h.pos):
+				return "Lost the target"
+			if Combat.has_status(s, u, "suppressed"):
+				return "Suppressed"
+			if hook_victim(s, u, h) == null:
+				return "Snagged"
 		"snipe":
 			var t := s.get_unit(int(u.status.get("sighted", -1)))
 			if t == null or not t.is_alive() or not Combat.can_see(s, u.pos, t.pos):
@@ -201,6 +236,14 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": "sight", "target": t.id})
 			s.emit({"type": "telegraph", "unit": u.id, "kind": "snipe", "cells": [t.pos] as Array[Vector2i], "turn": s.turn + 1, "target": t.id})
 		"snipe": _snipe(s, u)
+		"hook": _hook(s, u, s.get_unit(action.target))
+		"reel": _reel(s, u)
+		"mend": _mend(s, u, s.get_unit(action.target))
+		"satchel":
+			var cells := square(s.grid, action.cell, 1)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
+			Encounter.add_telegraph(s, {"kind": "satchel", "cells": cells, "turn": s.turn + 1,
+				"damage": EnemyRoster.SATCHEL_DAMAGE, "source": u.id, "smash": true, "unit": u.id})
 		"burrow": _burrow(s, u, s.get_unit(action.target))
 		"erupt": _erupt(s, u)
 		"charge": _charge(s, u)
@@ -355,6 +398,112 @@ static func _snipe(s: GameState, u: Unit) -> void:
 	s.emit({"type": "shot", "unit": u.id, "target": t.id, "hit": true, "graze": cover == Types.Cover.FULL,
 		"crit": false, "damage": dmg, "chance": 100, "reaction": false, "snipe": true})
 	Rules.deal_damage(s, t, dmg, u)
+
+
+# --- Hooker, Weaver --------------------------------------------------------------------------
+
+## Cells a straight line from `a` to `b` crosses, `a` excluded and `b` included.
+static func line_cells(a: Vector2i, b: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var n := maxi(absi(b.x - a.x), absi(b.y - a.y))
+	for i in range(1, n + 1):
+		var f := float(i) / n
+		out.append(Vector2i(roundi(lerpf(a.x, b.x, f)), roundi(lerpf(a.y, b.y, f))))
+	return out
+
+
+## The soldier a hook from `u` toward `t` catches: the first unit on the line, if it is a hostile.
+static func hook_victim(s: GameState, u: Unit, t: Unit) -> Unit:
+	for c in line_cells(u.pos, t.pos):
+		var o := s.unit_at(c)
+		if o != null and o != u:
+			return o if u.is_enemy_of(o) else null
+	return null
+
+
+static func _hook(s: GameState, u: Unit, t: Unit) -> void:
+	u.status["hooked"] = t.id
+	s.emit({"type": "ability", "unit": u.id, "ability": "hook", "target": t.id})
+	s.emit({"type": "telegraph", "unit": u.id, "kind": "hook", "cells": line_cells(u.pos, t.pos), "turn": s.turn + 1, "target": t.id})
+
+
+static func _reel(s: GameState, u: Unit) -> void:
+	var locked := s.get_unit(int(u.status.hooked))
+	u.status.erase("hooked")
+	var t := hook_victim(s, u, locked)
+	var path := pull_toward(s, t, u.pos, EnemyRoster.HOOK_PULL)
+	var from := t.pos
+	var dmg := EnemyRoster.HOOK_DAMAGE
+	if not path.is_empty():
+		t.pos = path[-1]
+		t.hunkered = false
+		t.overwatch = false
+		t.status.erase("ow_until")
+		t.status.erase("hunker_until")
+	s.emit({"type": "ability", "unit": u.id, "ability": "reel", "target": t.id, "hit": true, "damage": dmg, "path": path})
+	if not path.is_empty():
+		s.emit({"type": "move", "unit": t.id, "from": from, "path": path, "knockback": true, "hooked": true})
+		Encounter.check_pins(s)
+		var fall := EnemyTerrain.fall_damage(s, from, t.pos)
+		if fall > 0:
+			s.emit({"type": "fell", "unit": t.id, "damage": fall})
+			Rules.deal_damage(s, t, fall, null)
+	if t.is_alive():
+		Rules.deal_damage(s, t, dmg, u)
+
+
+## Steps `t` toward `goal` along open floor, up to `steps`, stopping once beside it, against a
+## wall or unit, or at a step up. Returns the cells walked (empty when it cannot move).
+static func pull_toward(s: GameState, t: Unit, goal: Vector2i, steps: int) -> Array[Vector2i]:
+	var path: Array[Vector2i] = []
+	var c := t.pos
+	var occ := s.occupied(t.id)
+	for i in steps:
+		if _cheb(c, goal) <= 1:
+			break
+		var best := c
+		for d in Grid.DIRS8:
+			var n: Vector2i = c + d
+			if not s.grid.is_walkable(n) or occ.has(n) or n == goal or not s.grid.touching(c, n):
+				continue
+			if EnemyTerrain.level(s, n) > EnemyTerrain.level(s, c):
+				continue
+			if d.x != 0 and d.y != 0 and not (s.grid.is_walkable(c + Vector2i(d.x, 0)) and s.grid.is_walkable(c + Vector2i(0, d.y))):
+				continue
+			if n.distance_squared_to(goal) < best.distance_squared_to(goal):
+				best = n
+		if best == c:
+			break
+		c = best
+		path.append(c)
+	return path
+
+
+## Cell a hooked soldier would land on (for the AI's combo scoring), or `t.pos` if it would not move.
+static func reel_landing(s: GameState, u: Unit, t: Unit) -> Vector2i:
+	var path := pull_toward(s, t, u.pos, EnemyRoster.HOOK_PULL)
+	return path[-1] if not path.is_empty() else t.pos
+
+
+static func _mend(s: GameState, u: Unit, t: Unit) -> void:
+	var healed := mini(EnemyRoster.MEND_HEAL, t.max_hp - t.hp)
+	t.hp += healed
+	s.emit({"type": "ability", "unit": u.id, "ability": "mend", "target": t.id, "heal": healed, "hp": t.hp})
+	s.emit({"type": "regenerate", "unit": t.id, "healed": healed, "hp": t.hp})
+
+
+## The wounded Infected a Weaver would mend now (most hurt first), or null.
+static func mend_target(s: GameState, u: Unit) -> Unit:
+	var best: Unit = null
+	var best_lost := 0
+	for o in s.living(u.team):
+		if validate(s, u, {"ability": "mend", "target": o.id}) != "":
+			continue
+		var lost := o.max_hp - o.hp
+		if lost > best_lost:
+			best_lost = lost
+			best = o
+	return best
 
 
 static func _burrow(s: GameState, u: Unit, t: Unit) -> void:

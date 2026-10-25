@@ -1127,6 +1127,28 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
   5-enemy fight); reinforcement waves are melee only. Melee AI paths by real walking cost (stairs and
   ladders, `EnemyAI._distance_field`), and a rusher out of reach ends its move in cover when that
   costs no ground.
+- **Enemy sprint (2026-10-25)**: five kinds and two affixes that each ask the squad a question.
+  Hooker (act 1, ranged-capped): `hook` locks a line (`status.hooked`, telegraph `hook`), next turn
+  `reel` pulls the first soldier on the line up to 3 tiles for 2 damage (fall damage off height;
+  broken by line of sight, suppression, or an Infected on the line). Sapper (act 2): `satchel`
+  throws a 3x3 telegraph (3 damage, `smash`) that survives the Sapper, then it backs off. Carapace
+  (act 2): `status.plate` and `status.facing`; `Encounter.modify_damage` takes `PLATE_REDUCTION`
+  off hits from the front arc (`EnemyBehaviours.plate_covers`, none from higher ground), emits
+  `plated`; `braced` turns the model. Stalker (act 3): cannot move while `Vision.sees_unit`; unseen
+  it gets +3 move and its first hit on a soldier more than 4 tiles from the rest gets +2 (`stalked`;
+  never for a squad of one). Weaver (act 3): `mend` heals the most wounded Infected in line of
+  sight (not bosses or props) for 3, shown as `regenerate`. Affixes: `volatile` (3x3 blast on death
+  through `Destruction.explode`, kind `volatile`) and `rallying` (+1 damage within 3 tiles of it).
+  Every affix has a `counter` line in `EnemyRoster.AFFIX_INFO` (shown on its card). Constants live
+  at the top of `EnemyRoster`. Melee kinds weigh double against ranged ones in `weight()`.
+  Pack AI (`EnemyAI`): `telegraph_cost` (rushers will not step onto ground an ally marked),
+  `crowding` (a third attacker on one soldier is penalised, so packs use other sides),
+  `isolation` (strays score higher), and badly hurt shooters prefer cells nobody watches.
+  Views: `view/enemy_kit.gd` dresses another rig (Spitter, Runner, Brute, Shrieker) with props and
+  a tint; plates and rally rings are drawn by `IntentOverlay`; hovering an enemy's nameplate opens
+  its `enemy_<kind>` glossary card. Sounds `hook_whip`, `satchel_arm`, `weave_hum`, `plate_clang`
+  (tools/gen_sfx.py) and a bark and death cry per kind (tools/gen_music.py). Elites per fight:
+  `FightBuilder.ELITE_ODDS` (act 1 gentle, act 3 near-certain, a second elite at Collapse-ward stages).
 - **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
 - Dev aid: `-- --fight=<node>,<act>,<outbreak>` plays one built fight on the test map.
 

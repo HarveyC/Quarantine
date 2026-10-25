@@ -70,7 +70,7 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"stunned":
 			return "%s is stunned by %s" % [who.call("unit"), who.call("by")]
 		"explosion":
-			var what: String = {"frag": "Frag grenade", "demo": "Demo charge", "barrel": "Fuel barrel"}.get(str(ev.get("kind", "")), "Explosion")
+			var what: String = {"frag": "Frag grenade", "demo": "Demo charge", "barrel": "Fuel barrel", "volatile": "Volatile Infected"}.get(str(ev.get("kind", "")), "Explosion")
 			var n := (ev.get("units", []) as Array).size()
 			return _c("%s explodes%s" % [what, (", %d caught in the blast" % n) if n > 0 else ""], Palette.AMBER)
 		"hazard":

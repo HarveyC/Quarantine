@@ -16,7 +16,7 @@ ALL = STARTERS + ["hazmat", "vector"] + MELEE
 # Mid-act Outbreak per act for the "real" batches; RUN_OUTBREAK=2,4,6 overrides it.
 RUN_OUTBREAK = dict(zip((1, 2, 3), map(int, os.environ.get("RUN_OUTBREAK", "3,6,9").split(","))))
 REGULARS = ["runner", "spitter", "fallen", "bloater", "leaper", "brute", "lurker", "drifter",
-            "sharpshooter", "shrieker", "burrower"]
+            "sharpshooter", "shrieker", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver"]
 
 
 def batches(quick):

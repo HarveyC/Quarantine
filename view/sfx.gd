@@ -21,6 +21,7 @@ const SOUNDS := [
 	"machine_pistol", "bloom_pistol", "hand_cannon", "stun_pistol", "longslide", "whiz_zap", "impact_shock",
 	"explosion", "collapse",
 	"smoke_hiss", "flashbang", "gadget_deploy", "foam_spray", "drone", "grapple", "flare_pop", "emitter_hum", "order_call",
+	"hook_whip", "satchel_arm", "weave_hum", "plate_clang",
 ]
 ## Gunfire, bullet impacts and melee strikes play on the Weapons bus (the music ducks under it).
 const WEAPON := [

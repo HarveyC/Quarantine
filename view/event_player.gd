@@ -1196,7 +1196,8 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 ## Ability ids with a beat of their own below; the rest go to ItemBeats (gadgets, pocket items,
 ## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
-	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit"]
+	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
+	"hook", "reel", "satchel", "mend"]
 
 
 func _beat_ability(ev: Dictionary) -> Dictionary:
@@ -1223,6 +1224,27 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return _throw_beat(ev)
 		"spit":
 			return _spit_beat(ev)
+		"hook", "reel":
+			_sfx("hook_whip", -3.0)
+			var hb := _power_beat(ev, "hook" if ev.ability == "hook" else "reel", Palette.DANGER)
+			var hv := _uv(ev)
+			var ht := _uv(ev, "target")
+			if hv != null and ht != null:
+				view.fx.tracer(hv.position + Vector3(0, 1.0, 0), ht.aim_point(), Palette.DANGER, 0.5)
+			if ev.ability == "reel":
+				hb.dur = 0.5
+			return hb
+		"satchel":
+			_sfx("satchel_arm", -4.0)
+			return _throw_beat(ev)
+		"mend":
+			_sfx("weave_hum", -6.0)
+			var mb := _power_beat(ev, "mend", Palette.TEAL)
+			var mv := _uv(ev)
+			var mt := _uv(ev, "target")
+			if mv != null and mt != null:
+				view.fx.tracer(mv.position + Vector3(0, 1.0, 0), mt.aim_point(), Palette.TEAL, 0.7)
+			return mb
 		"suppress":
 			return _suppress_beat(ev)
 		"stim", "item:medkit":
@@ -1391,7 +1413,7 @@ func _throw_beat(ev: Dictionary) -> Dictionary:
 	var w := Board.cell_to_world(ev.cell)
 	uv.face_towards(w)
 	var demo: bool = ev.ability == "item:demo_charge"
-	view.fx.floating_text(_head(uv), "DEMO CHARGE" if demo else "FRAG OUT", Palette.AMBER, 44)
+	view.fx.floating_text(_head(uv), "DEMO CHARGE" if demo else ("SATCHEL" if ev.ability == "satchel" else "FRAG OUT"), Palette.AMBER, 44)
 	_sfx("ui_click", -2.0)
 	var from := uv.position + Vector3(0, 1.3, 0)
 	var to := w + Vector3(0, 0.6 if demo and _grid().tile(ev.cell) == Types.Tile.WALL else 0.12, 0)

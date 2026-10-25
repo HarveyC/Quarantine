@@ -1004,6 +1004,44 @@ def order_call():
     return mix(radio_beep(), np.concatenate([np.zeros(int(0.12 * SR)), _blip(660, 0.3, 0.1) * 0.5, _blip(880, 0.3, 0.12) * 0.5]))
 
 
+def hook_whip():
+    """Hooker: a barbed line cracks out, rasps taut and yanks."""
+    x = t(0.7)
+    crack = bandpass(noise(0.08), 2500, 9000) * env(int(0.08 * SR), 0.001, 0.02)
+    rasp = bandpass(noise(0.5), 700, 3500) * (0.5 + 0.5 * np.sin(2 * np.pi * (30 + 160 * x[:int(0.5 * SR)]) * x[:int(0.5 * SR)])) * env(int(0.5 * SR), 0.02, 0.25)
+    snap = (sine(np.linspace(220, 60, int(0.2 * SR)), 0.2) + lowpass(noise(0.2), 600)) * env(int(0.2 * SR), 0.001, 0.05)
+    return mix(crack, np.concatenate([np.zeros(int(0.05 * SR)), rasp * 0.7]), np.concatenate([np.zeros(int(0.45 * SR)), snap]))
+
+
+def satchel_arm():
+    """Sapper: a charge armed, three quickening beeps and a latch."""
+    parts = []
+    for i, gap in enumerate((0.0, 0.16, 0.28)):
+        beep = sine(1500 + 120 * i, 0.07) * env(int(0.07 * SR), 0.002, 0.03)
+        parts.append(np.concatenate([np.zeros(int(gap * SR)), beep * 0.6]))
+    latch = (bandpass(noise(0.05), 800, 4000) + sine(300, 0.05)) * env(int(0.05 * SR), 0.001, 0.015)
+    parts.append(np.concatenate([np.zeros(int(0.4 * SR)), latch]))
+    return mix(*parts)
+
+
+def weave_hum():
+    """Weaver: strands drawn taut, a thin chord that swells and settles."""
+    d = 1.0
+    x = t(d)
+    tone = sine(520, d) + 0.5 * sine(780, d) + 0.3 * sine(1040 + 30 * np.sin(2 * np.pi * 7 * x), d)
+    shimmer = bandpass(noise(d), 3000, 9000) * 0.05
+    return reverb((tone * 0.4 + shimmer) * env(len(x), 0.25, 0.4), 0.5, 0.3)
+
+
+def plate_clang():
+    """Carapace: a blow glances off bone plate, a short dull ring."""
+    d = 0.45
+    x = t(d)
+    ring = (sine(430, d) + 0.6 * sine(1010, d) + 0.4 * sine(1730, d)) * env(len(x), 0.001, 0.09)
+    tick = bandpass(noise(0.03), 2000, 8000) * env(int(0.03 * SR), 0.001, 0.01)
+    return mix(ring * 0.5, tick)
+
+
 SOUNDS = {
     "rifle": rifle, "sniper": sniper, "shotgun": shotgun, "spit": enemy_spit, "claw": claw,
     "whiz": tracer_whiz, "impact_flesh": impact_flesh, "impact_armor": impact_armor,
@@ -1029,6 +1067,7 @@ SOUNDS = {
     "ping": ping, "ping_attack": ping_attack, "ping_danger": ping_danger,
     "smoke_hiss": smoke_hiss, "flashbang": flashbang, "gadget_deploy": gadget_deploy, "foam_spray": foam_spray,
     "drone": drone, "grapple": grapple, "flare_pop": flare_pop, "emitter_hum": emitter_hum, "order_call": order_call,
+    "hook_whip": hook_whip, "satchel_arm": satchel_arm, "weave_hum": weave_hum, "plate_clang": plate_clang,
 }
 
 if __name__ == "__main__":

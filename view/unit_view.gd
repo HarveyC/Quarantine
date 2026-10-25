@@ -22,6 +22,7 @@ const ModelKit := preload("res://view/model_kit.gd")
 const GunModels := preload("res://view/gun_models.gd")
 const SkinnedBody := preload("res://view/skinned_body.gd")
 const MeleeKit := preload("res://view/melee_kit.gd")
+const EnemyKit := preload("res://view/enemy_kit.gd")
 const GraftKit := preload("res://view/graft_kit.gd")
 const TURN_SPEED := 9.0   # radians per second
 ## Units are drawn a little larger than life so they read from the tactical camera.
@@ -162,12 +163,13 @@ func _build_model() -> void:
 	_rig.add_child(_model)
 	_mats = ModelKit.apply_materials(_model, owner_player, soldier_body)
 	MeleeKit.tint(kind, _mats)
+	EnemyKit.tint(kind, _mats)
 	_growths = ModelKit.growths(_model)
 	_sac = ModelKit.find(_model, "sac")
 	if ModelKit.is_skinned(_model):
 		_skin = SkinnedBody.new()
 		_skin.setup(_model, not soldier_body)
-		_skin.speed = {"runner": 1.3, "leaper": 1.2, "broodling": 1.4, "brood_mother": 0.7, "brute": 0.85}.get(kind, 1.0)
+		_skin.speed = {"runner": 1.3, "leaper": 1.2, "broodling": 1.4, "brood_mother": 0.7, "brute": 0.85, "carapace": 0.8, "sapper": 1.3}.get(kind, 1.0)
 	else:
 		_prop = ModelKit.find(_model, "body")
 		_prop_y = _prop.position.y if _prop != null else 0.0
