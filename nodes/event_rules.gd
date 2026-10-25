@@ -136,7 +136,7 @@ static func options_for(run, ns: Dictionary, player: int) -> Array:
 		return out
 	for opt in step.get("options", []):
 		var reason := _option_blocker(run, ns, opt, player)
-		out.append({"id": opt.id, "label": _fill(run, ns, opt.label), "desc": _fill(run, ns, opt.get("desc", "")),
+		out.append({"id": opt.id, "label": _fill(run, ns, opt.label), "desc": _risk_text(run, opt, _fill(run, ns, opt.get("desc", ""))),
 			"ok": reason == "", "reason": reason, "target": opt.get("target", "")})
 	return out
 
@@ -524,7 +524,7 @@ static func _run_effects(run, ns: Dictionary, effects: Array, ctx: Dictionary) -
 					RunAccess.grant_perk_pick(run, r)
 					ns.results.append("%s joins %s's reserve." % [r.name, "their owner"])
 			"chance":
-				var hit: bool = run.rng.randf() < e.p
+				var hit: bool = run.rng.randf() < RunAccess.event_risk(run, e.p)
 				_run_effects(run, ns, e.then if hit else e.get("else", []), ctx)
 			"if_infected":
 				var recs := _targets(run, ns, e.who, ctx)
@@ -547,6 +547,19 @@ static func _recruits(run, ns: Dictionary, e: Dictionary, ctx: Dictionary) -> vo
 
 
 ## Fills {subject} and {soldier} with soldier names.
+## An option's description with each risky roll's odds as they stand at this Outbreak ("50%" reads
+## "70%" at Critical).
+static func _risk_text(run, opt: Dictionary, text: String) -> String:
+	for e in opt.get("effects", []):
+		if e.op != "chance":
+			continue
+		var base := "%d%%" % roundi(e.p * 100.0)
+		var now := "%d%%" % roundi(RunAccess.event_risk(run, e.p) * 100.0)
+		if base != now:
+			text = text.replace(base, now)
+	return text
+
+
 static func _fill(run, ns: Dictionary, text: String, ctx: Dictionary = {}) -> String:
 	if "{subject}" in text:
 		var s = RunAccess.soldier(run, ns.subject)

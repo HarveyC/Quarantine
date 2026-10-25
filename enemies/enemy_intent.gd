@@ -9,6 +9,7 @@ extends RefCounted
 ## dangers(s) -> Array of {kind, cells: Array[Vector2i], unit, turn}: tiles that get hit next
 ##   enemy phase (bursts, charges, airstrikes, core slams). Paint them red.
 ## Spore zones are Hazards tiles, drawn by the Board. incoming(s) -> vent cells glowing for a wave.
+## tethers(s) -> Array of [shield id, shielded id] pairs to draw as threads.
 ## ripples(s) -> Array[Vector2i] cells of hidden Lurkers inside the squad's vision (a faint ripple).
 ## Fog of war: only enemies the squad sees (or senses, Spore Sense) show an intent, and only their
 ## dangers show; telegraphed strikes (airstrikes, core slams) always show.
@@ -44,7 +45,7 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		var pt := EnemyAbilities.pull_target(s, u)
 		return {"icon": "pull", "label": "PULL + SLAM", "target": pt.id if pt else -1}
 	if not EnemyAI.is_alerted(u) and not u.status.get("turned", false) and UnitData.ENEMIES.has(u.kind):
-		return {"icon": "dormant", "label": "DORMANT", "target": -1}
+		return {"icon": "dormant", "label": "UNAWARE", "target": -1}
 	if u.status.has("pinning"):
 		return {"icon": "pinning", "label": "MAULING", "target": int(u.status.pinning)}
 	if u.status.has("swelling"):
@@ -71,6 +72,13 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			return {"icon": "drop", "label": "DROP", "target": _most_exposed(s, u, hostiles)}
 		"burrower":
 			return {"icon": "claw", "label": "BURROW", "target": -1}
+		"brood_mother":
+			if BroodMother.will_burrow(s, u, true):
+				return {"icon": "claw", "label": "BURROWING", "target": -1}
+			if phase >= 3:
+				return {"icon": "claw", "label": "BERSERK", "target": _most_exposed(s, u, hostiles)}
+			if int(u.cooldowns.get("acid_rain", 0)) <= 1:
+				return {"icon": "strike", "label": "ACID RAIN", "target": -1}
 		"colonel_hale":
 			if phase == 1 and int(u.cooldowns.get("airstrike", 0)) <= 1:
 				return {"icon": "strike", "label": "AIRSTRIKE", "target": -1}
@@ -99,6 +107,20 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 		if u.status.has("charge_dir"):
 			var lane := EnemyAbilities.charge_lane(s, u, u.pos, u.status.charge_dir)
 			out.append({"kind": "charge", "cells": lane.cells, "unit": u.id, "turn": s.turn})
+	return out
+
+
+## [shield id, shielded id] for every living shield (egg sac, root, hive node) and the enemy whose
+## tether it holds, both seen by the squad.
+static func tethers(s: GameState) -> Array:
+	var out: Array = []
+	for u in s.living(Types.Team.ENEMY):
+		var kind := str(u.status.get("tether", ""))
+		if kind == "" or not Vision.sees_unit(s, Types.Team.PLAYER, u):
+			continue
+		for o in s.living(Types.Team.ENEMY):
+			if o.kind == kind and Vision.sees_unit(s, Types.Team.PLAYER, o):
+				out.append([o.id, u.id])
 	return out
 
 

@@ -38,7 +38,7 @@ const INTRO_ORDERS := [
 const ACT_SCENES := {
 	2: {"title": "Act II · Port Ardent", "sub": "Downtown and the Halden-Voss labs", "stage": "port", "lines": [
 		["OKAFOR", "You're past the wall. Port Ardent is ahead of you."],
-		["OKAFOR", "Signal's -- breaking up. The labs -- Halden-Voss knew -- don't trust --"],
+		["OKAFOR", "Signal's breaking up. The labs... Halden-Voss knew... don't trust..."],
 		["SQUAD", "Command's gone. We keep moving."],
 	]},
 	3: {"title": "Act III · The Bore", "sub": "Nine kilometres down", "stage": "bore", "lines": [
@@ -119,6 +119,11 @@ const BARKS := {
 	"echo": ["Contact. That's {name}, wave {wave}. They aren't ours any more.",
 		"I know that one. {name}. Put them down gently."],
 	"echo_laid": ["{name}'s tags recovered. Rest easy."],
+	# Boss fights: "<boss>_<phase>" on a phase change, "<boss>_open" when its shield breaks.
+	"brood_mother_open": ["Sacs are down. She's open. Hit her now.", "That's the last sac. Light her up."],
+	"brood_mother_2": ["She's tunnelling! Watch the ground and get off the roofs.",
+		"She's under you somewhere. Move when the ground cracks."],
+	"brood_mother_3": ["She's lost it. No more sacs. Finish her.", "She's coming straight at you. Put her down."],
 	"lore": ["Intel recovered."],
 }
 ## In act 2 Okafor's signal breaks up: words are dropped for "--".
@@ -127,7 +132,7 @@ const STATIC_EVERY := 4
 ## The Source speaks to a soldier who reaches Mutating or Critical. Only that soldier's player
 ## sees it.
 const WHISPERS := {
-	2: ["I can feel you, {name}.", "You were cold. You're not cold now.", "Use it. Use all of it."],
+	2: ["I can feel you, {name}.", "You're burning up, {name}. That's me.", "Use it. Use all of it."],
 	3: ["Come down to me, {name}.", "They will burn you too, when this is over.", "You're nearly home."],
 }
 
@@ -180,10 +185,16 @@ static func fill(text: String, vars: Dictionary) -> String:
 	return out
 
 
-## Drops every STATIC_EVERY-th word for "--": a radio signal breaking up.
+## Drops every STATIC_EVERY-th word and trails the line off with "...": a radio signal breaking up.
 static func garble(text: String, salt: int = 0) -> String:
+	var out: PackedStringArray = []
 	var words := text.split(" ")
 	for i in words.size():
 		if (i + salt) % STATIC_EVERY == STATIC_EVERY - 1 and words[i].length() > 2:
-			words[i] = "--"
-	return " ".join(words)
+			if out.is_empty():
+				out.append("...")
+			elif not out[-1].ends_with("..."):
+				out[-1] = out[-1].rstrip(".,!?") + "..."
+			continue
+		out.append(words[i])
+	return " ".join(out)

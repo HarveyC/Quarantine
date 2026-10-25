@@ -58,6 +58,9 @@ var _model: Node3D
 var _muzzle: Node3D      # props: where spores leave
 var _prop: Node3D        # props: the part that breathes
 var _prop_y := 0.0
+var _aim_local := Vector3(0, 0.85, 0)   # props: middle of the model's bounds, in the rig's space
+var _aim_world := Vector3.INF           # what the weapon is pointed at (aim_at), INF = level
+var _pitch := 0.0                       # weapon pitch towards _aim_world, radians (+ = down)
 var _sac: Node3D         # spitter / bloater glowing sac
 var _skin: SkinnedBody   # characters (everything but props)
 var _glow: OmniLight3D
@@ -158,6 +161,7 @@ func _build_model() -> void:
 		_prop = ModelKit.find(_model, "body")
 		_prop_y = _prop.position.y if _prop != null else 0.0
 		_muzzle = ModelKit.find(_model, "muzzle")
+		_aim_local = ModelKit.bounds(_model, _rig).get_center()
 	_build_lights()
 
 
@@ -397,6 +401,22 @@ func set_moving(on: bool) -> void:
 ## 0 = weapon at low ready, 1 = shouldered and aimed.
 func set_aim(target: float) -> void:
 	_aim_target = target
+	if target <= 0.0:
+		_aim_world = Vector3.INF
+
+
+## Points the weapon at `world` (pitching it up or down) while aimed; set_aim(0) levels it.
+func aim_at(world: Vector3) -> void:
+	_aim_world = world
+	_pitch = aim_pitch(world)
+
+
+## Pitch (radians, + = down) from this body's shoulder to `world`, within what the arms reach.
+func aim_pitch(world: Vector3) -> float:
+	var sp: Variant = _bone_world(["spine_03"])
+	var from: Vector3 = (sp as Vector3) + Vector3(0, 0.12, 0) if sp != null else position + Vector3(0, 1.4, 0)
+	var d := world - from
+	return clampf(atan2(-d.y, Vector2(d.x, d.z).length()), -0.6, 0.85)
 
 
 func aim_now(k: float) -> void:
@@ -438,10 +458,15 @@ func muzzle_world() -> Vector3:
 	return position + Vector3(0, 1.0, 0)
 
 
-## Where shots aim and land: the animated upper chest (or a creature's thorax).
-func chest_world() -> Vector3:
+## Where shots aim and land (and the shot camera looks): the animated upper chest of a
+## skinned body (or a crawler's thorax), else the middle of the model itself, so a low egg
+## sac or spore nest is shot down at and the floating Drifter up at. Never a fixed height.
+func aim_point() -> Vector3:
 	var p: Variant = _bone_world(["spine_03", "Thorax"])
-	return p if p != null else position + Vector3(0, 1.05 if soldier_body else 0.85, 0)
+	if p != null:
+		return p
+	var bob := _prop.position.y - _prop_y if _prop != null else 0.0
+	return _to_world(_rig, _aim_local + Vector3(0, bob, 0))
 
 
 func head_world() -> Vector3:
@@ -522,6 +547,8 @@ func _animate_skinned(delta: float) -> void:
 		_drawn = _aim > 0.3   # sidearm out to shoot, the melee weapon back in hand after
 		MeleeKit.set_drawn(_model, _drawn)
 	_skin.play_base(pose)
+	_pitch = aim_pitch(_aim_world) if _aim_world != Vector3.INF else move_toward(_pitch, 0.0, delta * 3.0)
+	_skin.aim_pitch = _pitch
 	_skin.advance(delta, _aim, _recoil)
 	var local_hit := _body.basis.inverse() * _hit_dir if _hit > 0.0 else Vector3.ZERO
 	_rig.position = local_hit * 0.22 * _hit + Vector3(0, 0, 1) * _lunge * 0.35

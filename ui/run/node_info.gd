@@ -85,7 +85,6 @@ static func card(run: RunState, n: Dictionary) -> Dictionary:
 			c.tag_color = NEST_RED
 			c.body = "End of act %d. Kill the boss to push deeper." % run.act
 			c.rows.append(["Reward", "+%d Supplies, Serum, a Doctrine" % RunRules.INCOME[type].supplies, Styles.TEXT])
-			c.rows.append(["Outbreak", "-%d after the fight" % RunRules.BOSS_OUTBREAK_DROP, Styles.TEAL])
 		RunMap.EVENT:
 			c.tag = "Event"
 			c.body = "Something happened here. A choice with a price, decided together."
@@ -107,5 +106,40 @@ static func card(run: RunState, n: Dictionary) -> Dictionary:
 			c.tag = "Hidden"
 			c.body = "Most likely an event. Could be an ambush, a depot or survivors."
 			c.rows.append(["Intel", "Spend 1 to reveal it (you have %d)" % run.intel, Styles.TEXT])
-	c.rows.append(["Outbreak", "+1 when the squad arrives", Styles.TEAL])
+	c.rows.append(["Outbreak", arrival(run, n), Styles.TEAL])
+	var back := push_back(run, n)
+	if back != "":
+		c.rows.append(["Push back", back, Styles.TEAL])
 	return c
+
+
+## What reaching a new Outbreak stage adds to fights, for the hover card.
+const STAGE_ADDS: Array[String] = ["", "a spore patch in every fight", "reinforcements from turn 4",
+	"elites in skirmishes", "every soldier starts at +10 Infection"]
+
+
+## "+1 on arrival: 6, Rampant now (reinforcements from turn 4)" for a node in the next row; the
+## plain "+1 on arrival" further ahead, where the number would be a guess.
+static func arrival(run: RunState, n: Dictionary) -> String:
+	if n.row != run.row + 1:
+		return "+1 on arrival"
+	var to := run.outbreak + 1
+	var st := RunRules.outbreak_stage(to)
+	if st == RunRules.outbreak_stage(run.outbreak):
+		return "+1 on arrival: %d, %s" % [to, RunRules.OUTBREAK_NAMES[st]]
+	return "+1 on arrival: %d, %s now (%s)" % [to, RunRules.OUTBREAK_NAMES[st], STAGE_ADDS[st]]
+
+
+## How winning this fight lowers Outbreak (RunRules.fight_outbreak and the boss drop), or "".
+static func push_back(run: RunState, n: Dictionary) -> String:
+	var type := RunMap.shown_type(n)
+	if type == RunMap.BOSS:
+		return "-%d after the fight" % Severity.boss_outbreak_drop(run, RunRules.BOSS_OUTBREAK_DROP)
+	if not type in [RunMap.SKIRMISH, RunMap.AMBUSH, RunMap.NEST]:
+		return ""
+	var parts: Array[String] = ["-%d for the bonus objective" % RunRules.BONUS_OUTBREAK_DROP]
+	if type == RunMap.NEST:
+		parts.append("-%d when the nest falls" % RunRules.NEST_OUTBREAK_DROP)
+	if n.objective == "purge":
+		parts.append("-%d for burning the spore nests" % RunRules.PURGE_OUTBREAK_DROP)
+	return ", ".join(parts)

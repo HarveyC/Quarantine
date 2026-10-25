@@ -5,6 +5,7 @@ extends RefCounted
 
 const Styles := preload("res://ui/styles.gd")
 const Tips := preload("res://ui/tips/tips.gd")
+const TermText := preload("res://ui/tips/term_text.gd")
 
 const PANEL := Color(0.05, 0.07, 0.11, 0.92)
 const PANEL_SOFT := Color(0.06, 0.082, 0.125, 0.94)
@@ -70,6 +71,12 @@ static func label(text: String, size := 15, color := TEXT, kind := "body") -> La
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	return l
+
+
+## Rules text on a card: wraps at `width` and sets every game term in bold with its hover
+## card (TermText). `kind` picks the face like label().
+static func text(s: String, size := 15, color := TEXT, width := 0, kind := "body") -> RichTextLabel:
+	return TermText.make(s, size, color, width, font(kind))
 
 
 ## Uppercase heading (Unbounded from 22 px up, spaced Outfit below).

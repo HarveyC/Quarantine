@@ -93,7 +93,7 @@ func refresh(view: MissionView, can_act: bool) -> void:
 		var left := 0
 		for u in s.units:
 			if u.team == Types.Team.PLAYER and u.owner_player == p and u.is_alive() and not u.ai_controlled:
-				total += 2
+				total += Rules.action_slots(u)
 				left += u.actions_left
 		(r._ap as W.Diamonds).set_values(total, mini(left, total))
 		r._ap.visible = not is_ready

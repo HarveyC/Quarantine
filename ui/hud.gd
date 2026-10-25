@@ -72,7 +72,6 @@ var _veins: W.Veins
 var _stealth_edge: TextureRect
 var _stealth_edge_mat: GradientTexture2D
 var _alarm_t := 0.0
-var _stealth_hint: Label
 
 
 func setup(v: MissionView) -> void:
@@ -182,9 +181,7 @@ func _build_turn_banner() -> void:
 	_stealth_word = Styles.caps("Concealed", 13, Styles.STEALTH)
 	_outline(_stealth_word)
 	stealth.add_child(_stealth_word)
-	_stealth_hint = Styles.caps("Red ground: where they can see you", 11, Styles.STEALTH, false)
-	_outline(_stealth_hint)
-	stealth.add_child(_stealth_hint)
+	Tips.term(stealth, "concealed")
 	_stealth_row = stealth
 	box.add_child(stealth)
 	# Only online games say anything here ("Waiting for Kestrel"); a local run needs no line.
@@ -355,7 +352,6 @@ func _refresh_stealth() -> void:
 	_stealth_shown = int(on)
 	var col := Styles.STEALTH if on else Styles.DANGER
 	_stealth_icon.set_icon("concealed" if on else "detected", col)
-	_stealth_hint.visible = on
 	_stealth_word.text = "CONCEALED" if on else "DETECTED"
 	_stealth_word.add_theme_color_override("font_color", col if on else Styles.DANGER_TEXT)
 

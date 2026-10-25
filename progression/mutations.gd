@@ -196,7 +196,7 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			u.actions_left += 1
 			u.status["k_surge_turn"] = s.turn
 			u.status["k_surge_penalty"] = s.turn + 1
-			s.emit(ev)
+			s.emit(ev.merged({"actions": u.actions_left}))
 		"lure_scent":
 			u.status["k_lure_scent_turn"] = s.turn
 			u.status["k_lure_turn"] = s.turn

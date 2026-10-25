@@ -136,7 +136,7 @@ func _build_gear(v: VBoxContainer) -> void:
 	for t in item.tags:
 		tags.add_child(UI.tag_chip(t))
 	v.add_child(tags)
-	v.add_child(UI.wrap(UI.label(GearData.desc(id, mk), 15, UI.COPY), W - 40))
+	v.add_child(UI.text(GearData.desc(id, mk), 15, UI.COPY, W - 40))
 	_art_at = v.get_child_count()
 	# Threshold preview / upgrade box.
 	if pv.mode == "upgrade":
@@ -145,10 +145,10 @@ func _build_gear(v: VBoxContainer) -> void:
 		h.add_child(UI.caps("Mk I  →  Mk II", 20, rar))
 		Tips.term(h, "mk2")
 		b.add_child(h)
-		b.add_child(UI.wrap(UI.label(GearData.desc(id, 2), 14, UI.TEXT), W - 70))
+		b.add_child(UI.text(GearData.desc(id, 2), 14, UI.TEXT, W - 70))
 		v.add_child(UI.label("Duplicate of an item %s owns. No slot used." % UI.short_name(record), 13, UI.FAINT))
 	elif pv.mode == "stash":
-		v.add_child(UI.wrap(UI.label("Already at Mk II: this copy goes to the stash.", 13, UI.FAINT), W - 40))
+		v.add_child(UI.text("Already at Mk II: this copy goes to the stash.", 13, UI.FAINT, W - 40))
 	else:
 		for p in GearTags.preview(record, id):
 			if p.to <= p.from:
@@ -164,7 +164,7 @@ func _build_gear(v: VBoxContainer) -> void:
 			Tips.term(h, "set_bonus", {"count": p.to, "color": GearData.tag_color(p.tag)})
 			b.add_child(h)
 			if hot:
-				b.add_child(UI.wrap(UI.label("Set bonus: " + GearData.TAG_INFO[p.tag].bonus, 14, UI.AMBER, "bold"), W - 70))
+				b.add_child(UI.text("Set bonus: " + GearData.TAG_INFO[p.tag].bonus, 14, UI.AMBER, W - 70, "bold"))
 		if item.rarity == "prototype":
 			v.add_child(UI.label("Unlocked by %s + %s at 2" % [item.tags[0], item.tags[1]], 13, UI.AMBER))
 		if pv.mode == "replace":
@@ -176,7 +176,7 @@ func _build_gear(v: VBoxContainer) -> void:
 			v.add_child(h)
 			for p in GearTags.preview(record, id):
 				if p.loses:
-					v.add_child(UI.label("Turns off the %s set bonus" % p.tag, 13, UI.DANGER, "bold"))
+					v.add_child(UI.text("Turns off the %s set bonus" % p.tag, 13, UI.DANGER, W - 40, "bold"))
 		elif pv.mode == "equip":
 			v.add_child(UI.label("Fills the empty %s slot" % GearData.SLOT_NAMES[item.slot].to_lower(), 13, UI.FAINT))
 
@@ -189,7 +189,7 @@ func _build_gun(v: VBoxContainer) -> void:
 	tags.add_theme_constant_override("separation", 6)
 	tags.add_child(UI.tag_chip(g.tag))
 	v.add_child(tags)
-	v.add_child(UI.wrap(UI.label(g.desc, 15, UI.COPY), W - 40))
+	v.add_child(UI.text(g.desc, 15, UI.COPY, W - 40))
 	_art_at = v.get_child_count()
 	for p in GearTags.preview_gun(record, card.id):
 		if p.to <= p.from:
@@ -204,9 +204,9 @@ func _build_gun(v: VBoxContainer) -> void:
 		Tips.term(h, "set_bonus", {"count": p.to, "color": GearData.tag_color(p.tag)})
 		b.add_child(h)
 		if p.unlocks:
-			b.add_child(UI.wrap(UI.label("Set bonus: " + GearData.TAG_INFO[p.tag].bonus, 14, UI.AMBER, "bold"), W - 70))
+			b.add_child(UI.text("Set bonus: " + GearData.TAG_INFO[p.tag].bonus, 14, UI.AMBER, W - 70, "bold"))
 	var now := Weapons.gun_name(Loadout.gun_id(record))
-	v.add_child(UI.wrap(UI.label("Replaces the %s in hand. You keep it, and can swap back from the loadout." % now, 13, UI.FAINT), W - 40))
+	v.add_child(UI.text("Replaces the %s in hand. You keep it, and can swap back from the loadout." % now, 13, UI.FAINT, W - 40))
 
 
 func _build_power(v: VBoxContainer) -> void:
@@ -227,16 +227,16 @@ func _build_power(v: VBoxContainer) -> void:
 		var tags := HBoxContainer.new()
 		tags.add_child(UI.tag_chip(t))
 		v.add_child(tags)
-	v.add_child(UI.wrap(UI.label(str(card.get("desc", "")), 15, UI.COPY), W - 40))
+	v.add_child(UI.text(str(card.get("desc", "")), 15, UI.COPY, W - 40))
 	_art_at = v.get_child_count()
 	if t != "":
 		var before: int = GearTags.counts(record).get(t, 0)
 		if before + 1 == GearData.SET_THRESHOLD:
 			var b := _boxed(v, UI.AMBER)
 			b.add_child(UI.caps("%s %d → %d" % [t, before, before + 1], 16, GearData.tag_color(t)))
-			b.add_child(UI.wrap(UI.label("Set bonus: " + GearData.TAG_INFO[t].bonus, 14, UI.AMBER, "bold"), W - 70))
+			b.add_child(UI.text("Set bonus: " + GearData.TAG_INFO[t].bonus, 14, UI.AMBER, W - 70, "bold"))
 	if is_mut:
-		v.add_child(UI.wrap(UI.label("Grafting adds Infection. Works only while Infection is at its tier.", 13, UI.TEAL), W - 40))
+		v.add_child(UI.text("Grafting adds Infection. Works only while Infection is at its tier.", 13, UI.TEAL, W - 40))
 
 
 ## Bloom graft: the slot it takes, what it does, and what it costs for good.
@@ -249,16 +249,16 @@ func _build_graft(v: VBoxContainer) -> void:
 		var tags := HBoxContainer.new()
 		tags.add_child(UI.tag_chip(t))
 		v.add_child(tags)
-	v.add_child(UI.wrap(UI.label(str(card.get("desc", "")), 15, UI.COPY), W - 40))
+	v.add_child(UI.text(str(card.get("desc", "")), 15, UI.COPY, W - 40))
 	_art_at = v.get_child_count()
-	v.add_child(UI.wrap(UI.label("+%d Infection. For good: Infection can't drop below %d per Bloom part, even with Serum." % [
-		int(card.get("infection", GraftData.BLOOM_INFECTION)), GraftData.FLOOR_PER_PART], 13, UI.TEAL), W - 40))
+	v.add_child(UI.text("+%d Infection. For good: Infection can't drop below %d per Bloom part, even with Serum." % [
+		int(card.get("infection", GraftData.BLOOM_INFECTION)), GraftData.FLOOR_PER_PART], 13, UI.TEAL, W - 40))
 
 
 func _build_consumable(v: VBoxContainer) -> void:
 	_row(v, Tips.term(UI.label("POCKET", 12, UI.FAINT, "mono"), "pocket"), UI.caps("Consumable ×%d" % int(card.get("charges", 2)), 13, UI.DIM))
 	v.add_child(UI.caps(GearData.item_name(card.id), 36))
-	v.add_child(UI.wrap(UI.label(GearData.desc(card.id), 15, UI.COPY), W - 40))
+	v.add_child(UI.text(GearData.desc(card.id), 15, UI.COPY, W - 40))
 	if not Loadout.can_add_consumable(record, card.id):
 		v.add_child(UI.label("Pockets are full", 13, UI.DANGER, "bold"))
 
@@ -277,7 +277,7 @@ func _build_order(v: VBoxContainer) -> void:
 	var risk := UI.caps("+%d Infection" % inf if inf > 0 else "Deploys clean", 13, UI.TEAL if inf > 0 else UI.GOOD)
 	_row(v, UI.label("ORDER", 12, UI.FAINT, "mono"), risk)
 	v.add_child(UI.wrap(UI.caps(str(card.get("name", "")), 34), W - 40))
-	v.add_child(UI.wrap(UI.label(str(card.get("desc", "")), 15, UI.COPY), W - 40))
+	v.add_child(UI.text(str(card.get("desc", "")), 15, UI.COPY, W - 40))
 	_art_at = v.get_child_count()
 	for c in card.get("contents", []):
 		v.add_child(_content_row(c))
@@ -332,7 +332,7 @@ func _content_row(c: Dictionary) -> Control:
 			chips.add_child(UI.tag_chip(str(t)))
 	if chips.get_child_count() > 0:
 		col_box.add_child(chips)
-	col_box.add_child(UI.wrap(UI.label(desc, 13, UI.COPY), W - 80))
+	col_box.add_child(UI.text(desc, 13, UI.COPY, W - 80))
 	h.add_child(col_box)
 	p.add_child(h)
 	return p

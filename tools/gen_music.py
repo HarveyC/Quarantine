@@ -12,7 +12,7 @@ Needs numpy, scipy and ffmpeg (libvorbis). Re-running gives the same audio (fixe
 
 Everything is in D minor. The "Bloom motif" (D F E Bb: up a minor third, down a step, down a
 tritone) is the infection's signature; it shows up in the menu theme, the combat Bloom layer,
-the boss chant and the defeat stinger. The victory stinger resolves it to D major.
+the boss chant and the defeat stingers. The victory stingers resolve it to D major.
 """
 import os
 import subprocess
@@ -790,37 +790,15 @@ def rest():
     write("music/rest.ogg", master(finish_loop(song, b, 0.4, t60=3.0), -21.0))
 
 
-def stinger(name, seconds, fill, rms=-17.0, verb=0.35):
+def stinger(name, seconds, fill, rms=-17.0, verb=0.35, ceiling=0.97):
     b = Buf(seconds + 5.0)
     fill(b)
     a = reverb(b.a, verb, t60=2.8)
-    write("music/%s.ogg" % name, fade_edges(master(a[:, : n_of(seconds + 4.0)], rms), 0.002, 1.0))
+    a = a[:, : n_of(seconds + 4.0)]
+    write("music/%s.ogg" % name, fade_edges(limit(a * loudness(a, rms), ceiling), 0.002, 1.0))
 
 
 def stingers():
-    def win(b):
-        b.add(boom("w"), 0.0, 0.45)
-        b.add(taiko("w1"), 0.0, 0.5)
-        for i, m in enumerate([74, 77, 76]):
-            b.add(bell(m, 2.5), 0.12 + i * 0.28, 0.2, -0.3 + 0.3 * i)
-        b.add(bell(78, 4.0), 0.12 + 3 * 0.28, 0.28, 0.2)      # the tritone resolves: F# not Bb
-        for m in voicing("D", 50, 4):
-            b.add(brass(m, 2.4), 0.95, 0.13)
-            b.add(strings(m + 12, 3.0, a=0.6, r=2.0, seed="ws"), 0.95, 0.06)
-        b.add(drone(38, 3.0, a=0.6, r=2.5), 0.95, 0.35)
-        b.add(taiko("w2"), 0.95, 0.4)
-
-    def lose(b):
-        b.add(boom("l"), 0.0, 0.4)
-        for i, m in enumerate(MOTIF):
-            b.add(bell(m - 12, 4.0, index=3.5), 0.3 + i * 0.7, 0.25, -0.4 + 0.25 * i)
-        for m, start in ((62, 0.2), (61, 0.2), (55, 1.0), (46, 1.8)):    # a slipping cluster
-            b.add(choir(m, 3.2, "o", a=0.6, r=2.5, seed="lc"), start, 0.12)
-        b.add(drone(26, 4.0, a=0.3, r=3.0), 0.0, 0.4)
-        for i in range(4):
-            b.add(heartbeat(), 2.6 + i * 1.05 * (1 + 0.15 * i), 0.45 * (1 - i * 0.22))
-        b.add(whisper(3.0, "lw"), 1.5, 0.08, 0.5)
-
     def contact(b):
         b.add(boom("c"), 0.0, 0.4)
         b.add(anvil("c"), 0.0, 0.25, 0.3)
@@ -869,13 +847,249 @@ def stingers():
             b.add(strings(m, 1.4, a=0.15, r=1.5, seed="rk"), 0.3, 0.06)
         b.add(taiko("rk"), 0.3, 0.25)
 
-    stinger("st_win", 4.0, win)
-    stinger("st_lose", 6.0, lose, rms=-19.0)
     stinger("st_contact", 2.0, contact, rms=-16.0, verb=0.3)
     stinger("st_boss", 3.5, boss, rms=-15.5)
     stinger("st_reveal", 2.8, reveal, rms=-15.0, verb=0.3)
     stinger("st_node", 1.5, node, rms=-21.0, verb=0.45)
     stinger("st_rank", 2.0, rank, rms=-20.0, verb=0.4)
+
+
+# --- fight and run outcome stingers ----------------------------------------------------------
+# Played by the Soundscape on its own bus (not ducked by gunfire) while it ducks the music and
+# ambience: a few variants each so a run doesn't hear the same one every fight. Wins resolve the
+# Bloom motif to D major; fails fall away from D minor; a wipe is heavier and ends in silence.
+
+
+def brass_glide(m, dur, semis, start=0.3, glide=1.2, seed="bg"):
+    """A brass note that sags by `semis` semitones from `start` over `glide` seconds."""
+    rng = seeded("%s%d" % (seed, m))
+    n = n_of(dur + 0.6)
+    x = tt(n)
+    bend = 2 ** (-semis * np.clip((x - start) / glide, 0, 1) ** 1.5 / 12)
+    f = midi(m) * bend
+    raw = saw(f, n, rng.random()) + saw(f * 1.005, n, rng.random()) + 0.6 * saw(f * 0.997, n, rng.random())
+    e1 = np.exp(-x / 0.15)
+    y = lp(raw, 450) + (lp(raw, 2400) - lp(raw, 450)) * (0.3 + 0.7 * e1)
+    return np.tanh(y * 1.4) * note_env(dur, 0.02, 0.35, 0.7, 0.6)[:n]
+
+
+def stab(b, t, chord, lo, gain=0.15, dur=0.9, strings_gain=0.06, seed="stab"):
+    for m in voicing(chord, lo, 4):
+        b.add(brass(m, dur, seed=seed), t, gain)
+        b.add(strings(m + 12, dur, a=0.03, r=0.9, seed=seed + "s"), t, strings_gain)
+
+
+def roll(b, t, length, gain=0.3, seed="roll"):
+    """Timpani-style roll that swells into t + length."""
+    k = int(length / 0.055)
+    for i in range(k):
+        b.add(taiko("%s%d" % (seed, i % 4)), t + i * 0.055, gain * (0.25 + 0.75 * (i / k) ** 2), -0.2 + 0.4 * (i % 2))
+
+
+def sub_drop(dur=2.5, f0=70, f1=24):
+    n = n_of(dur)
+    x = tt(n)
+    f = f1 + (f0 - f1) * np.exp(-x / (dur * 0.3))
+    return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-x / (dur * 0.45))
+
+
+def monitor(beeps=3, flat=2.5, f=987.8):
+    """Heart monitor: a few beeps, then the flat line."""
+    out = []
+    for _ in range(beeps):
+        k = n_of(0.12)
+        out.append(np.sin(2 * np.pi * f * tt(k)) * np.clip(np.linspace(8, 0, k), 0, 1) ** 0.3)
+        out.append(np.zeros(n_of(0.62)))
+    k = n_of(flat)
+    out.append(np.sin(2 * np.pi * f * tt(k)) * np.minimum(1, np.linspace(1.4, 0, k)) * np.clip(np.linspace(0, 80, k), 0, 1))
+    return lp(np.concatenate(out), 3500)
+
+
+def outcomes():
+    # Success: the squad held. Short, bright, strong on the first beat.
+    def win_fanfare(b):
+        b.add(boom("wf"), 0.0, 0.4)
+        b.add(kick("wf"), 0.0, 0.6)
+        b.add(taiko("wf"), 0.0, 0.5)
+        for i, m in enumerate((62, 66, 69)):                   # D F# A pickup
+            b.add(brass(m, 0.16, seed="wfp"), i * 0.13, 0.17, -0.2 + 0.2 * i)
+        stab(b, 0.42, "D", 50, 0.16, 2.2, 0.07, "wf")
+        b.add(brass(74, 2.2, seed="wft"), 0.42, 0.12, 0.1)
+        b.add(drone(38, 2.4, a=0.05, r=2.0), 0.42, 0.4)
+        b.add(taiko("wf2"), 0.42, 0.55)
+        b.add(anvil("wf"), 0.42, 0.12, 0.4)
+        for i, m in enumerate((86, 90, 93)):
+            b.add(bell(m, 2.5, index=1.2), 0.5 + i * 0.09, 0.07, -0.3 + 0.3 * i)
+
+    def win_picardy(b):
+        """bVI - bVII - I: Bb, C, then the D major the minor key never gets."""
+        for t, ch, lo in ((0.0, "Bb", 46), (0.38, "C", 48)):
+            stab(b, t, ch, lo, 0.14, 0.3, 0.05, "wp%s" % ch)
+            b.add(taiko("wp%s" % ch), t, 0.5)
+            b.add(drone(root(ch, 34), 0.3, a=0.01, r=0.3), t, 0.3)
+        b.add(boom("wp"), 0.0, 0.35)
+        roll(b, 0.45, 0.32, 0.22, "wpr")
+        stab(b, 0.78, "D", 50, 0.17, 2.4, 0.08, "wpD")
+        b.add(brass(74, 2.4, seed="wpt"), 0.78, 0.12)
+        b.add(kick("wp"), 0.78, 0.7)
+        b.add(taiko("wpD"), 0.78, 0.6)
+        b.add(drone(38, 2.6, a=0.05, r=2.0), 0.78, 0.4)
+        b.add(strings(86, 2.2, a=0.05, r=1.4, trem=20, seed="wptr"), 0.78, 0.05)
+
+    def win_answer(b):
+        """The Bloom motif, answered: D F E, then F# where the infection plays Bb."""
+        b.add(boom("wa"), 0.0, 0.45)
+        b.add(taiko("wa"), 0.0, 0.55)
+        b.add(anvil("wa"), 0.0, 0.15, -0.3)
+        for i, m in enumerate((74, 77, 76)):
+            b.add(bell(m, 2.0, index=1.8), 0.08 + i * 0.22, 0.2, -0.3 + 0.3 * i)
+            b.add(brass(m - 12, 0.2, seed="wam"), 0.08 + i * 0.22, 0.1)
+        b.add(bell(78, 4.0, index=1.5), 0.74, 0.3, 0.2)
+        for m in voicing("D", 50, 5):
+            b.add(choir(m, 2.4, "a", a=0.15, r=2.0, voices=5, seed="wac"), 0.74, 0.07)
+            b.add(brass(m, 2.0, seed="wab"), 0.74, 0.12)
+        b.add(drone(38, 2.6, a=0.05, r=2.2), 0.74, 0.4)
+        b.add(kick("wa"), 0.74, 0.6)
+        b.add(taiko("wa2"), 0.74, 0.5)
+
+    def win_boss(b):
+        """A boss is down: a roll, two hammer blows, the full D major with choir and the motif on top."""
+        b.add(boom("wb"), 0.0, 0.55)
+        b.add(anvil("wb"), 0.0, 0.25, -0.3)
+        stab(b, 0.0, "Bb", 46, 0.15, 0.45, 0.06, "wbBb")
+        b.add(taiko("wb0"), 0.0, 0.6)
+        stab(b, 0.55, "C", 48, 0.15, 0.45, 0.06, "wbC")
+        b.add(taiko("wb1"), 0.55, 0.6)
+        roll(b, 0.7, 0.8, 0.28, "wbr")
+        b.add(swell(0.8, "wbsw"), 0.7, 0.35)
+        t = 1.5
+        b.add(boom("wb2"), t, 0.5)
+        b.add(kick("wb2"), t, 0.8)
+        b.add(anvil("wb2"), t, 0.2, 0.3)
+        for m in voicing("D", 38, 6):
+            b.add(brass(m, 3.4, seed="wbD"), t, 0.11)
+            b.add(choir(m + 12, 3.6, "a", a=0.2, r=2.5, voices=5, seed="wbc"), t, 0.06)
+            b.add(strings(m + 24, 3.4, a=0.2, r=2.0, seed="wbs"), t, 0.04)
+        b.add(drone(26, 4.0, a=0.05, r=2.5), t, 0.5)
+        for i, m in enumerate((86, 89, 88, 90)):              # motif resolved, up high
+            b.add(bell(m, 3.0, index=1.4), t + 0.3 + i * 0.3, 0.12, -0.4 + 0.25 * i)
+        for i in range(3):
+            b.add(taiko("wbt%d" % i), t + 0.9 + i * 0.4, 0.4 - 0.08 * i)
+
+    # Fail: the objective is lost but soldiers walked out. Falls away from the key.
+    def fail_sag(b):
+        b.add(boom("fs"), 0.0, 0.45)
+        b.add(taiko("fs"), 0.0, 0.5)
+        for m in voicing("Dm", 50, 4):
+            b.add(brass_glide(m, 2.6, 1.0, 0.35, 1.6, seed="fs"), 0.0, 0.13)
+        b.add(brass_glide(38, 2.8, 2.0, 0.3, 2.0, seed="fsl"), 0.0, 0.18)
+        for m in (74, 73):
+            b.add(strings(m, 2.4, a=0.05, r=1.6, trem=18, seed="fst%d" % m), 0.0, 0.05)
+        b.add(drone(26, 3.5, a=0.2, r=2.5), 0.0, 0.35)
+        b.add(taiko("fs2"), 1.6, 0.35)
+        b.add(heartbeat(), 2.6, 0.3)
+
+    def fail_toll(b):
+        """Three tolls on D with the Bloom motif sinking underneath."""
+        b.add(boom("ft"), 0.0, 0.4)
+        stab(b, 0.0, "Gm", 43, 0.14, 0.6, 0.05, "ftGm")
+        for i in range(3):
+            t = i * 1.1
+            b.add(bell(50, 4.0, index=4.0, ratio=2.4), t, 0.3 - 0.06 * i, -0.15 + 0.15 * i)
+            b.add(taiko("ft%d" % i), t, 0.45 - 0.1 * i)
+        for i, m in enumerate(MOTIF):
+            b.add(brass(m - 24, 0.8, seed="ftm"), 0.6 + i * 0.6, 0.12)
+        b.add(drone(26, 4.0, a=0.3, r=2.5), 0.0, 0.35)
+        for m in (62, 61, 56):
+            b.add(choir(m, 3.0, "o", a=0.8, r=2.0, seed="ftc"), 0.8, 0.07)
+
+    def fail_slip(b):
+        """A minor stab, then a cluster that slips down and a slowing heartbeat."""
+        b.add(boom("fl"), 0.0, 0.45)
+        b.add(anvil("fl"), 0.0, 0.15, 0.3)
+        b.add(kick("fl"), 0.0, 0.5)
+        stab(b, 0.0, "Dm", 50, 0.15, 0.5, 0.06, "flDm")
+        for i, m in enumerate(MOTIF):
+            b.add(bell(m - 12, 3.5, index=3.5), 0.55 + i * 0.5, 0.2, -0.4 + 0.25 * i)
+        for m, start in ((62, 0.5), (61, 0.5), (55, 1.2), (46, 1.9)):
+            b.add(choir(m, 2.6, "o", a=0.5, r=2.2, seed="flc"), start, 0.1)
+        b.add(drone(26, 3.5, a=0.3, r=2.5), 0.0, 0.35)
+        for i in range(3):
+            b.add(heartbeat(), 2.4 + i * 1.1 * (1 + 0.2 * i), 0.4 * (1 - i * 0.28))
+
+    # Wipe: nobody walked out. Heavier, and it ends on nothing.
+    def wipe_flatline(b):
+        b.add(boom("xf"), 0.0, 0.6)
+        b.add(sub_drop(3.0), 0.0, 0.6)
+        b.add(anvil("xf"), 0.0, 0.22, -0.3)
+        for m in (38, 39, 45, 46, 50, 51):                     # D Eb A Bb D Eb: everything wrong at once
+            b.add(brass(m, 1.0, seed="xfc"), 0.0, 0.11)
+        for m in (74, 75):
+            b.add(strings(m, 1.2, a=0.01, r=0.4, trem=24, seed="xfs%d" % m), 0.0, 0.06)
+        b.add(taiko("xf"), 0.0, 0.6)
+        b.add(monitor(3, 2.6), 1.3, 0.06, 0.15)
+        for i, m in enumerate(MOTIF):
+            b.add(choir(m - 24, 1.4, "u", a=0.4, r=1.5, seed="xfm"), 1.6 + i * 0.7, 0.08)
+        b.add(whisper(3.0, "xfw", 0.8), 2.6, 0.06, -0.5)
+        b.add(drone(26, 4.5, a=0.5, r=3.0), 0.6, 0.3)
+
+    def wipe_swallowed(b):
+        """A hammer blow, then the Bloom's choir rises over a heartbeat that stops."""
+        b.add(boom("xs"), 0.0, 0.6)
+        b.add(sub_drop(3.5, 60, 20), 0.0, 0.6)
+        b.add(kick("xs"), 0.0, 0.6)
+        stab(b, 0.0, "Dm", 38, 0.16, 0.8, 0.06, "xsDm")
+        b.add(brass(44, 0.8, seed="xst"), 0.0, 0.14)        # the tritone under it
+        for i in range(2):
+            b.add(heartbeat(), 1.0 + i * 1.3, 0.45 - 0.15 * i)
+        for i, m in enumerate((50, 51, 56, 62, 63)):
+            b.add(choir(m, 3.5, "a", a=1.6, r=2.0, voices=5, seed="xsc"), 0.9 + i * 0.15, 0.08)
+        b.add(swell(2.6, "xssw"), 1.0, 0.25)
+        b.add(whisper(3.5, "xsw", 0.9), 2.0, 0.09, 0.4)
+        b.add(drone(26, 5.0, a=0.6, r=3.0), 0.4, 0.35)
+        b.add(drone(32, 4.0, a=1.5, r=3.0), 1.5, 0.18)        # Ab: the tritone held
+
+    # Run end, on the run summary.
+    def run_won(b):
+        """The colony theme in full: motif resolved over D - Bb - G - D, choir, brass, bells."""
+        b.add(boom("rw"), 0.0, 0.5)
+        b.add(kick("rw"), 0.0, 0.7)
+        beat = 0.62
+        for k, (ch, lo) in enumerate((("D", 50), ("Bb", 46), ("Gm", 43), ("Asus", 45), ("D", 50))):
+            t = k * beat * 2
+            dur = beat * 2 if k < 4 else 4.0
+            for m in voicing(ch, lo, 4):
+                b.add(brass(m, dur, seed="rw%d" % k), t, 0.1)
+                b.add(choir(m + 12, dur, "a", a=0.3, r=2.0, voices=5, seed="rwc%d" % k), t, 0.05)
+                b.add(strings(m + 12, dur, a=0.2, r=1.5, seed="rws%d" % k), t, 0.04)
+            b.add(drone(root(ch, 26), dur, a=0.1, r=1.5), t, 0.35)
+            b.add(taiko("rw%d" % k), t, 0.45)
+        for i, m in enumerate((74, 77, 76, 78, 81, 86)):
+            b.add(bell(m, 3.0, index=1.4), 0.2 + i * beat, 0.15, -0.4 + 0.15 * i)
+        roll(b, 4 * beat * 2 - 0.6, 0.6, 0.25, "rwr")
+        b.add(anvil("rw"), 4 * beat * 2, 0.15, 0.3)
+
+    def run_lost(b):
+        """Lantern Company is gone: a lone horn plays the motif over a pad, the last note left open."""
+        for m in voicing("Dm9", 50, 4):
+            b.add(pad(m, 5.5, a=1.0, r=3.0, cutoff=900, seed="rl"), 0.0, 0.12)
+        b.add(drone(26, 6.0, a=1.2, r=3.0), 0.0, 0.3)
+        b.add(bell(50, 5.0, index=3.0, ratio=2.4), 0.0, 0.2)
+        for i, (m, d) in enumerate(zip(MOTIF, (0.9, 0.9, 0.9, 2.6))):
+            b.add(brass(m - 12, d, seed="rlh"), 0.9 + i * 1.0, 0.13, 0.1)
+        b.add(choir(58, 3.5, "u", a=1.5, r=3.0, seed="rlc"), 3.5, 0.06)
+
+    stinger("st_win_1", 3.6, win_fanfare, rms=-15.5, verb=0.3, ceiling=0.8)
+    stinger("st_win_2", 4.0, win_picardy, rms=-15.5, verb=0.3, ceiling=0.8)
+    stinger("st_win_3", 4.2, win_answer, rms=-16.0, ceiling=0.8)
+    stinger("st_win_boss", 6.0, win_boss, rms=-15.0, ceiling=0.8)
+    stinger("st_fail_1", 4.5, fail_sag, rms=-16.5, ceiling=0.8)
+    stinger("st_fail_2", 5.0, fail_toll, rms=-17.0, ceiling=0.8)
+    stinger("st_fail_3", 5.5, fail_slip, rms=-17.0, ceiling=0.8)
+    stinger("st_wipe_1", 6.0, wipe_flatline, rms=-16.5, ceiling=0.8)
+    stinger("st_wipe_2", 6.5, wipe_swallowed, rms=-16.0, ceiling=0.8)
+    stinger("st_run_won", 8.5, run_won, rms=-16.0, verb=0.4, ceiling=0.8)
+    stinger("st_run_lost", 7.5, run_lost, rms=-19.0, verb=0.45, ceiling=0.8)
 
 
 # --- ambience -------------------------------------------------------------------------------
@@ -1312,7 +1526,7 @@ def ui():
 
 JOBS = {
     "combat": combat_stems, "stealth": stealth, "boss": boss_stems, "menu": menu, "map": node_map, "rest": rest,
-    "stingers": stingers, "wall": amb_wall, "port": amb_port, "bore": amb_bore, "ambmap": amb_map,
+    "stingers": stingers, "outcomes": outcomes, "wall": amb_wall, "port": amb_port, "bore": amb_bore, "ambmap": amb_map,
     "spots": spots, "voices": voices, "ui": ui,
 }
 
