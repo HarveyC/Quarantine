@@ -76,6 +76,43 @@ func test_effect_chips_read_effect_lines() -> void:
 	assert_true(e.chips.is_empty(), "no chips for nothing")
 
 
+## The St. Brigid's pharmacy line read "+1 Serum sample for whoever has least, but" once the
+## Outbreak clause became a chip.
+func test_effect_text_keeps_a_clause_after_but() -> void:
+	var e := NodeUi.effects("+1 Serum sample for whoever has least, but Outbreak +1")
+	assert_eq(e.rest, "+1 Serum sample for whoever has least, but Outbreak +1", "the downside stays in words")
+	e = NodeUi.effects("Outbreak -2, but the next fight has +1 enemy (the Bloom hears it too)")
+	assert_true(e.rest.contains("next fight"), "a leading chip clause still lifts out")
+
+
+## Every event choice line, plus every item and treatment line drawn the same way, renders as
+## chips and text that ends on a full clause: no "but", "or", "then" left hanging.
+func test_every_event_choice_renders_whole() -> void:
+	var lines := {}
+	for id in EventData.EVENTS:
+		for sid in EventData.EVENTS[id].steps:
+			for opt in EventData.EVENTS[id].steps[sid].get("options", []):
+				lines["%s.%s.%s" % [id, sid, opt.id]] = opt.get("desc", "")
+	for id in GearData.ITEMS:
+		lines["item " + id] = GearData.ITEMS[id].get("desc", "")
+	for id in GearData.CONSUMABLES:
+		lines["pocket " + id] = GearData.CONSUMABLES[id].get("desc", "")
+	for id in FieldHospital.TREATMENTS:
+		lines["treatment " + id] = FieldHospital.TREATMENTS[id].desc
+	assert_true(lines.size() > 50, "found the choice lines")
+	for where in lines:
+		var row: Control = NodeUi.effect_row(lines[where], 14)
+		var shown: Array = []
+		for l in row.find_children("*", "Label", true, false):
+			shown.append(l.text)
+		row.free()
+		var text: String = shown.back() if not shown.is_empty() else ""
+		var words := text.strip_edges().trim_suffix(",").trim_suffix(":").split(" ", false)
+		var last := words[words.size() - 1].to_lower() if not words.is_empty() else ""
+		assert_true(not last in NodeUi.DANGLING and last != "and", "%s ends cut off: \"%s\"" % [where, text])
+		assert_true(not text.ends_with(",") and not text.ends_with(":"), "%s ends on a comma: \"%s\"" % [where, text])
+
+
 func test_menus_build() -> void:
 	var tree: SceneTree = Engine.get_meta("test_tree")
 	var m: Control = MainMenu.new()
