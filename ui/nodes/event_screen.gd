@@ -17,7 +17,7 @@ func _build(into: VBoxContainer) -> void:
 	into.add_child(header("Event · Act %d" % run.act, EventRules.title(s), NodeUi.DIM, wallet(), "event"))
 	var main := NodeUi.vbox(22)
 	into.add_child(with_squad(main))
-	var scene := NodeUi.panel()
+	var scene := NodeUi.bare()
 	var text := NodeUi.label(EventRules.scene(run, s), 19, NodeUi.TEXT, true)
 	text.custom_minimum_size.x = 520
 	scene.add_child(text)
@@ -124,11 +124,13 @@ func _option_label(p: int, id: String) -> String:
 ## One player's options: a row per option with its effects as chips and its button(s).
 func _player_options(p: int) -> Control:
 	var s := ns()
-	var card := NodeUi.panel(NodeUi.player_color(p) if run.present_players().size() > 1 else Color(0, 0, 0, 0))
+	# One box per player when several decide side by side; alone, the rows need no box at all.
+	var many := run.present_players().size() > 1
+	var card := NodeUi.panel(NodeUi.player_color(p)) if many else NodeUi.bare()
 	card.custom_minimum_size.x = 560
 	var v := NodeUi.vbox(12)
 	card.add_child(v)
-	if run.present_players().size() > 1:
+	if many:
 		v.add_child(player_caption(p))
 	var step := EventRules.step_def(s)
 	var opts := EventRules.options_for(run, s, p)

@@ -424,18 +424,11 @@ static func keycap(text: String, size := 11, fg := Styles.TEXT, bg := Color("141
 	return p
 
 
-## Pill chip: a filled caps tag ("SQUAD PHASE") or an outlined one.
+## A caps tag ("OVERWATCH", "HIT 72%") set straight on its panel: no pill, no box. `filled`
+## tags are the loud ones (full colour, bold); the others are tinted towards the dim text.
 static func chip(text: String, col: Color, filled := true, size := 13) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := Styles.panel_box(col if filled else Color(col, 0.06), col if filled else Color(col, 0.4), Styles.PILL)
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
-	sb.content_margin_top = 2
-	sb.content_margin_bottom = 2
-	if filled and col.s > 0.4:
-		sb.shadow_color = Color(col, 0.3)
-		sb.shadow_size = 6
-	p.add_theme_stylebox_override("panel", sb)
+	p.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_child(Styles.caps(text, size, Styles.GROUND if filled else col.lerp(Styles.DIM, 0.3)))
+	p.add_child(Styles.caps(text, size, col if filled else col.lerp(Styles.DIM, 0.3)))
 	return p

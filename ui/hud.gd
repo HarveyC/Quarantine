@@ -45,17 +45,19 @@ var _tactical_a := 1.0
 var _cinematic := false
 var _debriefing := false
 var _turn_label: Label
-var _phase_squad: PanelContainer
-var _phase_enemy: PanelContainer
+## One word for whose phase it is, no pills.
+var _phase: Label
 var _objective: Label
 var _hostiles: Label
 var _stealth_icon: W.Icon
-var _stealth_chip: PanelContainer
+var _stealth_row: Control
+var _stealth_word: Label
 var _stealth_shown := -1   # 1 concealed, 0 detected, -1 not built yet
 var _session_label: Label
 var _banner_box: Control
 var _hint: PanelContainer
 var _hint_label: Label
+var _keys: Control
 var _toast: Label
 var _banner: Label
 var _tooltip: Control
@@ -154,39 +156,44 @@ func _build_turn_banner() -> void:
 	_turn_label.add_theme_constant_override("outline_size", 8)
 	_turn_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.45))
 	top.add_child(_turn_label)
-	var phases := Styles.hbox(8)
-	phases.size_flags_vertical = Control.SIZE_SHRINK_END
-	_phase_squad = W.chip("Squad phase", Styles.AMBER)
-	phases.add_child(_phase_squad)
-	phases.add_child(W.Icon.new("check", Color(0, 0, 0, 0), 6.0))
-	_phase_enemy = W.chip("Enemy phase", Styles.DANGER, false)
-	phases.add_child(_phase_enemy)
-	var pad := Styles.vbox(0)
-	pad.add_child(phases)
-	pad.add_child(Control.new())
-	pad.size_flags_vertical = Control.SIZE_SHRINK_END
-	top.add_child(pad)
+	_phase = Styles.caps("Squad phase", 15, Styles.AMBER)
+	_phase.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_outline(_phase)
+	top.add_child(_phase)
 	box.add_child(top)
 	var obj := Styles.hbox(8)
 	obj.add_child(W.Icon.new("flag", Styles.AMBER, 17.0, 2.0))
 	_objective = Styles.label("Clear the checkpoint", 15)
+	_outline(_objective)
 	obj.add_child(_objective)
 	obj.add_child(Styles.label("·", 15, Styles.MUTED))
 	_hostiles = Styles.mono("", 13, Styles.DANGER_TEXT)
+	_outline(_hostiles)
 	obj.add_child(_hostiles)
 	box.add_child(obj)
 	var stealth := Styles.hbox(8)
 	_stealth_icon = W.Icon.new("concealed", Styles.STEALTH, 17.0, 2.0)
 	stealth.add_child(_stealth_icon)
-	_stealth_chip = W.chip("Concealed", Styles.STEALTH)
-	stealth.add_child(_stealth_chip)
+	_stealth_word = Styles.caps("Concealed", 13, Styles.STEALTH)
+	_outline(_stealth_word)
+	stealth.add_child(_stealth_word)
 	_stealth_hint = Styles.caps("Red ground: where they can see you", 11, Styles.STEALTH, false)
+	_outline(_stealth_hint)
 	stealth.add_child(_stealth_hint)
+	_stealth_row = stealth
 	box.add_child(stealth)
+	# Only online games say anything here ("Waiting for Kestrel"); a local run needs no line.
 	_session_label = Styles.label("", 12, Styles.MUTED)
+	_outline(_session_label)
 	box.add_child(_session_label)
 	_banner_box = box
 	_corner(Control.PRESET_TOP_LEFT, box, Control.GROW_DIRECTION_END, Control.GROW_DIRECTION_END)
+
+
+## A dark outline so text reads straight on the scene without a box behind it.
+static func _outline(l: Label, px := 5) -> void:
+	l.add_theme_constant_override("outline_size", px)
+	l.add_theme_color_override("font_outline_color", Color(Styles.GROUND, 0.8))
 
 
 func _build_readiness() -> void:
@@ -216,10 +223,11 @@ func _build_bottom() -> void:
 
 	var mid := Styles.vbox(8)
 	_hint = PanelContainer.new()
-	_hint.add_theme_stylebox_override("panel", Styles.panel_box(Color(0.04, 0.055, 0.09, 0.9), Styles.BORDER, Styles.PILL))
+	_hint.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_hint.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hint_label = Styles.label("", 14, Styles.TEXT)
+	_outline(_hint_label, 6)
 	_hint.add_child(_hint_label)
 	mid.add_child(_hint)
 	action_bar = ActionBar.new()
@@ -237,7 +245,8 @@ func _build_bottom() -> void:
 	map_key = OverlayLegend.new()
 	map_key.build(view)
 	right.add_child(map_key)
-	right.add_child(_key_legend())
+	_keys = _key_legend()
+	right.add_child(_keys)
 	_corner(Control.PRESET_BOTTOM_RIGHT, right, Control.GROW_DIRECTION_BEGIN, Control.GROW_DIRECTION_BEGIN)
 
 
@@ -246,9 +255,12 @@ func _key_legend() -> Control:
 	var row := Styles.hbox(6)
 	row.alignment = BoxContainer.ALIGNMENT_END
 	row.size_flags_horizontal = Control.SIZE_SHRINK_END
+	# Quiet reminders, at half strength: they matter on the first fight, not every turn.
+	row.modulate.a = 0.55
 	for k in [["1-9", "Actions"], ["Tab", "Next"], ["Space", "Ready"], ["Esc", "Menu"]]:
 		row.add_child(W.keycap(k[0], 11))
 		var l := Styles.caps(k[1], 11, Styles.MUTED)
+		_outline(l, 4)
 		row.add_child(l)
 		if k[0] != "Esc":
 			var gap := Control.new()
@@ -300,13 +312,15 @@ func refresh() -> void:
 		over = view.player.ended
 		enemy = view.player.enemy_phase
 	_turn_label.text = "TURN %02d" % shown_turn
-	_set_chip(_phase_squad, Styles.AMBER, not enemy and not over)
-	_set_chip(_phase_enemy, Styles.DANGER, enemy and not over)
+	_phase.text = "ENEMY PHASE" if enemy else "SQUAD PHASE"
+	_phase.add_theme_color_override("font_color", Styles.DANGER_TEXT if enemy else Styles.AMBER)
+	_phase.visible = not over
 	var hostiles := s.living(Types.Team.ENEMY).size()
 	_hostiles.text = "%d hostile%s" % [hostiles, "" if hostiles == 1 else "s"]
 	_objective.text = Objectives.describe(s)
 	_refresh_stealth()
-	_session_label.text = view.session.status_text()
+	_session_label.text = "" if view.session is LocalSession else view.session.status_text()
+	_session_label.visible = _session_label.text != ""
 	var sel := view.input.selected_id if view.input != null else -1
 	roster.refresh(view, sel, can_act)
 	readiness.refresh(view, can_act)
@@ -322,13 +336,13 @@ func refresh() -> void:
 		_veins.set_reach(reach)
 
 
-## The Concealed / Detected chip (the coach points at it).
+## The Concealed / Detected line (the coach points at it).
 func stealth_chip() -> Control:
-	return _stealth_chip
+	return _stealth_row
 
 
-## Concealed (filled, cold blue) until the event player shows the squad being spotted, then an
-## outlined Detected chip for the rest of the fight.
+## Concealed (cold blue) until the event player shows the squad being spotted, then Detected
+## (enemy pink) for the rest of the fight.
 func _refresh_stealth() -> void:
 	var on := view.player.concealed if view.player != null else Concealment.active(view.state)
 	if int(on) == _stealth_shown:
@@ -336,23 +350,9 @@ func _refresh_stealth() -> void:
 	_stealth_shown = int(on)
 	var col := Styles.STEALTH if on else Styles.DANGER
 	_stealth_icon.set_icon("concealed" if on else "detected", col)
-	var sb := _stealth_chip.get_theme_stylebox("panel") as StyleBoxFlat
-	sb.bg_color = col if on else Color(col, 0.06)
-	sb.border_color = col if on else Color(col, 0.4)
-	sb.shadow_size = 6 if on else 0
-	sb.shadow_color = Color(col, 0.3)
 	_stealth_hint.visible = on
-	var l := _stealth_chip.get_child(0) as Label
-	l.text = "CONCEALED" if on else "DETECTED"
-	l.add_theme_color_override("font_color", Styles.GROUND if on else Styles.DANGER_TEXT)
-
-
-func _set_chip(chip: PanelContainer, col: Color, on: bool) -> void:
-	var sb := chip.get_theme_stylebox("panel") as StyleBoxFlat
-	sb.bg_color = col if on else Color.TRANSPARENT
-	sb.border_color = col if on else Styles.BORDER_STRONG
-	var l := chip.get_child(0) as Label
-	l.add_theme_color_override("font_color", Styles.GROUND if on else Styles.DIM)
+	_stealth_word.text = "CONCEALED" if on else "DETECTED"
+	_stealth_word.add_theme_color_override("font_color", col if on else Styles.DANGER_TEXT)
 
 
 func _refresh_targeting() -> void:
@@ -575,7 +575,7 @@ func _process(delta: float) -> void:
 	_stealth_edge.modulate = Color(col, a)
 	for c in _tactical:
 		c.modulate.a = _tactical_a
-		c.visible = _tactical_a > 0.01
+		c.visible = _tactical_a > 0.01 and (c != readiness or readiness.wanted())
 
 
 func _on_unit_clicked(id: int) -> void:

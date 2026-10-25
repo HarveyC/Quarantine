@@ -65,6 +65,19 @@ static func panel(stripe := Color(0, 0, 0, 0), pad := 16) -> PanelContainer:
 	return p
 
 
+## The same as panel() without the box: content straight on the screen (the owner `stripe` stays).
+## For text that needs no frame, or a group that already sits inside one.
+static func bare(stripe := Color(0, 0, 0, 0), pad := 0) -> PanelContainer:
+	var p: PanelContainer = CornerPanel.new()
+	var sb := StyleBoxEmpty.new()
+	sb.set_content_margin_all(pad)
+	if stripe.a > 0:
+		sb.content_margin_top = maxf(pad, 14)
+	p.add_theme_stylebox_override("panel", sb)
+	p.stripe = stripe
+	return p
+
+
 static func label(text: String, size := 15, color := TEXT, wrap := false) -> Label:
 	var l := Styles.label(text, size, color)
 	l.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -161,15 +174,13 @@ static func clear(node: Node) -> void:
 ## A small chip: line icon and a short value ("+20" with the Supplies crate).
 static func chip(icon: String, text: String, col: Color, size := 15, tip := "") -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := Styles.panel_box(Color(col, 0.1), Color(col, 0.45), Styles.PILL)
-	sb.content_margin_left = 9
-	sb.content_margin_right = 11
-	sb.content_margin_top = 3
-	sb.content_margin_bottom = 3
-	p.add_theme_stylebox_override("panel", sb)
+	# No pill round it: the icon and value sit straight on the panel.
+	var gap := StyleBoxEmpty.new()
+	gap.content_margin_right = 6
+	p.add_theme_stylebox_override("panel", gap)
 	p.tooltip_text = tip
 	p.mouse_filter = Control.MOUSE_FILTER_PASS if tip != "" else Control.MOUSE_FILTER_IGNORE
-	var row := Styles.hbox(6)
+	var row := Styles.hbox(5)
 	if icon != "":
 		var ic := W.Icon.new(icon, col, size + 1, 1.7)
 		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -230,7 +241,7 @@ static func effect_row(desc: String, size := 15) -> Control:
 	var box := Styles.vbox(6)
 	if not e.chips.is_empty():
 		var row := HFlowContainer.new()
-		row.add_theme_constant_override("h_separation", 6)
+		row.add_theme_constant_override("h_separation", 14)
 		row.add_theme_constant_override("v_separation", 6)
 		for c in e.chips:
 			row.add_child(chip(c[0], c[1], c[2], size, "%s %s" % [c[1], c[3]]))

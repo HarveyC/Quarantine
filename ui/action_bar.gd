@@ -125,7 +125,9 @@ func refresh(view: MissionView) -> void:
 		_who.text = SquadRoster.owner_name(view, u.owner_player)
 		_who.add_theme_color_override("font_color", pcol)
 		_name.text = u.display_name
-		_class.text = "%s  ·  %s" % [UnitData.SOLDIERS.get(u.kind, {}).get("name", u.kind.capitalize()), Weapons.of(u).name]
+		# The class only when the name doesn't already carry it ("Trooper Abara").
+		var kind_name := str(UnitData.SOLDIERS.get(u.kind, {}).get("name", u.kind.capitalize()))
+		_class.text = Weapons.of(u).name if u.display_name.contains(kind_name) else "%s  ·  %s" % [kind_name, Weapons.of(u).name]
 		_ap.set_values(2, u.actions_left)
 		_hp.set_values(u.max_hp, u.hp, 0, Styles.DANGER if u.hp * 3 <= u.max_hp else Styles.HP)
 		_fit_soldier_box()
@@ -279,8 +281,12 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 		kc.position = Vector2(-4, -2)
 		b.add_child(kc)
 	if cost != "":
-		var c := W.chip(cost, Styles.TEAL, true, 10)
-		c.position = Vector2(px - 26, -4)
+		# The Infection cost as teal numbers on the orb's top-right, outlined to read on it.
+		var c := W.chip(cost, Styles.TEAL, true, 11)
+		var cl := c.get_child(0) as Label
+		cl.add_theme_constant_override("outline_size", 5)
+		cl.add_theme_color_override("font_outline_color", Color(Styles.GROUND, 0.9))
+		c.position = Vector2(px - c.get_combined_minimum_size().x - 1, 0)
 		b.add_child(c)
 	return b
 

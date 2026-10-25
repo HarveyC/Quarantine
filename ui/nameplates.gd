@@ -1,13 +1,16 @@
 extends Control
-## Small plates that follow units on screen, replacing the floating "M P1" letters:
-## class icon in the owner's colour, actions left and HP pips for soldiers; HP and
-## name for enemies. The current shot target also gets its hit chance next to it.
+## Small plates that follow units on screen, replacing the floating "M P1" letters. No box: the
+## pieces sit on a soft haze. Soldiers show the class icon in the owner's colour, actions left
+## and HP pips, and fade back once they have nothing left to do; enemies show only HP and
+## statuses, with their name added while hovered or targeted. The current shot target also
+## gets its hit chance next to it.
 
 const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 const Icons := preload("res://ui/icons.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const InputController := preload("res://view/input_controller.gd")
+const IntentOverlay := preload("res://view/intent_overlay.gd")
 
 const HEAD := Vector3(0, 2.0, 0)
 const HEAD_ENEMY := Vector3(0, 1.6, 0)   # infected models are shorter
@@ -17,6 +20,9 @@ const TAG_ICONS := {"stunned": ["stun", Color("9fd0ff")], "suppressed": ["suppre
 
 var view: MissionView
 var _plates: Dictionary = {}   # unit id -> Control
+var _names: Dictionary = {}    # enemy unit id -> its name label (shown on hover / target)
+var _target_id := -1
+var _intents: Dictionary = {}  # enemy unit id -> EnemyIntent entry, while the squad plans
 var _odds: Control
 var _odds_hit: Label
 var _odds_sub: Label
@@ -46,12 +52,19 @@ func refresh() -> void:
 		remove_child(c)
 		c.queue_free()
 	_plates.clear()
+	_names.clear()
 	var sel := view.input.selected_id if view.input != null else -1
 	var target: Unit = null
 	var shooter: Unit = null
 	if view.input != null and view.input.mode == InputController.Mode.SHOOT:
 		target = view.input.current_target()
 		shooter = view.input.selected_unit()
+	_target_id = target.id if target != null else -1
+	_intents.clear()
+	var s := view.state
+	if s.phase == Types.Phase.TEAM and (view.player == null or not view.player.is_busy()):
+		for it in EnemyIntent.intents(s):
+			_intents[int(it.unit)] = it
 	for uv in view.unit_views.values():
 		if uv.dead or not uv.visible or uv.get_meta("ghost", false):
 			continue
@@ -70,19 +83,22 @@ func refresh() -> void:
 
 
 func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Control:
-	var f := W.Frame.new(Vector4(6, 3, 7, 3))
+	var f := W.Frame.new(Vector4(8, 3, 8, 3))
 	var col := Styles.player_color(uv.owner_player) if uv.is_soldier else Styles.DANGER
-	var line := col.darkened(0.45)
-	if selected or targeted:
-		line = Styles.AMBER if targeted else col
-	f.set_look(Color(0.034, 0.05, 0.08, 0.86), line, Styles.AMBER, false)
+	# The shot target's haze warms to the lantern; everyone else's is a plain dark smudge.
+	if targeted:
+		f.set_haze(0.3, Styles.AMBER)
+	else:
+		f.set_haze(0.45)
 	var row := Styles.hbox(5)
 	f.add_child(row)
-	var ic := W.Icon.new(Icons.for_class(uv.kind) if uv.is_soldier else "enemy", col, 15.0, 2.0)
-	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(ic)
 	if uv.is_soldier:
+		var ic := W.Icon.new(Icons.for_class(uv.kind), col, 15.0, 2.0)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(ic)
 		var u := view.state.get_unit(uv.unit_id)
+		if u != null and not selected and not view.player.enemy_phase and u.actions_left == 0:
+			f.modulate.a = 0.55
 		if u != null and not uv.turned and not uv.lapsed and not view.player.enemy_phase:
 			var d := W.Diamonds.new(6.0)
 			d.set_values(2, u.actions_left)
@@ -95,7 +111,23 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 		if uv.concealed and not uv.turned:
 			row.add_child(W.Icon.new("concealed", Styles.STEALTH, 14.0, 2.0))
 	else:
-		row.add_child(Styles.caps(uv.display_name, 11, Styles.DANGER_TEXT))
+		# What it does next (was a big floating word over its head), then its name and affixes
+		# only while hovered or targeted.
+		var it: Dictionary = _intents.get(uv.unit_id, {})
+		var word := IntentOverlay.word(it) if not it.is_empty() else ""
+		if word != "":
+			var dormant: bool = it.icon == "dormant"
+			var wc := Styles.MUTED if dormant else (Styles.TEAL if it.icon in ["spawn", "pulse"] else Styles.DANGER_TEXT)
+			var w := Styles.caps(word, 12, wc)
+			_outline(w)
+			row.add_child(w)
+		var full := uv.display_name
+		if not it.is_empty() and not (it.affixes as Array).is_empty():
+			full += " · " + " / ".join(it.affixes)
+		var n := Styles.caps(full, 11, Styles.DIM)
+		_outline(n)
+		n.visible = targeted
+		_names[uv.unit_id] = n
 		# While the squad is Concealed, the ones still watching wear an open eye.
 		var e := view.state.get_unit(uv.unit_id)
 		if view.player != null and view.player.concealed and e != null and not EnemyAI.is_alerted(e) \
@@ -116,8 +148,15 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 		var dot := W.Icon.new("dot", Styles.TEAL, 8.0)
 		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(dot)
+	if _names.has(uv.unit_id):
+		row.add_child(_names[uv.unit_id])
 	f.reset_size()
 	return f
+
+
+static func _outline(l: Label) -> void:
+	l.add_theme_constant_override("outline_size", 4)
+	l.add_theme_color_override("font_outline_color", Color(Styles.GROUND, 0.85))
 
 
 func _layout() -> void:
@@ -126,6 +165,17 @@ func _layout() -> void:
 	var cam := view.camera_rig.camera
 	if cam == null or not cam.is_inside_tree():
 		return
+	var hovered := -1
+	if view.input != null and view.input.hover_cell != InputController.NO_CELL:
+		var huv: UnitView = view.unit_view_at(view.input.hover_cell)
+		if huv != null:
+			hovered = huv.unit_id
+	for id in _names:
+		var n: Label = _names[id]
+		var want: bool = id == hovered or id == _target_id
+		if n.visible != want:
+			n.visible = want
+			_plates[id].reset_size()
 	for id in _plates:
 		var plate: Control = _plates[id]
 		var uv := view.view_for(id)
