@@ -76,12 +76,19 @@ static func summarize(s: GameState) -> Dictionary:
 			by_unit[owner].kills += int(u.status.get("kills", 0))
 	var kills := 0
 	var infection := 0
+	var turned := 0
 	for r in soldiers:
 		kills += r.kills
 		infection += maxi(0, r.infection_gained)
+		turned += 1 if r.fate == "turned" else 0
+	var bonus: bool = s.result == Types.Result.VICTORY and Objectives.bonus_met(s)
+	# Run fights only (their encounter names the node): what the fight did to Outbreak.
+	var outbreak: Array = []
+	if s.encounter.has("node"):
+		outbreak = RunRules.fight_outbreak(str(s.encounter.node), str(s.encounter.get("objective", "")),
+			s.result == Types.Result.VICTORY, bonus, turned)
 	return {"result": s.result, "turns": s.turn, "objective": Objectives.kind(s), "cause": Objectives.loss_cause(s),
-		"bonus": s.result == Types.Result.VICTORY and Objectives.bonus_met(s),
-		"kills": kills, "infection": infection, "soldiers": soldiers}
+		"bonus": bonus, "kills": kills, "infection": infection, "soldiers": soldiers, "outbreak": outbreak}
 
 
 ## Starts the debrief for the fight that just ended in `s`. Rows go to every soldier (online too,
@@ -206,6 +213,9 @@ func _build(session) -> void:
 		body.add_child(_soldier_row(r, session))
 	var foot := NodeUi.hbox(12)
 	foot.add_child(NodeUi.caption(_totals(), NodeUi.DIM, 14))
+	var ob := _outbreak_chip()
+	if ob != null:
+		foot.add_child(ob)
 	foot.add_child(Styles.spacer())
 	_hint = NodeUi.caption("", NodeUi.FAINT, 12)
 	_hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -260,6 +270,22 @@ func _totals() -> String:
 	if summary.bonus:
 		parts.append("Bonus objective met")
 	return "  ·  ".join(parts)
+
+
+## The fight's net Outbreak change as one chip; the causes are in its tooltip.
+func _outbreak_chip() -> Control:
+	var changes: Array = summary.get("outbreak", [])
+	if changes.is_empty():
+		return null
+	var net := 0
+	var why: Array[String] = []
+	for c in changes:
+		net += int(c[0])
+		var reason := str(c[1])
+		why.append("%s%s %+d" % [reason.left(1).to_upper(), reason.substr(1), int(c[0])])
+	var chip := NodeUi.chip("outbreak", "OUTBREAK %+d" % net, NodeUi.TEAL if net <= 0 else NodeUi.BAD, 14, "\n".join(why))
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return chip
 
 
 func _header_row() -> Control:

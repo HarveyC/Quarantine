@@ -12,7 +12,10 @@ extends RefCounted
 const SKIRMISH_BUDGET := {1: 6, 2: 7, 3: 9}
 const NEST_BUDGET := {1: 3, 2: 4, 3: 5}     # on top of the elite and the Hive node
 const BOSS_BUDGET := {1: 0, 2: 0, 3: 0}     # bosses bring their own adds
-const BUDGET_PER_ENEMY := 2                  # each "+1 enemy" from Outbreak or events
+const BUDGET_PER_ENEMY := 2                  # each "+1 enemy" from events or Severity
+## Regular fights gain 2 budget for every 3 Outbreak points, so every point counts: 3 gives +2
+## (one enemy, as Spreading always did), 6 gives +4 (Rampant's two), capped at 9+.
+const OUTBREAK_BUDGET_CAP := 6
 const ENEMY_CAP := 5
 const MIN_START := 3
 ## Threat budget share, fewest starting enemies and boss health by squad size (4 is the baseline
@@ -44,6 +47,11 @@ static func stage(outbreak: int) -> int:
 	return 0
 
 
+## Threat budget Outbreak adds to a regular fight (not a boss).
+static func outbreak_budget(outbreak: int) -> int:
+	return mini(OUTBREAK_BUDGET_CAP, maxi(0, outbreak) * 2 / 3)
+
+
 static func build(spec: Dictionary) -> Dictionary:
 	var act := clampi(int(spec.get("act", 1)), 1, 3)
 	var node := str(spec.get("node", "skirmish"))
@@ -56,15 +64,17 @@ static func build(spec: Dictionary) -> Dictionary:
 	rng.seed = int(spec.get("seed", 1)) * 7919 + 17
 	# The elite is rolled first so preview() can show it without knowing Outbreak.
 	var elite_kind := _pick(rng, EnemyRoster.elite_pool(act))
-	var extra := (1 if st >= 1 else 0) + (1 if st >= 2 else 0) + int(mods.get("extra_enemies", 0))
+	var extra := int(mods.get("extra_enemies", 0))
 	if node == "boss":
-		extra = (1 if st >= 2 else 0) + int(mods.get("extra_enemies", 0))   # bosses bring their own adds
+		extra += 1 if st >= 2 else 0   # bosses bring their own adds
 	var budget := 0
 	match node:
 		"nest": budget = NEST_BUDGET[act]
 		"boss": budget = BOSS_BUDGET[act]
 		_: budget = SKIRMISH_BUDGET[act]
 	budget += BUDGET_PER_ENEMY * extra
+	if node != "boss":
+		budget += outbreak_budget(int(spec.get("outbreak", 0)))
 	if objective == "purge":
 		budget -= PURGE_BUDGET_CUT   # the spore nests keep adding Runners
 	budget = ceili(budget * float(SQUAD_BUDGET[squad]))

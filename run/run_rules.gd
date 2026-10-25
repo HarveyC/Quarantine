@@ -19,6 +19,15 @@ const START_RESERVE := 1           # recruits per player, +1 for each 2 soldiers
 const RESERVE_CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
 const HEAL_AFTER_FIGHT := 0.35
 const BOSS_OUTBREAK_DROP := 3
+## How a fight moves Outbreak (fight_outbreak): a met bonus objective, a won nest and a won Purge
+## each push it back; every soldier who Turns spreads it.
+const BONUS_OUTBREAK_DROP := 1
+const NEST_OUTBREAK_DROP := 1
+const PURGE_OUTBREAK_DROP := 1
+const TURNED_OUTBREAK := 2
+## Outbreak stage from which an event's risky rolls (op "chance") come up more often.
+const RISKY_EVENTS_STAGE := 3
+const RISKY_EVENTS_BONUS := 0.2
 ## Fight income (Supplies, and Serum samples per soldier controlled), see "Income per node".
 const INCOME := {
 	RunMap.SKIRMISH: {"supplies": 40, "serum": 0}, RunMap.AMBUSH: {"supplies": 40, "serum": 0},
@@ -364,6 +373,7 @@ static func fight_outcome(s: GameState, bonus: Variant = null) -> Dictionary:
 
 static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 	var kind: String = run.fight_config.get("fight", {}).get("node", RunMap.SKIRMISH)
+	var objective: String = run.fight_config.get("fight", {}).get("objective", "")
 	run.fight_config = {}
 	run.fight_snapshot = {}
 	var fought := {}
@@ -386,6 +396,9 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 		if not fought.has(r.id) and r.sit_out > 0:
 			r.sit_out -= 1
 	run.emit({"type": "fight_end", "result": outcome.result, "kind": kind})
+	var won: bool = outcome.result == Types.Result.VICTORY and not run.squad().is_empty()
+	for change in fight_outbreak(kind, objective, won, bool(outcome.get("bonus", false)), lost[RunSoldier.TURNED]):
+		add_outbreak(run, change[0], change[1])
 	MetaProgress.on_fight_end(run, kind, outcome.result == Types.Result.VICTORY and not run.squad().is_empty(),
 		bool(outcome.get("bonus", false)), lost[RunSoldier.DEAD], lost[RunSoldier.TURNED])
 	RunHooks.call_static("Progression", "on_fight_end", [run, outcome])
@@ -486,6 +499,31 @@ static func random_class(run: RunState) -> String:
 	if pool.is_empty():
 		pool = RESERVE_CLASSES
 	return pool[run.rng.randi() % pool.size()]
+
+
+## Outbreak changes a fight causes, as [[amount, reason]], for the run and the fight debrief.
+## Boss kills are separate (BOSS_OUTBREAK_DROP, after the rewards check).
+static func fight_outbreak(kind: String, objective: String, won: bool, bonus: bool, turned: int) -> Array:
+	var out: Array = []
+	if turned > 0:
+		out.append([TURNED_OUTBREAK * turned, "soldier Turned" if turned == 1 else "soldiers Turned"])
+	if not won:
+		return out
+	if bonus:
+		out.append([-BONUS_OUTBREAK_DROP, "bonus objective"])
+	if kind == RunMap.NEST:
+		out.append([-NEST_OUTBREAK_DROP, "nest cleared"])
+	if objective == "purge":
+		out.append([-PURGE_OUTBREAK_DROP, "spore nests burned"])
+	return out
+
+
+## The chance an event's risky roll (op "chance": an ambush, a waking crew) comes up: higher once
+## Outbreak reaches Critical.
+static func event_risk(run: RunState, p: float) -> float:
+	if outbreak_stage(run.outbreak) >= RISKY_EVENTS_STAGE:
+		return minf(0.9, p + RISKY_EVENTS_BONUS)
+	return p
 
 
 static func outbreak_stage(outbreak: int) -> int:

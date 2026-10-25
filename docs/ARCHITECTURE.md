@@ -361,6 +361,8 @@ rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind i
 - **Hospital**: one treatment per soldier by its owner; Patch up (full HP, −1 injury), Purge (−30
   Infection, 15 Supplies), Train (extra perk pick), Full cure (2 doses). Healing or purging anyone
   raises Outbreak by 1 once per visit; Train doesn't.
+- **Events at Critical**: from Outbreak stage 3 every risky roll (op `chance`) is +20% likelier
+  (`RunRules.event_risk`, max 90%), and the option text shows the raised odds.
 - **Survivors**: +10 Supplies on entry and one recruit; the first `node_claim` takes them,
   otherwise they join the smallest reserve when everyone leaves.
 
@@ -918,7 +920,9 @@ FIGHT   fight_config is set; every peer builds the GameState with MatchConfig.bu
         The host sends fight_end. Results: HP/Infection copied back, dead/Turned recorded,
         recruits deploy, 25% heal, income (Skirmish 40, nest 50 + 1 Serum sample per soldier
         controlled, boss 60 + 1 sample, +10 Supplies and +1 Intel for a bonus objective),
-        boss: Outbreak -3. Then GearRun.on_fight_won(run, "skirmish"|"nest"|"boss").
+        boss: Outbreak -3. RunRules.fight_outbreak: each Turned soldier +2; on a win, bonus
+        objective -1, nest -1, Purge -1 (the fight debrief shows the net as one chip).
+        Then GearRun.on_fight_won(run, "skirmish"|"nest"|"boss").
         A lost fight (squad wiped) ends the run in DEFEAT; the act-3 boss ends it in VICTORY.
 REWARD  waits while GearRun.has_pending(run) or Progression.has_pending(run).
 NODE    NodeRules.enter(run, kind) opens the screen; waits until NodeRules.is_done(run).
@@ -1101,8 +1105,10 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
   Regenerating that turn (GearFx `burning` also stops it).
 - **Static units** (`UnitData.ENEMIES[kind].static`: Hive node, egg sac, spore nest, Source root)
   never act; `Objectives` can count living `spore_nest` units for Purge.
-- **Outbreak stages** (`FightBuilder.stage`): Spreading +1 enemy (2 budget) and a spore patch;
-  Rampant +1 more, a wave on turn 4, +5 Infection on infected hits; Critical a skirmish elite (50%),
+- **Outbreak budget** (`FightBuilder.outbreak_budget`): regular fights get 2 budget per 3 Outbreak
+  points (cap 6 at 9+), so every point counts; bosses get +1 add from Rampant instead.
+- **Outbreak stages** (`FightBuilder.stage`): Spreading a spore patch;
+  Rampant a wave on turn 4, +5 Infection on infected hits; Critical a skirmish elite (50%),
   2 patches, 2 elite affixes in nests; Collapse +10 starting Infection and waves every 3 turns.
   Budget past the 5-enemy cap buys affixes or an earlier wave. Objective pressure: Hold gets a wave
   every turn from 2 sides, Extract 2 enemies every 2 turns, Purge 3 spore nests on `markers.nest`.
