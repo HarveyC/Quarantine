@@ -287,7 +287,7 @@ func _soldier_row(r: Dictionary, session) -> Control:
 	h.add_child(who)
 	var cells := [
 		[str(r.kills), NodeUi.TEXT],
-		["—" if r.wounds == 0 else "-%d HP" % r.wounds, NodeUi.DIM if r.wounds == 0 else NodeUi.BAD],
+		["0" if r.wounds == 0 else "-%d HP" % r.wounds, NodeUi.DIM if r.wounds == 0 else NodeUi.BAD],
 		[_infection(r), NodeUi.TEAL if r.infection_gained != 0 else NodeUi.DIM],
 		[_fate(r.fate), NodeUi.BAD if r.fate in ["kia", "turned", "left_behind"] else NodeUi.DIM],
 	]

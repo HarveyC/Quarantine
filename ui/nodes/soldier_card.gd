@@ -275,7 +275,7 @@ func _extras() -> Control:
 		flow.add_child(c)
 	var perk: int = delta.get("perk", 0)
 	if perk > 0:
-		flow.add_child(Tips.term(NodeUi.chip("perk", "+%d PERK PICK" % perk, NodeUi.TEXT, 12, "Pick one of three perks from their class pool"), "perk"))
+		flow.add_child(Tips.term(NodeUi.chip("perk", "+%d PERK PICK" % perk, NodeUi.TEXT, 12, "Pick one of three perks for their class"), "perk"))
 	if delta.get("leaves", false):
 		flow.add_child(NodeUi.chip("close", "LEAVES THE SQUAD", NodeUi.BAD, 12, "A fresh recruit takes their place in the reserve"))
 	if delta.get("maybe", false):

@@ -14,9 +14,9 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		return "[b]%s[/b]" % name_of.call(int(ev.get(key, -1)))
 	match str(ev.get("type", "")):
 		"team_phase":
-			return _c("--- Turn %d: squad phase ---" % int(ev.get("turn", 0)), Palette.player_ui(0))
+			return _c("[b]Turn %d · Squad phase[/b]" % int(ev.get("turn", 0)), Palette.player_ui(0))
 		"enemy_phase":
-			return _c("--- Enemy phase ---", Palette.DANGER)
+			return _c("[b]Enemy phase[/b]", Palette.DANGER)
 		"ready":
 			if ev.get("auto", false):
 				return _c("Player %d has no soldiers left to act, ready" % (int(ev.get("player", 0)) + 1), Color(0.6, 0.6, 0.6))
@@ -108,7 +108,7 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"mission_end":
 			var r := int(ev.get("result", 0))
 			var why: String = Objectives.LOSS.get(str(ev.get("cause", "")), {}).get("title", "")
-			return _c("=== MISSION %s ===" % ("COMPLETE" if r == Types.Result.VICTORY else "FAILED" + (": " + why.to_upper() if why != "" else "")), Palette.AMBER)
+			return _c("[b]MISSION %s[/b]" % ("COMPLETE" if r == Types.Result.VICTORY else "FAILED" + (": " + why.to_upper() if why != "" else "")), Palette.AMBER)
 	if EnemyBeats.handles(ev):
 		return EnemyBeats.describe(ev, name_of)
 	return _c(("[%s] %s" % [str(ev.get("type", "?")), str(ev)]).replace("[", "[lb]"), Color(0.55, 0.55, 0.55))

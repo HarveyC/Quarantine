@@ -30,7 +30,10 @@ var _scene: Control
 var _queue: Array = []
 var _played := {}
 var _radio_box: VBoxContainer
-var _whisper: Label
+var _whisper: VBoxContainer
+var _whisper_head: Label
+var _whisper_rule: Label
+var _whisper_line: Label
 var _whisper_t := 0.0
 var _contact_said := false
 var _tiers := {}           # unit id -> last infection tier seen
@@ -58,16 +61,22 @@ func _init() -> void:
 	_radio_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_radio_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_radio_box)
-	_whisper = Styles.label("", 24, Styles.TEAL)
+	# What happened first (tier and what it does), then the Source's line under it as flavour.
+	_whisper = Styles.vbox(4)
 	_whisper.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	_whisper.offset_left = -500
 	_whisper.offset_right = 500
 	_whisper.offset_top = 300
-	_whisper.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_whisper.modulate.a = 0.0
-	_whisper.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
-	_whisper.add_theme_constant_override("shadow_outline_size", 8)
 	_whisper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_whisper_head = Styles.caps("", 24, Styles.TEAL)
+	_whisper_rule = Styles.label("", 17, Styles.TEXT)
+	_whisper_line = Styles.label("", 18, Styles.TEAL)
+	for l: Label in [_whisper_head, _whisper_rule, _whisper_line]:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+		l.add_theme_constant_override("shadow_outline_size", 8)
+		_whisper.add_child(l)
 	root.add_child(_whisper)
 
 
@@ -280,9 +289,30 @@ func _whisper_to(u: Unit, tier: int) -> void:
 		return
 	_whispered[key] = true
 	var lines: Array = StoryData.WHISPERS[tier]
-	_whisper.text = StoryData.fill(lines[_rng.randi() % lines.size()], {"name": _surname(u)})
-	_say("SOURCE", _whisper.text)
+	var col := Infection.tier_color(tier)
+	_whisper_head.text = ("%s is %s" % [_surname(u), Infection.tier_name(tier)]).to_upper()
+	_whisper_head.add_theme_color_override("font_color", col)
+	_whisper_rule.text = tier_rule(tier)
+	var said := StoryData.fill(lines[_rng.randi() % lines.size()], {"name": _surname(u)})
+	_whisper_line.text = "\u201c%s\u201d" % said
+	_whisper_line.modulate.a = 0.75
+	_say("SOURCE", said)
 	_whisper_t = WHISPER_SECS
+
+
+## What reaching `tier` does, in one line under the whisper's heading.
+static func tier_rule(tier: int) -> String:
+	var p: Dictionary = Infection.PASSIVES.get(tier, {})
+	var parts: Array[String] = ["Infection %d+" % Infection.THRESHOLDS[tier]]
+	if int(p.get("mobility", 0)) > 0:
+		parts.append("+%d move" % int(p.mobility))
+	if int(p.get("aim", 0)) > 0:
+		parts.append("+%d aim" % int(p.aim))
+	if Infection.LAPSE_CHANCE.has(tier):
+		parts.append("%d%% Lapse chance each turn" % roundi(Infection.LAPSE_CHANCE[tier] * 100))
+	if tier == Infection.Tier.CRITICAL:
+		parts.append("Turns at %d" % Infection.TURNED_AT)
+	return "  \u00b7  ".join(parts)
 
 
 # --- radio --------------------------------------------------------------------------------
@@ -298,12 +328,14 @@ func _bark(key: String, vars: Dictionary) -> void:
 	var clean := StoryData.fill(lines[_rng.randi() % lines.size()], vars)
 	var text := clean
 	var who := "MAJOR OKAFOR"
+	var salt := -1
 	if _run.act == 2 and key not in ["dead", "turned", "echo_laid"]:
-		text = StoryData.garble(text, _rng.randi() % 4)
+		salt = _rng.randi() % 4
+		text = StoryData.garble(text, salt)
 	elif _run.act >= 3:
 		who = _squad_voice(vars.get("name", ""))
 	_radio(who, text, Styles.AMBER)
-	_say(who, clean, {"radio": true, "dropouts": VoicePlayer.dropouts(clean, text)})
+	_say(who, clean, {"radio": true, "dropouts": VoicePlayer.dropouts(clean, salt)})
 
 
 func _say(who: String, text: String, opts := {}) -> void:

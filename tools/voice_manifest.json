@@ -195,6 +195,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_20db64405a.ogg",
+		"text": "Signal's breaking up. The labs... Halden-Voss knew... don't trust...",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_20f0d99417.ogg",
 		"text": "fifty-three",
 		"voice": "okafor"
@@ -647,11 +652,6 @@
 	{
 		"file": "okafor_7df215aef6.ogg",
 		"text": "forty-nine",
-		"voice": "okafor"
-	},
-	{
-		"file": "okafor_7f4e307680.ogg",
-		"text": "Signal's -- breaking up. The labs -- Halden-Voss knew -- don't trust --",
 		"voice": "okafor"
 	},
 	{
@@ -1345,6 +1345,11 @@
 		"voice": "source"
 	},
 	{
+		"file": "source_a58b723a6e.ogg",
+		"text": "That's me.",
+		"voice": "source"
+	},
+	{
 		"file": "source_a7cfe6aca7.ogg",
 		"text": "Volkov",
 		"voice": "source"
@@ -1395,8 +1400,8 @@
 		"voice": "source"
 	},
 	{
-		"file": "source_f48204c0ac.ogg",
-		"text": "You were cold. You're not cold now.",
+		"file": "source_eef4709a46.ogg",
+		"text": "You're burning up,",
 		"voice": "source"
 	},
 	{

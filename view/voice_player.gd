@@ -9,7 +9,7 @@ const Babble := preload("res://view/babble.gd")
 const RADIO_IN := "res://audio/voice/radio_in.ogg"
 const RADIO_OUT := "res://audio/voice/radio_out.ogg"
 const STATIC := "res://audio/voice/radio_static.ogg"
-## Seconds the voice drops out for each "--" in a broken-up line.
+## Seconds the voice drops out for each word a broken-up line loses.
 const DROPOUT := 0.35
 const DB := {"okafor": -1.0, "source": 0.0, "hale": -1.0, "hale_turned": 0.0, "hv": -2.0, "squad": -5.0}
 
@@ -120,16 +120,16 @@ func _stream(path: String) -> AudioStream:
 	return _streams[path]
 
 
-## Where the "--" words of `garbled` fall in `clean`, as positions 0..1 by character.
-static func dropouts(clean: String, garbled: String) -> Array[float]:
+## Where StoryData.garble(clean, salt) drops words from `clean`, as positions 0..1 by character.
+## A negative salt is a clean line.
+static func dropouts(clean: String, salt: int) -> Array[float]:
 	var out: Array[float] = []
-	var a := clean.split(" ")
-	var b := garbled.split(" ")
-	if a.size() != b.size() or clean.length() == 0:
+	if salt < 0 or clean.length() == 0:
 		return out
+	var words := clean.split(" ")
 	var at := 0
-	for i in a.size():
-		if b[i] == "--" and a[i] != "--":
-			out.append((at + a[i].length() * 0.5) / float(clean.length()))
-		at += a[i].length() + 1
+	for i in words.size():
+		if (i + salt) % StoryData.STATIC_EVERY == StoryData.STATIC_EVERY - 1 and words[i].length() > 2:
+			out.append((at + words[i].length() * 0.5) / float(clean.length()))
+		at += words[i].length() + 1
 	return out

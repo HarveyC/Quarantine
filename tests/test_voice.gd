@@ -98,7 +98,8 @@ func test_babble_counts_syllables() -> void:
 
 func test_breakup_positions() -> void:
 	var clean := "Survivors. Alive, for now."
-	var d := VoicePlayer.dropouts(clean, StoryData.garble(clean, 0))
+	assert_eq(StoryData.garble(clean, 0), "Survivors. Alive, for...")
+	var d := VoicePlayer.dropouts(clean, 0)
 	assert_eq(d.size(), 1)
 	assert_true(d[0] > 0.8, "the last word drops out")
-	assert_true(VoicePlayer.dropouts(clean, clean).is_empty(), "a clean line has no dropouts")
+	assert_true(VoicePlayer.dropouts(clean, -1).is_empty(), "a clean line has no dropouts")

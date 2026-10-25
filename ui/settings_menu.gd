@@ -329,7 +329,7 @@ static func _same(a: Variant, b: Variant) -> bool:
 func _set_key_text(b: Button, action: String, slot: int) -> void:
 	var keys: Array = GameSettings.keys_for(action)
 	var k: int = keys[slot] if slot < keys.size() else 0
-	b.text = GameSettings.key_name(k) if k != 0 else "—"
+	b.text = GameSettings.key_name(k) if k != 0 else "Unbound"
 
 
 func _start_capture(action: String, slot: int, b: Button) -> void:
