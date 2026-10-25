@@ -93,6 +93,18 @@ func test_hospital_screen() -> void:
 	assert_true(d.run.log.any(func(e): return e.type == "hospital_treat"), "treated someone")
 
 
+## Every treatment tile opens that treatment's glossary card, like the rest of the game's terms.
+func test_hospital_tiles_have_hover_cards() -> void:
+	var HospitalScreen := load("res://ui/nodes/hospital_screen.gd")
+	for t in FieldHospital.ORDER:
+		assert_true(Glossary.has(HospitalScreen.TERMS[t]), "glossary card for " + t)
+	var d := _setup("hospital")
+	d.screen.rebuild()
+	var tiles := _buttons(d.screen).filter(func(b): return b.has_meta("tip"))
+	assert_true(tiles.size() >= 4 * d.run.squad().size(), "treatment tiles carry a card")
+	d.screen.free()
+
+
 func test_survivors_screen() -> void:
 	var d := _setup("survivors", 3)
 	_click_through(d)
