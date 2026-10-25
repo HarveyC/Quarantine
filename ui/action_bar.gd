@@ -133,7 +133,7 @@ func refresh(view: MissionView) -> void:
 		# The class only when the name doesn't already carry it ("Trooper Abara").
 		var kind_name := str(UnitData.SOLDIERS.get(u.kind, {}).get("name", u.kind.capitalize()))
 		_class.text = Weapons.of(u).name if u.display_name.contains(kind_name) else "%s  ·  %s" % [kind_name, Weapons.of(u).name]
-		_ap.set_values(2, u.actions_left)
+		_ap.set_values(Rules.action_slots(u), u.actions_left)
 		_show_losses(Rules.action_losses(view.state, u))
 		_hp.set_values(u.max_hp, u.hp, 0, Styles.DANGER if u.hp * 3 <= u.max_hp else Styles.HP)
 		_fit_soldier_box()

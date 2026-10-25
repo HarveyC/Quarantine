@@ -1354,6 +1354,12 @@ func _beat_mutation(ev: Dictionary) -> Dictionary:
 		view.fx.puff(uv.position + Vector3(0, 0.9, 0), Palette.TEAL_DIM, 1.0, 1.0, 0.5)
 		view.fx.flash_light(uv.position + Vector3(0, 1, 0), Palette.TEAL, 3.0, 0.6)
 	_sfx("mutation")
+	if uv != null and ev.get("mutation") == "adrenal_surge":
+		# The extra action is the whole point: call it out and light the new pip.
+		uv.flash(Palette.TEAL)
+		view.fx.floating_text(_head(uv) + Vector3(0, -0.35, 0), "+1 ACTION", Palette.AMBER, 38)
+		view.fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.AMBER, 10, 1.6, true, 0.03)
+		_sfx("ui_confirm", -4.0)
 	return _power_beat(ev, str(ev.get("mutation", "mutation")), Palette.TEAL)
 
 
