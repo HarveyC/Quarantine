@@ -358,9 +358,12 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 - **Determinism**: its own RNG seeded from the spec (never `state.rng`), so every peer generates the
   same map from the `MatchConfig` the host broadcasts. A resync snapshot also carries the grid.
 - **Content**: `maps/biome_<name>.txt` holds the parcels and plots; its header documents the format.
-  Add parcels there to add variety, no code needed. Sizes: 16x16 or 19x19 (skirmish), 16x16 (elite),
-  19x19 with 1-tile lanes (hold, rescue, purge), 16x20 (extract), 20x20 (boss). Most plots have 2-3
-  `T` tower slots (high ground parcels).
+  Add parcels there to add variety, no code needed. Every plot gets streets at least `MIN_LANES` (2)
+  tiles wide between its parcels, so maps are 22x22 (4x4 plots) or 22x28 (extract); boss arenas
+  keep their compact 20x20.
+  Streets stay open apart from the odd two-tile sandbag line (`_street_barricades`), and `_declutter`
+  clears about half of the lone crates parcels scatter (lines, rooms and roofs stay). Most plots have
+  2-3 `T` tower slots (high ground parcels).
 - **Checks** (`_validate`, rerolled up to 30 times, then `maps/mission_01.txt`): every spawn and
   marker reachable from the drop zone, sealed pockets walled in, each pod's nearest cell 6 to 20 steps
   out, evac 12+ and other objectives 5+ steps out, nests 5+ apart, the cordon wall keeps 2+ gaps,
@@ -437,8 +440,8 @@ ground, `|` ladder and `S` stairs on a roof; MapGen also reads `e` (enemy spawn 
 - **View**: `Board.cell_to_world` lifts cells by `Board.RAISE` per level. Roofs are grey steel decks,
   upper roofs paler, scaffolds plank decks on poles with a tarp skirt; amber lips on ledges; ladders
   and stairs drawn on their climb side. Mouse picking tries the highest level's plane first.
-- **MapGen**: 8x8 `@landmark` parcels fill a 2x2 block of `L` slots (lanes=0 plots). Validation: every
-  walkable cell must walk to and back from the drop zone (one-way pits are sealed), 6-35% raised
+- **MapGen**: 8x8 `@landmark` parcels sit centred in a 2x2 block of `L` slots (and the street between). Validation: every
+  walkable cell must walk to and back from the drop zone (one-way pits are sealed), 4-35% raised
   cells, at least 2 stairs/ladders. Dev aid: `-- --objective=hold --biome=wall --screenshot-action=map`
   renders the whole map with fog and HUD off.
 
@@ -525,7 +528,7 @@ The objective comes with the map: `grid.objective` (set by MapGen, saved with th
 | objective | win | loss (besides a squad wipe) |
 |---|---|---|
 | skirmish, elite, boss | every enemy dead | |
-| extract | every living soldier on `evac` at the end of a squad turn | after turn 7 soldiers off the pad die (`left_behind`); defeat if none made it |
+| extract | every living soldier on `evac` at the end of a squad turn | after turn 8 soldiers off the pad die (`left_behind`); defeat if none made it |
 | hold | 4 rounds survived (`held`) | 2 rounds in a row (`overrun`) ending with enemies and no soldier in `beacon`; the first emits `beacon_overrun` and isn't counted as held |
 | rescue | every living civilian on `exit` (kills win only once no civilian is alive) | |
 | purge | no living unit of kind `spore_nest` (or every enemy dead) | |

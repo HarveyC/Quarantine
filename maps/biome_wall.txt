@@ -39,10 +39,11 @@
 ; Plots lay parcels out for a whole map:  @plot <objectives> <name> lanes=<0|1>
 ; then one row of slot letters per parcel row, top to bottom. The drop zone is always at the bottom.
 ;   D deploy   B breach   E pod   F filler   T tower   O objective parcel for the fight's objective
-;   L landmark: a 2x2 block of L slots filled by one 8x8 "@landmark" parcel (lanes=0 plots only),
+;   L landmark: a 2x2 block of L slots filled by one 8x8 "@landmark" parcel, centred in that block,
 ;     the map's big multi-level building that both sides fight over
-; lanes=1 puts a 1-tile lane between parcels (4x4 parcels -> 19x19 tiles; 4x4 without lanes is
-; 16x16, 5x5 is 20x20).
+; Parcels always get open streets between them at least MapGen.MIN_LANES (2) tiles wide, so a 4x4
+; plot is 22x22 tiles; lanes= only matters above that. Boss plots skip this and use lanes= as
+; written (5x5 with lanes=0 is 20x20).
 
 ; ---------------------------------------------------------------- deploy
 @deploy sandbag_ring

@@ -1017,9 +1017,14 @@ func _build_lights() -> void:
 		return
 	var pole_mat := Palette.mat(Color("2d3033"), 0.5, 0.7)
 	var lamp_mat := Palette.emissive(Color("ffcf8a"), 3.0)
-	var spots := [Vector3(-2.5, 0, -2.5), Vector3(grid.width + 1.5, 0, 4.0), Vector3(3.0, 0, grid.height + 1.5),
-		Vector3(grid.width + 1.5, 0, grid.height + 1.5), Vector3(-2.5, 0, 9.0)]
-	var aims := [Vector3(4, 0, 4), Vector3(10, 0, 6), Vector3(5, 0, 11), Vector3(11, 0, 12), Vector3(3, 0, 8)]
+	# Placed and aimed as a share of the board, so bigger maps stay lit edge to edge.
+	var w := float(grid.width)
+	var h := float(grid.height)
+	var spots := [Vector3(-2.5, 0, -2.5), Vector3(w + 1.5, 0, h * 0.25), Vector3(w * 0.19, 0, h + 1.5),
+		Vector3(w + 1.5, 0, h + 1.5), Vector3(-2.5, 0, h * 0.56)]
+	var aims := [Vector3(w * 0.25, 0, h * 0.25), Vector3(w * 0.62, 0, h * 0.38), Vector3(w * 0.31, 0, h * 0.69),
+		Vector3(w * 0.69, 0, h * 0.75), Vector3(w * 0.19, 0, h * 0.5)]
+	var reach := 18.0 + maxf(w, h) - 16.0
 	for i in spots.size():
 		var base: Vector3 = spots[i]
 		var pole := Palette.box(Vector3(0.14, 7.0, 0.14), pole_mat)
@@ -1032,7 +1037,7 @@ func _build_lights() -> void:
 		var spot := SpotLight3D.new()
 		spot.light_color = Color("ffb767")
 		spot.light_energy = 5.0
-		spot.spot_range = 18.0
+		spot.spot_range = reach
 		spot.spot_angle = 34.0
 		spot.spot_attenuation = 0.6
 		spot.spot_angle_attenuation = 0.7
