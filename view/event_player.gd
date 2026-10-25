@@ -1467,7 +1467,7 @@ func _beat_mission_end(ev: Dictionary) -> Dictionary:
 
 
 ## World point in the middle of `cells` (null when there are none).
-func _cells_center(cells: Array[Vector2i]):
+func _cells_center(cells: Array):
 	if cells.is_empty():
 		return null
 	var mid := Vector3.ZERO
