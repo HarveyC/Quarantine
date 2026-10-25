@@ -180,7 +180,7 @@ static func action_losses(s: GameState, u: Unit) -> Array[Dictionary]:
 ## Fog of war: shooting at or attacking a hostile gives the attacker's position away, and so
 ## do the area attacks below (lobbed spit, airstrike calls). Anything that deals damage also
 ## exposes its source (deal_damage).
-const EXPOSING_CELL_ABILITIES := ["spit", "brood_spit", "airstrike", "item:flashbang", "gear:concussion_launcher", "gear:flare_launcher", "core_slam"]
+const EXPOSING_CELL_ABILITIES := ["spit", "acid_rain", "airstrike", "item:flashbang", "gear:concussion_launcher", "gear:flare_launcher", "core_slam"]
 
 
 static func _expose_attacker(s: GameState, u: Unit, action: Dictionary) -> void:
