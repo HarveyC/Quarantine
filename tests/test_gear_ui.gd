@@ -62,7 +62,11 @@ func test_reward_screen_doctrine_vote() -> void:
 ## A client viewing the host's soldier can still pick from the shared stash: the click jumps to
 ## their own soldier with the item held, and equipping sends the client's own action.
 func test_client_takes_from_stash_while_viewing_teammate() -> void:
-	var run := Demo.make_run("loadout")
+	GearTags.set_progression(false)
+	var run := RunRules.new_run(2, 4242)
+	RunRules.start_run(run)
+	run.gear.offers.clear()
+	Loadout.stash_add(run, "concussion_launcher")
 	run.phase = RunState.Phase.MAP
 	var s := _session(run)
 	s.players = [1] as Array[int]
