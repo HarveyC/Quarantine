@@ -44,7 +44,7 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		var pt := EnemyAbilities.pull_target(s, u)
 		return {"icon": "pull", "label": "PULL + SLAM", "target": pt.id if pt else -1}
 	if not EnemyAI.is_alerted(u) and not u.status.get("turned", false) and UnitData.ENEMIES.has(u.kind):
-		return {"icon": "dormant", "label": "DORMANT", "target": -1}
+		return {"icon": "dormant", "label": "UNAWARE", "target": -1}
 	if u.status.has("pinning"):
 		return {"icon": "pinning", "label": "MAULING", "target": int(u.status.pinning)}
 	if u.status.has("swelling"):
