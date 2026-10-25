@@ -14,9 +14,10 @@ func _init() -> void:
 	var dir := DirAccess.open("res://tests")
 	var files := Array(dir.get_files()).filter(func(f): return f.begins_with("test_") and f.ends_with(".gd") and f != "test_case.gd")
 	files.sort()
-	var only := OS.get_environment("TEST_ONLY")   # e.g. TEST_ONLY=destruction runs test_destruction.gd
+	var only := OS.get_environment("TEST_ONLY")   # e.g. TEST_ONLY=destruction runs test_destruction.gd; commas list several
 	if only != "":
-		files = files.filter(func(f): return f.contains(only))
+		var wanted := Array(only.split(","))
+		files = files.filter(func(f): return wanted.any(func(w): return f.contains(w)))
 	# TEST_SHARD="i/n" runs every nth file starting at i, so CI can split the suite across jobs.
 	var shard := OS.get_environment("TEST_SHARD")
 	if shard.contains("/"):
@@ -30,6 +31,9 @@ func _init() -> void:
 		files = mine
 	for f in files:
 		var t0 := Time.get_ticks_msec()
+		# Every file starts from the real Progression: some tests install a fake or null one and
+		# leave it, which made results depend on which files ran before (and so on CI sharding).
+		GearTags.set_progression(false)
 		var script: GDScript = load("res://tests/" + f)
 		for m in script.get_script_method_list():
 			if not m.name.begins_with("test_"):
