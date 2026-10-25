@@ -27,7 +27,7 @@ static func kind_of(uv: Node3D) -> String:
 ## killer), spores and a cold flash for the infected. Returns the sounds to play.
 static func blow(fx: Node3D, uv: Node3D, away: Vector3, heavy: bool) -> Array[String]:
 	var k := kind_of(uv)
-	var at: Vector3 = uv.chest_world()
+	var at: Vector3 = uv.aim_point()
 	var big := 1.6 if k == "boss" else (1.3 if heavy else 1.0)
 	var out := (away + Vector3(0, 0.35, 0)).normalized()
 	if k == "soldier":
@@ -53,7 +53,7 @@ static func blow(fx: Node3D, uv: Node3D, away: Vector3, heavy: bool) -> Array[St
 ## breathing out a last thin wisp of spores. Returns the sounds to play.
 static func land(fx: Node3D, uv: Node3D) -> Array[String]:
 	var k := kind_of(uv)
-	var chest: Vector3 = uv.chest_world()   # the fall carries the body off its cell
+	var chest: Vector3 = uv.aim_point()   # the fall carries the body off its cell
 	var at := Vector3(chest.x, uv.position.y, chest.z)
 	var big := 1.5 if k == "boss" or ModelKit.size_of(uv.kind) > 1.15 else 1.0
 	fx.puff(at + Vector3(0, 0.12, 0), DUST, 0.7 * big, 0.7, 0.12)
