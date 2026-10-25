@@ -23,7 +23,7 @@ const KEEP := ["SettingsHost", "Soundscape", "UiFeel", "Platform", "TermTips", "
 
 static func _screens() -> Array[String]:
 	var out: Array[String] = ["title", "lobby", "solo-lobby", "hotseat-lobby", "sound", "map", "map_start", "event", "depot", "hospital",
-		"survivors", "reward", "loadout", "doctrine", "kit", "rankup", "hud", "aim", "quick", "debrief", "lost",
+		"survivors", "reward", "loadout", "doctrine", "kit", "rankup", "rankup_reward", "hud", "aim", "quick", "debrief", "lost",
 		"runend", "pause", "settings_graphics", "settings_audio", "settings_gameplay", "settings_accessibility",
 		"settings_controls", "hq_unlocks", "hq_severity", "hq_record", "hq_achievements", "archive", "story",
 		"ending_vote", "offer_training"]
@@ -141,7 +141,7 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 			var run := GearDemo.make_run(screen)
 			var ctl: Control = (GearRun.loadout_screen() if screen == "loadout" else GearRun.reward_screen()).new()
 			_full_screen(root, ctl, run)
-		"rankup":
+		"rankup", "rankup_reward":
 			var run := RunRules.new_run(players, 81)
 			RunRules.start_run(run)
 			for r in run.squad():
@@ -150,7 +150,11 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 			var first: Dictionary = run.squad()[0]
 			first.prog.bonus_picks = 0
 			first.prog.offers.append({"cards": ["hollow_bones", "shared_blood", "rampage"], "source": "nest"})
-			_full_screen(root, Progression.pick_screen().new(), run)
+			# rankup_reward: the step as players see it, inside the reward screen (title, squad
+			# panel), with the run's opening deployment orders already taken.
+			GearRun.state(run).offers.clear()
+			var ctl: Control = GearRun.reward_screen().new() if screen == "rankup_reward" else Progression.pick_screen().new()
+			_full_screen(root, ctl, run)
 		"hud", "aim", "quick", "debrief", "lost", "pause":
 			await _mission(tree, screen, players)
 		"hq_unlocks", "hq_severity", "hq_record", "hq_achievements":
