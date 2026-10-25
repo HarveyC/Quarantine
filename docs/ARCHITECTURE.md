@@ -247,6 +247,13 @@ Body-part upgrades from Act 2 and Rank 3 (`GraftData.FROM_ACT`/`FROM_RANK`). Fou
   (minimum 2).
 - View: `view/graft_kit.gd` hangs the parts on the soldier skeleton; `ui/graft_figure.gd` is the four-slot body
   diagram on soldier cards, the hospital, depot, reward card and loadout. `--lineup-mode=grafts` renders them.
+- Soldier bodies show their loadout: `view/gear_kit.gd` (armour, gadget and loaded pockets from `unit.status` "gear" and
+  "pockets") and `view/mutation_kit.gd` (one growth set per mutation in `status["mutations"]`, drawn dull and unlit by
+  `UnitView._refresh_mutations` while Infection is below the mutation's tier). All of it is read from replicated unit
+  state in `UnitView.build`, so every peer draws the same body; a used pocket item comes off through `spend_pocket`.
+  A new armour or gadget needs an `ARMOR_LOOK`/`GADGET_LOOK` entry and a new mutation needs `_parts` (test_view
+  fails otherwise). Weapon mods and ammo are not drawn. `--lineup-spec="trooper:armor=plated_rig;mut=bloom;inf=90|..."`
+  renders any mix (keys: inf, armor, gadget, pocket, mut, graft; `--lineup-cam=z,y`, `--lineup-yaw=deg`).
 
 ## Equipment (gear/)
 
