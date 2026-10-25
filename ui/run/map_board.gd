@@ -459,8 +459,8 @@ func _draw() -> void:
 		draw_arc(kp, 12, 0, TAU, 32, Color(Styles.AMBER, 0.7), 1.5, true)
 		_text_c(Styles.FONT_MONO, str(i + 1), kp + Vector2(0, 5), 12, Styles.AMBER_LIGHT)
 
-	# Votes: each voter's name in their colour over the node they picked (no pills; the side
-	# panel says who hosts).
+	# Votes: one dot per voter in their colour on the rim of the node they picked (no pills or
+	# names on the board; the side panel says who voted what).
 	var per_node := {}
 	for pl in run.votes:
 		var id: int = run.votes[pl]
@@ -471,19 +471,12 @@ func _draw() -> void:
 			continue
 		var voters: Array = per_node[id]
 		voters.sort()
-		var chips: Array = []
-		var total := 0.0
-		for pl in voters:
-			var t := _voter_name(pl).to_upper()
-			var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-			chips.append([pl, t, w])
-			total += w + 12
-		var cx := node_pos(n).x - (total - 12) * 0.5
-		var cy := node_pos(n).y - _r(id) - 14
-		for ch in chips:
-			draw_string_outline(font, Vector2(cx, cy), ch[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 5, Color(Styles.GROUND, 0.9))
-			draw_string(font, Vector2(cx, cy), ch[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Styles.player_color(ch[0]))
-			cx += ch[2] + 12
+		var r := _r(id) + 16.0   # past the ring and its glow (the node draws over the board)
+		for i in voters.size():
+			var ang := -PI * 0.25 + i * 0.3
+			var at := node_pos(n) + Vector2(cos(ang), sin(ang)) * r
+			draw_circle(at, 9.0, Color(Styles.GROUND, 0.9))
+			draw_circle(at, 7.0, Styles.player_color(voters[i]))
 
 	# Legend.
 	var lx := 0.0
@@ -524,11 +517,6 @@ func bloom_edge() -> float:
 func _r(id: int) -> float:
 	var d: NodeDot = dots.get(id)
 	return d.radius() if d != null else 30.0
-
-
-func _voter_name(p: int) -> String:
-	var n: String = names.get(p, "")
-	return n if n != "" else "P%d" % (p + 1)
 
 
 ## A link between two node centres, trimmed to the rings. Dotted for routes not taken.
