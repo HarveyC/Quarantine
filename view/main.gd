@@ -496,6 +496,10 @@ func _autoplay_step() -> void:
 		_autoplay_done = true
 		var res: String = Types.Result.keys()[state.result]
 		print("[autoplay] finished: turn %d, result %s, %d events, checksum %d" % [state.turn, res, state.log.size(), state.checksum()])
+		if state.phase != Types.Phase.ENDED:   # out of turns: say what the fight was stuck on
+			var foes: Array = state.living(Types.Team.ENEMY).map(func(u: Unit) -> String: return "%s@%s hp%d" % [u.kind, u.pos, u.hp])
+			var squad: Array = state.living(Types.Team.PLAYER).map(func(u: Unit) -> String: return "%s@%s hp%d" % [u.kind, u.pos, u.hp])
+			print("[autoplay] stalled: objective %s %s, soldiers %s, enemies %s" % [state.grid.objective, state.objective, squad, foes])
 		if session.get("run") != null:
 			return   # in a run the run view carries on to the next node
 		# Online, give the last network messages a moment to go out before quitting.
@@ -549,12 +553,15 @@ func _autoplay_marks() -> void:
 ## The move that takes `u` closest to the nearest enemy, or {} if it is as close as it gets.
 func _autoplay_advance(u: Unit) -> Dictionary:
 	var foes := state.living(Types.Team.ENEMY)
-	if foes.is_empty():
+	var goals: Array = foes.map(func(e: Unit) -> Vector2i: return e.pos)
+	if goals.is_empty():   # nobody left to fight: walk to the objective (a rescue needs an escort to the exit)
+		goals = state.grid.marker({"rescue": "exit", "extract": "evac", "hold": "beacon"}.get(str(state.grid.objective), ""))
+	if goals.is_empty():
 		return {}
-	var goal := foes[0].pos
-	for e in foes:
-		if u.pos.distance_squared_to(e.pos) < u.pos.distance_squared_to(goal):
-			goal = e.pos
+	var goal: Vector2i = goals[0]
+	for g in goals:
+		if u.pos.distance_squared_to(g) < u.pos.distance_squared_to(goal):
+			goal = g
 	var best := u.pos
 	for c in Rules.move_range(state, u):
 		if c.distance_squared_to(goal) < best.distance_squared_to(goal):
