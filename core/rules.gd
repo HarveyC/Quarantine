@@ -142,6 +142,12 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 	return true
 
 
+## How many action pips the HUD draws for `u`: the usual two, more while a bonus action
+## (Adrenal Surge, a stim, a kill refund) has them above that, so the extra one shows.
+static func action_slots(u: Unit) -> int:
+	return maxi(Types.ACTIONS_PER_TURN, u.actions_left) if u != null else Types.ACTIONS_PER_TURN
+
+
 ## Why `u` started this team phase short of actions, for the HUD: one entry per cause, each
 ## {"key": glossary term, "icon": Icons id, "title": short caps word, "text": one plain line,
 ## "lost": actions taken (Types.ACTIONS_PER_TURN = the whole turn)}. Pure; [] when nothing.

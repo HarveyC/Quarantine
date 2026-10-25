@@ -102,7 +102,7 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 			f.modulate.a = 0.55
 		if u != null and not uv.turned and not uv.lapsed and not view.player.enemy_phase:
 			var d := W.Diamonds.new(6.0)
-			d.set_values(2, u.actions_left)
+			d.set_values(Rules.action_slots(u), u.actions_left)
 			d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row.add_child(d)
 		if uv.overwatch:
