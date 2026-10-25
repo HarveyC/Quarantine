@@ -72,6 +72,7 @@ func _card(i: int) -> Control:
 		var b := NodeUi.button(a.text, a.ok, false, a.reason, a.get("icon", "buy"))
 		b.pressed.connect(submit.bind(a.action))
 		_hook(b, "%s · %s" % [info.name, a.text], a.action)
+		_compare(b, e, a)
 		buys.add_child(b)
 	v.add_child(buys)
 	return card
@@ -166,6 +167,24 @@ func _hook(b: Control, what: String, action: Dictionary) -> void:
 					else:
 						d = {"scar": -1}
 		return {rec.id: d})
+
+
+## Hovering a "For <soldier>" buy shows the item against what that soldier has on.
+func _compare(b: Control, e: Dictionary, a: Dictionary) -> void:
+	var armorer: bool = e.type == "service" and e.id == "armorer"
+	if not a.action.has("soldier") or not (e.type in ["gear", "gun", "consumable", "graft"] or armorer):
+		return
+	var rec = RunAccess.soldier(run, a.action.soldier)
+	if rec == null:
+		return
+	var card := {"kind": e.type, "id": e.id, "charges": 1}
+	if armorer:
+		# The Armorer merges the item into Mk II: the same compare as a duplicate drop.
+		var it = Loadout.item_at(rec, str(a.action.get("slot", "")))
+		if it == null:
+			return
+		card = {"kind": "gear", "id": it.id}
+	Tips.compare(b, func() -> Dictionary: return GearCompare.compare(run, rec, card), NodeUi.player_color(rec.owner), a.reason)
 
 
 func _entry(text: String, action: Dictionary, icon := "buy") -> Dictionary:

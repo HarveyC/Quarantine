@@ -423,8 +423,9 @@ static func validate(run, action: Dictionary) -> String:
 				return "Stash is full"
 			return _card_error(r, card)
 		"gear_stash_take", "gear_unequip", "gear_gun":
-			if not _phase_is(run, ["MAP", "REWARD"]):
-				return "Change gear from the map"
+			# Between fights: on the map, at rewards, and at node screens (open the loadout there).
+			if not _phase_is(run, ["MAP", "REWARD", "NODE"]):
+				return "Change gear between fights"
 	match action.get("type"):
 		"gear_stash_take":
 			var i := int(action.get("index", -1))

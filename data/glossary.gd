@@ -603,6 +603,13 @@ static func _build() -> Dictionary:
 		"art": "",
 		"stats": [["4", "gear slots"], ["2", "pockets"]],
 		"aliases": ["Pockets", "Consumable", "Consumables"]}
+	t["stash"] = {"name": "Stash", "kind": "gear", "icon": "loadout", "tone": "amber",
+		"line": "The squad's shared shelf for spare gear. Anyone can equip from it in the loadout.",
+		"art": "",
+		"stats": [["%d" % GearData.STASH_SIZE, "items"], ["+%d" % Loadout.SCRAP_SUPPLIES, "Supplies per scrapped item"]],
+		"more": ["An item replaced on a soldier goes here.", "When the stash is full, a replaced item is scrapped for Supplies instead."],
+		"see": ["supplies", "mk2"],
+		"aliases": ["Shared stash"]}
 	t["rank"] = {"name": "Rank", "kind": "progress", "icon": "rank", "tone": "amber",
 		"line": "Soldiers rank up after set fights and pick a {perk}.",
 		"art": "rank",
