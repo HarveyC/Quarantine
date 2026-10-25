@@ -34,7 +34,7 @@ const ELITE_FROM_ACT := {"brute": 1, "lurker": 1, "fallen": 1, "leaper": 1, "blo
 	"sharpshooter": 2, "burrower": 3}
 const AFFIXES: Array[String] = ["armoured", "regenerating", "splitting", "virulent", "hasted", "tethered"]
 const AFFIX_INFO := {
-	"armoured": {"name": "Armoured", "desc": "Takes 2 less damage per hit (min 1)."},
+	"armoured": {"name": "Armoured", "desc": "Takes 2 less damage per hit (min 1). Doesn't stack with natural armour."},
 	"regenerating": {"name": "Regenerating", "desc": "Heals 3 HP each turn unless burned this turn."},
 	"splitting": {"name": "Splitting", "desc": "Splits into 2 Runners on death."},
 	"virulent": {"name": "Virulent", "desc": "Its hits add +25 Infection instead of +10."},

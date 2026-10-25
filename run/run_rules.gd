@@ -17,7 +17,7 @@ const START_SUPPLIES := 60
 const START_INTEL := 1
 const START_RESERVE := 1           # recruits per player, +1 for each 2 soldiers past the first (reserve_for)
 const RESERVE_CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
-const HEAL_AFTER_FIGHT := 0.25
+const HEAL_AFTER_FIGHT := 0.35
 const BOSS_OUTBREAK_DROP := 3
 ## Fight income (Supplies, and Serum samples per soldier controlled), see "Income per node".
 const INCOME := {

@@ -3,15 +3,15 @@ extends RefCounted
 ## Stat blocks for soldier classes and enemy types. Tuning lives here.
 
 const SOLDIERS := {
-	"trooper": {"name": "Trooper", "max_hp": 7, "aim": 65, "mobility": 5, "damage": [3, 5], "abilities": ["suppress"]},
-	"marksman": {"name": "Marksman", "max_hp": 5, "aim": 75, "mobility": 4, "damage": [4, 6], "abilities": ["tag"]},
-	"medic": {"name": "Medic", "max_hp": 7, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["stim"]},
-	"breacher": {"name": "Breacher", "max_hp": 8, "aim": 60, "mobility": 6, "damage": [4, 7], "abilities": ["breach"]},
-	"hazmat": {"name": "Hazmat", "max_hp": 8, "aim": 60, "mobility": 4, "damage": [2, 4], "abilities": ["incinerate"]},
-	"vector": {"name": "Vector", "max_hp": 7, "aim": 65, "mobility": 6, "damage": [3, 5], "abilities": ["siphon"]},
+	"trooper": {"name": "Trooper", "max_hp": 9, "aim": 65, "mobility": 5, "damage": [3, 5], "abilities": ["suppress"]},
+	"marksman": {"name": "Marksman", "max_hp": 7, "aim": 75, "mobility": 4, "damage": [4, 6], "abilities": ["tag"]},
+	"medic": {"name": "Medic", "max_hp": 9, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["stim"]},
+	"breacher": {"name": "Breacher", "max_hp": 10, "aim": 60, "mobility": 6, "damage": [4, 7], "abilities": ["breach"]},
+	"hazmat": {"name": "Hazmat", "max_hp": 10, "aim": 60, "mobility": 4, "damage": [2, 4], "abilities": ["incinerate"]},
+	"vector": {"name": "Vector", "max_hp": 9, "aim": 65, "mobility": 6, "damage": [3, 5], "abilities": ["siphon"]},
 	# Melee classes: SHOOT fires a sidearm; their strikes are ClassAbilities (Lunge, Shield Bash).
-	"reaper": {"name": "Reaper", "max_hp": 7, "aim": 65, "mobility": 6, "damage": [2, 4], "abilities": ["lunge"]},
-	"warden": {"name": "Warden", "max_hp": 9, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["bash", "guard"]},
+	"reaper": {"name": "Reaper", "max_hp": 9, "aim": 65, "mobility": 6, "damage": [2, 4], "abilities": ["lunge"]},
+	"warden": {"name": "Warden", "max_hp": 11, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["bash", "guard"]},
 }
 
 const ENEMIES := {
@@ -31,7 +31,7 @@ const ENEMIES := {
 	"broodling": {"name": "Broodling", "max_hp": 3, "aim": 0, "mobility": 3, "damage": [0, 0], "abilities": ["burst"], "melee_only": true},
 	"hive_node": {"name": "Hive node", "max_hp": 12, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
 	"egg_sac": {"name": "Egg sac", "max_hp": 4, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
-	"spore_nest": {"name": "Spore nest", "max_hp": 6, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
+	"spore_nest": {"name": "Spore nest", "max_hp": 5, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
 	"source_root": {"name": "Root", "max_hp": 12, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
 	# Bosses
 	"brood_mother": {"name": "The Brood Mother", "max_hp": 40, "aim": 65, "mobility": 0, "damage": [3, 5], "abilities": ["claw", "spit", "brood_spit"], "melee_only": true},

@@ -46,7 +46,9 @@ def main():
         by[r["tag"].split("|")[0]].append(r)
 
     # Fights by act and squad size.
-    for kind, title in (("fight", "Skirmishes (FightBuilder)"), ("boss", "Boss fights")):
+    for kind, title in (("fight", "Skirmishes (FightBuilder)"), ("boss", "Boss fights"),
+                        ("real", "Skirmishes at run Outbreak (3/6/9)"), ("nest", "Infested nests at run Outbreak"),
+                        ("nestpurge", "Infested nests, purge objective"), ("purge", "Purge skirmishes at run Outbreak")):
         g = collections.defaultdict(list)
         for r in by[kind]:
             g[(r["act"], r["squad"])].append(r)

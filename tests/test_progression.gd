@@ -77,7 +77,7 @@ func test_apply_record_hp_perks_and_abilities() -> void:
 	var tp := Progression.new_record("trooper")
 	tp.perks = ["hold_the_line"]
 	Progression.apply_record(t, tp)
-	assert_eq(t.max_hp, 9, "Hold the Line +2 HP")
+	assert_eq(t.max_hp, UnitData.SOLDIERS.trooper.max_hp + 2, "Hold the Line +2 HP")
 
 
 func test_perk_offer_rares_from_rank_4_and_run_pick() -> void:

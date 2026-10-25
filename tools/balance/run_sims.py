@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Runs the balance sim in parallel and writes one JSONL file per batch.
 
-    GODOT=path/to/godot python3 tools/balance/run_sims.py OUT_DIR [--quick] [--only=fight,boss,melee,meleeboss,duel,threat]
+    GODOT=path/to/godot python3 tools/balance/run_sims.py OUT_DIR [--quick] [--only=fight,boss,real,nest,nestpurge,purge,melee,meleeboss,duel,threat]
 
 Then: python3 tools/balance/report.py OUT_DIR
 """
@@ -13,6 +13,7 @@ GODOT = os.environ.get("GODOT", "godot")
 STARTERS = ["trooper", "marksman", "medic", "breacher"]
 MELEE = ["reaper", "warden"]
 ALL = STARTERS + ["hazmat", "vector"] + MELEE
+RUN_OUTBREAK = {1: 3, 2: 6, 3: 9}
 REGULARS = ["runner", "spitter", "fallen", "bloater", "leaper", "brute", "lurker", "drifter",
             "sharpshooter", "shrieker", "burrower"]
 
@@ -31,6 +32,21 @@ def batches(quick):
             for combo in combos[: max(1, len(combos) // 2)]:
                 out.append(dict(tag=f"boss|a{act}|s{size}|{'+'.join(combo)}", squad=",".join(combo),
                                 act=act, node="boss", n=max(6, per)))
+    # Run-like pressure: the Outbreak a squad typically has mid-act (+1 per node, -3 per boss), on
+    # plain skirmishes and on Infested nests (an elite every fight).
+    for size in (1, 2, 3, 4):
+        combos = list(itertools.combinations(STARTERS, size))
+        per = max(4, (16 * k) // len(combos))
+        for act in (1, 2, 3):
+            for combo in combos:
+                out.append(dict(tag=f"real|a{act}|s{size}|{'+'.join(combo)}", squad=",".join(combo),
+                                act=act, node="skirmish", outbreak=RUN_OUTBREAK[act], n=per))
+                out.append(dict(tag=f"nest|a{act}|s{size}|{'+'.join(combo)}", squad=",".join(combo),
+                                act=act, node="nest", outbreak=RUN_OUTBREAK[act], n=max(3, per // 2)))
+                out.append(dict(tag=f"nestpurge|a{act}|s{size}|{'+'.join(combo)}", squad=",".join(combo),
+                                act=act, node="nest", objective="purge", outbreak=RUN_OUTBREAK[act], n=max(3, per // 2)))
+                out.append(dict(tag=f"purge|a{act}|s{size}|{'+'.join(combo)}", squad=",".join(combo),
+                                act=act, node="skirmish", objective="purge", outbreak=RUN_OUTBREAK[act], n=max(3, per // 2)))
     # Melee classes in real squads: one melee soldier swapped into starter mixes, every act.
     melee_squads = [[m] for m in MELEE] + [[m, o] for m in MELEE for o in ("trooper", "medic", "marksman")] \
         + [["trooper", "marksman", "medic", m] for m in MELEE] + [["reaper", "warden"], ["reaper", "warden", "medic", "marksman"]]

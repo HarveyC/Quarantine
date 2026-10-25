@@ -22,6 +22,9 @@ const SQUAD_BUDGET := {1: 0.35, 2: 0.5, 3: 0.75, 4: 1.0}
 const SQUAD_MIN_START := {1: 1, 2: 2, 3: 3, 4: 3}
 const SQUAD_BOSS_HEALTH := {1: 0.35, 2: 0.4, 3: 0.6, 4: 1.0}
 ## Colonel Hale's escort by squad size.
+## Spore nests a Purge objective places, by squad size.
+const PURGE_NESTS := {1: 2, 2: 2, 3: 2, 4: 3}
+const PURGE_BUDGET_CUT := 2
 const HALE_ADDS := {1: [], 2: [], 3: ["fallen"], 4: ["fallen", "fallen", "sharpshooter"]}
 ## A lone soldier can't break a Lurker's pin (a teammate has to hit it), so it never meets one.
 const SOLO_BANNED: Array[String] = ["lurker"]
@@ -62,12 +65,14 @@ static func build(spec: Dictionary) -> Dictionary:
 		"boss": budget = BOSS_BUDGET[act]
 		_: budget = SKIRMISH_BUDGET[act]
 	budget += BUDGET_PER_ENEMY * extra
+	if objective == "purge":
+		budget -= PURGE_BUDGET_CUT   # the spore nests keep adding Runners
 	budget = ceili(budget * float(SQUAD_BUDGET[squad]))
 	var enemies: Array[String] = []
 	var enc := {"act": act, "node": node, "objective": objective, "outbreak": int(spec.get("outbreak", 0)),
 		"stage": st, "waves": [], "squad": squad}
 	if node == "nest":
-		enemies.append(EnemyRoster.spec(elite_kind, true, _affixes(rng, 2 if st >= 3 else 1, true)))
+		enemies.append(EnemyRoster.spec(elite_kind, true, _affixes(rng, 2 if st >= 3 and squad >= 3 else 1, true)))
 		enc["hive"] = true
 	elif node != "boss" and st >= 3 and rng.randf() < 0.5:
 		var cost: int = EnemyRoster.COST[elite_kind] * 2
@@ -96,7 +101,7 @@ static func build(spec: Dictionary) -> Dictionary:
 			_affix_regular(rng, enemies)
 	_objective_pressure(rng, objective, pool, enc, squad, act)
 	if objective == "purge":
-		enc["purge_nests"] = 3
+		enc["purge_nests"] = PURGE_NESTS[squad] - (1 if enc.get("hive", false) else 0)   # the Hive node spawns too
 	if st >= 1:
 		enc["spore_patches"] = 2 if st >= 3 else 1
 	if st >= 2:

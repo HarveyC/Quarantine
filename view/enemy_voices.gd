@@ -64,6 +64,8 @@ static func voice_for(kind: String, die := false) -> String:
 func bark(uv: Node3D, volume_db := 0.0, die := false) -> void:
 	if not is_instance_valid(uv) or not uv.is_inside_tree() or (not uv.visible and not die):
 		return
+	if _players.is_empty() or not is_instance_valid(_players[0]):
+		return   # the battle view (and its players) was freed while a beat was still queued
 	var now := Time.get_ticks_msec() / 1000.0
 	if not die and (now - _last < MIN_GAP or now - float(_last_unit.get(uv.unit_id, -10.0)) < 2.5):
 		return

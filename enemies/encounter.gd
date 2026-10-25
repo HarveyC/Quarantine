@@ -20,7 +20,15 @@ const BOSS_SACS := {1: 1, 2: 1, 3: 2, 4: 4}
 const SOURCE_ROOTS := {1: 1, 2: 1, 3: 2, 4: 3}
 const BOSS_SPAWN_EVERY_EXTRA := {1: 2, 2: 2, 3: 1, 4: 0}
 const BOSS_DAMAGE := {1: 0.6, 2: 0.7, 3: 0.8, 4: 1.0}   # the boss's own hits on soldiers
-const SQUAD_SPAWN_CAP := {1: 4, 2: 5, 3: 7, 4: SPAWN_CAP}
+const SQUAD_SPAWN_CAP := {1: 3, 2: 4, 3: 6, 4: SPAWN_CAP}
+## Hive nodes and Purge's spore nests spawn a Runner every 3 turns, this many turns slower for a
+## small squad (boss spawners use BOSS_SPAWN_EVERY_EXTRA).
+const NEST_SPAWN_EVERY := 3
+## Hive node health by squad size.
+const HIVE_HP := {1: 6, 2: 8, 3: 10, 4: 12}
+## Elite health (already doubled by EnemyRoster) by squad size.
+const ELITE_HP_SQUAD := {1: 0.6, 2: 0.75, 3: 0.9, 4: 1.0}
+const NEST_SPAWN_EVERY_EXTRA := {1: 2, 2: 2, 3: 1, 4: 0}
 const HIDDEN_REVEAL_RANGE := 4
 const SOURCE_PULSE := 5          # Infection to every soldier per turn in the Source's phase 1
 const SOURCE_SAFE_RADIUS := 3    # spore rings stop this close to the Source
@@ -43,10 +51,19 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 		return
 	s.encounter["telegraphs"] = []
 	s.encounter["incoming"] = []
+	var nest_slower: int = NEST_SPAWN_EVERY_EXTRA[clampi(int(enc.get("squad", 4)), 1, 4)]
+	var elite_hp: float = ELITE_HP_SQUAD[clampi(int(enc.get("squad", 4)), 1, 4)]
+	if elite_hp < 1.0:
+		for u in s.living(Types.Team.ENEMY):
+			if u.status.get("elite", false):
+				u.max_hp = maxi(1, roundi(u.max_hp * elite_hp))
+				u.hp = u.max_hp
 	if enc.get("hive", false):
 		var cell := _marker(s, "hive", _far_spawn(s))
 		var hive := _place(s, "hive_node", cell)
-		hive.status["spawner"] = {"kinds": ["runner"], "every": 2, "next": 2, "i": 0}
+		hive.max_hp = mini(hive.max_hp, HIVE_HP[clampi(int(enc.get("squad", 4)), 1, 4)])
+		hive.hp = hive.max_hp
+		hive.status["spawner"] = {"kinds": ["runner"], "every": NEST_SPAWN_EVERY + nest_slower, "next": 2 + nest_slower, "i": 0}
 	var markers: Variant = s.grid.get("markers")
 	for i in int(enc.get("purge_nests", 0)):
 		var cell := _far_spawn(s)
@@ -55,7 +72,7 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 		elif not s.grid.enemy_spawns.is_empty():
 			cell = s.grid.enemy_spawns[(i * 3) % s.grid.enemy_spawns.size()]
 		var nest := _place(s, "spore_nest", cell)
-		nest.status["spawner"] = {"kinds": ["runner"], "every": 2, "next": 2 + i % 2, "i": 0}
+		nest.status["spawner"] = {"kinds": ["runner"], "every": NEST_SPAWN_EVERY + nest_slower, "next": 3 + nest_slower + i, "i": 0}
 	var squad := clampi(int(enc.get("squad", 4)), 1, 4)
 	var slower: int = BOSS_SPAWN_EVERY_EXTRA[squad]
 	match str(enc.get("boss", "")):
@@ -514,7 +531,7 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		return 0
 	var armour := int(target.status.get("armour", 0))
 	if EnemyRoster.has_affix(target, "armoured"):
-		armour += EnemyRoster.ARMOURED_REDUCTION
+		armour = maxi(armour, EnemyRoster.ARMOURED_REDUCTION)   # doesn't stack with a Brute's own plating
 	if armour > 0:
 		amount = maxi(1, amount - armour)
 	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:
