@@ -92,7 +92,7 @@ func _card(view: MissionView, uv: UnitView, selected: bool, can_act: bool) -> Co
 		top.add_child(corner)
 	else:
 		var d := W.Diamonds.new(8.0)
-		d.set_values(2, u.actions_left if u != null else 0)
+		d.set_values(Rules.action_slots(u), u.actions_left if u != null else 0)
 		corner = d
 		top.add_child(d)
 	col.add_child(top)

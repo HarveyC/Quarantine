@@ -170,9 +170,7 @@ func _pack_card(id: String, have: Array, fd: int) -> Control:
 	var names := Styles.vbox(0)
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	names.add_child(Styles.caps(p.short, 20, Styles.TEXT))
-	var about := Styles.label(p.about, 13, Styles.DIM)
-	about.autowrap_mode = TextServer.AUTOWRAP_WORD
-	names.add_child(about)
+	names.add_child(Tips.text(p.about, 13, Styles.DIM))
 	top.add_child(names)
 	var chips := HFlowContainer.new()
 	chips.add_theme_constant_override("h_separation", 5)
@@ -258,10 +256,7 @@ func _class_card(kind: String, open: bool) -> Control:
 	if open:
 		box.add_child(Styles.caps("Ready", 12, OWNED))
 	else:
-		var hint := Styles.label(_class_hint(kind), 12, Styles.DIM)
-		hint.autowrap_mode = TextServer.AUTOWRAP_WORD
-		hint.custom_minimum_size = Vector2(110, 0)
-		box.add_child(hint)
+		box.add_child(Tips.text(_class_hint(kind), 12, Styles.DIM, 110))
 	row.add_child(box)
 	return card
 
@@ -306,10 +301,7 @@ func _build_severity() -> void:
 		var name := Styles.caps(lv.name, 16, Styles.TEXT)
 		name.custom_minimum_size = Vector2(170, 0)
 		row.add_child(name)
-		var rule := Styles.label(lv.rule, 16, Styles.DIM)
-		rule.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(rule)
+		row.add_child(Tips.text(lv.rule, 16, Styles.DIM))
 		Tips.terms(row, Glossary.scan(lv.rule))
 		box.add_child(row)
 	if top < Severity.MAX:
@@ -484,9 +476,7 @@ func _build_achievements() -> void:
 		var box := Styles.vbox(2)
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		box.add_child(Styles.caps(d.name, 17, Styles.TEXT if got else Styles.MUTED))
-		var desc := Styles.label(d.desc, 13, Styles.DIM if got else Color("6b6e60"))
-		desc.autowrap_mode = TextServer.AUTOWRAP_WORD
-		box.add_child(desc)
+		box.add_child(Tips.text(d.desc, 13, Styles.DIM if got else Color("6b6e60")))
 		if got:
 			var t := int(cf.get_value("achievements", id, 0))
 			box.add_child(Styles.mono(Time.get_date_string_from_unix_time(t), 11, Styles.MUTED))

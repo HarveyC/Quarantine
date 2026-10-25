@@ -443,3 +443,17 @@ func test_benched_player_does_not_block() -> void:
 	_choose(run, 0, "share", 1)
 	assert_true(run.node_state.finished, "resolves with present players only")
 	assert_eq(_events(run, "item_gained").size(), 1, "solo share = unanimous")
+
+
+func test_critical_outbreak_raises_event_risk() -> void:
+	var run := _run()
+	run.outbreak = 8
+	assert_eq(RunRules.event_risk(run, 0.5), 0.5, "below Critical the odds stand")
+	NodeRules.enter(run, "event", "field_chapel")
+	var search: Dictionary = EventRules.options_for(run, run.node_state, 0).filter(func(o): return o.id == "search")[0]
+	assert_true("50% chance" in search.desc, "base odds shown")
+	run.outbreak = 9
+	assert_eq(RunRules.event_risk(run, 0.5), 0.7, "Critical: +20%")
+	assert_eq(RunRules.event_risk(run, 0.8), 0.9, "capped at 90%")
+	search = EventRules.options_for(run, run.node_state, 0).filter(func(o): return o.id == "search")[0]
+	assert_true("70% chance" in search.desc, "raised odds shown: " + search.desc)

@@ -11,6 +11,9 @@ func test_music_and_ambience_files_exist() -> void:
 			assert_true(ResourceLoader.exists("res://audio/music/%s.ogg" % name), "track %s" % name)
 	for name in Soundscape.STINGERS:
 		assert_true(ResourceLoader.exists("res://audio/music/%s.ogg" % name), "stinger %s" % name)
+	for kind in Soundscape.OUTCOMES:
+		for name in Soundscape.OUTCOMES[kind]:
+			assert_true(ResourceLoader.exists("res://audio/music/%s.ogg" % name), "%s stinger %s" % [kind, name])
 	var beds: Array = Soundscape.ACT_BEDS.values() + ["amb_map"]
 	for bed in beds:
 		assert_true(ResourceLoader.exists("res://audio/amb/%s.ogg" % bed), "bed %s" % bed)
@@ -44,6 +47,33 @@ func test_bus_layout() -> void:
 	for bus in ["Music", "Ambience", "SFX", "Weapons", "Voices", "UI"]:
 		assert_true(AudioServer.get_bus_index(bus) >= 0, "bus %s" % bus)
 	assert_eq(AudioServer.get_bus_send(AudioServer.get_bus_index("Weapons")), &"SFX", "weapons feed effects")
+	var st := AudioServer.get_bus_index("Stingers")
+	assert_true(st >= 0, "bus Stingers")
+	assert_eq(AudioServer.get_bus_send(st), &"Master", "stingers skip the Music bus's gunfire ducking")
+
+
+func test_outcome_stinger_matches_the_debrief() -> void:
+	assert_eq(Soundscape.outcome_kind(Types.Result.VICTORY, "", ""), "win", "fight won")
+	assert_eq(Soundscape.outcome_kind(Types.Result.VICTORY, "", "brood_mother"), "boss_win", "boss down")
+	assert_eq(Soundscape.outcome_kind(Types.Result.DEFEAT, "beacon", ""), "fail", "beacon lost, squad walked out")
+	for cause in ["squad_down", "turned", "left_behind"]:
+		assert_eq(Soundscape.outcome_kind(Types.Result.DEFEAT, cause, ""), "wipe", "squad lost: %s" % cause)
+
+
+func test_outcome_variants_rotate_and_duck() -> void:
+	var pool: Array = Soundscape.OUTCOMES.win
+	var last := ""
+	for roll in 12:
+		var pick := Soundscape.pick_variant(pool, last, roll * 7919)
+		assert_true(pick in pool and pick != last, "no repeat back to back")
+		last = pick
+	assert_eq(Soundscape.pick_variant(["only"], "only", 3), "only", "a single variant still plays")
+	assert_eq(Soundscape.pick_variant([], "", 3), "", "unknown kind plays nothing")
+	for kind in Soundscape.OUTCOMES:
+		for name in Soundscape.OUTCOMES[kind]:
+			var s: AudioStream = load("res://audio/music/%s.ogg" % name)
+			var duck := Soundscape.duck_seconds(s.get_length())
+			assert_true(duck >= 2.5 and duck < s.get_length(), "%s ducks the music for %.1fs" % [name, duck])
 
 
 func test_combat_layers_follow_the_fight() -> void:

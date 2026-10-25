@@ -7,10 +7,12 @@ extends RefCounted
 ##   Tips.auto(label)                         tags a label whose text is a term ("Half cover")
 ##   Tips.soldier_class(tile, "medic")        the full class card (stats, gun, abilities, passive)
 ##   Tips.compare(button, func(): ...)        an item compare (GearCompare.compare result)
+##   Tips.text("Beds in: -1 move", 15, col)   body text with its game terms bold and hoverable
 ## Plain `tooltip_text` works too: it is drawn in the same card, with any glossary term in it
 ## turned into a hoverable link. Hold Shift (or rest the gamepad pointer) for the detailed view.
 
 const Styles := preload("res://ui/styles.gd")
+const TermText := preload("res://ui/tips/term_text.gd")
 
 const META := "tip"
 const META_TERM := "tip_term"
@@ -29,6 +31,12 @@ static func terms(c: Control, keys: Array, ctx := {}) -> Control:
 	if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
 		c.mouse_filter = Control.MOUSE_FILTER_PASS
 	return c
+
+
+## Body text (an effect, a perk, an event choice) with every game term in it bold and
+## hoverable; see TermText. Use it instead of a wrapping Label for any rules text on a screen.
+static func text(s: String, px := 15, color := Styles.TEXT, width := 0.0, font: Font = null, centered := false) -> RichTextLabel:
+	return TermText.make(s, Styles.fs(px), color, width, font, centered)
 
 
 ## Hovering `c` shows the soldier class card for `kind` (ClassTip): stats, gun, abilities,

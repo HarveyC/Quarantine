@@ -276,17 +276,18 @@ func _flat(v: Vector3) -> Vector3:
 	return Vector3(v.x, 0, v.z)
 
 
-## Over-the-shoulder camera eye behind `from` looking at `at`. Tries the right then the
+## Over-the-shoulder camera eye behind `from` looking at `at` (whose body is aimed at
+## `aim`, low for an egg sac and high for the Drifter). Tries the right then the
 ## left shoulder at a few distances and heights, wanting room for the lens and clear lines
 ## to the shooter and the target (and to where the camera drifts during the aim). Settles
 ## for seeing just the shooter, then for a high angle above the scenery.
-func _ots_eye(from: Vector3, at: Vector3, drift: Vector3) -> Vector3:
+func _ots_eye(from: Vector3, at: Vector3, aim: Vector3, drift: Vector3) -> Vector3:
 	var dir := _flat(at - from).normalized()
 	if dir == Vector3.ZERO:
 		dir = Vector3.FORWARD
 	var right := dir.cross(Vector3.UP)
 	var shoulder := from + Vector3(0, 1.3, 0)
-	var target := at + Vector3(0, 1.3, 0)
+	var target := aim
 	var opts: Array[Vector3] = []   # side, back, height
 	for h in [1.8, 2.4]:
 		for b in [2.4, 1.8, 1.3]:
@@ -373,7 +374,6 @@ func _beat_team_phase(ev: Dictionary) -> Dictionary:
 			uv.set_guard(false)
 	if turn == 1 and concealed:
 		view.hud.banner("SQUAD CONCEALED", Palette.STEALTH)
-		view.hud.toast("Unseen. Stay out of the red ground and hold fire to stay hidden")
 		_sfx("sting_squad", -4.0)
 		return {"dur": 1.4}
 	if turn == 1 and not Concealment.used(view.state) and not view.state.encounter.is_empty():
@@ -479,6 +479,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 	var dur := t_hit + ((0.9 if hero else 0.7) if cine else 0.3)
 	shooter.face_towards(target.position)
 	shooter.set_aim(1.0)
+	shooter.aim_at(target.aim_point())
 	_focus(target)
 	var dir := _flat(target.position - shooter.position).normalized()
 	var right := dir.cross(Vector3.UP)
@@ -504,8 +505,8 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		view.fx.floating_text(_head(shooter), "REACTION", Palette.AMBER, 40)
 	if cine:
 		_begin_cinematic()
-		var look := target.position + Vector3(0, 0.9, 0)
-		var eye_a := _ots_eye(shooter.position, target.position, dir * 0.5)
+		var look := target.aim_point()
+		var eye_a := _ots_eye(shooter.position, target.position, look, dir * 0.5)
 		view.camera_rig.cine(CameraRig.look_pose(eye_a, look), CameraRig.look_pose(eye_a + dir * 0.5, look), Vector2(46, 40))
 		var cap := "%s  >  %s" % [shooter.label(), target.label()]
 		view.hud.cine_caption(("REACTION FIRE  -  " if reaction else "") + cap, "%d%% to hit" % chance if chance > 0 else "")
@@ -528,7 +529,7 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 		var r: Dictionary = rounds[i]
 		r.fired = true
 		r.from = shooter.muzzle_world()
-		var barrel: Vector3 = (target.chest_world() - (r.from as Vector3)).normalized()
+		var barrel: Vector3 = (target.aim_point() - (r.from as Vector3)).normalized()
 		var style := str(feel.get("flash_style", "star"))
 		view.fx.muzzle_flash(r.from, col if feel.flash > 0.0 else Palette.TEAL, barrel, feel.flash, style)
 		if (feel.get("smoke", false) or i == 0) and style != "gas" and style != "bio":
@@ -590,10 +591,10 @@ func _beat_shot(ev: Dictionary) -> Dictionary:
 			# Stop short of the target so its whole body stays in frame.
 			st.pushed = true
 			var pose_b := view.camera_rig.transform * view.camera_rig.camera.transform
-			var eye: Variant = _push_eye(pose_b.origin, shooter.position, target.position, target.chest_world())
+			var eye: Variant = _push_eye(pose_b.origin, shooter.position, target.position, target.aim_point())
 			if eye == null:
 				eye = pose_b.origin
-			view.camera_rig.cine(pose_b, CameraRig.look_pose(eye, target.chest_world()), Vector2(40, 30))
+			view.camera_rig.cine(pose_b, CameraRig.look_pose(eye, target.aim_point()), Vector2(40, 30))
 			world_scale = 0.3
 		if cine and st.pushed and s < t_hit:
 			view.camera_rig.cine_progress(clampf((s - t_fire) / (t_hit - t_fire), 0.0, 1.0))
@@ -633,7 +634,7 @@ func _round_impacts(shooter: UnitView, target: UnitView, feel: Dictionary, hit: 
 	for p in pellets:
 		var j := Vector3(rng.randf_range(-1, 1) * right.x, rng.randf_range(-0.6, 0.6), rng.randf_range(-1, 1) * right.z) * spread
 		if hit:
-			var at := target.chest_world() + j
+			var at := target.aim_point() + j
 			if graze:
 				at += right * 0.22 + Vector3(0, 0.2, 0)
 			elif pellets == 1:
@@ -868,8 +869,8 @@ func _beat_perk(ev: Dictionary) -> Dictionary:
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.25, 0), perk.capitalize().to_upper() + ("  +1 ACTION" if perk == "bloodlust" else ""), col, 40)
 	uv.flash(col)
 	if perk == "bloodlust":
-		view.fx.flash_light(uv.chest_world(), Palette.TEAL, 2.5, 0.35, 3.0)
-		view.fx.burst(uv.chest_world(), Vector3.UP, Palette.TEAL, 10, 1.6, true, 0.025)
+		view.fx.flash_light(uv.aim_point(), Palette.TEAL, 2.5, 0.35, 3.0)
+		view.fx.burst(uv.aim_point(), Vector3.UP, Palette.TEAL, 10, 1.6, true, 0.025)
 	_sfx("mutation" if perk == "bloodlust" else "ui_confirm", -8.0)
 	return {"dur": 0.45}
 
@@ -880,7 +881,7 @@ func _beat_bleeding(ev: Dictionary) -> Dictionary:
 	if uv == null:
 		return {}
 	view.fx.floating_text(_head(uv), "BLEEDING", MeleeFx.BLEED.lightened(0.35), 36)
-	MeleeFx.drip(view.fx, uv.chest_world(), uv.position, true)
+	MeleeFx.drip(view.fx, uv.aim_point(), uv.position, true)
 	return {"dur": 0.35}
 
 
@@ -891,7 +892,7 @@ func _beat_bleed(ev: Dictionary) -> Dictionary:
 		return {}
 	_focus(uv)
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "BLEED", MeleeFx.BLEED.lightened(0.35), 34)
-	MeleeFx.drip(view.fx, uv.chest_world(), uv.position)
+	MeleeFx.drip(view.fx, uv.aim_point(), uv.position)
 	return {"dur": 0.3}
 
 
@@ -902,7 +903,7 @@ func _beat_stunned(ev: Dictionary) -> Dictionary:
 		return {}
 	uv.set_tag("stunned", phase_now() + (1 if enemy_phase else 2))
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "STUNNED", MeleeFx.SHOCK, 44)
-	MeleeFx.stun(view.fx, uv.chest_world())
+	MeleeFx.stun(view.fx, uv.aim_point())
 	uv.flash(MeleeFx.SHOCK)
 	return {"dur": 0.5 if in_cinematic else 0.35}
 
@@ -982,7 +983,7 @@ func _beat_gear(ev: Dictionary) -> Dictionary:
 		col = Palette.DANGER
 		uv.flash(Palette.TEAL)
 	if tv != null and tv != uv:
-		view.fx.tracer(uv.chest_world(), tv.chest_world(), col, 0.35)
+		view.fx.tracer(uv.aim_point(), tv.aim_point(), col, 0.35)
 	view.fx.floating_text(_head(on) + Vector3(0, 0.2, 0), text, col, 34, 1.3)
 	view.fx.pulse(on.position, col, 0.5)
 	if not GEAR_PROCS.has(item) or item in ["restrained", "bloodletting", "guard_set"]:
@@ -997,7 +998,7 @@ func _beat_burning(ev: Dictionary) -> Dictionary:
 		return {}
 	var col: Color = Board.HAZARD_COLORS.fire
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "BURNING", col, 36)
-	view.fx.burst(uv.chest_world(), Vector3.UP, col, 12, 2.0, true, 0.04)
+	view.fx.burst(uv.aim_point(), Vector3.UP, col, 12, 2.0, true, 0.04)
 	view.fx.flash_light(uv.position + Vector3(0, 1.0, 0), col, 2.5, 0.4)
 	_sfx("breach", -10.0)
 	return {"dur": 0.35}
@@ -1009,7 +1010,7 @@ func _beat_burn(ev: Dictionary) -> Dictionary:
 	if uv == null:
 		return {}
 	var col: Color = Board.HAZARD_COLORS.fire
-	view.fx.burst(uv.chest_world(), Vector3.UP, col, 16, 2.5, true, 0.05)
+	view.fx.burst(uv.aim_point(), Vector3.UP, col, 16, 2.5, true, 0.05)
 	view.fx.puff(uv.position + Vector3(0, 1.0, 0), Color(0.3, 0.27, 0.24), 1.0, 0.9, 0.7)
 	view.fx.flash_light(uv.position + Vector3(0, 1.0, 0), col, 3.0, 0.4)
 	_sfx("breach", -8.0)
@@ -1027,7 +1028,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 		var tv := _uv(ev, "target")
 		if tv != null:
 			uv.face_towards(tv.position)
-			view.fx.tracer(src, tv.position + Vector3(0, 0.8, 0), color, 0.5)
+			view.fx.tracer(src, tv.aim_point(), color, 0.5)
 			view.fx.pulse(tv.position, color)
 	if ev.has("cell") and ev.cell is Vector2i:
 		var w := Board.cell_to_world(ev.cell)
@@ -1130,12 +1131,12 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 						opts.append(Vector3(sd, b, h))
 			for o in opts:
 				var e: Vector3 = uv.position - dir * o.y + right * o.x + Vector3(0, o.z, 0)
-				if _clear_view(e, uv.position + Vector3(0, 1.1, 0)) and _clear_view(e, tv.position + Vector3(0, 1.0, 0)) \
+				if _clear_view(e, uv.position + Vector3(0, 1.1, 0)) and _clear_view(e, tv.aim_point()) \
 						and (_grid() == null or ShotCamera.eye_clear(_grid(), e)):
 					eye = e
 					break
 			if eye == Vector3.INF:
-				eye = _ots_eye(uv.position, tv.position, dir * 0.4)
+				eye = _ots_eye(uv.position, tv.position, tv.aim_point(), dir * 0.4)
 		else:
 			var perp := _flat(tv.position - uv.position).normalized().cross(Vector3.UP)
 			eye = mid + Vector3(0, 3.5, 0) - perp * 1.2
@@ -1164,7 +1165,7 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 			return
 		if not st.landed:
 			st.landed = true
-			var at := tv.chest_world()
+			var at := tv.aim_point()
 			var dir := _flat(tv.position - uv.position).normalized()
 			if hit:
 				view.fx.burst(at, dir, _blood(tv), 10 if graze else 16, 3.5, _blood(tv) == Palette.TEAL)
@@ -1271,8 +1272,11 @@ func _beat_barrel_shot(ev: Dictionary) -> Dictionary:
 	if uv == null or not (ev.get("cell") is Vector2i):
 		return {}
 	_focus(uv)
-	var w := Board.cell_to_world(ev.cell) + Vector3(0, 0.45, 0)
+	var w := Board.cell_to_world(ev.cell) + Vector3(0, Board.FUEL_DRUM_AIM, 0)
 	uv.face_towards(w)
+	uv.aim_now(1.0)
+	uv.aim_at(w)
+	uv.tick(0.0)
 	var feel := _feel(uv)
 	var from := uv.muzzle_world()
 	var hit: bool = ev.get("hit", false)
@@ -1283,12 +1287,13 @@ func _beat_barrel_shot(ev: Dictionary) -> Dictionary:
 	view.fx.tracer(from, end, Palette.AMBER, 0.25)
 	uv.recoil(float(feel.get("recoil", 1.0)))
 	_sfx(str(feel.get("sound", "rifle")))
+	var finish := func() -> void: uv.set_aim(0.0)
 	if hit:
 		view.fx.burst(w, (from - w).normalized(), Color(1.0, 0.7, 0.3), 10, 3.0, true, 0.03)
-		return {"dur": 0.3}
+		return {"dur": 0.3, "finish": finish}
 	view.fx.burst(end, Vector3.UP, Color(0.55, 0.5, 0.42), 8, 2.0, false, 0.03)
 	view.fx.floating_text(w + Vector3(0, 0.9, 0), "MISS", Color(0.78, 0.8, 0.76), 34)
-	return {"dur": 0.5}
+	return {"dur": 0.5, "finish": finish}
 
 
 ## Destruction: a blast at a cell. Debris, fire and smoke from Fx.explosion, camera shake by size.
@@ -1317,6 +1322,7 @@ func _suppress_beat(ev: Dictionary) -> Dictionary:
 	_focus(tv)
 	uv.face_towards(tv.position)
 	uv.set_aim(1.0)
+	uv.aim_at(tv.aim_point())
 	tv.set_tag("suppressed", phase_now() + 2)
 	view.fx.floating_text(_head(uv), "SUPPRESS", Palette.AMBER, 44)
 	var st := {"n": 0}
@@ -1326,7 +1332,7 @@ func _suppress_beat(ev: Dictionary) -> Dictionary:
 			st.n += 1
 			var from := uv.muzzle_world()
 			var jitter := Vector3(sin(st.n * 2.3) * 0.5, absf(cos(st.n * 1.7)) * 0.4, cos(st.n * 3.1) * 0.5)
-			var to := tv.chest_world() + jitter
+			var to := tv.aim_point() + jitter
 			var feel := _feel(uv)
 			var col := GunFeel.color(feel, uv.is_soldier and not uv.turned, uv.turned)
 			view.fx.muzzle_flash(from, col, to - from, feel.flash, str(feel.get("flash_style", "star")))
@@ -1354,6 +1360,12 @@ func _beat_mutation(ev: Dictionary) -> Dictionary:
 		view.fx.puff(uv.position + Vector3(0, 0.9, 0), Palette.TEAL_DIM, 1.0, 1.0, 0.5)
 		view.fx.flash_light(uv.position + Vector3(0, 1, 0), Palette.TEAL, 3.0, 0.6)
 	_sfx("mutation")
+	if uv != null and ev.get("mutation") == "adrenal_surge":
+		# The extra action is the whole point: call it out and light the new pip.
+		uv.flash(Palette.TEAL)
+		view.fx.floating_text(_head(uv) + Vector3(0, -0.35, 0), "+1 ACTION", Palette.AMBER, 38)
+		view.fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.AMBER, 10, 1.6, true, 0.03)
+		_sfx("ui_confirm", -4.0)
 	return _power_beat(ev, str(ev.get("mutation", "mutation")), Palette.TEAL)
 
 
@@ -1468,7 +1480,7 @@ func _beat_mission_end(ev: Dictionary) -> Dictionary:
 
 
 ## World point in the middle of `cells` (null when there are none).
-func _cells_center(cells: Array[Vector2i]):
+func _cells_center(cells: Array):
 	if cells.is_empty():
 		return null
 	var mid := Vector3.ZERO

@@ -25,6 +25,12 @@ static var _terms := {}
 static var _regex: RegEx
 static var _lookup := {}   # lower-case name or alias -> key (linked in text)
 static var _labels := {}   # lower-case exact labels -> key (find() only)
+static var _link_color: Variant = null   # set by bbcode() for the links it writes
+
+## Abilities whose own icon Icons draws; the rest show the generic one.
+const ABILITY_ICONS := ["incinerate", "siphon", "lunge", "bash", "shield_charge", "bloom_claw", "breach", "runner_leap"]
+## Short names an ability goes by in text ("Bash the first enemy...").
+const ABILITY_ALIASES := {"bash": ["Bash", "Bashes"], "talk_down": ["Talked down", "Talking down"], "incinerate": ["Incinerates"]}
 
 
 static func all() -> Dictionary:
@@ -86,8 +92,10 @@ static func scan(text: String) -> Array[String]:
 
 
 ## `text` as BBCode for a RichTextLabel: {key|shown} links and any glossary name or alias in
-## the plain text become [url=key] links coloured by the term's tone.
-static func bbcode(text: String, skip: Array = []) -> String:
+## the plain text become bold [url=key] links. In a hover card (`link_color` unset) a link
+## takes its term's tone; body text on screens (TermText) passes one colour for every link.
+static func bbcode(text: String, skip: Array = [], link_color: Variant = null) -> String:
+	_link_color = link_color
 	var seen: Array = skip.duplicate()
 	var out := ""
 	var rx := RegEx.create_from_string("\\{([a-z0-9_]+)(?:\\|([^}]*))?\\}")
@@ -131,7 +139,8 @@ static func tone(key_or_tone: Variant) -> Color:
 # --- internals -----------------------------------------------------------------------------
 
 static func _link(key: String, shown: String) -> String:
-	return "[url=%s][color=#%s]%s[/color][/url]" % [key, tone(key).to_html(false), _esc(shown)]
+	var col: Color = _link_color if _link_color is Color else tone(key)
+	return "[url=%s][b][color=#%s]%s[/color][/b][/url]" % [key, col.to_html(false), _esc(shown)]
 
 
 static func _esc(s: String) -> String:
@@ -242,6 +251,71 @@ static func _build() -> Dictionary:
 		"stats": [["%d" % Combat.GRAZE_BAND, "points over hit"], ["1/2", "damage"]],
 		"see": ["hit_chance", "crit"],
 		"aliases": ["Grazes", "Grazed"]}
+	t["aim"] = {"name": "Aim", "kind": "stat", "icon": "shoot", "tone": "amber",
+		"line": "A soldier's base accuracy. Every shot starts its {hit_chance} from it.",
+		"art": "",
+		"stats": [["+aim", "better odds"], ["-aim", "worse odds"]],
+		"more": ["Gear, guns and range add or take away aim.", "{cover} and {defense} on the target take it away."],
+		"see": ["hit_chance", "cover", "defense"]}
+	t["defense"] = {"name": "Defense", "kind": "stat", "icon": "armor", "tone": "amber",
+		"line": "Makes a unit harder to hit: it comes straight off the shooter's {aim}.",
+		"art": "",
+		"stats": [["-1", "hit chance per point"]],
+		"see": ["hit_chance", "cover"],
+		"aliases": ["Defence"]}
+	t["mobility"] = {"name": "Move", "kind": "stat", "icon": "move", "tone": "amber",
+		"line": "How many tiles a soldier walks for one {actions|action}.",
+		"art": "",
+		"stats": [["%d" % Unit.new().mobility, "tiles, most classes"], ["1", "action each"]],
+		"more": ["Two moves in a turn cover twice the ground but leave no action to shoot."],
+		"see": ["actions", "tile_move"],
+		"aliases": ["Movement", "Mobility"]}
+	t["spread"] = {"name": "Spread", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "Shotgun pellets: near misses turn into a {graze} more often.",
+		"art": "",
+		"stats": [["+%d" % (Weapons.get_gun("shotgun").get("graze", Combat.GRAZE_BAND) - Combat.GRAZE_BAND), "graze band"]],
+		"see": ["graze", "hit_chance"]}
+	t["snap_shot"] = {"name": "Snap shots", "kind": "gun trait", "icon": "overwatch", "tone": "amber",
+		"line": "{overwatch|Overwatch} reaction shots lose little or no aim.",
+		"art": "",
+		"stats": [["-%d" % Combat.REACTION_PENALTY, "normal reaction aim"], ["0", "with Snap shots"]],
+		"see": ["overwatch"],
+		"aliases": ["Snap shot"]}
+	t["pinning_fire"] = {"name": "Pinning fire", "kind": "gun trait", "icon": "suppress", "tone": "amber",
+		"line": "Even a miss leaves the target {suppress|Suppressed}.",
+		"art": "",
+		"stats": [],
+		"see": ["suppress"]}
+	t["cooldown"] = {"name": "Cooldown", "kind": "limit", "icon": "clock", "tone": "text",
+		"line": "After a use, the turns to wait before it can be used again.",
+		"art": "",
+		"stats": [["3", "turns, Cooldown 3"]],
+		"see": ["once_per_fight"],
+		"aliases": ["Cooldowns"]}
+	t["prototype"] = {"name": "Prototype", "kind": "gear", "icon": "doctrine", "tone": "amber",
+		"line": "A combo item: it needs two {gear_tag|tags} at 2+ on the soldier and counts for both.",
+		"art": "",
+		"stats": [["2+2", "tags to unlock"], ["Mk II", "from the start"]],
+		"more": ["Never sold at the depot."],
+		"see": ["gear_tag", "set_bonus", "mk2"],
+		"aliases": ["Prototypes"]}
+	t["doctrine"] = {"name": "Doctrine", "kind": "squad rule", "icon": "doctrine", "tone": "amber",
+		"line": "A squad-wide bonus the team votes on after each act boss. It lasts the run.",
+		"art": "",
+		"stats": [["1", "per act boss"]],
+		"aliases": ["Doctrines", "Squad Doctrine", "Squad Doctrines"]}
+	t["once_per_fight"] = {"name": "Once per fight", "kind": "limit", "icon": "clock", "tone": "text",
+		"line": "Can be used once in each fight. It's ready again at the start of the next.",
+		"art": "",
+		"stats": [["1", "use a fight"], ["2", "at Mk II, some items"]],
+		"more": ["Twice per fight: two uses, same reset."],
+		"see": ["mk2"],
+		"aliases": ["Twice per fight", "Once per mission"]}
+	t["bleed"] = {"name": "Bleeding", "kind": "status", "icon": "wound", "tone": "danger",
+		"line": "Takes damage at the start of each of its turns until it stops.",
+		"art": "",
+		"stats": [["1", "damage a turn"], ["%d" % ClassAbilities.BLEED_TURNS, "turns"]],
+		"aliases": ["Bleed", "Bleeds"]}
 	t["crit"] = {"name": "Critical hit", "kind": "result", "icon": "kill", "tone": "amber",
 		"line": "A hit that deals half again. {flank|Flanking} makes them far likelier.",
 		"art": "damage",
@@ -294,7 +368,7 @@ static func _build() -> Dictionary:
 		"line": "The Infected haven't seen the squad yet. Most missions start this way.",
 		"art": "",
 		"stats": [["%d" % int(Concealment.DETECT_RADIUS), "tiles: spotted"], ["+%d" % Concealment.AMBUSH_AIM, "aim, unaware"]],
-		"more": ["Red ground is where a sleeping Infected would see you. An eye on your path marks the step.",
+		"more": ["Red ground is where an unaware Infected would see you. An eye on your path marks the step.",
 			"Any shot, hit or explosion gives the whole squad away. {smoke|Smoke} hides you.",
 			"Put the squad on {overwatch} before you open fire: reaction shots that turn get +%d aim too." % Concealment.AMBUSH_AIM,
 			"Ambushes, Hold the beacon and bosses start Detected."],
@@ -302,7 +376,7 @@ static func _build() -> Dictionary:
 		"aliases": ["Concealment", "Undetected", "Detected"],
 		"labels": ["Unaware", "Ambush shot"]}
 	t["smoke"] = {"name": "Smoke", "kind": "terrain", "icon": "smoke", "tone": "text",
-		"line": "A smoke grenade's cloud. Harder to hit inside, and sleeping Infected can't spot you in it.",
+		"line": "A smoke grenade's cloud. Harder to hit inside, and unaware Infected can't spot you in it.",
 		"art": "",
 		"stats": [["-%d" % GearFx.SMOKE_DEFENSE, "to be hit"], ["%d" % GearFx.SMOKE_TURNS, "turns"], ["3x3", "area"]],
 		"more": ["Harmless: it does no damage.", "Fire burns it away."],
@@ -339,7 +413,7 @@ static func _build() -> Dictionary:
 		"stats": [["-%d" % Combat.SUPPRESS_PENALTY, "aim"], ["1", "shot"]],
 		"more": ["The Trooper's Suppress ends their turn.", "With 3 {tag_suppress|Suppress} gear, moving while suppressed gives a free shot."],
 		"see": ["overwatch", "tag_suppress"],
-		"aliases": ["Suppression"], "labels": ["Suppress"]}
+		"aliases": ["Suppression", "Suppresses"], "labels": ["Suppress"]}
 	t["mark"] = {"name": "Marked", "kind": "status", "icon": "tag", "tone": Color("#ff5c86"),
 		"line": "Tagged by a Marksman: every soldier aims better against it.",
 		"art": "",
@@ -400,11 +474,11 @@ static func _build() -> Dictionary:
 		"art": "tile", "art_ctx": {"overlay": "move"},
 		"stats": [["1", "action"], ["%d" % Grid.LADDER_COST, "moves per ladder"]],
 		"more": ["Amber dots show the path, the big amber square is where they stop.", "Shields at the stop show its {cover}.",
-			"While {concealed}, red tiles with corner marks are where a sleeping enemy would see you."],
+			"While {concealed}, red tiles with corner marks are where an unaware enemy would see you."],
 		"see": ["actions", "cover", "tile_sight", "ladder"],
 		"aliases": ["Move tiles", "Movement range"]}
 	t["tile_sight"] = {"name": "Enemy sight", "kind": "map marking", "icon": "detected", "tone": "danger",
-		"line": "Red ground while the squad is {concealed}: a sleeping enemy would see a soldier here.",
+		"line": "Red ground while the squad is {concealed}: an unaware enemy would see a soldier here.",
 		"art": "tile", "art_ctx": {"overlay": "sight"},
 		"stats": [["%d" % int(Concealment.DETECT_RADIUS), "tiles out"]],
 		"more": ["Hover an enemy to see its own area.", "Walls, high ground and {smoke} cut it."],
@@ -554,8 +628,11 @@ static func _build() -> Dictionary:
 	t["outbreak"] = {"name": "Outbreak", "kind": "run meter", "icon": "outbreak", "tone": "teal",
 		"line": "How far the Bloom has spread. Higher stages make every fight harder.",
 		"art": "outbreak",
-		"stats": [["+1", "per node"], ["-%d" % RunRules.BOSS_OUTBREAK_DROP, "per boss"]],
-		"more": ["Healing or purging at the field hospital adds 1.", "{severity} can start it higher."],
+		"stats": [["+1", "per node"], ["-%d" % RunRules.BONUS_OUTBREAK_DROP, "bonus objective"], ["-%d" % RunRules.BOSS_OUTBREAK_DROP, "per boss"]],
+		"more": ["Winning a nest or a Purge takes off %d more." % RunRules.NEST_OUTBREAK_DROP,
+			"Each soldier who Turns adds %d. Healing or purging at the field hospital adds 1." % RunRules.TURNED_OUTBREAK,
+			"Every point makes regular fights a little harder. From Critical, risky event choices go wrong more often.",
+			"{severity} can start it higher."],
 		"see": ["severity", "infection"],
 		"aliases": ["Outbreak stage", "Contained", "Spreading", "Rampant", "Collapse"]}
 	t["supplies"] = {"name": "Supplies", "kind": "resource", "icon": "supplies", "tone": Color("#e0b44a"),
@@ -628,6 +705,13 @@ static func _build() -> Dictionary:
 		"more": ["One part is offered per soldier per visit.", "Hazmat pays %d." % GraftData.HAZMAT_REFIT_PRICE, "The move penalty wears off after one fight while it beds in."],
 		"see": ["graft", "amputate", "supplies"],
 		"aliases": ["Refits", "Refitted"]}
+	t["bedding_in"] = {"name": "Beds in", "kind": "status", "icon": "refit", "tone": Color("#b9c6cf"),
+		"line": "A fresh Machine part is still settling: {mobility|move} is down for the next fight only.",
+		"art": "",
+		"stats": [["%d" % GraftData.BEDDING_MOBILITY, "move"], ["1", "fight"]],
+		"more": ["It wears off on its own after that fight."],
+		"see": ["refit", "graft", "mobility"],
+		"aliases": ["Bedding in"]}
 	t["amputate"] = {"name": "Amputate", "kind": "treatment", "icon": "amputate", "tone": Color("#b9c6cf"),
 		"line": "Field hospital treatment: cut out a Bloom {graft|graft} and Refit the slot.",
 		"art": "",
@@ -678,7 +762,43 @@ static func _build() -> Dictionary:
 		var n: Array = nodes[type]
 		t["node_" + type] = {"name": n[0], "kind": "map node", "icon": n[1], "tone": n[2], "line": n[3],
 			"art": "intel" if type == RunMap.UNKNOWN else "", "stats": n[4], "see": ["outbreak"], "scan": false}
+	_add_rules_terms(t)
 	return t
+
+
+## Soldier abilities and enemy traits, read from their rules tables so a new one is
+## explained wherever its name shows up in text. Names another entry already covers (Purge,
+## Stim, Suppress, ...) or that are also a gear tag (Guard) are left to that entry.
+static func _add_rules_terms(t: Dictionary) -> void:
+	var taken := {}
+	for k in t:
+		taken[str(t[k].name).to_lower()] = true
+		for a in t[k].get("aliases", []) + t[k].get("labels", []):
+			taken[str(a).to_lower()] = true
+	var abilities: Dictionary = ClassAbilities.ABILITIES.duplicate()
+	abilities.merge(Combat.ABILITIES)
+	for id in abilities:
+		var a: Dictionary = abilities[id]
+		if taken.has(str(a.name).to_lower()):
+			continue
+		var e := {"name": a.name, "kind": "ability", "icon": id if ABILITY_ICONS.has(id) else "ability", "tone": "amber",
+			"line": _first_sentence(str(a.get("desc", ""))), "art": "", "stats": [], "aliases": ABILITY_ALIASES.get(id, [])}
+		var cd := int(a.get("cooldown", 0))
+		if cd > 0:
+			e.stats = [["%d" % cd, "{cooldown} turns"]]
+		t["ability_" + id] = e
+	for id in EnemyRoster.AFFIX_INFO:
+		var f: Dictionary = EnemyRoster.AFFIX_INFO[id]
+		if not taken.has(str(f.name).to_lower()):
+			t["affix_" + id] = {"name": f.name, "kind": "elite trait", "icon": "enemy", "tone": "danger",
+				"line": _first_sentence(str(f.desc)), "art": "", "stats": []}
+
+
+static func _first_sentence(desc: String) -> String:
+	var line := desc.split(". ")[0].trim_suffix(".") + "."
+	while line.length() > 110 and line.contains(", "):
+		line = line.substr(0, line.rfind(", ")) + "."
+	return line
 
 
 static func _tag_keys() -> Array:

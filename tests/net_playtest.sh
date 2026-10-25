@@ -20,7 +20,14 @@ check() {  # name hostlog clientlog
   local hsum csum
   hsum=$(grep -o "checksum [-0-9]*" "$2" | tail -1)
   csum=$(grep -o "checksum [-0-9]*" "$3" | tail -1)
-  grep -q "SCRIPT ERROR\|Parse Error" "$2" "$3" && { echo "FAIL [$1]: script errors"; fail=1; }
+  if grep -q "SCRIPT ERROR\|Parse Error" "$2" "$3"; then
+    echo "FAIL [$1]: script errors"; fail=1
+    for f in "$2" "$3"; do  # show each error with the lines leading up to it and its stack
+      grep -q "SCRIPT ERROR\|Parse Error" "$f" || continue
+      echo "---- $(basename "$f") ----"
+      grep -B 8 -A 6 "SCRIPT ERROR\|Parse Error" "$f" | head -120
+    done
+  fi
   if [ -n "$hsum" ] && [ "$hsum" = "$csum" ]; then echo "OK   [$1]: host and client agree ($hsum)"
   else echo "FAIL [$1]: host=[$hsum] client=[$csum]"; fail=1; fi
   if ! grep -q "I am player 2 of 2" "$3"; then echo "FAIL [$1]: client was not player 2 of 2: $(grep '\[net\] match' "$3")"; fail=1; fi
