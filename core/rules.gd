@@ -198,6 +198,8 @@ static func run_enemy_phase(s: GameState) -> void:
 		Encounter.on_unit_turn_end(s, u)
 		Vision.refresh(s)
 	if s.phase != Types.Phase.ENDED:
+		GearFx.on_enemy_phase_end(s)
+	if s.phase != Types.Phase.ENDED:
 		Encounter.on_enemy_phase_end(s)
 	if s.phase != Types.Phase.ENDED:
 		Hazards.on_enemy_phase_end(s)
@@ -271,6 +273,7 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = null) -> void:
 	if not target.is_alive():
 		return
+	target = GearFx.guard_redirect(s, target, source)
 	amount = GearFx.damage_taken(s, target, amount, source)
 	amount = Encounter.modify_damage(s, target, amount, source)
 	if amount <= 0:

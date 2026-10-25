@@ -266,13 +266,19 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   (`on_move`) and `Infection.on_damaged` (`bite_infection`). Gadgets and pocket consumables are abilities
   with ids `gear:<item>` / `item:<consumable>` that Combat delegates to GearFx (they appear in
   `Combat.available_abilities` with `"gear": true`). Status keys: `burning` (ticks left), `suppress_extra`,
-  `contained`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`,
+  `contained`, `restrained`, `suppressed_by`, `gear_uses`, `gear_moved_turn`, `gear_refund_turn`, `gear_set_mobility`,
   `burn_source`, `gear_fire_mobility`. Fire from gear (Thermite line, Igniter barrel, Burn set spread)
   goes through `GearFx.set_fire` -> `Hazards.add(..., "fire", turns, unit.id)`, and `Hazards._hit` asks
   `GearFx.hazard_hit` (Flame-retardant coat, Cauterizer, Filter mask, Scorched earth, Spotter flare).
   Ember plating ignites attackers from `damage_taken`; Pinpoint marks from both `_suppress` and `on_suppress`. Sentry turret
-  spawns a Deployables turret. `GearFx.PENDING` lists items whose systems don't exist yet (
-  restraint, mutation costs); they stay out of draws until they work.
+  spawns a Deployables turret. Smoke grenade lays a `smoke` hazard (harmless: +20 defense and no
+  concealment spotting inside, `GearFx.in_smoke`). More hooks:
+  `on_enemy_phase_end` (Crossfire), `guard_redirect` (Guard set, from `Rules.deal_damage`),
+  `suppress_shot_ready` / `take_suppress_shot` (Suppress set, from Combat's reactions), `infection_gain`
+  (Containment emitter, Purge set, from `Infection.add`), `on_purge` (Purge set, Bloodletting; every purge
+  calls it), `ability_cost` (Hold position), `mutation_cost` (Symbiotic suit). `GearFx.PENDING` is empty:
+  every item works, and `tests/test_item_audit.gd` fails if a new item, ability or doctrine has no rules
+  effect, or an active one has no beat of its own (`view/item_beats.gd` holds their looks and sounds).
 - **Gear max HP** (Kevlar vest etc.): `Loadout.equip / unequip / upgrade` move the run record's
   `max_hp` and `hp` by the change, so the record always holds HP including gear.
 - **Screens** (`ui/gear/`): `GearRun.reward_screen()` and `GearRun.loadout_screen()` return Control

@@ -845,6 +845,102 @@ def ambience():
     return out[:-xf]
 
 
+# --- gadgets and pocket items ----------------------------------------------------
+
+def smoke_hiss():
+    """Smoke grenade: the pin and spoon, a thud, then a long pressurised hiss that thins out."""
+    d = 2.2
+    n = noise(d)
+    pop = bandpass(noise(0.05), 800, 4000) * env(int(0.05 * SR), 0.0005, 0.01) * 0.6
+    thud = sine(90, 0.2) * env(int(0.2 * SR), 0.002, 0.05) * 0.8
+    hiss = bandpass(n, 1500, 9000) * env(len(n), 0.08, 0.9) * 0.7
+    swell = lowpass(n, 600) * env(len(n), 0.2, 0.8) * 0.5
+    return mix(pop, np.concatenate([np.zeros(int(0.12 * SR)), thud]), np.concatenate([np.zeros(int(0.16 * SR)), hiss + swell]))
+
+
+def flashbang():
+    """Flashbang: a hard flat bang and a high whine left ringing in the ears."""
+    d = 1.8
+    n = noise(d)
+    bang = distort(highpass(n, 400) * env(len(n), 0.0003, 0.05) * 2.0 + sine(70, d) * env(len(n), 0.001, 0.1), 4.0)
+    ring = sine(3900, d) * env(len(n), 0.05, 0.9) * 0.18 + sine(4100, d) * env(len(n), 0.05, 0.7) * 0.1
+    return reverb(bang + ring, 0.5, 0.3)
+
+
+def gadget_deploy():
+    """A gadget unfolding: ratchet clicks, a servo whirr and a locking clunk."""
+    d = 0.9
+    out = np.zeros(int(d * SR))
+    for k in range(5):
+        c = bandpass(noise(0.015), 2000, 7000) * env(int(0.015 * SR), 0.0003, 0.004) * 0.5
+        i = int((0.02 + k * 0.05) * SR)
+        out[i:i + len(c)] += c
+    x = t(0.35)
+    whirr = sine(220 + 500 * x / 0.35, 0.35) * env(len(x), 0.02, 0.3) * 0.25
+    i = int(0.28 * SR)
+    out[i:i + len(whirr)] += whirr
+    clunk = (sine(110, 0.2) + bandpass(noise(0.2), 200, 1500)) * env(int(0.2 * SR), 0.001, 0.05) * 0.8
+    i = int(0.62 * SR)
+    out[i:i + len(clunk)] += clunk[:len(out) - i]
+    return reverb(out, 0.3, 0.2)
+
+
+def foam_spray():
+    """Containment foam: a wet pressurised spray that sets with a crackle."""
+    d = 1.3
+    n = noise(d)
+    spray = bandpass(n, 300, 3000) * env(len(n), 0.03, 0.5) * (1 + 0.3 * np.sin(2 * np.pi * 23 * t(d)))
+    crackle = np.zeros(len(n))
+    for k in range(30):
+        i = int(rng.uniform(0.4, 1.2) * SR)
+        g = highpass(noise(0.006), 3000) * rng.uniform(0.05, 0.2)
+        crackle[i:i + len(g)] += g[:len(crackle) - i]
+    return mix(spray * 0.8, crackle)
+
+
+def drone():
+    """Recon drone: rotors spin up and buzz off into the air."""
+    d = 1.6
+    x = t(d)
+    f = 90 + 140 * np.clip(x / 0.5, 0, 1)
+    buzz = distort(sine(f, d) + 0.6 * sine(f * 2.01, d), 2.0) * np.sin(np.linspace(0, np.pi, len(x))) ** 0.6
+    whine = sine(f * 8, d) * 0.08 * env(len(x), 0.3, 0.8)
+    return lowpass(buzz * 0.5 + whine, 3000) + bandpass(noise(d), 1000, 5000) * 0.05
+
+
+def grapple():
+    """Grapple: the hook fires, the line zips taut and the soldier slams into the landing."""
+    d = 0.9
+    shot = gunshot(2500, 120, 0.02, 0.15, 2.0, 0.2) * 0.5
+    x = t(0.45)
+    zip_ = bandpass(noise(0.45), 1500, 6000) * (0.5 + 0.5 * np.sin(2 * np.pi * (40 + 120 * x) * x)) * env(len(x), 0.01, 0.3)
+    land = (sine(80, 0.25) + bandpass(noise(0.25), 150, 1200)) * env(int(0.25 * SR), 0.001, 0.06)
+    return mix(shot, np.concatenate([np.zeros(int(0.1 * SR)), zip_ * 0.6]), np.concatenate([np.zeros(int(0.6 * SR)), land]))
+
+
+def flare_pop():
+    """Flare: a hollow launcher pop, then the magnesium fizz of the flare burning."""
+    d = 1.6
+    pop = (sine(np.linspace(300, 120, int(0.12 * SR)), 0.12) + lowpass(noise(0.12), 1200)) * env(int(0.12 * SR), 0.001, 0.03)
+    fizz = bandpass(noise(1.3), 2500, 9000) * env(int(1.3 * SR), 0.1, 0.7) * 0.45 * (1 + 0.4 * np.sin(2 * np.pi * 17 * t(1.3)))
+    return reverb(mix(pop, np.concatenate([np.zeros(int(0.25 * SR)), fizz])), 0.4, 0.25)
+
+
+def emitter_hum():
+    """Containment emitter: a field spinning up, a clean hum chord with a slow shimmer."""
+    d = 1.5
+    x = t(d)
+    rise = np.clip(x / 0.4, 0, 1)
+    tone = (sine(196 * (0.8 + 0.2 * rise), d) + 0.6 * sine(294 * (0.8 + 0.2 * rise), d) + 0.3 * sine(392, d))
+    shimmer = 1 + 0.25 * np.sin(2 * np.pi * 6 * x)
+    return reverb(tone * shimmer * env(len(x), 0.2, 0.6) * 0.5, 0.6, 0.4)
+
+
+def order_call():
+    """Squad order / talk down: a clipped radio chirp and a short two-note call."""
+    return mix(radio_beep(), np.concatenate([np.zeros(int(0.12 * SR)), _blip(660, 0.3, 0.1) * 0.5, _blip(880, 0.3, 0.12) * 0.5]))
+
+
 SOUNDS = {
     "rifle": rifle, "sniper": sniper, "shotgun": shotgun, "spit": enemy_spit, "claw": claw,
     "whiz": tracer_whiz, "impact_flesh": impact_flesh, "impact_armor": impact_armor,
@@ -867,6 +963,8 @@ SOUNDS = {
     "stun_pistol": stun_pistol, "longslide": longslide, "whiz_zap": whiz_zap, "impact_shock": impact_shock,
     "explosion": explosion, "collapse": collapse,
     "ping": ping, "ping_attack": ping_attack, "ping_danger": ping_danger,
+    "smoke_hiss": smoke_hiss, "flashbang": flashbang, "gadget_deploy": gadget_deploy, "foam_spray": foam_spray,
+    "drone": drone, "grapple": grapple, "flare_pop": flare_pop, "emitter_hum": emitter_hum, "order_call": order_call,
 }
 
 if __name__ == "__main__":

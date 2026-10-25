@@ -195,6 +195,8 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 	var id: String = action.ability
 	var def: Dictionary = ABILITIES[id]
 	var cost: int = def.cost
+	if id == "talk_down" and u.status.get("doctrines", []).has("steady_nerves"):
+		cost = 0   # Steady nerves doctrine
 	u.actions_left = 0 if cost < 0 else maxi(0, u.actions_left - cost)
 	var cd := Kit.ability_cooldown(u, id, int(def.cooldown))
 	if cd > 0:
@@ -221,15 +223,20 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit(ev)
 			Infection.add(s, t, -moved)
 			Infection.add(s, u, moved)
+			GearFx.on_purge(s, u, t, moved, true)
 		"purge":
 			var amount := Kit.medic_cure(t, PURGE_AMOUNT)
 			ev["amount"] = amount
 			s.emit(ev)
+			var before := t.infection
 			Infection.add(s, t, -amount)
+			GearFx.on_purge(s, u, t, before - t.infection)
 		"decon":
 			t.status["k_decon"] = Combat.phase_index(s) + (2 if s.phase == Types.Phase.TEAM else 1)
 			s.emit(ev)
+			var before := t.infection
 			Infection.add(s, t, -DECON_AMOUNT)
+			GearFx.on_purge(s, u, t, before - t.infection)
 		"squad_order":
 			u.status["k_squad_order"] = true
 			t.actions_left += 1

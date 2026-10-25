@@ -27,6 +27,9 @@ const MAX_ABILITY_TRIES := 8    # candidate cells/targets validated per ability 
 static func take_turn(s: GameState, u: Unit) -> void:
 	if not _can_act(s, u):
 		return
+	if GearFx.is_restrained(s, u):
+		s.emit({"type": "gear", "unit": u.id, "item": "restrained"})
+		return
 	if u.status.get("lapsed", false):
 		_lapsed_turn(s, u)
 		return

@@ -20,6 +20,7 @@ const SOUNDS := [
 	"impact_bio", "impact_slug", "impact_pellets", "impact_dart", "brass", "shell_drop",
 	"machine_pistol", "bloom_pistol", "hand_cannon", "stun_pistol", "longslide", "whiz_zap", "impact_shock",
 	"explosion", "collapse",
+	"smoke_hiss", "flashbang", "gadget_deploy", "foam_spray", "drone", "grapple", "flare_pop", "emitter_hum", "order_call",
 ]
 ## Gunfire, bullet impacts and melee strikes play on the Weapons bus (the music ducks under it).
 const WEAPON := [
@@ -43,6 +44,7 @@ const LEVELS := {
 	"bolt_heavy": -3.0, "whiz_pellets": -5.0, "whiz_heavy": -4.0, "whiz_bio": -6.0, "whiz_dart": -7.0,
 	"whiz_needle": -7.0, "impact_pellets": -2.0, "impact_dart": -3.0, "brass": -15.0, "shell_drop": -13.0,
 	"machine_pistol": -2.0, "stun_pistol": -2.0, "whiz_zap": -6.0, "impact_shock": -2.0,
+	"smoke_hiss": -4.0, "drone": -6.0, "emitter_hum": -5.0, "foam_spray": -3.0, "order_call": -6.0,
 }
 
 static var muted := false

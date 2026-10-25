@@ -479,6 +479,10 @@ func _unit_terms(box: VBoxContainer, uv: UnitView, u: Unit, sel: Unit) -> void:
 			keys.append("mark")
 		if int(u.status.get("burning", 0)) > 0:
 			keys.append("burning")
+		if Combat.has_status(view.state, u, "contained"):
+			keys.append("contained")
+		if GearFx.is_restrained(view.state, u):
+			keys.append("restrained")
 		if sel != null and sel.id != u.id and sel.is_enemy_of(u) and Combat.shot_targets(view.state, sel).has(u):
 			keys.append("flank" if Combat.hit_chance(view.state, sel, u).get("flanked", false) else "cover")
 	if keys.is_empty():

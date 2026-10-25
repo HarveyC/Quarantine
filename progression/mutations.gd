@@ -30,6 +30,8 @@ static func use_cost(u: Unit, id: String) -> int:
 		cost = maxi(5, cost - 5)
 	if Kit.has_perk(u, "apex"):
 		cost = maxi(5, cost - 5)
+	if GearFx.has_set(u, "Strain"):
+		cost = maxi(5, cost - 5)
 	return cost
 
 
@@ -254,6 +256,8 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit(ev)
 	if src == "own" or src == "borrowed":
 		_mirror(s, u, id, cost)
+	if cost > 0 and u.is_alive():
+		cost = GearFx.mutation_cost(s, u, cost)   # Symbiotic suit pays it in HP
 	if cost > 0 and u.is_alive():
 		Infection.add(s, u, cost)
 
