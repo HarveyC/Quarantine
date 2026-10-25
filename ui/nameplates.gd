@@ -13,7 +13,8 @@ const HEAD := Vector3(0, 2.0, 0)
 const HEAD_ENEMY := Vector3(0, 1.6, 0)   # infected models are shorter
 ## Timed tags from gear and abilities (UnitView.tags): icon and colour on the plate.
 const TAG_ICONS := {"stunned": ["stun", Color("9fd0ff")], "suppressed": ["suppress", Styles.AMBER],
-	"marked": ["tag", Styles.DANGER], "contained": ["cure", Styles.TEAL], "restrained": ["lock", Color("e4ece9")]}
+	"marked": ["tag", Styles.DANGER], "contained": ["cure", Styles.TEAL], "restrained": ["lock", Color("e4ece9")],
+	"pinned": ["pinned", Styles.DANGER]}
 
 var view: MissionView
 var _plates: Dictionary = {}   # unit id -> Control
@@ -88,8 +89,6 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 			d.set_values(2, u.actions_left)
 			d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row.add_child(d)
-		if u != null and u.status.has("pinned_by") and not uv.dead:
-			row.add_child(W.Icon.new("pinned", Styles.DANGER, 14.0, 2.0))
 		if uv.overwatch:
 			row.add_child(W.Icon.new("overwatch", Styles.AMBER, 14.0, 2.0))
 		if uv.hunkered:
@@ -103,8 +102,10 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 		if view.player != null and view.player.concealed and e != null and not EnemyAI.is_alerted(e) \
 				and not EnemyRoster.is_static(e):
 			row.add_child(W.Icon.new("detected", Styles.DANGER, 14.0, 2.0))
+	var held := view.state.get_unit(uv.unit_id)
 	for k in TAG_ICONS:
-		if uv.tags.has(k):
+		# A Lurker pin has no set length, so it comes from the state rather than a timed tag.
+		if uv.tags.has(k) or (k == "pinned" and not uv.dead and held != null and held.status.has("pinned_by")):
 			row.add_child(W.Icon.new(TAG_ICONS[k][0], TAG_ICONS[k][1], 14.0, 2.0))
 	var hp := W.Pips.new(Vector2(7, 4))
 	var lose := 0
