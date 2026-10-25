@@ -55,7 +55,11 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
 				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
 				"acid_rain": "ACID RAIN", "hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN"}
-			if uv != null:
+			if ev.get("kind", "") == "erupt":   # the boss is underground: label the ground that will break
+				var cells: Array = ev.get("cells", [])
+				if not cells.is_empty():
+					fx.floating_text(Board.cell_to_world(cells[cells.size() / 2], 1.6), "ERUPTS HERE", Palette.DANGER, 44)
+			elif uv != null:
 				fx.floating_text(head.call(uv), text.get(ev.get("kind", ""), "DANGER"), Palette.DANGER, 44)
 			_flash_cells(fx, ev.get("cells", []), Palette.DANGER)
 			ep._sfx("alert", -6.0)
@@ -111,16 +115,19 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 		"revealed":
 			if uv != null:
 				uv.visible = true
-				fx.floating_text(head.call(uv), "LURKER!", Palette.DANGER, 56)
+				var digger: bool = uv.kind in ["brood_mother", "burrower"]
+				if digger:   # they stay under the floor until their eruption beat lifts them
+					return {}
+				uv.set_sink(0.0)
+				fx.floating_text(head.call(uv), "LURKER!" if uv.kind == "lurker" else "REVEALED", Palette.DANGER, 56)
 				ep._focus(uv)
 			ep._sfx("alert")
 			return {"dur": 0.6}
-		"burrowed":
+		"burrowed":   # the dive itself (sinking, dust) is the "burrow" ability beat; this hides her for good
 			if uv != null:
-				fx.puff(uv.position + Vector3(0, 0.2, 0), Color(0.45, 0.4, 0.33), 1.0, 0.8, 0.3)
 				uv.visible = false
-			ep._sfx("concrete")
-			return {"dur": 0.5}
+				uv.set_sink(1.0)
+			return {}
 		"lock_lost":
 			if uv != null:
 				fx.floating_text(head.call(uv), "LOST THE SHOT", Color(0.8, 0.82, 0.8), 40)

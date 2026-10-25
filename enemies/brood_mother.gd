@@ -14,7 +14,7 @@ const SACS := {1: 1, 2: 2, 3: 3, 4: 4}              # sacs she starts with
 const SURFACE_SACS := {1: 0, 2: 1, 3: 1, 4: 2}      # sacs she keeps alive while burrowing
 const RELAY := 3               # turns before she re-lays a sac once every sac is dead (phase 1)
 const SAC_RUNNER_EVERY := {1: 8, 2: 6, 3: 5, 4: 4}   # turns between a sac's Runners
-const SURFACED_TURNS := 2      # her turns above ground before she dives again
+const SURFACED_TURNS := 3      # her turns above ground (the eruption turn included) before she dives again
 const BURROW_COOLDOWN := 2
 const MOBILITY := {2: 4, 3: 5}
 const OFFSETS: Array[Vector2i] = [Vector2i(-2, 0), Vector2i(2, 0), Vector2i(0, -2), Vector2i(0, 2)]
@@ -95,6 +95,7 @@ static func take_turn(s: GameState, u: Unit) -> void:
 			var sac := lay_sac(s, u, u.pos + Vector2i(0, 1), s.turn + 2)
 			s.emit({"type": "spawned", "unit": sac.id, "kind": sac.kind, "cell": sac.pos, "from": u.id})
 		return
+	var moved := false
 	for step in 4:
 		if u.actions_left <= 0 or not u.is_alive() or s.phase == Types.Phase.ENDED:
 			return
@@ -116,18 +117,19 @@ static func take_turn(s: GameState, u: Unit) -> void:
 				_act(s, EnemyAI._best_spit(s, u, hostiles).get("action", {}))
 				return
 			2:
-				if _claw_adjacent(s, u, hostiles):
-					return
 				if will_burrow(s, u):
 					var t := burrow_target(s, u, hostiles)
 					if t != null and _act(s, EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "burrow", "target": t.id})):
 						u.cooldowns["burrow_cd"] = BURROW_COOLDOWN
 						return
-				if _acid_rain(s, u, hostiles):
-					continue
-				if _act(s, EnemyAI._best_spit(s, u, hostiles).get("action", {})):
+				# Surfaced: close in, then claw. Acid rain only when she has no one to claw.
+				if _claw_adjacent(s, u, hostiles):
 					return
-				if _act(s, EnemyBehaviours.rush(s, u, hostiles, "claw")):
+				if not moved and u.actions_left >= 2:
+					moved = true
+					if _act(s, EnemyBehaviours.rush(s, u, hostiles, "claw")):
+						continue
+				if _acid_rain(s, u, hostiles):
 					continue
 				return
 			_:

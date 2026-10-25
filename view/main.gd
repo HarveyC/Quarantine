@@ -361,6 +361,10 @@ func unit_name(id: int) -> String:
 
 
 func _on_drained() -> void:
+	for u in state.living():   # nobody is left buried by a skipped beat
+		var bv := view_for(u.id)
+		if bv != null and not u.status.has("burrowed"):
+			bv.set_sink(0.0)
 	face_threats()
 	intents.refresh()
 	input.on_drained()
