@@ -44,7 +44,7 @@ const MUTATIONS := {
 	"rally_musk": {"name": "Rally Musk", "slot": "mutating", "active": true, "tag": "Guard", "targeting": "none", "actions": 1,
 		"desc": "Allies within 3 tiles get +1 movement and +10 aim this turn.", "drawback": "Each of them gains 3 Infection."},
 	"hive_hush": {"name": "Hive Hush", "slot": "mutating", "active": false, "tag": "Purge",
-		"desc": "Dormant infected enemies can't spot you beyond 4 tiles.", "drawback": "Medic Purge on you is half as effective."},
+		"desc": "Unaware Infected can't spot you beyond 4 tiles.", "drawback": "Medic Purge on you is half as effective."},
 	# --- Critical (75+): graft +20, actives cost 15
 	"rampage": {"name": "Rampage", "slot": "critical", "active": true, "tag": "Close", "targeting": "cell", "actions": 1,
 		"desc": "Move your full range and claw every enemy you pass next to.", "drawback": "You roll for a Lapse straight after."},

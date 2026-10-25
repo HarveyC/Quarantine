@@ -290,7 +290,7 @@ func _show_offer(r: Dictionary) -> void:
 	var offer := GearRun.offer_for(run, r.id)
 	var cards: Array = offer.get("cards", [])
 	if offer.get("source", "") == "kit":
-		_hint.text = "%s gives %s one order for the drop. It shapes their whole run." % [_player_name(run.controller_of(r)), UI.soldier_name(r)]
+		_hint.text = "%s gives %s one order for the drop." % [_player_name(run.controller_of(r)), UI.soldier_name(r)]
 	else:
 		_hint.text = "%s picks 1 of %d for %s" % [_player_name(run.controller_of(r)), cards.size(), UI.soldier_name(r)]
 	for i in cards.size():

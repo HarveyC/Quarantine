@@ -97,7 +97,7 @@ const MUTATIONS := {
 	"acid_spit": ["suppress", "Spit through cover and Suppress", [["3", "damage"], ["5", "tiles"]], "Infects allies near the target"],
 	"second_heart": ["health", "Stay up at 1 HP once", [["1", "per fight"]], "+15 Infection when it triggers"],
 	"rally_musk": ["squad", "Nearby allies move and aim better", [["+1", "move"], ["+10", "aim"]], "Each of them gains 3 Infection"],
-	"hive_hush": ["concealed", "Dormant infected can't spot you far", [["4", "tiles"]], "Purge on you is half as strong"],
+	"hive_hush": ["concealed", "Unaware Infected can't spot you far", [["4", "tiles"]], "Purge on you is half as strong"],
 	"rampage": ["lunge", "Run and claw everything you pass", [["1", "action"]], "Roll for a Lapse afterwards"],
 	"regenerator": ["health", "Heal every team phase", [["+3", "HP"]], "No Medic heals, +2 Infection a turn"],
 	"hollow_voice": ["stun", "Turn an infected enemy on its pack", [["1", "action"]], "Your Lapse chance doubles"],
