@@ -693,12 +693,15 @@ in an online match plays the same thing.
   crossfades music and the ambience bed (per act: The Wall, Port Ardent, The Bore). Combat music
   is synced stems (base, pulse, danger, bloom) whose volumes follow `Soundscape.combat_info(view)`:
   visible enemies, low HP, the enemy turn and squad Infection. Boss fights use the boss stems.
-  Stingers for contact, boss, win/lose, node arrival and spoils. `view/enemy_voices.gd` plays
+  Stingers for contact, boss, node arrival and spoils. Fight and run ends get outcome stingers
+  (`Soundscape.OUTCOMES`: win, boss win, failed objective, squad lost, run won, run lost) with
+  rotating variants; they play on the Stingers bus and duck the music and ambience under them,
+  and `Soundscape.outcome_left()` says how long the current one has left. `view/enemy_voices.gd` plays
   per-kind barks and death cries in 3D from the event player's beats. Every BaseButton gets
   hover/click sounds (set meta "silent" to opt out). Files in `audio/music`, `audio/amb`,
   `audio/vo`, `audio/ui` come from `tools/gen_music.py`.
 - **Buses** (`default_bus_layout.tres`): Master > Music (ducks under Weapons), Ambience,
-  SFX > Weapons, Voices, and UI. The Sound panel (`ui/audio_settings.gd`, F10 or the title
+  SFX > Weapons, Voices, UI, and Stingers (follows the Music slider, not ducked by gunfire). The Sound panel (`ui/audio_settings.gd`, F10 or the title
   screen) saves per-bus volume to `user://audio.cfg`.
 - **Look**: environment and lights in `MissionView._build_environment`, set dressing in `Board`,
   vignette and grain in `view/post_fx.gd`.
