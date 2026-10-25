@@ -497,6 +497,16 @@ func test_infection_growths_follow_tier() -> void:
 	v.free()
 
 
+func test_squad_faces_into_map_at_spawn() -> void:
+	var v: MissionView = MAIN.instantiate()   # fog on, seed 4: no soldier sees an enemy yet
+	v.start(MissionView.default_mission(4, "skirmish", "wall"))
+	v.player.flush()
+	var heading := MissionView.spawn_heading(v.state).normalized()
+	for u in v.state.living(Types.Team.PLAYER):
+		assert_true(v.view_for(u.id).facing().dot(heading) > 0.95, "%s faces into the map" % u.display_name)
+	v.free()
+
+
 func test_units_face_nearest_threat() -> void:
 	var s := MissionView.default_mission(1234)
 	Vision.disable(s)   # with fog on, soldiers only turn toward enemies they can see
