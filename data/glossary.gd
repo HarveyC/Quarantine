@@ -317,6 +317,11 @@ static func _build() -> Dictionary:
 		"more": ["Bosses and nests can't be stunned; a flashbang only Suppresses them."],
 		"see": ["suppress"],
 		"aliases": ["Stun", "Stuns", "Flashbang"]}
+	t["bleeding"] = {"name": "Bleeding", "kind": "status", "icon": "wound", "tone": "danger",
+		"line": "Loses 1 HP at the start of each of its turns until the wound closes.",
+		"art": "",
+		"stats": [["1", "HP a turn"], ["%d" % ClassAbilities.BLEED_TURNS, "turns"]],
+		"see": []}
 	t["pinned"] = {"name": "Pinned", "kind": "status", "icon": "pinned", "tone": "danger",
 		"line": "A Lurker has the soldier down: no actions until it lets go, and it mauls every turn.",
 		"art": "",
