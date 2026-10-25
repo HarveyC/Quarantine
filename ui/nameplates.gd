@@ -77,7 +77,17 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 		line = Styles.AMBER if targeted else col
 	f.set_look(Color(0.034, 0.05, 0.08, 0.86), line, Styles.AMBER, false)
 	var row := Styles.hbox(5)
-	f.add_child(row)
+	# What the enemy does next (IntentOverlay) heads its own plate, so tags never pile up apart.
+	var intent: Array = view.intents.labels.get(uv.unit_id, []) if view.intents != null else []
+	if intent.is_empty():
+		f.add_child(row)
+	else:
+		var stack := Styles.vbox(1)
+		f.add_child(stack)
+		var tag := Styles.caps(str(intent[0]), 13, intent[1])
+		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		stack.add_child(tag)
+		stack.add_child(row)
 	var ic := W.Icon.new(Icons.for_class(uv.kind) if uv.is_soldier else "enemy", col, 15.0, 2.0)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(ic)

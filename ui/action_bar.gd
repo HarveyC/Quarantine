@@ -264,7 +264,9 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 	ic.position = (Vector2(px, px) - Vector2(ip, ip)) * 0.5
 	b.add_child(ic)
 	# The name sits under the button, outside the circle, so long names never clip.
-	var l := Styles.bold(_short(label), 12, fg if not active else Styles.AMBER)
+	# Captions stay readable when the button is greyed out (the circle already says "can't").
+	var cap := Styles.AMBER if active else (Color(Styles.TEXT, 0.6) if b.disabled and not mutation else Color(fg, 1.0))
+	var l := Styles.bold(_short(label), 14, cap)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_constant_override("outline_size", 6)
 	l.add_theme_color_override("font_outline_color", Color(Styles.GROUND, 0.85))

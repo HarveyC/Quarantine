@@ -37,7 +37,7 @@ func test_enemy_fights_play_through_the_view() -> void:
 			if v.state.phase == Types.Phase.ENDED:
 				break
 			v.intents.refresh()
-			drew = drew or v.intents.get_child_count() > 0
+			drew = drew or v.intents.get_child_count() > 0 or not v.intents.labels.is_empty()
 			for p in v.state.players:
 				Rules.set_ready(v.state, p, true)
 			_drain(v)

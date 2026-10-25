@@ -47,13 +47,65 @@ static var _shown: Grid
 const RAISE := 1.2
 
 
+## Steps drawn on a stair cell; each one is RAISE / STAIR_STEPS tall and 1 / STAIR_STEPS deep.
+const STAIR_STEPS := 4
+
+
 static func cell_to_world(c: Vector2i, y := 0.0) -> Vector3:
-	return Vector3(c.x, y + lift(c), c.y)
+	return Vector3(c.x, y + stand(c), c.y)
 
 
-## World height of a cell's floor.
+## World height of a cell's floor (on stairs and ramps, the bottom they rise from).
 static func lift(c: Vector2i) -> float:
 	return RAISE * _shown.level(c) if _shown != null else 0.0
+
+
+## World height a unit stands at in the middle of a cell: the floor, or the step under the
+## centre of stairs and rubble ramps.
+static func stand(c: Vector2i) -> float:
+	return surface(Vector2(c.x, c.y))
+
+
+## A point `t` (0..1) of the way along a one-cell move from `a` to `b`. Moves on and off stairs
+## and ramps follow the steps; every other move (a ladder climb, a drop) slides straight.
+static func walk_point(a: Vector2i, b: Vector2i, t: float) -> Vector3:
+	var p := cell_to_world(a).lerp(cell_to_world(b), t)
+	if _shown != null and (_shown.is_stairs(a) or _shown.is_stairs(b)) and absi(_shown.level(a) - _shown.level(b)) <= 1:
+		p.y = surface(Vector2(p.x, p.z))
+	return p
+
+
+## Which way a stair or ramp cell climbs: towards its first walkable neighbour one level up
+## (the same one _add_stairs and _add_ramp build towards). ZERO for every other cell.
+static func stair_dir(c: Vector2i) -> Vector2i:
+	if _shown == null or not _shown.is_stairs(c):
+		return Vector2i.ZERO
+	for d in Grid.DIRS4:
+		var n: Vector2i = c + d
+		if _shown.in_bounds(n) and _shown.level(n) == _shown.level(c) + 1 and _shown.is_walkable(n):
+			return d
+	return Vector2i.ZERO
+
+
+## World height of the walkable surface at a ground-plane point (x, z): the top of the step
+## under it on stairs, the slab on a rubble ramp, the floor anywhere else.
+static func surface(p: Vector2) -> float:
+	var c := Vector2i(roundi(p.x), roundi(p.y))
+	var base := lift(c)
+	var d := stair_dir(c)
+	if d == Vector2i.ZERO:
+		return base
+	# 0 at the low edge of the cell, 1 at the edge against the level above
+	var u := clampf((p - Vector2(c)).dot(Vector2(d)) + 0.5, 0.0, 1.0)
+	if _shown.rubble.get(c, "") == "roof":
+		return base + 0.08 + (RAISE - 0.08) * u
+	var step := clampi(floori(u * STAIR_STEPS) + 1, 1, STAIR_STEPS)
+	return base + RAISE * float(step) / STAIR_STEPS
+
+
+## The grid on show, or null before a board is built (the lineup).
+static func shown() -> Grid:
+	return _shown
 
 
 static func world_to_cell(p: Vector3) -> Vector2i:
@@ -224,7 +276,7 @@ func _build_tiles() -> void:
 			elif grid.level(c) > 0:
 				top_mat = deck_mat
 			var tile := Palette.box(Vector3(0.97, 0.2, 0.97), top_mat)
-			tile.position = cell_to_world(c, -0.1)
+			tile.position = Vector3(c.x, lift(c) - 0.1, c.y)
 			_tiles.add_child(tile)
 			if grid.is_fragile(c):
 				_add_scaffold(c, h, pole_mat, tarp_mat, lip_mat)
@@ -259,6 +311,8 @@ func _build_tiles() -> void:
 				_:
 					if broke != "" and broke != "roof":
 						_add_debris(c, h, broke, rubble, plank_mat, scorch_mat)
+					elif grid.is_stairs(c):
+						pass   # nothing loose on the steps: it would float over the lower ones
 					elif h % look.goo_every == 0:
 						_add_goo(c, h, goo_mat, goo_lights < GameSettings.puddle_lights())
 						goo_lights += 1
@@ -647,24 +701,21 @@ func _add_scaffold(c: Vector2i, h: int, pole: Material, tarp: Material, trim: Ma
 
 ## Stairs on a cell, rising towards the higher neighbour(s) they lead to.
 func _add_stairs(c: Vector2i, m: Material, trim: Material) -> void:
-	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		var n: Vector2i = c + d
-		if not grid.in_bounds(n) or grid.level(n) != grid.level(c) + 1 or not grid.is_walkable(n):
-			continue
-		var base := lift(c)
-		var out := Vector3(d.x, 0, d.y)
-		var along := Vector3(absf(d.y), 0, absf(d.x))
-		const STEPS := 4
-		for i in STEPS:
-			var hgt := RAISE * float(i + 1) / STEPS
-			var depth := 1.0 / STEPS
-			var step := Palette.box(along * 0.8 + out.abs() * depth + Vector3(0, hgt, 0), m)
-			step.position = Vector3(c.x, base + hgt * 0.5, c.y) + out * (-0.5 + depth * (i + 0.5))
-			_tiles.add_child(step)
-			var nose := Palette.box(along * 0.8 + Vector3(0.02, 0.02, 0.02), trim)
-			nose.position = Vector3(c.x, base + hgt + 0.01, c.y) + out * (-0.5 + depth * i)
-			_tiles.add_child(nose)
+	var d := stair_dir(c)
+	if d == Vector2i.ZERO:
 		return
+	var base := lift(c)
+	var out := Vector3(d.x, 0, d.y)
+	var along := Vector3(absf(d.y), 0, absf(d.x))
+	for i in STAIR_STEPS:
+		var hgt := RAISE * float(i + 1) / STAIR_STEPS
+		var depth := 1.0 / STAIR_STEPS
+		var step := Palette.box(along * 0.8 + out.abs() * depth + Vector3(0, hgt, 0), m)
+		step.position = Vector3(c.x, base + hgt * 0.5, c.y) + out * (-0.5 + depth * (i + 0.5))
+		_tiles.add_child(step)
+		var nose := Palette.box(along * 0.8 + Vector3(0.02, 0.02, 0.02), trim)
+		nose.position = Vector3(c.x, base + hgt + 0.01, c.y) + out * (-0.5 + depth * i)
+		_tiles.add_child(nose)
 
 
 ## A ladder on a ground cell, against the raised neighbour(s) it climbs to.
@@ -897,24 +948,22 @@ func _add_cracks(c: Vector2i, h: int, height: float, m: Material, top: bool) -> 
 ## A collapsed roof cell: a slope of broken slabs from its new floor up to the level above,
 ## walkable like stairs (Destruction makes it a ramp).
 func _add_ramp(c: Vector2i, h: int, m: Material) -> void:
-	for d in Grid.DIRS4:
-		var n: Vector2i = c + d
-		if not grid.in_bounds(n) or grid.level(n) != grid.level(c) + 1 or not grid.is_walkable(n):
-			continue
-		var base := lift(c)
-		var out := Vector3(d.x, 0, d.y)
-		var along := Vector3(absf(d.y), 0, absf(d.x))
-		var slab := Palette.box(along * 0.95 + out.abs() * 1.25 + Vector3(0, 0.16, 0), m)
-		slab.position = Vector3(c.x, base + RAISE * 0.45, c.y) + out * 0.02
-		slab.rotate(along, atan2(RAISE, 1.0) * (d.x - d.y))   # high end towards the roof
-		_tiles.add_child(slab)
-		for i in 4:
-			var k := float((h >> (i * 3)) % 8) / 8.0
-			var chunk := Palette.box(Vector3(0.22, 0.16, 0.2) * (0.8 + k), m)
-			chunk.position = Vector3(c.x, base + 0.1 + k * 0.4, c.y) + along * (k - 0.5) * 0.7 + out * (-0.35 + i * 0.2)
-			chunk.rotation = Vector3(k, k * 4.0, 0.3)
-			_tiles.add_child(chunk)
+	var d := stair_dir(c)
+	if d == Vector2i.ZERO:
 		return
+	var base := lift(c)
+	var out := Vector3(d.x, 0, d.y)
+	var along := Vector3(absf(d.y), 0, absf(d.x))
+	var slab := Palette.box(along * 0.95 + out.abs() * 1.25 + Vector3(0, 0.16, 0), m)
+	slab.position = Vector3(c.x, base + RAISE * 0.45, c.y) + out * 0.02
+	slab.rotate(along, atan2(RAISE, 1.0) * (d.x - d.y))   # high end towards the roof
+	_tiles.add_child(slab)
+	for i in 4:
+		var k := float((h >> (i * 3)) % 8) / 8.0
+		var chunk := Palette.box(Vector3(0.22, 0.16, 0.2) * (0.8 + k), m)
+		chunk.position = Vector3(c.x, base + 0.1 + k * 0.4, c.y) + along * (k - 0.5) * 0.7 + out * (-0.35 + i * 0.2)
+		chunk.rotation = Vector3(k, k * 4.0, 0.3)
+		_tiles.add_child(chunk)
 
 
 func _add_rubble(c: Vector2i, h: int, m: Material) -> void:

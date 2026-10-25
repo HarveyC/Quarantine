@@ -94,6 +94,13 @@ var _hit_dir := Vector3.ZERO
 var _lunge := 0.0
 var _crouch := 0.0
 var _death := 0.0
+# fitting the body to stairs and ramps under its feet (see _fit_ground)
+var _feet: Array[Vector3] = []   # foot points in the body's frame, before it turns
+var _crawler := false            # many-legged (Lurker, Burrower): tilts with the slope
+var _fit_off := 0.0
+var _fit_pitch := 0.0
+var _fit_roll := 0.0
+var _fit_snap := true
 
 
 func build(u: Unit) -> void:
@@ -256,6 +263,7 @@ func label() -> String:
 func set_cell(c: Vector2i) -> void:
 	cell = c
 	position = Board.cell_to_world(c)
+	_fit_snap = true
 
 
 ## Turns the body to face `world`: smoothly in `tick`, or at once with `instant`.
@@ -480,6 +488,7 @@ func tick(delta: float) -> void:
 		_sac.scale = Vector3(s, s * 0.95, s)
 	if _glow != null and _glow.visible and not soldier_body:
 		_glow.light_energy = _enemy_glow() * (0.8 + 0.2 * sin(_time * 4.0 + unit_id))
+	_fit_ground(delta)
 	if _skin != null:
 		_animate_skinned(delta)
 	elif _prop != null:
@@ -510,6 +519,122 @@ func _animate_skinned(delta: float) -> void:
 	_skin.advance(delta, _aim, _recoil)
 	var local_hit := _body.basis.inverse() * _hit_dir if _hit > 0.0 else Vector3.ZERO
 	_rig.position = local_hit * 0.22 * _hit + Vector3(0, 0, 1) * _lunge * 0.35
+
+
+## Keeps every foot on top of the stairs and rubble ramps it stands over, so bodies don't
+## sink into the steps: lifts the body to clear the highest step under its footprint, and
+## tilts many-legged bodies (whose legs reach into the next cells) along the slope. Only
+## stairs move anything: on flat floors, roofs and ladders the body stays where it is put.
+func _fit_ground(delta: float) -> void:
+	var g := Board.shown()
+	if g == null or _model == null:
+		return
+	if _feet.is_empty():
+		_measure_feet()
+	var turn := Basis(Vector3.UP, _body.rotation.y)
+	var at: Array[Vector2] = []
+	var stairs := {}   # levels of the stairs under the body or any foot
+	if Board.stair_dir(cell_at()) != Vector2i.ZERO:
+		stairs[g.level(cell_at())] = true
+	for f in _feet:
+		var w := position + transform.basis * (turn * f)
+		var p := Vector2(w.x, w.z)
+		at.append(p)
+		var c := Vector2i(roundi(p.x), roundi(p.y))
+		if Board.stair_dir(c) != Vector2i.ZERO:
+			stairs[g.level(c)] = true
+	var tilt := Vector2.ZERO
+	if _crawler and not stairs.is_empty():
+		tilt = _slope(_heights(g, at, stairs))
+	var k := 1.0 if _fit_snap else 1.0 - exp(-delta * 14.0)
+	_fit_snap = false
+	_fit_pitch = lerpf(_fit_pitch, tilt.x, k)
+	_fit_roll = lerpf(_fit_roll, tilt.y, k)
+	var off := 0.0
+	if not stairs.is_empty():
+		# tilted, the feet land a little closer in: measure where they really are
+		var r := Basis.from_euler(Vector3(_fit_pitch, 0.0, _fit_roll))
+		var lean: Array[Vector2] = []
+		for f in _feet:
+			var w := position + transform.basis * (turn * (r * f))
+			lean.append(Vector2(w.x, w.z))
+		var hs := _heights(g, lean, stairs)
+		off = -INF
+		for i in _feet.size():
+			if not is_nan(hs[i]):
+				off = maxf(off, hs[i] - position.y - scale.y * (r * _feet[i]).y)
+		off = 0.0 if off == -INF else off / maxf(scale.y, 0.01)
+	var next := lerpf(_fit_off, off, k)
+	_body.position.y += next - _fit_off   # on top of any hover the body was given
+	_fit_off = next
+	_body.rotation.x = _fit_pitch
+	_body.rotation.z = _fit_roll
+
+
+## Surface height under each ground point; NAN for feet over cells the stairs don't join (a
+## wall, a drop), which are left hanging. `stairs` holds the levels of the stairs underfoot.
+func _heights(g: Grid, at: Array[Vector2], stairs: Dictionary) -> Array:
+	var hs: Array = []
+	for p in at:
+		var c := Vector2i(roundi(p.x), roundi(p.y))
+		var lv := g.level(c)
+		var ok := Board.stair_dir(c) != Vector2i.ZERO or (g.is_walkable(c) and (stairs.has(lv) or stairs.has(lv - 1)))
+		hs.append(Board.surface(p) if ok else NAN)
+	return hs
+
+
+## The cell under the body right now (mid-walk too, unlike `cell`).
+func cell_at() -> Vector2i:
+	return Vector2i(roundi(position.x), roundi(position.z))
+
+
+## Pitch and roll (radians, x and y) of the plane through the feet heights `hs` (NAN = skip).
+func _slope(hs: Array) -> Vector2:
+	var n := 0
+	var mean := Vector3.ZERO   # lateral, height, forward
+	for i in _feet.size():
+		if not is_nan(hs[i]):
+			mean += Vector3(_feet[i].x * scale.x, hs[i], _feet[i].z * scale.z)
+			n += 1
+	if n < 3:
+		return Vector2.ZERO
+	mean /= n
+	var sxx := 0.0
+	var sxh := 0.0
+	var szz := 0.0
+	var szh := 0.0
+	for i in _feet.size():
+		if not is_nan(hs[i]):
+			var x := _feet[i].x * scale.x - mean.x
+			var z := _feet[i].z * scale.z - mean.z
+			var dh: float = hs[i] - mean.y
+			sxx += x * x
+			sxh += x * dh
+			szz += z * z
+			szh += z * dh
+	var grade := szh / szz if szz > 0.01 else 0.0   # rise per unit forward
+	var side := sxh / sxx if sxx > 0.01 else 0.0
+	return Vector2(clampf(-atan(grade), -0.6, 0.6), clampf(atan(side), -0.6, 0.6))
+
+
+## Foot points in the body's frame: the leg tips of many-legged rigs, else a small stance.
+func _measure_feet() -> void:
+	if _skin != null:
+		for b in _skin.skel.get_bone_count():
+			var bone := _skin.skel.get_bone_name(b)
+			if bone.contains("Foot"):
+				var p := _skin.bone_pose(bone).origin
+				var n: Node = _skin.skel
+				while n != null and n != _body:
+					p = (n as Node3D).transform * p
+					n = n.get_parent()
+				_feet.append(Vector3(p.x, 0.0, p.z))
+	_crawler = _feet.size() >= 6
+	if not _crawler:
+		_feet.clear()
+		var s := MODEL_SCALE * ModelKit.size_of(kind)
+		for f in [Vector3(-0.14, 0, 0.17), Vector3(0.14, 0, 0.17), Vector3(-0.14, 0, -0.13), Vector3(0.14, 0, -0.13)]:
+			_feet.append(f * s)
 
 
 func _apply_flash() -> void:
