@@ -53,6 +53,51 @@ class Pips extends Control:
 				Draw.capsule(self, r, color)
 
 
+## HP pips in the XCOM 2 style: one pip per HP, wrapping into rows of PER_ROW with a wider gap
+## after every GROUP, so a 22 HP soldier is two short rows and a 40 HP boss four, never a ruler.
+## Same values and preview ranges as Pips.
+class HpPips extends Pips:
+	const PER_ROW := 10
+	const GROUP := 5
+	var row_gap := 2.0
+
+	func _init(seg_size := Vector2(7, 4), pip_gap := 2.0) -> void:
+		super(seg_size)
+		gap = pip_gap
+		row_gap = maxf(2.0, seg_size.y * 0.5)
+
+	static func rows_for(max_hp: int) -> int:
+		return maxi(1, ceili(max_hp / float(PER_ROW)))
+
+	func _group_gap() -> float:
+		return gap + maxf(2.0, seg.x * 0.4)
+
+	func _pip_x(i: int) -> float:
+		var k := i % PER_ROW
+		return k * (seg.x + gap) + (_group_gap() - gap if k >= GROUP else 0.0)
+
+	func set_values(c: int, f: int, l := 0, col := Styles.HP, g := 0) -> void:
+		super(c, f, l, col, g)
+		var cols := mini(count, PER_ROW)
+		var rows := rows_for(count)
+		custom_minimum_size = Vector2(_pip_x(cols - 1) + seg.x if cols > 0 else 0.0, rows * seg.y + (rows - 1) * row_gap)
+
+	func _draw() -> void:
+		var y0 := (size.y - custom_minimum_size.y) * 0.5
+		for i in count:
+			var r := Rect2(_pip_x(i), y0 + int(i / PER_ROW) * (seg.y + row_gap), seg.x, seg.y)
+			if i >= filled + gain:
+				Draw.capsule(self, r, off)
+			elif i >= filled:
+				Draw.capsule(self, r, Color(color, 0.28))
+				Draw.capsule(self, r.grow(-1.2), Color(color, 0.5))
+			elif i >= filled - lose:
+				Draw.capsule(self, r, Color(Styles.DANGER, 0.3))
+				Draw.capsule(self, r.grow(-1.2), Color(Styles.DANGER, 0.55))
+			else:
+				Draw.capsule(self, r, color)
+
+
 ## Action points as small glowing lantern orbs (the class keeps its old name).
 class Diamonds extends Control:
 	var total := 2

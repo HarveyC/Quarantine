@@ -421,7 +421,7 @@ func show_tooltip(uv: UnitView) -> void:
 	var kind_name: String = UnitData.SOLDIERS.get(uv.kind, UnitData.ENEMIES.get(uv.kind, {})).get("name", uv.kind.capitalize())
 	sub.add_child(Styles.label("%s · HP %d/%d" % [kind_name, uv.hp, uv.max_hp], 13, Styles.DIM))
 	sub.add_child(Styles.spacer())
-	var hp := W.Pips.new(Vector2(9, 5))
+	var hp := W.HpPips.new(Vector2(9, 5), 3.0)
 	hp.set_values(uv.max_hp, uv.hp, 0, Styles.HP if uv.is_soldier else Styles.DANGER)
 	hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	sub.add_child(hp)
