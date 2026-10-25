@@ -1,7 +1,9 @@
 extends RefCounted
 ## Finds text the player can't fully read: labels and buttons whose text is wider than they
 ## are (cut or "..."), wrapped text with lines past the bottom, rich text taller than its box,
-## and text that sits off screen or spills out of the panel or clipping box around it.
+## and text that sits off screen or spills out of the panel or clipping box around it. Also
+## buttons whose glow (StyleBoxFlat shadow) a clipping or scroll box cuts off while the button
+## itself is in full view.
 ## Used by tools/shot_ui.gd (`report`) and tests/test_ui_overflow.gd.
 ##   var problems := UiOverflow.scan(root)   # -> ["<path>: <what>", ...]
 ## Text inside a ScrollContainer is only checked against the scroll box's width, since the
@@ -25,6 +27,8 @@ static func scan(root: Node) -> PackedStringArray:
 		if ctl.modulate.a < 0.05 or _faded(ctl):
 			continue
 		var what := _check(ctl, view)
+		if what == "" and ctl is Button:
+			what = _glow_cut(ctl as Button)
 		if what != "":
 			var t := _text(ctl) if _text(ctl) != "" else "(icon button)"
 			out.append("%s \"%s\": %s" % [_short_path(ctl), t.left(40).replace("\n", " "), what])
@@ -92,6 +96,29 @@ static func _cut(ctl: Control) -> String:
 			var h := t.get_content_height()
 			if h > t.size.y + SLACK:
 				return "text needs %dpx tall, has %dpx" % [h, t.size.y]
+	return ""
+
+
+## A lit button whose glow the nearest clipping box cuts, while the button itself fits in it.
+static func _glow_cut(b: Button) -> String:
+	if _skipped(b, "spill_ok"):
+		return ""
+	var sb := b.get_theme_stylebox("pressed" if b.button_pressed else "normal") as StyleBoxFlat
+	if sb == null or sb.shadow_size <= 0 or sb.shadow_color.a <= 0.0:
+		return ""
+	var p := b.get_parent()
+	while p != null and not (p is CanvasLayer or p is Window):
+		if p is Control and ((p as Control).clip_contents or p is ScrollContainer):
+			var box := (p as Control).get_global_rect()
+			var r := b.get_global_rect()
+			if not _inside(r, box):
+				return ""
+			var glow := r.grow(sb.shadow_size)
+			glow.position += sb.shadow_offset
+			if not _inside(glow, box):
+				return "glow cut off by %s (%s in %s)" % [_short_path(p), _rect_str(glow), _rect_str(box)]
+			return ""
+		p = p.get_parent()
 	return ""
 
 
