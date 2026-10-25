@@ -6,7 +6,8 @@ extends RefCounted
 ## intents(s) -> Array of {unit, icon, label, target (unit id or -1), affixes: Array[String]}
 ##   icon: "claw" | "shoot" | "spit" | "burst" | "charge" | "scream" | "spawn" | "strike" | "leap" | "snipe" | "drop" |
 ##         "pull" | "pulse" | "hide" | "seek" | "dormant" | "pinning"
-## dangers(s) -> Array of {kind, cells: Array[Vector2i], unit, turn}: tiles that get hit next
+## dangers(s) -> Array of {kind, cells: Array[Vector2i], unit, turn}: tiles that get hit next (kind "trail" is the
+##   line a burrowed enemy digs along, drawn as dirt rather than red)
 ##   enemy phase (bursts, charges, airstrikes, core slams). Paint them red.
 ## Spore zones are Hazards tiles, drawn by the Board. incoming(s) -> vent cells glowing for a wave.
 ## tethers(s) -> Array of [shield id, shielded id] pairs to draw as threads.
@@ -100,6 +101,7 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 			out.append({"kind": "leap", "cells": EnemyAbilities.square(s.grid, u.status.leap_cell, 1), "unit": u.id, "turn": s.turn})
 		if u.status.has("emerge_cell"):
 			out.append({"kind": "erupt", "cells": EnemyAbilities.square(s.grid, u.status.emerge_cell, 1), "unit": u.id, "turn": s.turn})
+			out.append({"kind": "trail", "cells": u.status.get("trail", []), "unit": u.id, "turn": s.turn})
 		if u.status.has("sighted"):
 			var t := s.get_unit(int(u.status.sighted))
 			if t != null and t.is_alive():

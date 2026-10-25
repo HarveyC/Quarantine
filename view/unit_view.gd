@@ -55,6 +55,9 @@ var tags := {}
 var grafts := {}
 
 var _body: Node3D        # yaw only
+const SINK_DEPTH := 2.8   # how far below the floor a burrowed body goes
+var _sink := 0.0          # 0 on the ground, 1 fully underground (burrowing enemies)
+var _sink_applied := 0.0
 var _rig: Node3D         # bob, lean, knockback, lunge
 var _model: Node3D
 var _muzzle: Node3D      # props: where spores leave
@@ -280,6 +283,18 @@ func label() -> String:
 	if is_soldier and owner_player >= 0:
 		return "%s (P%d)" % [display_name, owner_player + 1]
 	return display_name
+
+
+## Sinks the body into the floor (1 = fully underground) or lifts it back out (0).
+func set_sink(f: float) -> void:
+	_sink = clampf(f, 0.0, 1.0)
+	_apply_sink()
+
+
+func _apply_sink() -> void:
+	var want := -_sink * SINK_DEPTH
+	_body.position.y += want - _sink_applied
+	_sink_applied = want
 
 
 func set_cell(c: Vector2i) -> void:
@@ -536,6 +551,8 @@ func tick(delta: float) -> void:
 	if _glow != null and _glow.visible and not soldier_body:
 		_glow.light_energy = _enemy_glow() * (0.8 + 0.2 * sin(_time * 4.0 + unit_id))
 	_fit_ground(delta)
+	if _sink_applied != -_sink * SINK_DEPTH:
+		_apply_sink()
 	if _skin != null:
 		_animate_skinned(delta)
 	elif _prop != null:
