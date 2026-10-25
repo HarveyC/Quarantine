@@ -127,7 +127,7 @@ const STATIC_EVERY := 4
 ## The Source speaks to a soldier who reaches Mutating or Critical. Only that soldier's player
 ## sees it.
 const WHISPERS := {
-	2: ["I can feel you, {name}.", "You were cold. You're not cold now.", "Use it. Use all of it."],
+	2: ["I can feel you, {name}.", "You're burning up, {name}. That's me.", "Use it. Use all of it."],
 	3: ["Come down to me, {name}.", "They will burn you too, when this is over.", "You're nearly home."],
 }
 
