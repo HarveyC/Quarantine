@@ -86,6 +86,7 @@ func test_gun_keeps_the_old_one_as_a_spare() -> void:
 	var r := _trooper(run)
 	if r.kind != "trooper":
 		return
+	Loadout.unlock_primary(r)   # runs start on the sidearm; this is a soldier who has found their class gun
 	var d := GearCompare.compare(run, r, {"kind": "gun", "id": "battle_rifle"})
 	assert_eq(d.swaps[0].fate, "spare", "old gun kept")
 	assert_eq(d.swaps[0].old.id, Weapons.id_for("trooper"), "the signature gun is in hand now")
