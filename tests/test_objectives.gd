@@ -314,6 +314,17 @@ func test_escort_courier_walks_with_the_squad_and_wins_at_evac() -> void:
 	assert_eq(s.result, Types.Result.VICTORY, "courier at evac wins")
 
 
+func test_ending_the_turn_runs_one_enemy_phase_while_civilians_move() -> void:
+	for kind in ["escort", "rescue"]:
+		var s := _mission(kind)
+		var turn := s.turn
+		var phases := func() -> int: return s.log.filter(func(e: Dictionary) -> bool: return e.type == "enemy_phase").size()
+		var before: int = phases.call()
+		_end_round(s)
+		assert_eq(phases.call() - before, 1, "%s: one enemy phase per ended turn" % kind)
+		assert_eq(s.turn, turn + 1, "%s: one turn passes" % kind)
+
+
 func test_escort_is_lost_when_the_courier_dies() -> void:
 	var s := _mission("escort")
 	var c := Objectives.courier(s)

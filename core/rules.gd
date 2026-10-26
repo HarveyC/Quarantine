@@ -214,9 +214,15 @@ static func _auto_ready(s: GameState) -> void:
 			s.ready[p] = true
 			s.emit({"type": "ready", "player": p, "ready": true, "auto": true})
 	if s.players.all(func(p): return s.ready.get(p, false)):
+		# Objectives move their civilians through Rules.apply, which calls _auto_ready again: without
+		# this guard that re-ran the whole end of turn (and the enemy phase) once per move.
+		if s.settling:
+			return
+		s.settling = true
 		Hazards.on_team_phase_end(s)
 		Objectives.on_team_phase_end(s)
 		check_end(s)
+		s.settling = false
 		if s.phase != Types.Phase.ENDED:
 			run_enemy_phase(s)
 
