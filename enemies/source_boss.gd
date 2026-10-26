@@ -12,7 +12,7 @@ extends RefCounted
 ## Encounter, EnemyBehaviours and FightBuilder call in here. OWNER: enemies workstream.
 
 ## Boss HP as a share of its 30, by squad size (FightBuilder, instead of SQUAD_BOSS_HEALTH).
-const HEALTH := {1: 0.22, 2: 0.55, 3: 0.9, 4: 1.3}
+const HEALTH := {1: 0.22, 2: 0.55, 3: 0.9, 4: 1.0}
 const LASH := {1: 1, 2: 1, 3: 2, 4: 2}               # lashes per turn while the roots are up
 const LASH_DAMAGE := 3
 const REGROW := {1: 1, 2: 1, 3: 2, 4: 2}             # roots it regrows in the collapse
