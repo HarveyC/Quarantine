@@ -376,6 +376,7 @@ static func _charge(s: GameState, u: Unit) -> void:
 		if not u.is_alive() or s.phase == Types.Phase.ENDED:
 			return
 	if not path.is_empty():
+		Rules.open_doors_along(s, from, path, u)
 		u.pos = path[-1]
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": path})
 		if u.kind == "colonel_hale":   # the Brute's run shakes every roof along its lane down
@@ -663,6 +664,7 @@ static func _pounce(s: GameState, u: Unit, t: Unit) -> void:
 		var cell := pounce_cell(s, u, t)
 		var path := s.grid.find_path(u.pos, cell, s.occupied(u.id))
 		var from := u.pos
+		Rules.open_doors_along(s, from, path, u)
 		u.pos = cell
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": path})
 	Encounter.reveal(s, u)

@@ -29,7 +29,7 @@ static func solid_top(grid: Grid, p: Vector3) -> float:
 	var fz := p.z - c.y
 	for d in Grid.DIRS4:
 		var near := (fx * d.x + fz * d.y) > 0.5 - EDGE_HALF
-		if near and grid.edge(c, d) in [Grid.EDGE_WALL, Grid.EDGE_WINDOW, Grid.EDGE_DOOR]:
+		if near and grid.edge(c, d) in [Grid.EDGE_WALL, Grid.EDGE_WINDOW, Grid.EDGE_DOOR, Grid.EDGE_CLOSED]:
 			return Board.RAISE * grid.edge_top(c, d) - Board.RAISE + EDGE_TOP
 	match grid.tile(c):
 		Types.Tile.WALL: return floor_y + WALL_TOP

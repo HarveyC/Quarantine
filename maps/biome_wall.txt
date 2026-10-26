@@ -29,6 +29,8 @@
 ;     + +d+-+ +        space  nothing
 ;      . . . .
 ;     ...
+; Capital D is a shut door: it blocks sight and costs 1 extra move to open; the first
+; unit through opens it for good (it becomes d). Compound parcels use it on their street doors.
 ; The outer ring is the parcel's rim (shared with the next parcel or lane). Rooms need a doorway
 ; or a window, and no doorway should open onto a crate. Use edge walls for buildings, rooms,
 ; blast walls (T-walls) and railings on roofs; keep full '#' tiles for solid mass (containers,
@@ -873,7 +875,7 @@ FFDFT
 |. .|. =|
 + + + + +
 |. .|. .|
-+-+d+-+d+
++-+D+-+D+
 
 @compound mess_hall
 +o+-+-+-+
@@ -884,13 +886,13 @@ FFDFT
 |. = = . 
 + + + + +
 |. . . . 
-+-+-+d+o+
++-+-+D+o+
 
 @compound clinic_tent
 +-+-+o+-+
 |. . . .|
 + + + + +
-d. . . .|
+D. . . .|
 +-+d+-+-+
  = . . . 
 + + + + +
@@ -914,20 +916,20 @@ d. . . .|
 + + + + +
 o. . = .|
 + + + + +
-|. . . .d
+|. . . .D
 + + + + +
 |= . . .|
 +-+-+o+-+
 
 @compound ward_pair
 +-+-+-+-+
-|. .|. .d
+|. .|. .D
 + + + + +
 |. . = .|
 +-+d+-+-+
 |. = . .|
 + + + + +
-d. .|. .|
+D. .|. .|
 +-+-+-+-+
 
 @roofline wall_stair_deck
