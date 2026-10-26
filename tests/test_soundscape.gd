@@ -3,6 +3,7 @@ extends TestCase
 
 const Soundscape := preload("res://view/soundscape.gd")
 const EnemyVoices := preload("res://view/enemy_voices.gd")
+const GunFeel := preload("res://view/gun_feel.gd")
 
 
 func test_music_and_ambience_files_exist() -> void:
@@ -41,6 +42,26 @@ func test_every_enemy_has_a_voice() -> void:
 			continue
 		assert_true(ResourceLoader.exists(path), "bark for %s" % kind)
 		assert_true(ResourceLoader.exists(EnemyVoices.voice_for(kind, true)), "death cry for %s" % kind)
+
+
+func test_every_enemy_has_pain_cries() -> void:
+	for kind in UnitData.ENEMIES:
+		var path := EnemyVoices.hurt_for(kind)
+		if path == "" or kind == "the_source":
+			continue
+		assert_true(ResourceLoader.exists(path), "hurt cry for %s" % kind)
+		assert_true(ResourceLoader.exists(EnemyVoices.hurt_for(kind, 2)), "second hurt cry for %s" % kind)
+
+
+func test_every_gun_has_its_reload_sound() -> void:
+	var seen := {}
+	for id in Weapons.TABLE:
+		var snd := GunFeel.reload_sound(id)
+		assert_true(ResourceLoader.exists("res://audio/%s.wav" % snd), "reload sound for %s" % id)
+		seen[snd] = true
+	assert_true(seen.size() >= 8, "reloads differ by gun type, got %d" % seen.size())
+	for kind in ["carapace", "bloater", "fallen", "runner"]:
+		assert_true(ResourceLoader.exists("res://audio/%s.wav" % GunFeel.body_impact(kind, false)), "impact for %s" % kind)
 
 
 func test_bus_layout() -> void:

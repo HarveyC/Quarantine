@@ -101,6 +101,38 @@ const VARIANTS := {
 }
 
 
+## The reload sound of each gun, by mechanism: box or stick mag, shell tube, cylinder, belt box,
+## bolt action, energy cell, pneumatic canister. Anything unlisted falls back to the rifle swap.
+const RELOADS := {
+	"rifle": "reload_rifle", "battle_rifle": "reload_rifle", "burst_carbine": "reload_rifle",
+	"pdw": "reload_smg", "scout_carbine": "reload_smg", "flechette_smg": "reload_smg", "machine_pistol": "reload_smg",
+	"dmr": "reload_bolt", "anti_materiel": "reload_bolt",
+	"shotgun": "reload_shotgun", "slug_gun": "reload_shotgun", "pump_shotgun": "reload_shotgun", "auto_shotgun": "reload_rifle",
+	"lmg": "reload_lmg", "heavy_mg": "reload_lmg",
+	"carbine": "reload_cell", "spore_rifle": "reload_cell", "bloom_pistol": "reload_cell", "stun_pistol": "reload_cell",
+	"dart_rifle": "reload_dart",
+	"sidearm": "reload_pistol", "longslide": "reload_pistol",
+	"revolver": "reload_revolver", "hand_cannon": "reload_revolver",
+}
+
+
+static func reload_sound(weapon_id: String) -> String:
+	return RELOADS.get(weapon_id, "reload_rifle")
+
+
+## What a round sounds like landing in a body of this kind: plate, bile bag, a man, or meat.
+static func body_impact(kind: String, is_squad: bool) -> String:
+	if is_squad:
+		return "impact_armor"
+	if kind in ["carapace", "brute", "burrower", "brood_mother", "lurker", "leaper", "stalker"]:
+		return "impact_chitin"
+	if kind in ["bloater", "spitter", "broodling", "drifter", "weaver"]:
+		return "impact_ichor"
+	if kind in ["fallen", "sharpshooter", "colonel_hale", "sapper"]:
+		return "impact_human"
+	return "impact_flesh"
+
+
 static func for_kind(kind: String) -> Dictionary:
 	return for_weapon(Weapons.id_for(kind))
 

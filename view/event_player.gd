@@ -883,9 +883,9 @@ func _impact_at(shooter: UnitView, target: UnitView, imp: Dictionary, main: bool
 			if main:
 				view.fx.flash_light(at, blood.lightened(0.3), 2.2 if crit else 1.4, 0.2, 3.0)
 				view.fx.decal(target.position + dir * 0.7, blood.darkened(0.3), 0.3 if graze else 0.42, glow)
-				_sfx("impact_armor" if target.is_soldier and not target.turned else "impact_flesh", 2.0 if crit else 0.0)
+				_sfx(GunFeel.body_impact(target.kind, target.is_soldier and not target.turned), 2.0 if crit else 0.0)
 			elif lead:
-				_sfx("impact_armor" if target.is_soldier and not target.turned else "impact_flesh", -7.0)
+				_sfx(GunFeel.body_impact(target.kind, target.is_soldier and not target.turned), -7.0)
 			if big and main:
 				view.camera_rig.shake(0.35)
 		"cover":
@@ -1039,7 +1039,7 @@ func _beat_reload(ev: Dictionary) -> Dictionary:
 	view.fx.floating_text(_head(uv), "RELOAD", Palette.AMBER, 40)
 	view.fx.pulse(uv.position, Palette.AMBER, 0.5)
 	uv.flash(Palette.AMBER)
-	_sfx("reload", -2.0)
+	_sfx(GunFeel.reload_sound(uv.weapon if uv.weapon != "" else Weapons.id_for(uv.kind)), 2.0)
 	return {"dur": 0.35 if free else 0.5}
 
 
@@ -1498,7 +1498,7 @@ func _melee_beat(ev: Dictionary, style := {}) -> Dictionary:
 					tv.hit_react(uv.position, (0.6 if graze else 1.2) * (1.4 if fx == "shock" else 1.0))
 				tv.flash(MeleeFx.SHOCK if fx == "shock" else Palette.DANGER)
 				if fx == "claw":
-					_sfx("impact_armor" if tv.is_soldier else "impact_flesh")
+					_sfx(GunFeel.body_impact(tv.kind, tv.is_soldier and not tv.turned))
 				view.camera_rig.shake((0.5 if graze else 0.8) * (1.4 if fx == "shock" else 1.0))
 			else:
 				tv.hit_react(uv.position, 0.5)

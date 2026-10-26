@@ -219,6 +219,171 @@ def reload_mag():
     return reverb(out, 0.12, 0.12)
 
 
+# --- reloads: one family per gun type, so a reload tells you which gun it is ---------------
+
+def _put(out, st, x, gain=1.0):
+    i = int(st * SR)
+    if i < len(out):
+        seg = x[:len(out) - i] * gain
+        out[i:i + len(seg)] += seg
+
+
+def _thud(f, dur=0.09, gain=0.7):
+    n = int(dur * SR)
+    return sine(np.linspace(f, f * 0.4, n), dur) * env(n, 0.001, dur * 0.35) * gain + lowpass(noise(dur), f * 4) * env(n, 0.001, dur * 0.3) * gain * 0.6
+
+
+def _slide(lo, hi, dur, gain=0.5):
+    n = int(dur * SR)
+    return bandpass(noise(dur), lo, hi) * env(n, dur * 0.2, dur * 0.5) * gain
+
+
+def _casing_ring(f, dur=0.3, gain=0.2):
+    n = int(dur * SR)
+    return (sine(f, dur) + 0.5 * sine(f * 1.51, dur)) * env(n, 0.0005, 0.05) * gain
+
+
+def reload_rifle():
+    # Release catch, long mag drops out, a new one is seated with a thud, charging handle racked.
+    out = np.zeros(int(1.15 * SR))
+    _put(out, 0.00, mech_click(1500, 0.008), 0.7)
+    _put(out, 0.05, _slide(500, 2500, 0.12), 0.7)
+    _put(out, 0.14, _thud(260, 0.06, 0.4))
+    _put(out, 0.46, _slide(800, 3500, 0.09), 0.5)
+    _put(out, 0.55, _thud(170, 0.1, 1.0))
+    _put(out, 0.57, mech_click(1100, 0.014), 0.9)
+    _put(out, 0.80, _slide(600, 3000, 0.08), 0.8)
+    _put(out, 0.85, mech_click(900, 0.02), 1.0)
+    _put(out, 0.97, mech_click(1900, 0.01), 0.9)
+    return reverb(out, 0.14, 0.14)
+
+
+def reload_smg():
+    # Short stick mag, quick swap, bolt slap.
+    out = np.zeros(int(0.85 * SR))
+    _put(out, 0.00, mech_click(1900, 0.006), 0.6)
+    _put(out, 0.07, _thud(330, 0.05, 0.3))
+    _put(out, 0.34, _slide(1200, 5000, 0.06), 0.5)
+    _put(out, 0.41, _thud(230, 0.07, 0.8))
+    _put(out, 0.42, mech_click(1700, 0.01), 0.9)
+    _put(out, 0.62, mech_click(1200, 0.012), 1.0)
+    _put(out, 0.66, _slide(1500, 5000, 0.05), 0.6)
+    return reverb(out, 0.1, 0.12)
+
+
+def reload_pistol():
+    # Small mag drops, snaps in with a high click, slide released with a sharp snick.
+    out = np.zeros(int(0.8 * SR))
+    _put(out, 0.00, mech_click(2300, 0.005), 0.6)
+    _put(out, 0.06, _thud(420, 0.04, 0.25))
+    _put(out, 0.30, _slide(1500, 6000, 0.05), 0.4)
+    _put(out, 0.36, mech_click(2600, 0.008), 1.0)
+    _put(out, 0.38, _thud(300, 0.05, 0.5))
+    _put(out, 0.58, mech_click(1600, 0.01), 0.8)
+    _put(out, 0.60, _slide(2000, 7000, 0.04), 0.7)
+    _put(out, 0.63, mech_click(3000, 0.004), 0.7)
+    return reverb(out, 0.08, 0.1)
+
+
+def reload_revolver():
+    # Ejector rod, spent brass tinkling out, rounds dropped in, cylinder spun and snapped shut.
+    out = np.zeros(int(1.25 * SR))
+    _put(out, 0.00, mech_click(1500, 0.01), 0.9)
+    _put(out, 0.10, _slide(700, 3000, 0.1), 0.5)
+    for k, st in enumerate([0.22, 0.29, 0.35, 0.43]):
+        _put(out, st, _casing_ring(2800 + 400 * k, 0.25, 0.22))
+        _put(out, st, mech_click(3200, 0.004), 0.3)
+    for k in range(6):
+        st = 0.62 + 0.055 * k
+        _put(out, st, mech_click(1400 + 90 * k, 0.006), 0.5)
+        _put(out, st, _thud(520, 0.03, 0.15))
+    spin = np.zeros(int(0.3 * SR))
+    for k in range(14):
+        _put(spin, k * (0.012 + 0.006 * k), mech_click(2100, 0.004), 0.3)
+    _put(out, 0.96, spin)
+    _put(out, 1.12, mech_click(800, 0.02), 1.1)
+    _put(out, 1.12, _thud(240, 0.07, 0.6))
+    return reverb(out, 0.13, 0.13)
+
+
+def reload_shotgun():
+    # Shells pushed into the tube one at a time (each a plastic click and a brass chunk), then a pump.
+    out = np.zeros(int(1.4 * SR))
+    for k, st in enumerate([0.0, 0.2, 0.4, 0.6]):
+        _put(out, st, _thud(380, 0.05, 0.35))
+        _put(out, st + 0.02, mech_click(1000 + 80 * k, 0.012), 0.9)
+        _put(out, st + 0.07, mech_click(2100, 0.006), 0.5)
+    _put(out, 0.92, _slide(300, 2200, 0.1), 0.8)
+    _put(out, 0.95, mech_click(750, 0.02), 1.1)
+    _put(out, 1.12, _slide(400, 2800, 0.09), 0.9)
+    _put(out, 1.15, mech_click(1250, 0.016), 1.1)
+    return reverb(out, 0.15, 0.15)
+
+
+def reload_lmg():
+    # Cover latch, heavy box mag clunks out, a belt is laid in with a rattle, cover slammed shut.
+    out = np.zeros(int(1.6 * SR))
+    _put(out, 0.00, mech_click(800, 0.02), 1.0)
+    _put(out, 0.08, _thud(110, 0.18, 1.0))
+    _put(out, 0.12, _slide(200, 1800, 0.25), 0.5)
+    _put(out, 0.55, _thud(140, 0.15, 0.9))
+    for k in range(10):
+        _put(out, 0.62 + k * 0.04 + rng.uniform(-0.006, 0.006), mech_click(rng.uniform(1500, 2800), 0.007), rng.uniform(0.3, 0.6))
+    _put(out, 1.1, _thud(95, 0.22, 1.2))
+    _put(out, 1.1, mech_click(500, 0.03), 1.0)
+    _put(out, 1.3, _slide(250, 2000, 0.12), 0.7)
+    _put(out, 1.33, mech_click(700, 0.025), 1.2)
+    _put(out, 1.33, _thud(120, 0.14, 0.9))
+    return reverb(out, 0.18, 0.15)
+
+
+def reload_bolt():
+    # Mag dropped, new one seated, then a slow bolt: lift, draw, push, lock. Weighty and deliberate.
+    out = np.zeros(int(1.5 * SR))
+    _put(out, 0.00, mech_click(1100, 0.012), 0.8)
+    _put(out, 0.08, _thud(200, 0.09, 0.4))
+    _put(out, 0.42, _thud(150, 0.12, 1.0))
+    _put(out, 0.44, mech_click(900, 0.02), 1.0)
+    _put(out, 0.78, mech_click(700, 0.025), 1.0)
+    _put(out, 0.82, _slide(300, 2500, 0.18), 0.7)
+    _put(out, 1.05, _slide(400, 3000, 0.14), 0.7)
+    _put(out, 1.18, mech_click(1200, 0.015), 1.0)
+    _put(out, 1.24, mech_click(650, 0.03), 1.1)
+    _put(out, 1.24, _thud(130, 0.1, 0.6))
+    return reverb(out, 0.16, 0.16)
+
+
+def reload_cell():
+    # Energy gun: the spent cell unlatches with a hiss, a fresh one clunks in and charges up with a rising whine.
+    out = np.zeros(int(1.3 * SR))
+    _put(out, 0.00, mech_click(1200, 0.012), 0.9)
+    _put(out, 0.04, _slide(2500, 9000, 0.25), 0.6)
+    _put(out, 0.45, _thud(180, 0.08, 0.9))
+    _put(out, 0.46, mech_click(1500, 0.01), 0.8)
+    d = 0.7
+    n = int(d * SR)
+    f = np.linspace(300, 2600, n) ** 1.0
+    whine = sine(f, d) * env(n, 0.05, 0.4) * 0.35 * np.linspace(0.3, 1.0, n)
+    flutter = 1 + 0.3 * np.sin(2 * np.pi * np.linspace(8, 30, n) * t(d))
+    _put(out, 0.52, whine * flutter)
+    _put(out, 1.18, mech_click(2600, 0.006), 0.6)
+    return reverb(out, 0.12, 0.14)
+
+
+def reload_dart():
+    # Pneumatic: a gas canister twists out, a fresh one is pressed in, a short hiss of pressure builds.
+    out = np.zeros(int(1.1 * SR))
+    _put(out, 0.00, _slide(1500, 6500, 0.14), 0.7)
+    _put(out, 0.10, mech_click(1700, 0.008), 0.8)
+    _put(out, 0.34, _thud(250, 0.06, 0.6))
+    _put(out, 0.36, mech_click(2400, 0.007), 0.9)
+    _put(out, 0.46, _slide(3000, 9000, 0.3), 0.7)
+    for k in range(4):
+        _put(out, 0.80 + 0.04 * k, mech_click(2900 + 200 * k, 0.004), 0.5)
+    return reverb(out, 0.1, 0.12)
+
+
+
 def dry_fire():
     # The hammer falls on nothing.
     out = np.zeros(int(0.2 * SR))
@@ -591,6 +756,34 @@ def impact_armor():
     thud = sine(np.linspace(160, 60, len(n)), 0.6) * env(len(n), 0.001, 0.07)
     grit = highpass(n, 2000) * env(len(n), 0.0005, 0.015)
     return reverb(clank + thud + grit, 0.25, 0.25)
+
+
+def impact_chitin():
+    # A round on bone plate: a hard crack and a hollow rattling knock, no wet.
+    n = int(0.5 * SR)
+    crack = highpass(noise(0.5), 3000) * env(n, 0.0003, 0.012) * 1.1
+    knock = sum(sine(f, 0.5) * env(n, 0.0005, d) * g for f, d, g in [(520, 0.05, 0.6), (870, 0.035, 0.45), (1330, 0.025, 0.3)])
+    thud = sine(np.linspace(190, 70, n), 0.5) * env(n, 0.001, 0.05) * 0.8
+    return reverb(crack + knock + thud, 0.18, 0.2)
+
+
+def impact_ichor():
+    # A round into a bloated bag of bile: a wet slap and a long glooping squirt.
+    n = int(0.6 * SR)
+    slap = lowpass(noise(0.6), 1300) * env(n, 0.001, 0.05) * 1.4
+    bloop = sine(np.linspace(500, 120, n), 0.6) * env(n, 0.002, 0.07) * 0.9
+    sq = _grains(0.6, 8, 0.03, 0.35, 250, 1100, 0.04, 0.6)
+    return reverb(distort(slap + bloop, 1.6) + sq, 0.18, 0.2)
+
+
+def impact_human():
+    # A round into a man in rags and plate: a duller thump, cloth and a short gasp of breath.
+    n = int(0.45 * SR)
+    thump = sine(np.linspace(130, 55, n), 0.45) * env(n, 0.001, 0.07) * 1.2
+    cloth = bandpass(noise(0.45), 500, 2500) * env(n, 0.004, 0.05) * 0.8
+    buckle = sine(2100, 0.45) * env(n, 0.0005, 0.02) * 0.2
+    return reverb(thump + cloth + buckle, 0.14, 0.18)
+
 
 
 def ricochet():
@@ -1139,6 +1332,10 @@ SOUNDS = {
     "cap_wildfire": cap_wildfire, "cap_warrant": cap_warrant, "cap_field": cap_field, "cap_aegis": cap_aegis,
     "hook_whip": hook_whip, "satchel_arm": satchel_arm, "weave_hum": weave_hum, "plate_clang": plate_clang,
     "reload": reload_mag, "dry_fire": dry_fire,
+    "reload_rifle": reload_rifle, "reload_smg": reload_smg, "reload_pistol": reload_pistol,
+    "reload_revolver": reload_revolver, "reload_shotgun": reload_shotgun, "reload_lmg": reload_lmg,
+    "reload_bolt": reload_bolt, "reload_cell": reload_cell, "reload_dart": reload_dart,
+    "impact_chitin": impact_chitin, "impact_ichor": impact_ichor, "impact_human": impact_human,
 }
 
 if __name__ == "__main__":
