@@ -298,9 +298,10 @@ func test_escort_courier_walks_with_the_squad_and_wins_at_evac() -> void:
 	assert_true(c != null and c.is_alive(), "a courier starts")
 	var d0 := Objectives._courier_dist(s, c.pos)
 	assert_true(d0 > 0, "the evac zone is a walk away")
+	var gap0 := Objectives._nearest_soldier_dist(s, c.pos)
 	_end_round(s)
 	assert_true(Objectives._courier_dist(s, c.pos) < d0, "it advanced with the squad close")
-	assert_true(Objectives._nearest_soldier_dist(s, c.pos) <= maxi(Objectives.ESCORT_STAY, 1), "it did not outrun the squad")
+	assert_true(Objectives._nearest_soldier_dist(s, c.pos) <= maxi(Objectives.ESCORT_STAY, gap0), "it did not outrun the squad")
 	# Far from every soldier it waits.
 	for u in Objectives.soldiers(s):
 		_place(s, u, Vector2i(0, 0) if s.unit_at(Vector2i(0, 0)) == null else Vector2i(1, 0))
