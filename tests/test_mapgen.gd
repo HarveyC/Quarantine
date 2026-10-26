@@ -1,7 +1,7 @@
 extends TestCase
 ## Tactical map generator: determinism, validity of every layout, and mission setup on it.
 
-const OBJECTIVES: Array[String] = ["skirmish", "extract", "hold", "rescue", "purge", "elite", "boss"]
+const OBJECTIVES: Array[String] = ["skirmish", "extract", "hold", "rescue", "purge", "elite", "boss", "escort", "demolish", "hack", "samples"]
 
 
 ## One biome per act: The Wall, Port Ardent, The Bore.

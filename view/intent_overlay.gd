@@ -15,7 +15,7 @@ const ICON_TEXT := {
 	"claw": "CLAW", "shoot": "SHOOT", "spit": "SPIT", "burst": "BURST", "charge": "CHARGE",
 	"scream": "SCREAM", "spawn": "SPAWN", "strike": "AIRSTRIKE", "pull": "PULL", "pulse": "PULSE",
 	"hide": "HIDE", "seek": "SEEK", "dormant": "zz", "pinning": "MAUL", "leap": "LEAP",
-	"snipe": "AIMING", "drop": "DROP",
+	"snipe": "AIMING", "drop": "DROP", "hook": "HOOK", "satchel": "SATCHEL", "mend": "MEND",
 }
 
 var view: Node
@@ -28,6 +28,8 @@ var _m_trail: StandardMaterial3D
 var _m_ripple: StandardMaterial3D
 var _m_ghost: StandardMaterial3D
 var _m_blip: StandardMaterial3D
+var _m_plate: StandardMaterial3D
+var _m_rally: StandardMaterial3D
 var _blips: Array[Node3D] = []
 
 
@@ -42,6 +44,8 @@ func _ready() -> void:
 	_m_ripple = Palette.overlay(Color(Palette.TEAL, 0.25))
 	_m_ghost = Palette.overlay(Color(Palette.DANGER, 0.22))
 	_m_blip = Palette.overlay(Color(Palette.DANGER, 0.7))
+	_m_plate = Palette.overlay(Color(Palette.AMBER, 0.3))
+	_m_rally = Palette.overlay(Color(Palette.AMBER, 0.35))
 
 
 func refresh() -> void:
@@ -86,6 +90,19 @@ func refresh() -> void:
 		wave.position = b.position
 		add_child(wave)
 		_blips.append(wave)
+	# A Carapace's armoured side, and the reach of a Rallying elite's war cry.
+	for p in EnemyIntent.plates(s):
+		for c in p.cells:
+			_tile(c, _m_plate, 0.024)
+	for r in EnemyIntent.rallies(s):
+		var ring := Palette.ring(EnemyRoster.RALLY_RADIUS - 0.08, EnemyRoster.RALLY_RADIUS, _m_rally)
+		ring.position = Board.cell_to_world(r.cell, 0.04)
+		add_child(ring)
+	for pair in EnemyIntent.links(s):
+		var wa: Node3D = view.view_for(pair[0])
+		var wb: Node3D = view.view_for(pair[1])
+		if wa != null and wb != null and wa.visible and wb.visible:
+			_line(wa.position + Vector3(0, 1.0, 0), wb.position + Vector3(0, 1.0, 0), _m_tether, 0.04)
 	# Teal threads from each shield (egg sac, root, hive node) to the enemy it keeps immune.
 	for pair in EnemyIntent.tethers(s):
 		var a: Node3D = view.view_for(pair[0])

@@ -28,6 +28,12 @@ const ENEMIES := {
 	"drifter": {"name": "Drifter", "max_hp": 5, "aim": 0, "mobility": 5, "damage": [2, 3], "abilities": ["drift", "spore_drop"], "melee_only": true, "flying": true},
 	"sharpshooter": {"name": "Sharpshooter", "max_hp": 6, "aim": 80, "mobility": 4, "damage": [5, 7], "abilities": ["sight", "snipe"], "infects": false},
 	"burrower": {"name": "Burrower", "max_hp": 6, "aim": 70, "mobility": 5, "damage": [3, 4], "abilities": ["burrow", "erupt", "claw"], "melee_only": true},
+	# Sprint 2026-10-25 additions. "plate" = a front armour arc (Encounter.modify_damage).
+	"hooker": {"name": "Hooker", "max_hp": 5, "aim": 65, "mobility": 4, "damage": [2, 2], "abilities": ["hook", "reel"]},
+	"sapper": {"name": "Sapper", "max_hp": 4, "aim": 0, "mobility": 6, "damage": [0, 0], "abilities": ["satchel"], "melee_only": true},
+	"carapace": {"name": "Carapace", "max_hp": 7, "aim": 70, "mobility": 4, "damage": [3, 4], "abilities": ["slam"], "melee_only": true, "plate": true},
+	"stalker": {"name": "Stalker", "max_hp": 5, "aim": 75, "mobility": 5, "damage": [2, 3], "abilities": ["claw"], "melee_only": true},
+	"weaver": {"name": "Weaver", "max_hp": 4, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["mend"], "melee_only": true},
 	"broodling": {"name": "Broodling", "max_hp": 3, "aim": 0, "mobility": 3, "damage": [0, 0], "abilities": ["burst"], "melee_only": true},
 	"hive_node": {"name": "Hive node", "max_hp": 12, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
 	"egg_sac": {"name": "Egg sac", "max_hp": 4, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},

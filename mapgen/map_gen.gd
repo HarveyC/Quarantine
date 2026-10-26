@@ -15,15 +15,20 @@ const PARCEL := 4
 const MAX_TRIES := 30
 const FALLBACK_MAP := "res://maps/mission_01.txt"
 const MIN_ENEMY_SPAWNS := 8
-const MARKER_KEYS: Array[String] = ["evac", "beacon", "civilian", "exit", "nest", "hive", "boss", "reinforce"]
+const MARKER_KEYS: Array[String] = ["evac", "beacon", "civilian", "exit", "nest", "hive", "boss", "reinforce", "charge", "relay", "sample"]
 
 ## Parcel role an "O" plot slot takes for each objective.
-const OBJECTIVE_ROLE := {"extract": "evac", "hold": "beacon", "rescue": "rescue", "purge": "nest", "elite": "hive"}
+const OBJECTIVE_ROLE := {"extract": "evac", "hold": "beacon", "rescue": "rescue", "purge": "nest", "elite": "hive",
+	"escort": "evac", "demolish": "site", "hack": "site", "samples": "site"}
 ## Marker an "O" cell becomes, by parcel role.
 const ROLE_MARKER := {"evac": "evac", "beacon": "beacon", "rescue": "civilian", "nest": "nest", "hive": "hive"}
+## "site" parcels serve three objectives; the objective decides what their O cell becomes.
+const SITE_MARKER := {"demolish": "charge", "hack": "relay", "samples": "sample"}
 
 # Validation bands (see the design doc, Tactical maps).
 const POD_STEPS := Vector2i(6, 20)        # walking distance from the drop zone: every pod cell >= x, each pod's nearest cell <= y
+const GRAND_WIDTH := 26                   # maps this wide or wider (5x5 plots are 28x28) get GRAND_POD_MAX
+const GRAND_POD_MAX := 27
 const EVAC_MIN_STEPS := 12
 const OBJECTIVE_MIN_STEPS := 5            # civilians, nests, hive
 const FULL_COVER := Vector2(0.03, 0.24)   # share of all tiles
@@ -274,7 +279,7 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 							pod.append(c)
 							reserved[c] = true
 						"O":
-							markers[ROLE_MARKER.get(role, "hive")].append(c)
+							markers[SITE_MARKER[objective] if role == "site" else ROLE_MARKER.get(role, "hive")].append(c)
 							reserved[c] = true
 					g.tiles[c.y * g.width + c.x] = t
 			for e in split.edges:
@@ -365,7 +370,7 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 	g.player_spawns.assign(deploy)
 	g.enemy_spawns.assign(_interleave_pods(g, pods, dist, reserved))
 	_place_barrels(g, deploy, rng)
-	if objective == "rescue":
+	if objective in ["rescue", "samples"]:
 		markers.exit.assign(deploy)
 	if markers.hive.is_empty():
 		markers.hive.append(_farthest_open(g, dist, reserved))
@@ -579,7 +584,7 @@ static func _validate(g: Grid, objective: String, dist: Dictionary, deploy: Arra
 		var nearest := 1 << 30
 		for c in pod:
 			nearest = mini(nearest, dist[c])
-		if nearest < POD_STEPS.x or nearest > POD_STEPS.y:
+		if nearest < POD_STEPS.x or nearest > (GRAND_POD_MAX if g.width >= GRAND_WIDTH else POD_STEPS.y):
 			last_reject = "pod distance %d" % nearest
 			return false
 	for c in markers.evac:

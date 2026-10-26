@@ -638,14 +638,14 @@ FEFT
 BBBF
 TFFD
 
-@plot extract wall_run lanes=0
+@plot extract,escort wall_run lanes=0
 FOTF
 EFFE
 BBBB
 FTFF
 FFDF
 
-@plot extract camp_run lanes=0
+@plot extract,escort camp_run lanes=0
 OFFT
 FETF
 EFFE
@@ -714,7 +714,7 @@ FLLFE
 TFFFF
 FFDFF
 
-@plot extract landmark_run lanes=0
+@plot extract,escort landmark_run lanes=0
 FOTE
 ELLF
 FLLE
@@ -751,3 +751,66 @@ TFFFT
 FFFFF
 TFFFT
 FFDFF
+
+; ---------------------------------------------------------------- objective sites (charges, relays, samples)
+@site pump_house
+=..=
+.=O.
+..=.
+=...
+
+@site signal_post
+....
+.O=.
+.=..
+=..=
+
+@site ration_cache
+=.=.
+..O.
+.==.
+....
+
+; ---------------------------------------------------------------- set pieces (sprint: maps)
+@landmark train_yard
+........
+/^^^^^^.
+........
+.^^^^^^/
+...=....
+/^%^^^^.
+........
+.=....=.
+
+@landmark overpass
+........
+s^^^~~^s
+.^%^..^.
+.^^^..^.
+........
+.==..==.
+........
+...==...
+
+
+; ---------------------------------------------------------------- grand maps (28x28): 5x5 plots
+@plot skirmish grand_yards lanes=0
+ETFTE
+FLLFF
+ELLLL
+FFFLL
+FTDFF
+
+@plot demolish,hack,samples,purge,rescue grand_sites lanes=0
+FTOTF
+EFFFE
+OLLFO
+TLLFF
+FFDFF
+
+@plot escort,extract grand_convoy lanes=0
+ETOTF
+LLFLL
+LLFLL
+EFFFE
+FFDFT

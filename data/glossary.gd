@@ -523,6 +523,29 @@ static func _build() -> Dictionary:
 		"stats": [["%d" % Objectives.CIVILIAN.max_hp, "civilian HP"]],
 		"more": ["If every civilian dies, killing every enemy still wins."],
 		"aliases": ["Drop zone"]}
+	t["zone_charge"] = {"name": "Charge site", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("charge"),
+		"line": "End a squad turn on it to arm the charge. It blows %d rounds later, hurting anyone near it." % Objectives.CHARGE_FUSE,
+		"art": "tile", "art_ctx": {"overlay": "charge"},
+		"stats": [["%d" % Objectives.CHARGE_FUSE, "round fuse"], ["%d" % Objectives.DEMOLISH_TURNS, "rounds to finish"]],
+		"more": ["An enemy standing on an armed charge defuses it.", "The blast breaks walls and roofs like a demo charge."],
+		"aliases": ["Charge sites"]}
+	t["zone_relay"] = {"name": "Relay", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("relay"),
+		"line": "Keep a soldier on it for %d squad turns in a row to hack it." % Objectives.HACK_TURNS,
+		"art": "tile", "art_ctx": {"overlay": "relay"},
+		"stats": [["%d" % Objectives.HACK_TURNS, "turns to hack"], ["%d of 3" % Objectives.HACK_NEED, "to win"]],
+		"more": ["An enemy ending a round on a relay no soldier is guarding destroys it.", "Leaving resets the hack."],
+		"aliases": ["Relays"]}
+	t["zone_sample"] = {"name": "Sample point", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("sample"),
+		"line": "End a squad turn on it to pick it up, then end one on the drop zone to hand it in.",
+		"art": "tile", "art_ctx": {"overlay": "sample"},
+		"stats": [["%d of 3" % Objectives.SAMPLES_NEED, "to win"], ["-%d" % Objectives.SAMPLE_SLOW, "move carrying"]],
+		"more": ["A carrier who falls drops it.", "An enemy ending a round on a loose sample destroys it."],
+		"aliases": ["Sample points"]}
+	t["courier"] = {"name": "Courier", "kind": "objective", "icon": "flag", "tone": "amber",
+		"line": "Walks %d tiles toward the evac zone at the end of each squad turn, but only while a soldier is within %d tiles." % [Objectives.ESCORT_MOVE, Objectives.ESCORT_LEASH],
+		"stats": [["%d" % Objectives.ESCORT_HP, "courier HP"]],
+		"more": ["If the courier dies the mission is lost."],
+		"aliases": ["Courier"]}
 	t["ladder"] = {"name": "Ladder", "kind": "terrain", "icon": "rank", "tone": "text",
 		"line": "Climbs one level to the roof beside it. Slow, but the only way up some roofs.",
 		"art": "climb", "art_ctx": {"way": "ladder"},
@@ -584,6 +607,16 @@ static func _build() -> Dictionary:
 		"more": ["Gear, perks and awake mutations all count.", "Purging a mutation mid-fight can switch a bonus off."],
 		"see": ["gear_tag", "mutation", "perk"],
 		"aliases": ["Set bonuses"], "labels": ["Set"]}
+	for job in BuildRead.JOBS:
+		var tags: Array = BuildRead.JOB_TAGS[job]
+		t["job_" + job.to_lower()] = {"name": job, "kind": "build job", "icon": "doctrine", "tone": BuildRead.JOB_INFO[job].color,
+			"line": str(BuildRead.JOB_INFO[job].line),
+			"art": "set",
+			"stats": [["%d" % tags.size(), "tags"]],
+			"more": ["A build wants one tag from each job: Setup opens the window, Payoff spends it, Sustain keeps the carrier alive.",
+				"Tags: " + ", ".join(tags) + "."],
+			"see": ["gear_tag", "set_bonus"] + tags.map(func(x): return "tag_" + str(x).to_lower()),
+			"aliases": [job + " job"], "scan": false}
 	for tag in GearData.TAGS:
 		var info: Dictionary = GearData.TAG_INFO[tag]
 		t["tag_" + tag.to_lower()] = {"name": tag, "kind": "gear tag", "icon": "doctrine", "tone": info.color,
@@ -687,6 +720,11 @@ static func _build() -> Dictionary:
 		"more": ["{patch_up} at the field hospital heals to full.", "{stim|Stims} and medkits heal in a fight."],
 		"see": ["patch_up", "stim", "outbreak"],
 		"labels": ["HP", "Heal"]}
+	t["hp_multiplier"] = {"name": "HP multiplier", "kind": "meter", "icon": "health", "tone": "hp",
+		"line": "Big monsters have too much HP for a pip each, so one pip stands for several HP.",
+		"art": "hp_pips",
+		"more": ["A part-filled pip is part of its HP.", "Soldiers and small enemies draw one pip per HP.", "The pink hatching is the HP the shot you are aiming could take."],
+		"see": ["healing"], "scan": false}
 	# --- Field hospital treatments and grafts -----------------------------------------------
 	t["patch_up"] = {"name": "Patch up", "kind": "treatment", "icon": "patch", "tone": "hp",
 		"line": "Field hospital treatment: back to full HP, and one {injury|injury} closes.",
@@ -782,8 +820,66 @@ static func _build() -> Dictionary:
 		var n: Array = nodes[type]
 		t["node_" + type] = {"name": n[0], "kind": "map node", "icon": n[1], "tone": n[2], "line": n[3],
 			"art": "intel" if type == RunMap.UNKNOWN else "", "stats": n[4], "see": ["outbreak"], "scan": false}
+	_add_enemy_terms(t)
 	_add_rules_terms(t)
 	return t
+
+
+## Cards for the enemies added in the 2026-10-25 sprint and the mechanics they teach. The enemy
+## cards open from the enemy's nameplate; the mechanic cards from the bold words in their text and
+## from the intent words (HOOKING, SATCHEL, FROZEN, MENDING). The common-word ones stay out of prose.
+static func _add_enemy_terms(t: Dictionary) -> void:
+	t["hook"] = {"name": "Hook", "kind": "enemy ability", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "A Hooker's locked line. Next turn it yanks the soldier on it toward the Hooker.",
+		"art": "", "stats": [["%d" % EnemyRoster.HOOK_PULL, "tiles pulled"], ["%d" % EnemyRoster.HOOK_DAMAGE, "damage"]],
+		"more": ["Break line of sight or {suppress} the Hooker and the line goes slack.",
+			"The first soldier on the line is the one pulled, so a squad-mate can step in front.",
+			"A pull off {high_ground} adds fall damage, and a pulled soldier loses overwatch and hunker."],
+		"see": ["suppress", "high_ground", "overwatch"],
+		"labels": ["Hooking", "Hooked", "Reel"]}
+	t["satchel"] = {"name": "Satchel", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "A thrown charge that goes off next enemy phase on the red 3x3.",
+		"art": "", "stats": [["%d" % EnemyRoster.SATCHEL_DAMAGE, "damage"], ["3x3", "blast"]],
+		"more": ["It cracks {cover} in the blast, so the squad is exposed afterwards.",
+			"Killing the Sapper does not stop it. Step off the red tiles instead.",
+			"Infected caught in the blast take the damage too."],
+		"see": ["cover"]}
+	t["plate"] = {"name": "Plate", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "Bone armour over the front of a Carapace. Hits from the front lose %d damage." % EnemyRoster.PLATE_REDUCTION,
+		"art": "", "stats": [["-%d" % EnemyRoster.PLATE_REDUCTION, "damage, front"], ["1", "least per hit"]],
+		"more": ["The amber tiles on the ground show the plated side.",
+			"Flank it, or shoot from {high_ground}, and the plate does nothing.",
+			"It turns toward the nearest soldier at the end of its turn."],
+		"see": ["flank", "high_ground"],
+		"labels": ["Plated"]}
+	t["watched"] = {"name": "Watched", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "A Stalker cannot move while any soldier can see it. Unseen, it hunts.",
+		"art": "", "stats": [["+%d" % EnemyRoster.STALK_BONUS_MOVE, "move, unseen"], ["+%d" % EnemyRoster.STALK_BONUS_DAMAGE, "damage, first hit"]],
+		"more": ["Its first hit on a soldier more than %d tiles from the rest gets the bonus." % EnemyRoster.STALK_ISOLATION,
+			"Keep a soldier looking at it, or put {overwatch} on its way in.",
+			"A squad of one is never cut off, so it gets no bonus."],
+		"see": ["overwatch", "fog"],
+		"labels": ["Frozen", "Stalking"]}
+	t["mend"] = {"name": "Mend", "kind": "enemy ability", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "A Weaver's thread heals the most wounded Infected it can see.",
+		"art": "", "stats": [["%d" % EnemyRoster.MEND_HEAL, "HP a turn"], ["%d" % EnemyRoster.MEND_RANGE, "tiles"]],
+		"more": ["A teal thread shows who it will mend next.",
+			"Kill the Weaver or put a wall between them and the mending stops.",
+			"It never mends bosses or nests."],
+		"labels": ["Mending"]}
+	var cards := {
+		"hooker": ["Locks a barbed line onto a soldier, then {hook|reels} them toward it next turn.", ["hook"]],
+		"sapper": ["Throws a {satchel} onto the squad's cover, then runs.", ["satchel"]],
+		"carapace": ["Slow Infected with a bone {plate} over its front. Flank it.", ["plate"]],
+		"stalker": ["Frozen while any soldier can see it. Unseen, it hunts the soldier who strayed.", ["watched"]],
+		"weaver": ["Threads to a wounded Infected and {mend|mends} it. Kill it first.", ["mend"]],
+	}
+	for kind in cards:
+		var st: Dictionary = UnitData.ENEMIES[kind]
+		t["enemy_" + kind] = {"name": st.name, "kind": "enemy", "icon": "enemy", "tone": "danger",
+			"line": cards[kind][0], "art": "",
+			"stats": [["%d" % int(st.max_hp), "HP"], ["%d-%d" % [int(st.damage[0]), int(st.damage[1])] if int(st.damage[1]) > 0 else "0", "damage"]],
+			"more": [], "see": cards[kind][1]}
 
 
 ## Soldier abilities and enemy traits, read from their rules tables so a new one is
@@ -811,7 +907,8 @@ static func _add_rules_terms(t: Dictionary) -> void:
 		var f: Dictionary = EnemyRoster.AFFIX_INFO[id]
 		if not taken.has(str(f.name).to_lower()):
 			t["affix_" + id] = {"name": f.name, "kind": "elite trait", "icon": "enemy", "tone": "danger",
-				"line": _first_sentence(str(f.desc)), "art": "", "stats": []}
+				"line": _first_sentence(str(f.desc)), "art": "", "stats": [],
+				"more": [str(f.get("counter", ""))] if f.has("counter") else []}
 
 
 static func _first_sentence(desc: String) -> String:

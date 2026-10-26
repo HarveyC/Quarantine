@@ -76,7 +76,7 @@ static func fight_context(state: GameState, cell: Vector2i, team: int = Types.Te
 		return "enemy" if u.team != team else "ally"
 	if state.grid.is_volatile(cell) or state.hazards.has(cell):
 		return "hazard"
-	for key in ["beacon", "evac", "exit", "civilian"]:
+	for key in ["beacon", "evac", "exit", "civilian", "charge", "relay", "sample"]:
 		if state.grid.marker(key).has(cell):
 			return "loot"
 	return ""

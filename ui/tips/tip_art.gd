@@ -8,7 +8,7 @@ const Icons := preload("res://ui/icons.gd")
 
 const HEIGHTS := {"tiers": 58, "cover": 66, "high_ground": 72, "flank": 74, "hit_roll": 44,
 	"damage": 50, "overwatch": 62, "lapse": 46, "turning": 40, "set": 30, "outbreak": 52,
-	"severity": 40, "hazards": 50, "rank": 42, "intel": 46, "healing": 30, "tile": 44, "climb": 58}
+	"severity": 40, "hazards": 50, "rank": 42, "intel": 46, "healing": 30, "hp_pips": 36, "tile": 44, "climb": 58}
 
 var kind := ""
 var ctx := {}
@@ -45,6 +45,7 @@ func _draw() -> void:
 		"rank": _rank()
 		"intel": _intel()
 		"healing": _healing()
+		"hp_pips": _hp_pips()
 		"tile": _tile()
 		"climb": _climb()
 
@@ -425,6 +426,20 @@ func _healing() -> void:
 		else:
 			draw_rect(r, Styles.HP_OFF)
 	_num(Vector2(max_hp * 17 + 6, 17), "+%d%%" % roundi(RunRules.HEAL_AFTER_FIGHT * 100), 12, Styles.HP, HORIZONTAL_ALIGNMENT_LEFT, 60)
+
+
+## Three pips of a big monster's bar: full, half, empty, with what one pip is worth (ctx.per).
+func _hp_pips() -> void:
+	var per := int(ctx.get("per", 5))
+	var w := 34.0
+	for i in 3:
+		var r := Rect2(i * (w + 8), 6, w, 10)
+		draw_rect(r, Styles.HP_OFF)
+		if i == 0:
+			draw_rect(r, Styles.HP)
+		elif i == 1:
+			draw_rect(Rect2(r.position, Vector2(w * 0.5, 10)), Styles.HP)
+	_num(Vector2(0, 30), "1 pip = %d HP" % per, 11, Styles.TEXT, HORIZONTAL_ALIGNMENT_LEFT, 120)
 
 
 ## A strip of floor with the marking ctx.overlay (a TileOverlays key) painted on the middle

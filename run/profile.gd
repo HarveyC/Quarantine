@@ -100,6 +100,24 @@ static func set_last_squad(mode: String, picks: Dictionary) -> void:
 	cf.save(path)
 
 
+# --- Field HQ switches ---------------------------------------------------------------------
+
+## Show all 8 gear tags on every loadout, even in a first run (off: a first run lists lane tags only).
+static func show_all_tags() -> bool:
+	return bool(_load().get_value("field", "show_all_tags", false))
+
+
+static func set_show_all_tags(on: bool) -> void:
+	var cf := _load()
+	cf.set_value("field", "show_all_tags", on)
+	cf.save(path)
+
+
+## Does this loadout list every tag? True once a run is finished, or when the HQ switch is on.
+static func tags_all_shown() -> bool:
+	return show_all_tags() or stat("runs") > 0
+
+
 # --- history and stats -------------------------------------------------------------------
 
 static func stat(key: String) -> int:

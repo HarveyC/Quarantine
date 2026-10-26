@@ -147,6 +147,7 @@ func start(s: GameState, begin := true) -> void:
 	camera_rig.name = "CameraRig"
 	_world.add_child(camera_rig)
 	camera_rig.setup(board.center(), Vector2(s.grid.width, s.grid.height))
+	camera_rig.face_heading(spawn_heading(s))
 	camera_rig.camera.current = true
 	player = EventPlayer.new()
 	player.name = "EventPlayer"
@@ -393,6 +394,31 @@ func face_threats(instant := false) -> void:
 					best = o
 		if best != null:
 			uv.face_towards(Board.cell_to_world(best.pos), instant)
+		elif instant and u.team == Types.Team.PLAYER:
+			uv.face_towards(uv.position + spawn_heading(state), true)
+
+
+## Grid direction from the squad's spawn zone into the map: towards the enemy pods when
+## there are any, otherwise towards the map centre. Never zero.
+static func spawn_heading(s: GameState) -> Vector3:
+	var from := Vector2.ZERO
+	var spawns: Array = s.grid.player_spawns
+	for c in spawns:
+		from += Vector2(c)
+	from /= maxi(1, spawns.size())
+	var to := Vector2(s.grid.width, s.grid.height) * 0.5
+	var pods: Array = s.grid.enemy_spawns
+	if not pods.is_empty():
+		to = Vector2.ZERO
+		for c in pods:
+			to += Vector2(c)
+		to /= pods.size()
+	var d := to - from
+	if d.length() < 1.0:
+		d = Vector2(s.grid.width, s.grid.height) * 0.5 - from
+	if d.length() < 0.5:
+		d = Vector2(1, 1)
+	return Vector3(d.x, 0, d.y).normalized() * 2.0
 
 
 # --- headless auto-play ------------------------------------------------------

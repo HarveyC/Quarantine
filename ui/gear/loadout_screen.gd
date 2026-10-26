@@ -463,50 +463,114 @@ func _build_tags(r: Dictionary) -> void:
 		for p in GearTags.preview(r, _preview_id):
 			changes[p.tag] = p
 	var protos := GearTags.qualified_prototypes(counts)
-	for tag in GearData.TAGS:
-		var n: int = counts.get(tag, 0)
-		var ch: Dictionary = changes.get(tag, {})
-		var col := GearData.tag_color(tag) if n > 0 or not ch.is_empty() else UI.FAINT
-		var row := PanelContainer.new()
-		var hot := not ch.is_empty()
-		row.add_theme_stylebox_override("panel", UI.box(Color(col, 0.08) if hot else Color(0, 0, 0, 0), col if hot else Color(0, 0, 0, 0), 1, 0, 8))
-		var h := HBoxContainer.new()
-		h.add_theme_constant_override("separation", 10)
-		var dot := ColorRect.new()
-		dot.color = col
-		dot.custom_minimum_size = Vector2(10, 10)
-		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(dot)
-		var nm := UI.caps(tag, 17, col)
-		nm.custom_minimum_size.x = 120
-		h.add_child(nm)
-		var num := UI.mono(str(n), 19, col)
-		if hot:
-			num.text = "%d→%d" % [ch.from, ch.to]
-			num.add_theme_color_override("font_color", UI.AMBER if ch.to > ch.from else UI.DANGER)
-		num.custom_minimum_size.x = 64
-		h.add_child(num)
-		var sp2 := Control.new()
-		sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(sp2)
-		h.add_child(UI.pips(tag, n, ch.get("to", -1)))
-		row.add_child(h)
-		Tips.term(row, "tag_" + tag.to_lower(), {"count": n, "color": GearData.tag_color(tag)})
-		_tags.add_child(row)
-		if n >= GearData.SET_THRESHOLD and not ch.get("loses", false):
-			_tags.add_child(_bonus_line("Set bonus on: " + GearData.TAG_INFO[tag].bonus, col))
-		elif ch.get("unlocks", false):
-			_tags.add_child(_bonus_line("Completes the set: " + GearData.TAG_INFO[tag].bonus, UI.AMBER))
-		elif ch.get("loses", false):
-			_tags.add_child(_bonus_line("Turns off: " + GearData.TAG_INFO[tag].bonus, UI.DANGER))
-		if GearData.has_capstone(tag):
-			var cap: Dictionary = GearData.TAG_INFO[tag]
-			var cap_line := "%s: %s" % [cap.capstone_name, cap.capstone]
-			if n >= GearData.CAPSTONE_THRESHOLD and not ch.get("cap_loses", false):
-				_tags.add_child(_bonus_line("Capstone on, " + cap_line, col))
+	var shown := BuildRead.visible_tags(str(r.kind), counts, Profile.tags_all_shown())
+	for tag in changes:
+		if not shown.has(tag):
+			shown.append(tag)
+	var strip := _build_strip(counts)
+	strip.add_theme_constant_override("margin_top", 10)
+	_tags.add_child(strip)
+	for job in BuildRead.JOBS:
+		var in_job: Array = BuildRead.JOB_TAGS[job].filter(func(t): return shown.has(t))
+		if in_job.is_empty():
+			continue
+		_tags.add_child(_job_head(job))
+		for tag in in_job:
+			_add_tag_row(tag, counts, changes)
 	if not protos.is_empty():
 		var names := protos.map(func(id): return GearData.item_name(id))
 		_tags.add_child(_bonus_line("Prototypes unlocked: " + ", ".join(names) + ". Rare rewards may become one.", UI.AMBER))
+
+
+## Setup > Payoff / Sustain: the strongest tag the soldier has in each job, open where they have none.
+func _build_strip(counts: Dictionary) -> Control:
+	var leads := BuildRead.leads(counts)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	for i in BuildRead.JOBS.size():
+		var job: String = BuildRead.JOBS[i]
+		var tag: String = leads[job]
+		var cell := VBoxContainer.new()
+		cell.add_theme_constant_override("separation", -2)
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cell.add_child(UI.caps(job, 11, UI.FAINT))
+		cell.add_child(UI.caps(tag if tag != "" else "Open", 18, GearData.tag_color(tag) if tag != "" else Color(UI.FAINT, 0.6)))
+		Tips.term(cell, "job_" + job.to_lower())
+		row.add_child(cell)
+		if i < BuildRead.JOBS.size() - 1:
+			var sep := UI.caps(">" if i == 0 else "/", 18, UI.FAINT)
+			sep.size_flags_vertical = Control.SIZE_SHRINK_END
+			row.add_child(sep)
+	var box := MarginContainer.new()
+	box.add_theme_constant_override("margin_bottom", 6)
+	box.add_child(row)
+	return box
+
+
+func _job_head(job: String) -> Control:
+	var l := UI.caps(job, 11, UI.FAINT)
+	Tips.term(l, "job_" + job.to_lower())
+	l.mouse_filter = Control.MOUSE_FILTER_PASS
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_top", 6)
+	m.add_child(l)
+	return m
+
+
+func _add_tag_row(tag: String, counts: Dictionary, changes: Dictionary) -> void:
+	var n: int = counts.get(tag, 0)
+	var ch: Dictionary = changes.get(tag, {})
+	var col := GearData.tag_color(tag) if n > 0 or not ch.is_empty() else UI.FAINT
+	var row := PanelContainer.new()
+	var hot := not ch.is_empty()
+	row.add_theme_stylebox_override("panel", UI.box(Color(col, 0.08) if hot else Color(0, 0, 0, 0), col if hot else Color(0, 0, 0, 0), 1, 0, 8))
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	var dot := ColorRect.new()
+	dot.color = col
+	dot.custom_minimum_size = Vector2(10, 10)
+	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(dot)
+	var nm := UI.caps(tag, 17, col)
+	nm.custom_minimum_size.x = 120
+	h.add_child(nm)
+	var num := UI.mono(str(n), 19, col)
+	if hot:
+		num.text = "%d→%d" % [ch.from, ch.to]
+		num.add_theme_color_override("font_color", UI.AMBER if ch.to > ch.from else UI.DANGER)
+	num.custom_minimum_size.x = 64
+	h.add_child(num)
+	var sp2 := Control.new()
+	sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(sp2)
+	h.add_child(UI.pips(tag, n, ch.get("to", -1)))
+	var cap := BuildRead.capstone_at()
+	if cap > 0:
+		h.add_child(_capstone_mark(tag, n >= cap))
+	row.add_child(h)
+	Tips.term(row, "tag_" + tag.to_lower(), {"count": n, "color": GearData.tag_color(tag)})
+	_tags.add_child(row)
+	if n >= GearData.SET_THRESHOLD and not ch.get("loses", false):
+		_tags.add_child(_bonus_line("Set bonus on: " + GearData.TAG_INFO[tag].bonus, col))
+	elif ch.get("unlocks", false):
+		_tags.add_child(_bonus_line("Completes the set: " + GearData.TAG_INFO[tag].bonus, UI.AMBER))
+	elif ch.get("loses", false):
+		_tags.add_child(_bonus_line("Turns off: " + GearData.TAG_INFO[tag].bonus, UI.DANGER))
+	if GearData.has_capstone(tag) and n >= GearData.CAPSTONE_THRESHOLD:
+		var cap: Dictionary = GearData.TAG_INFO[tag]
+		_tags.add_child(_bonus_line("Capstone on, %s: %s" % [cap.capstone_name, cap.capstone], col))
+
+
+## A diamond after the pips: the capstone, lit when the soldier has enough of the tag.
+func _capstone_mark(tag: String, on: bool) -> Control:
+	var d := ColorRect.new()
+	d.custom_minimum_size = Vector2(10, 10)
+	d.pivot_offset = Vector2(5, 5)
+	d.rotation = PI / 4.0
+	d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	d.color = GearData.tag_color(tag) if on else Color(UI.DIM, 0.35)
+	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return d
 
 
 ## What the soldier's build does right now, and the next step toward a set bonus.

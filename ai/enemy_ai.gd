@@ -228,8 +228,11 @@ static func _choose_runner(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dict
 			var c: Vector2i = h.pos + d
 			if c == u.pos or not reach.has(c) or not s.grid.melee_reach(c, h.pos):
 				continue
+			if telegraph_cost(s, c) > 0.0:
+				continue   # an ally has marked this ground to blow
 			var steps: int = reach[c]
-			var score := _target_score(s, u, h, c) - steps * 0.1 - _guard_penalty(s, u, c)
+			var score := _target_score(s, u, h, c) - steps * 0.1 - _guard_penalty(s, u, c) \
+					- maxi(0, crowding(s, u, h) - 1) * 0.8
 			if d.x == 0 or d.y == 0:
 				score += 0.5   # orthogonal adjacency is valid for any melee adjacency rule
 			if score > best_score:
@@ -351,7 +354,7 @@ static func _advance(s: GameState, u: Unit, hostiles: Array[Unit], covered := fa
 		if not field.has(c):
 			continue
 		var steps: int = reach[c]
-		var score: float = field[c] + steps * 0.01
+		var score: float = field[c] + steps * 0.01 + telegraph_cost(s, c)
 		if covered and field[c] < here:
 			score -= _approach_cover(s, c, hostiles)
 		if score < best_score:
@@ -374,7 +377,36 @@ static func _target_score(s: GameState, u: Unit, t: Unit, from: Vector2i) -> flo
 		score += 3.0
 	if t.hunkered:
 		score -= 1.0
-	return score - _dist(from, t.pos) * 0.2
+	return score + isolation(s, t) - _dist(from, t.pos) * 0.2
+
+
+## Packs favour the soldier who strayed: up to +2 for a target more than 3 tiles from any teammate.
+static func isolation(s: GameState, t: Unit) -> float:
+	var nearest := INF
+	for o in s.living(t.team):
+		if o != t and not o.status.has("deployable"):
+			nearest = minf(nearest, _dist(t.pos, o.pos))
+	if nearest == INF:
+		return 0.0
+	return clampf((nearest - 3.0) * 0.5, 0.0, 2.0)
+
+
+## Cost of ending a move in a cell an ally has already marked to be hit: leaves soldiers the
+## red tiles to themselves unless the Infected is already in melee.
+static func telegraph_cost(s: GameState, c: Vector2i) -> float:
+	for t in s.encounter.get("telegraphs", []):
+		if t.cells.has(c):
+			return 3.0
+	return 0.0
+
+
+## Allies (not `u`) already in melee reach of `t`, for spreading a pack over several sides.
+static func crowding(s: GameState, u: Unit, t: Unit) -> int:
+	var n := 0
+	for o in s.living(u.team):
+		if o != u and not EnemyRoster.is_static(o) and s.grid.melee_reach(o.pos, t.pos):
+			n += 1
+	return n
 
 
 ## How safe cell `c` is from the hostiles that can see it: 1.1 when it has full cover from every

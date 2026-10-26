@@ -1243,10 +1243,15 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 ## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
 	"burrow", "erupt",
-	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit"]
+	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
+	"hook", "reel", "satchel", "mend"]
 
 
 func _beat_ability(ev: Dictionary) -> Dictionary:
+	if str(ev.get("ability", "")).begins_with("item:"):
+		var user := _uv(ev)
+		if user != null:
+			user.spend_pocket(str(ev.ability).trim_prefix("item:"))   # the pouch empties on the body
 	match str(ev.get("ability", "")):
 		"claw", "slam", "pounce", "maul", "spore_drop":
 			return _melee_beat(ev)
@@ -1274,6 +1279,27 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return _throw_beat(ev)
 		"spit":
 			return _spit_beat(ev)
+		"hook", "reel":
+			_sfx("hook_whip", -3.0)
+			var hb := _power_beat(ev, "hook" if ev.ability == "hook" else "reel", Palette.DANGER)
+			var hv := _uv(ev)
+			var ht := _uv(ev, "target")
+			if hv != null and ht != null:
+				view.fx.tracer(hv.position + Vector3(0, 1.0, 0), ht.aim_point(), Palette.DANGER, 0.5)
+			if ev.ability == "reel":
+				hb.dur = 0.5
+			return hb
+		"satchel":
+			_sfx("satchel_arm", -4.0)
+			return _throw_beat(ev)
+		"mend":
+			_sfx("weave_hum", -6.0)
+			var mb := _power_beat(ev, "mend", Palette.TEAL)
+			var mv := _uv(ev)
+			var mt := _uv(ev, "target")
+			if mv != null and mt != null:
+				view.fx.tracer(mv.position + Vector3(0, 1.0, 0), mt.aim_point(), Palette.TEAL, 0.7)
+			return mb
 		"suppress":
 			return _suppress_beat(ev)
 		"stim", "item:medkit":
@@ -1496,7 +1522,7 @@ func _throw_beat(ev: Dictionary) -> Dictionary:
 	var w := Board.cell_to_world(ev.cell)
 	uv.face_towards(w)
 	var demo: bool = ev.ability == "item:demo_charge"
-	view.fx.floating_text(_head(uv), "DEMO CHARGE" if demo else "FRAG OUT", Palette.AMBER, 44)
+	view.fx.floating_text(_head(uv), "DEMO CHARGE" if demo else ("SATCHEL" if ev.ability == "satchel" else "FRAG OUT"), Palette.AMBER, 44)
 	_sfx("ui_click", -2.0)
 	var from := uv.position + Vector3(0, 1.3, 0)
 	var to := w + Vector3(0, 0.6 if demo and _grid().tile(ev.cell) == Types.Tile.WALL else 0.12, 0)
@@ -1828,6 +1854,69 @@ func _beat_rescued(ev: Dictionary) -> Dictionary:
 	view.fx.floating_text(_head(uv), "SAFE", Color(0.45, 0.95, 0.55), 44)
 	_sfx("radio")
 	return {"dur": 0.5}
+
+
+## A marked spot of the sprint objectives (charge, relay, sample): label floats over the cell.
+func _site_beat(ev: Dictionary, text: String, col: Color, sfx := "radio", look := true) -> Dictionary:
+	if not (ev.get("cell") is Vector2i):
+		return {}
+	var at := Board.cell_to_world(ev.cell)
+	if look and not in_cinematic:
+		view.camera_rig.focus(at)
+	view.fx.pulse(at, col)
+	view.fx.floating_text(at + Vector3(0, 1.4, 0), text, col, 44)
+	_sfx(sfx)
+	if view.hud != null:
+		view.hud.refresh()
+	return {"dur": 0.6}
+
+
+func _beat_charge_armed(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "ARMED", Palette.AMBER, "gadget_deploy")
+
+
+func _beat_charge_defused(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "DEFUSED", Palette.DANGER, "alert")
+
+
+func _beat_charge_blown(ev: Dictionary) -> Dictionary:
+	return {"dur": 0.0}
+
+
+func _beat_relay_hacking(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "HACKING", Palette.AMBER, "radio", false)
+
+
+func _beat_relay_hacked(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "HACKED", TileOverlays.color("relay"))
+
+
+func _beat_relay_lost(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "RELAY DOWN", Palette.DANGER, "alert")
+
+
+func _beat_sample_taken(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "SAMPLE", TileOverlays.color("sample"), "radio", false)
+
+
+func _beat_sample_dropped(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "DROPPED", Palette.DANGER, "alert")
+
+
+func _beat_sample_delivered(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "DELIVERED", TileOverlays.color("sample"))
+
+
+func _beat_sample_lost(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "SAMPLE LOST", Palette.DANGER, "alert")
+
+
+func _beat_courier_waits(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	view.fx.floating_text(_head(uv), "WAITING", Palette.AMBER, 40)
+	return {"dur": 0.3}
 
 
 func _beat_left_behind(ev: Dictionary) -> Dictionary:
