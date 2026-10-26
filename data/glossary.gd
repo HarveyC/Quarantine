@@ -722,7 +722,7 @@ static func _build() -> Dictionary:
 		"line": "Field hospital treatment: an extra {perk} pick instead of rest.",
 		"art": "",
 		"stats": [["+1", "perk pick"], ["0", "Outbreak"]],
-		"more": ["The only treatment that doesn't raise {outbreak}."],
+		"more": ["The pick opens straight away: choose 1 of 3 {perk} cards for the soldier's class.", "The only treatment that doesn't raise {outbreak}."],
 		"see": ["perk", "rank"],
 		"scan": false}
 	t["full_cure"] = {"name": "Full cure", "kind": "treatment", "icon": "cure", "tone": "teal",
