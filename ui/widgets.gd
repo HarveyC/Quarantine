@@ -53,21 +53,53 @@ class Pips extends Control:
 				Draw.capsule(self, r, color)
 
 
-## HP pips in the XCOM 2 style: one pip per HP, wrapping into rows of PER_ROW with a wider gap
-## after every GROUP, so a 22 HP soldier is two short rows and a 40 HP boss four, never a ruler.
-## Same values and preview ranges as Pips.
-class HpPips extends Pips:
+## HP as pips. Up to ONE_PER_HP_UNTIL HP draws one pip per HP, wrapped into rows of PER_ROW with a
+## wider gap after every GROUP (XCOM 2 style). Past that each pip stands for several HP (2, 5,
+## 10 ...) so a monster with 100+ HP is still two short rows, and an xN multiplier is drawn
+## beside the pips and explains itself on hover. A pip is filled by the share of its HP that is
+## left; the HP a preview says will be lost is hatched pink, the HP it would refill is ghosted.
+class HpPips extends Control:
 	const PER_ROW := 10
 	const GROUP := 5
+	const ONE_PER_HP_UNTIL := 30
+	const MAX_CHUNKED_PIPS := 20
+	const STEPS := [2, 5, 10, 20, 50, 100, 200, 500, 1000]
+	const TIP_KEY := "hp_multiplier"
+	const TIP_META := "tip"   # Tips.META; widgets can't preload the tips (they preload us)
+	var max_hp := 5
+	var hp := 5
+	var lose := 0
+	var gain := 0
+	var color := Styles.HP
+	var off := Styles.HP_OFF
+	var seg := Vector2(7, 4)
+	var gap := 2.0
 	var row_gap := 2.0
+	var per := 1
+	var mult_px := 10
 
 	func _init(seg_size := Vector2(7, 4), pip_gap := 2.0) -> void:
-		super(seg_size)
+		seg = seg_size
 		gap = pip_gap
 		row_gap = maxf(2.0, seg_size.y * 0.5)
+		mult_px = clampi(roundi(seg_size.y * 2.0), 9, 13)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	## HP each pip stands for at `max_hp`: 1 up to ONE_PER_HP_UNTIL, then the smallest of
+	## STEPS that fits the HP in MAX_CHUNKED_PIPS pips.
+	static func per_pip(max_hp: int) -> int:
+		if max_hp <= ONE_PER_HP_UNTIL:
+			return 1
+		for st in STEPS:
+			if ceili(max_hp / float(st)) <= MAX_CHUNKED_PIPS:
+				return st
+		return STEPS[STEPS.size() - 1]
+
+	static func pips_for(max_hp: int) -> int:
+		return maxi(1, ceili(max_hp / float(per_pip(max_hp))))
 
 	static func rows_for(max_hp: int) -> int:
-		return maxi(1, ceili(max_hp / float(PER_ROW)))
+		return maxi(1, ceili(pips_for(max_hp) / float(PER_ROW)))
 
 	func _group_gap() -> float:
 		return gap + maxf(2.0, seg.x * 0.4)
@@ -76,26 +108,72 @@ class HpPips extends Pips:
 		var k := i % PER_ROW
 		return k * (seg.x + gap) + (_group_gap() - gap if k >= GROUP else 0.0)
 
+	func _pip_count() -> int:
+		return pips_for(max_hp)
+
+	func _mult_text() -> String:
+		return "x%d" % per if per > 1 else ""
+
+	func _mult_width() -> float:
+		var t := _mult_text()
+		return Styles.FONT_MONO.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, mult_px).x + 5.0 if t != "" else 0.0
+
+	## `c` is max HP, `f` current HP, `l` the HP a preview would take, `g` the HP it would give back.
 	func set_values(c: int, f: int, l := 0, col := Styles.HP, g := 0) -> void:
-		super(c, f, l, col, g)
-		var cols := mini(count, PER_ROW)
-		var rows := rows_for(count)
-		custom_minimum_size = Vector2(_pip_x(cols - 1) + seg.x if cols > 0 else 0.0, rows * seg.y + (rows - 1) * row_gap)
+		max_hp = maxi(c, 1)
+		hp = clampi(f, 0, max_hp)
+		lose = clampi(l, 0, hp)
+		gain = clampi(g, 0, max_hp - hp)
+		color = col
+		per = per_pip(max_hp)
+		var n := _pip_count()
+		var cols := mini(n, PER_ROW)
+		var rows := rows_for(max_hp)
+		custom_minimum_size = Vector2(_pip_x(cols - 1) + seg.x + _mult_width(), maxf(rows * seg.y + (rows - 1) * row_gap, float(mult_px) + 2.0 if per > 1 else 0.0))
+		if per > 1:
+			set_meta(TIP_META, {"terms": [TIP_KEY], "ctx": {"per": per}})
+			mouse_filter = Control.MOUSE_FILTER_PASS
+		else:
+			remove_meta(TIP_META)
+			mouse_filter = Control.MOUSE_FILTER_IGNORE
+		queue_redraw()
+
+	## A coloured stretch [a, b) of the pip's own HP range, as a fraction of its width.
+	func _span(r: Rect2, lo: int, hi: int, a: float, b: float, col: Color) -> void:
+		var f0 := clampf((a - lo) / float(hi - lo), 0.0, 1.0)
+		var f1 := clampf((b - lo) / float(hi - lo), 0.0, 1.0)
+		if f1 - f0 <= 0.0:
+			return
+		Draw.capsule(self, Rect2(r.position.x + r.size.x * f0, r.position.y, r.size.x * (f1 - f0), r.size.y), col)
 
 	func _draw() -> void:
-		var y0 := (size.y - custom_minimum_size.y) * 0.5
-		for i in count:
+		var n := _pip_count()
+		var rows := rows_for(max_hp)
+		var grid_h := rows * seg.y + (rows - 1) * row_gap
+		var y0 := (size.y - grid_h) * 0.5
+		var kept := hp - lose
+		for i in n:
 			var r := Rect2(_pip_x(i), y0 + int(i / PER_ROW) * (seg.y + row_gap), seg.x, seg.y)
-			if i >= filled + gain:
-				Draw.capsule(self, r, off)
-			elif i >= filled:
-				Draw.capsule(self, r, Color(color, 0.28))
-				Draw.capsule(self, r.grow(-1.2), Color(color, 0.5))
-			elif i >= filled - lose:
-				Draw.capsule(self, r, Color(Styles.DANGER, 0.3))
-				Draw.capsule(self, r.grow(-1.2), Color(Styles.DANGER, 0.55))
-			else:
-				Draw.capsule(self, r, color)
+			var lo := i * per
+			var hi := mini(max_hp, lo + per)
+			Draw.capsule(self, r, off)
+			if gain > 0:
+				_span(r, lo, hi, hp, hp + gain, Color(color, 0.4))
+			if lose > 0:
+				_span(r, lo, hi, kept, hp, Color(Styles.DANGER, 0.5))
+				var f0 := clampf((kept - lo) / float(hi - lo), 0.0, 1.0)
+				var f1 := clampf((hp - lo) / float(hi - lo), 0.0, 1.0)
+				if f1 > f0:
+					var x := r.position.x + r.size.x * f0 + 1.0
+					while x < r.position.x + r.size.x * f1 - 0.5:
+						draw_line(Vector2(x, r.end.y), Vector2(minf(x + seg.y, r.position.x + r.size.x * f1), r.position.y), Color(Styles.DANGER, 0.95), 1.0)
+						x += 3.0
+			_span(r, lo, hi, lo, kept, color)
+		var t := _mult_text()
+		if t != "":
+			var cols := mini(n, PER_ROW)
+			var fh := Styles.FONT_MONO.get_ascent(mult_px)
+			draw_string(Styles.FONT_MONO, Vector2(_pip_x(cols - 1) + seg.x + 5.0, size.y * 0.5 + fh * 0.36), t, HORIZONTAL_ALIGNMENT_LEFT, -1, mult_px, Styles.TEXT)
 
 
 ## Action points as small glowing lantern orbs (the class keeps its old name).
