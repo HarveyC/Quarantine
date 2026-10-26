@@ -556,6 +556,9 @@ func _add_tag_row(tag: String, counts: Dictionary, changes: Dictionary) -> void:
 		_tags.add_child(_bonus_line("Completes the set: " + GearData.TAG_INFO[tag].bonus, UI.AMBER))
 	elif ch.get("loses", false):
 		_tags.add_child(_bonus_line("Turns off: " + GearData.TAG_INFO[tag].bonus, UI.DANGER))
+	if GearData.has_capstone(tag) and n >= GearData.CAPSTONE_THRESHOLD:
+		var cap_info: Dictionary = GearData.TAG_INFO[tag]
+		_tags.add_child(_bonus_line("Capstone on, %s: %s" % [cap_info.capstone_name, cap_info.capstone], col))
 
 
 ## A diamond after the pips: the capstone, lit when the soldier has enough of the tag.
@@ -579,6 +582,13 @@ func _build_summary(r: Dictionary) -> void:
 		h.add_theme_constant_override("separation", 10)
 		h.add_child(UI.tag_chip(t, "%s set" % t))
 		h.add_child(UI.text(GearData.TAG_INFO[t].bonus, 14, UI.TEXT, 640))
+		_build_box.add_child(h)
+	for t in GearTags.active_capstones(counts):
+		var cap: Dictionary = GearData.TAG_INFO[t]
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		h.add_child(UI.tag_chip(t, "%s capstone" % t))
+		h.add_child(UI.text("%s: %s" % [cap.capstone_name, cap.capstone], 14, UI.TEXT, 640))
 		_build_box.add_child(h)
 	var close: Array = GearTags.ranked(counts).filter(func(t): return counts[t] == GearData.SET_THRESHOLD - 1)
 	for t in close:

@@ -168,6 +168,6 @@ static func _hit(s: GameState, u: Unit, cell: Vector2i) -> void:
 	infection = hit.y
 	s.emit({"type": "hazard_tick", "unit": u.id, "kind": h.kind, "cell": cell, "damage": hit.x, "infection": infection})
 	if hit.x > 0:
-		Rules.deal_damage(s, u, hit.x, null)
+		GearFx.hazard_damage(s, u, h, hit.x)
 	if infection > 0 and u.is_alive():
 		Infection.add(s, u, infection)

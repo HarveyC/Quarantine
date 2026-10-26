@@ -15,6 +15,10 @@ extends RefCounted
 ##   "gear_refund_turn": int  turn a Close-set kill last refunded a move
 ##   "gear_moved_turn": int   turn the unit last moved (Bipod)
 ##   "gear_set_mobility": int mobility currently added by the Close set bonus
+##   "warrant": bool       the Mark on this enemy came from a Warrant capstone (never expires, +20 aim for all)
+##   "warrant_turn": int   turn a Warrant kill last refunded an action
+##   "aegis_turn": int     turn Aegis last held a soldier at 1 HP (view beat only)
+##   "ignore_armour": bool set only while Wildfire fire damage is being dealt
 ##
 ## Gadgets and pocket consumables are abilities: ids "gear:<item>" and "item:<consumable>".
 ## Combat delegates them here (owns / validate_ability / apply_ability / available_abilities).
@@ -36,6 +40,13 @@ const THERMITE_LENGTH := [3, 5]
 const THERMITE_TURNS := 2
 const BURN_SET_FIRE_TURNS := 1
 const SCORCHED_PURGE := 10
+## Capstones (6 of a tag, GearData.CAPSTONE_THRESHOLD). Warrant: aim bonus on a Marked enemy for the whole
+## squad, and the Mark never runs out. Wildfire: Burning spreads to neighbours each team phase.
+const WARRANT_AIM := 20
+const WARRANT_FOREVER := 1000000
+const WILDFIRE_TURNS := 1
+## Kindled Spores: Infection each ignition costs the soldier.
+const KINDLED_INFECTION := 2
 
 ## Gadget abilities: targeting, action cost (0 = free, -1 = ends turn), uses per fight
 ## (Mk I, Mk II; 0 = unlimited) and cooldown (Mk I, Mk II).
@@ -87,6 +98,11 @@ static func has(u: Unit, id: String) -> bool:
 
 static func has_set(u: Unit, tag: String) -> bool:
 	return u.status.has("gear") and GearTags.unit_has_set(u, tag)
+
+
+## Capstone (6 of a tag) on, for a soldier with gear.
+static func has_capstone(u: Unit, tag: String) -> bool:
+	return u.status.has("gear") and GearTags.unit_has_capstone(u, tag)
 
 
 static func is_burning(_s: GameState, u: Unit) -> bool:
@@ -160,6 +176,8 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 			breakdown.append(["Match rounds", 5 if mk(a, "match_rounds") < 2 else 10])
 		if has(a, "bayonet") and _dist(from, t.pos) <= CLOSE:
 			breakdown.append(["Bayonet", 10 if mk(a, "bayonet") < 2 else 15])
+	if a.team == Types.Team.PLAYER and t.status.get("warrant", false) and is_marked(s, t):
+		breakdown.append(["Warrant", WARRANT_AIM])
 	if a.team == Types.Team.PLAYER and a.status.get("doctrines", []).has("buddy_system"):
 		for o in s.living(Types.Team.PLAYER):
 			if o != a and _cheb(o.pos, from) == 1 and not o.is_enemy_of(a):
@@ -228,11 +246,13 @@ static func after_shot(s: GameState, u: Unit, t: Unit, hit: bool, reaction: bool
 	var close := _dist(u.pos, t.pos) <= CLOSE
 	if has(u, "spore_rounds"):
 		Infection.add(s, u, 2)
+	if hit and Kit.awake(u, "kindled_spores"):
+		_kindle(s, u, t)
 	if hit and t.is_alive():
 		if has(u, "tracer_rounds"):
-			_mark(s, t, 1 if mk(u, "tracer_rounds") < 2 else 3)
+			_mark(s, t, 1 if mk(u, "tracer_rounds") < 2 else 3, u)
 		if has(u, "suppressor") and not t.status.get("alerted", true):
-			_mark(s, t, 2)
+			_mark(s, t, 2, u)
 		if has(u, "shock_rounds"):
 			_suppress(s, u, t, 15 if mk(u, "shock_rounds") >= 2 else 0)
 		if has(u, "incendiary_rounds"):
@@ -263,6 +283,22 @@ static func after_shot(s: GameState, u: Unit, t: Unit, hit: bool, reaction: bool
 		on_kill(s, u, t, reaction)
 
 
+## Kindled Spores (Burn mutation): the hit sets `t` Burning, spore cells next to it burn off as fire.
+static func _kindle(s: GameState, u: Unit, t: Unit) -> void:
+	var spores: Array[Vector2i] = []
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var c := t.pos + Vector2i(dx, dy)
+			if s.grid.in_bounds(c) and Hazards.at(s, c).get("kind", "") == "spore":
+				spores.append(c)
+	s.emit({"type": "mutation", "unit": u.id, "mutation": "kindled_spores", "target": t.id})
+	if t.is_alive():
+		ignite(s, u, t, 1)
+	if not spores.is_empty():
+		set_fire(s, u, spores, 1)
+	Infection.add(s, u, KINDLED_INFECTION)
+
+
 static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 	var was_marked := t.status.has("tagged") and int(t.status.tagged) > Combat.phase_index(s)
 	if reaction and has_set(u, "Overwatch"):
@@ -274,6 +310,11 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		u.status["gear_refund_turn"] = s.turn
 		u.actions_left += 1
 		s.emit({"type": "gear", "unit": u.id, "item": "close_set", "actions": u.actions_left})
+	if was_marked and t.status.get("warrant", false) and has_capstone(u, "Mark") and s.phase == Types.Phase.TEAM \
+			and u.status.get("warrant_turn", -1) != s.turn:
+		u.status["warrant_turn"] = s.turn
+		u.actions_left += 1
+		s.emit({"type": "gear", "unit": u.id, "item": "warrant_served", "target": t.id, "actions": u.actions_left})
 	if was_marked and has_set(u, "Mark"):
 		var best: Unit = null
 		for o in s.living():
@@ -281,6 +322,8 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 				best = o
 		if best:
 			best.status["tagged"] = t.status.tagged
+			if t.status.get("warrant", false):
+				best.status["warrant"] = true
 			s.emit({"type": "gear", "unit": u.id, "item": "mark_set", "target": best.id})
 	if is_burning(s, t):
 		_burn_set_spread(s, t)
@@ -293,10 +336,22 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 				ignite(s, u, o, 1)
 
 
-static func _mark(s: GameState, t: Unit, phases: int) -> void:
+static func _mark(s: GameState, t: Unit, phases: int, u: Unit = null) -> void:
 	var until := Combat.phase_index(s) + phases
 	if int(t.status.get("tagged", 0)) < until:
 		t.status["tagged"] = until
+	on_marked(s, u, t)
+
+
+## Warrant (Mark capstone): a Mark `u` puts on `t` never runs out, and the whole squad aims better
+## against it. Call after any Mark lands (the Marksman's Tag, tracer rounds, flares, Flies...).
+static func on_marked(s: GameState, u: Unit, t: Unit) -> void:
+	if u == null or t == null or not t.is_alive() or not has_capstone(u, "Mark"):
+		return
+	t.status["tagged"] = WARRANT_FOREVER
+	if not t.status.get("warrant", false):
+		t.status["warrant"] = true
+		s.emit({"type": "gear", "unit": u.id, "item": "warrant", "target": t.id})
 
 
 static func _suppress(s: GameState, u: Unit, t: Unit, extra: int = 0) -> void:
@@ -312,7 +367,7 @@ static func _suppress(s: GameState, u: Unit, t: Unit, extra: int = 0) -> void:
 	else:
 		t.status.erase("suppress_extra")
 	if has(u, "pinpoint"):
-		_mark(s, t, 3)
+		_mark(s, t, 3, u)
 	s.emit({"type": "gear", "unit": u.id, "item": "suppress", "target": t.id})
 
 
@@ -343,6 +398,36 @@ static func _burn_set_spread(s: GameState, t: Unit) -> void:
 			if s.grid.in_bounds(c):
 				cells.append(c)
 	set_fire(s, src, cells, BURN_SET_FIRE_TURNS)
+
+
+## Fire damage to `u`; Wildfire (Burn capstone) fire ignores armour, plating and the Armoured affix.
+static func fire_damage(s: GameState, u: Unit, dmg: int, ignores_armour: bool) -> void:
+	if ignores_armour:
+		u.status["ignore_armour"] = true
+	Rules.deal_damage(s, u, dmg)
+	u.status.erase("ignore_armour")
+
+
+## Wildfire (Burn capstone): every enemy next to a Burning enemy of a capstone soldier catches fire too.
+## Spread is collected over the whole phase so it moves one ring a turn, not through the whole pack at once.
+static func _wildfire_spread(s: GameState, burning: Array) -> void:
+	var lit: Array[Unit] = []
+	for pair in burning:
+		var from: Unit = pair[0]
+		var src: Unit = pair[1]
+		if not from.is_alive() or not src.is_alive():
+			continue
+		for o in s.living():
+			if o != from and src.is_enemy_of(o) and _cheb(o.pos, from.pos) == 1 and not is_burning(s, o) and not lit.has(o):
+				lit.append(o)
+				ignite(s, src, o, WILDFIRE_TURNS)
+				s.emit({"type": "gear", "unit": from.id, "item": "wildfire", "target": o.id})
+
+
+## Hazards hook: damage a hazard tile deals to `u`; a Wildfire soldier's fire ignores armour.
+static func hazard_damage(s: GameState, u: Unit, h: Dictionary, dmg: int) -> void:
+	var src := s.get_unit(int(h.get("source", -1))) if h.kind == "fire" else null
+	fire_damage(s, u, dmg, src != null and has_capstone(src, "Burn") and src.is_enemy_of(u))
 
 
 ## Hazards hook: what a hazard tile does to `u` once gear has its say. Returns
@@ -389,7 +474,7 @@ static func on_suppress(s: GameState, u: Unit, t: Unit) -> void:
 	if has(u, "compensator"):
 		t.status["suppress_extra"] = 10 if mk(u, "compensator") < 2 else 15
 	if has(u, "pinpoint"):
-		_mark(s, t, 3)
+		_mark(s, t, 3, u)
 	if has(u, "rotary_feed"):
 		var reach := 3 if mk(u, "rotary_feed") < 2 else 4
 		var dir := Vector2(t.pos - u.pos).normalized()
@@ -423,6 +508,7 @@ static func bite_infection(s: GameState, target: Unit, gain: int) -> int:
 # --- Turn flow (Rules) -----------------------------------------------------------------
 
 static func on_team_phase_start(s: GameState) -> void:
+	var wildfire: Array = []   # [burning unit, the Wildfire soldier whose fire it is]
 	for u in s.living():
 		if is_burning(s, u):
 			var left := int(u.status.burning) - 1
@@ -435,9 +521,13 @@ static func on_team_phase_start(s: GameState) -> void:
 			if src != null and has(src, "spotter_flare") and is_marked(s, u):
 				dmg *= 2
 			s.emit({"type": "burn", "unit": u.id, "damage": dmg})
-			Rules.deal_damage(s, u, dmg)
+			var wild := src != null and src.is_alive() and has_capstone(src, "Burn") and src.is_enemy_of(u)
+			if wild:
+				wildfire.append([u, src])
+			fire_damage(s, u, dmg, wild)
 			if not u.is_alive():
 				_burn_set_spread(s, u)
+	_wildfire_spread(s, wildfire)
 	for u in s.living(Types.Team.PLAYER):
 		var want := 1 if has_set(u, "Close") else 0
 		var have := int(u.status.get("gear_set_mobility", 0))
@@ -506,6 +596,22 @@ static func guard_redirect(s: GameState, target: Unit, source: Unit) -> Unit:
 			s.emit({"type": "gear", "unit": g.id, "item": "guard_set", "target": target.id})
 			return g
 	return target
+
+
+## Aegis (Guard capstone): a soldier above 1 HP can't be killed by a single hit; they are left on 1.
+static func aegis_hold(s: GameState, target: Unit, amount: int) -> int:
+	if amount < target.hp or target.hp <= 1 or not has_capstone(target, "Guard"):
+		return amount
+	s.emit({"type": "gear", "unit": target.id, "item": "aegis_hold"})
+	return target.hp - 1
+
+
+## Aegis: the damage a Guard-capstone soldier took meant for an ally goes back to whoever dealt it.
+static func aegis_return(s: GameState, guard: Unit, source: Unit, amount: int) -> void:
+	if amount <= 0 or source == null or not source.is_alive() or not source.is_enemy_of(guard) or not has_capstone(guard, "Guard"):
+		return
+	s.emit({"type": "gear", "unit": guard.id, "item": "aegis_return", "target": source.id, "damage": amount})
+	Rules.deal_damage(s, source, amount, guard)
 
 
 ## Infection `u` actually gains (Infection.add, after Kit): Containment emitter, and the Purge set
@@ -741,7 +847,7 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			ev["units"] = hit.map(func(o): return o.id)
 			s.emit(ev)   # the throw plays first, then what it did
 			for o in hit:
-				_mark(s, o, 3)
+				_mark(s, o, 3, u)
 				s.emit({"type": "gear", "unit": u.id, "item": "mark", "target": o.id})
 			_gives_away(s, u, hit)
 			return

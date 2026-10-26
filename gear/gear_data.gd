@@ -12,6 +12,7 @@ const SLOT_NAMES := {"weapon": "Weapon mod", "ammo": "Ammo", "armor": "Armor", "
 const POCKETS := 2
 const STASH_SIZE := 4
 const SET_THRESHOLD := 3        # one set bonus per tag at 3
+const CAPSTONE_THRESHOLD := 6   # one rule-bending capstone per tag at 6 (see TAG_INFO "capstone")
 const PROTOTYPE_THRESHOLD := 2  # a Prototype needs both of its tags at 2
 
 const RARITIES: Array[String] = ["common", "uncommon", "rare", "prototype"]
@@ -25,13 +26,16 @@ const UPGRADE_PRICES := {"common": 30, "uncommon": 30, "rare": 50}
 const TAGS: Array[String] = ["Burn", "Mark", "Suppress", "Overwatch", "Close", "Strain", "Purge", "Guard"]
 const TAG_INFO := {
 	"Burn": {"color": Color("#ff7a45"), "about": "Fire tiles and Burning enemies",
-		"bonus": "Burning lasts 1 extra turn, and an enemy that dies Burning sets the tiles around it on fire"},
-	"Mark": {"color": Color("#ff5c86"), "about": "Tagged or Marked enemies",
-		"bonus": "+1 damage against Marked enemies; when a Marked enemy dies the Mark jumps to the nearest visible enemy"},
+		"bonus": "Burning lasts 1 extra turn, and an enemy that dies Burning sets the tiles around it on fire",
+		"capstone_name": "Wildfire", "capstone": "Each turn a Burning enemy sets every enemy next to it Burning, and your fire ignores armour"},
+	"Mark": {"color": Color("#ff5c86"), "about": "Marked enemies",
+		"bonus": "+1 damage against Marked enemies; when a Marked enemy dies the Mark jumps to the nearest visible enemy",
+		"capstone_name": "Warrant", "capstone": "Your Marks never expire, squad shots at a Marked enemy get +20 aim, and your kills on one refund an action"},
 	"Suppress": {"color": Color("#b9a7ff"), "about": "Pinning enemies down",
 		"bonus": "+15 aim against Suppressed enemies, and a Suppressed enemy that moves gives you a free shot"},
 	"Overwatch": {"color": Color("#6fc3ff"), "about": "Reaction fire in the enemy phase",
-		"bonus": "+10 overwatch aim, and an overwatch kill keeps your overwatch up"},
+		"bonus": "+10 overwatch aim, and an overwatch kill keeps your overwatch up",
+		"capstone_name": "Field of Fire", "capstone": "Your overwatch fires at every enemy that moves in range, not just the first"},
 	"Close": {"color": Color("#e0a050"), "about": "Fighting within 3 tiles",
 		"bonus": "+1 movement, and once per turn a kill within 3 tiles refunds a move"},
 	"Strain": {"color": Color("#3fe0c5"), "about": "Powers fed by Infection",
@@ -39,7 +43,8 @@ const TAG_INFO := {
 	"Purge": {"color": Color("#e9e4d4"), "about": "Removing or moving Infection",
 		"bonus": "Allies you purge also heal 1 HP, and you gain no Infection on a turn you purge someone"},
 	"Guard": {"color": Color("#a9c46c"), "about": "Protecting adjacent allies",
-		"bonus": "Adjacent allies get +5 defense, and once per enemy phase you take a hit meant for an adjacent ally"},
+		"bonus": "Adjacent allies get +5 defense, and once per enemy phase you take a hit meant for an adjacent ally",
+		"capstone_name": "Aegis", "capstone": "One hit can't kill you from above 1 HP, and damage you take for an ally goes back to the attacker"},
 }
 
 const ITEMS := {
@@ -334,6 +339,20 @@ static func items_with(tag: String = "", rarity: String = "", slot: String = "")
 		var d: Dictionary = ITEMS[id]
 		if (tag == "" or d.tag == tag) and (rarity == "" or d.rarity == rarity) and (slot == "" or d.slot == slot):
 			out.append(id)
+	return out
+
+
+## Does this tag have a capstone built yet? (Burn, Mark, Overwatch and Guard so far.)
+static func has_capstone(tag: String) -> bool:
+	return TAG_INFO.get(tag, {}).has("capstone")
+
+
+## Tags with a capstone, in TAGS order.
+static func capstone_tags() -> Array[String]:
+	var out: Array[String] = []
+	for t in TAGS:
+		if has_capstone(t):
+			out.append(t)
 	return out
 
 

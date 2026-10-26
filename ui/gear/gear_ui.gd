@@ -122,16 +122,23 @@ static func tag_chip(tag: String, text := "", dim := false) -> PanelContainer:
 	return p
 
 
-## Three pips for a tag count toward the set bonus; `preview` lights the next pip in gold.
+## Three pips for a tag count toward the set bonus (six, in two groups, for a tag with a capstone);
+## `preview` lights the next pip in gold.
 static func pips(tag: String, count: int, preview_to := -1) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	var c := GearData.tag_color(tag)
 	if count == 0 and preview_to <= 0:
 		c = Color(Styles.DIM, 0.3)
-	for i in GearData.SET_THRESHOLD:
+	var total := GearData.SET_THRESHOLD
+	for i in total:
+		if i == GearData.SET_THRESHOLD:
+			var gap := Control.new()
+			gap.custom_minimum_size = Vector2(6, 10)
+			gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(gap)
 		var pip := Panel.new()
-		pip.custom_minimum_size = Vector2(22, 10)
+		pip.custom_minimum_size = Vector2(22 if total == GearData.SET_THRESHOLD else 13, 10)
 		var on := i < count
 		var gold := preview_to > count and i >= count and i < preview_to
 		var lost := preview_to >= 0 and preview_to < count and i >= preview_to and i < count
@@ -145,8 +152,8 @@ static func pips(tag: String, count: int, preview_to := -1) -> HBoxContainer:
 		pip.add_theme_stylebox_override("panel", sb)
 		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(pip)
-	if count > GearData.SET_THRESHOLD:
-		row.add_child(mono("+%d" % (count - GearData.SET_THRESHOLD), 11, c))
+	if count > total:
+		row.add_child(mono("+%d" % (count - total), 11, c))
 	return row
 
 

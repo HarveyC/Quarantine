@@ -30,12 +30,12 @@ const FOAM := Color("e4ece9")
 const SOLDIER := {
 	"incinerate": {"title": "INCINERATE", "color": Color("ff7a45"), "sound": "vent", "fx": "cone"},
 	"siphon": {"title": "SIPHON", "color": Palette.TEAL, "sound": "infect", "fx": "drain"},
-	"purge": {"title": "PURGE", "color": Color("e9e4d4"), "sound": "heal", "fx": "inject"},
+	"purge": {"title": "FLUSH", "color": Color("e9e4d4"), "sound": "heal", "fx": "inject"},
 	"decon": {"title": "DECON SHOWER", "color": Color("9fd8e8"), "sound": "smoke_hiss", "fx": "inject"},
 	"serum": {"title": "SERUM", "color": Palette.TEAL, "sound": "mutation", "fx": "inject"},
 	"squad_order": {"title": "SQUAD LEADER", "color": Palette.AMBER, "sound": "order_call", "fx": "order", "text": "+1 ACTION"},
 	"talk_down": {"title": "TALK DOWN", "color": Palette.STEALTH, "sound": "order_call", "fx": "order", "text": "STAND DOWN"},
-	"tag": {"title": "MARKSMAN TAG", "color": Color("ff5c86"), "sound": "radio", "fx": "tag"},
+	"tag": {"title": "MARK", "color": Color("ff5c86"), "sound": "radio", "fx": "tag"},
 	"runner_leap": {"title": "LEAP", "color": Palette.TEAL, "sound": "grapple", "fx": "leap"},
 }
 ## Gadgets and pocket items with a beat here (the rest of item:/gear: are frag, demo and medkit,
