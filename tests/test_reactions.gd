@@ -65,3 +65,17 @@ func test_resonance_is_a_small_aim_bonus_for_committing_to_one_tag() -> void:
 	assert_eq(GearFx.resonance_aim(x.u), 6, "four pieces of a tag: +6")
 	x.u.status["gear_tags"] = {"Mark": 9}
 	assert_eq(GearFx.resonance_aim(x.u), GearFx.RESONANCE_CAP, "capped")
+
+
+func test_guard_and_purge_sets_ward_infection() -> void:
+	var x := _setup()
+	var buddy: Unit = x.s.add_unit(UnitData.make("medic", Types.Team.PLAYER), Vector2i(3, 2))
+	buddy.owner_player = 0
+	buddy.status["gear"] = {}
+	assert_eq(GearFx.infection_gain(x.s, x.u, 20), 20, "no wards")
+	buddy.status["gear_tags"] = {"Guard": GearData.SET_THRESHOLD}
+	assert_eq(GearFx.infection_gain(x.s, x.u, 20), 15, "Guard-set neighbour: a quarter less")
+	buddy.status["gear_tags"] = {"Guard": GearData.SET_THRESHOLD, "Purge": GearData.SET_THRESHOLD}
+	assert_eq(GearFx.infection_gain(x.s, x.u, 20), 12, "Guard and Purge wards multiply, rounded up")
+	buddy.pos = Vector2i(9, 5)
+	assert_eq(GearFx.infection_gain(x.s, x.u, 20), 20, "out of range: no ward")

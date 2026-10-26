@@ -110,6 +110,11 @@ func _cases() -> Dictionary:
 	c["item:suppressant_shot"] = {"pockets": ["suppressant_shot"], "pre": func(x): x.ally.infection = 30,
 		"act": func(x): return {"target": x.ally.id},
 		"check": func(x): return "" if x.ally.infection == 15 else "ally still at %d" % x.ally.infection}
+	c["item:antiviral_dose"] = {"pockets": ["antiviral_dose"], "pre": func(x): x.ally.infection = 50,
+		"act": func(x): return {"target": x.ally.id},
+		"check": func(x): return "" if x.ally.infection == 15 else "ally still at %d" % x.ally.infection}
+	c["item:breather_mask"] = {"pockets": ["breather_mask"], "act": func(x): return {},
+		"check": func(x): return "" if Combat.has_status(x.s, x.ally, "contained") and Combat.has_status(x.s, x.u, "contained") else "not sealed"}
 	c["item:stim"] = {"pockets": ["stim"], "act": func(x): return {},
 		"check": func(x): return "" if x.u.actions_left == 3 and x.u.infection == 5 else "actions %d" % x.u.actions_left}
 	c["item:frag_grenade"] = {"pockets": ["frag_grenade"], "act": func(x): return {"cell": FOE_AT},

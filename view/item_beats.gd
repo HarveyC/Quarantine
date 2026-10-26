@@ -40,7 +40,7 @@ const SOLDIER := {
 }
 ## Gadgets and pocket items with a beat here (the rest of item:/gear: are frag, demo and medkit,
 ## which EventPlayer plays itself).
-const ITEMS := ["item:flashbang", "item:smoke_grenade", "item:recon_drone", "item:suppressant_shot", "item:stim",
+const ITEMS := ["item:flashbang", "item:smoke_grenade", "item:recon_drone", "item:suppressant_shot", "item:antiviral_dose", "item:breather_mask", "item:stim",
 	"item:containment_foam", "gear:flare_launcher", "gear:concussion_launcher", "gear:thermite_charge",
 	"gear:med_injector", "gear:adrenal_pump", "gear:deployable_cover", "gear:grapple", "gear:containment_emitter",
 	"gear:sentry_turret"]
@@ -82,7 +82,14 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				ep.view.fx.puff(uv.position + Vector3(0, 1.0, 0), Palette.TEAL_DIM, 0.8, 0.7, 0.4)
 				uv.flash(Palette.TEAL)
 			return b
-		"gear:med_injector", "item:suppressant_shot":
+		"item:breather_mask":
+			var b: Dictionary = _title(ep, ev, "BREATHER MASK", Palette.TEAL, "emitter_hum")
+			var uv: Node3D = ep._uv(ev)
+			if uv != null:
+				ep.view.fx.puff(uv.position + Vector3(0, 1.0, 0), Palette.TEAL_DIM, 0.8, 0.7, 0.4)
+				uv.flash(Palette.TEAL)
+			return b
+		"gear:med_injector", "item:suppressant_shot", "item:antiviral_dose":
 			var b: Dictionary = ep._power_beat(ev, _name(ev), Palette.HEAL)
 			ep._sfx("heal", -4.0)
 			return b
