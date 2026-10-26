@@ -22,6 +22,7 @@ var hazards := {}                   # cell -> {"kind", "turns", "source", "spare
 ## Fog of war owned by Vision (vision/): explored cells, exposed attackers, last seen, blips, reveals.
 var vision := {}
 var zones: Array = []               # Spore Burst clouds and Overgrowth walls, see progression/zones.gd
+var settling := false                # a phase change is mid-flight: Rules._auto_ready must not start another
 var _next_id := 1
 
 
