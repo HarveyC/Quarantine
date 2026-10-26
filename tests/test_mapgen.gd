@@ -73,8 +73,50 @@ func test_objective_markers() -> void:
 	assert_eq(MapGen.generate(_spec("purge", 3)).marker("nest").size(), 3, "3 nests")
 	assert_eq(MapGen.generate(_spec("elite", 3)).marker("hive").size(), 1, "hive node")
 	var b := MapGen.generate(_spec("boss", 3))
-	assert_eq(b.marker("boss"), [Vector2i(b.width / 2, b.height / 2)], "boss anchor at the centre")
-	assert_true(b.is_walkable(Vector2i(b.width / 2 + 2, b.height / 2 - 2)), "open ground around the boss")
+	assert_eq(b.marker("boss").size(), 1, "one boss anchor")
+	var anchor: Vector2i = b.marker("boss")[0]
+	assert_true(b.is_walkable(anchor), "boss anchor stands on open ground")
+	for biome in BIOMES:
+		var arena := MapGen.generate(_spec("boss", 3, biome))
+		assert_eq(arena.width, 20, biome + " boss arena is 20x20")
+		var a: Vector2i = arena.marker("boss")[0]
+		var open := 0
+		for d in Grid.DIRS8:
+			if arena.is_walkable(a + d):
+				open += 1
+		assert_true(open >= 5, biome + " arena leaves room around the boss")
+
+
+func test_boss_arenas_are_authored_per_biome() -> void:
+	for biome in BIOMES:
+		for seed in range(1, 9):
+			var g := MapGen.generate(_spec("boss", seed, biome))
+			assert_eq(MapGen.last_plot, "arena", "%s boss seed %d uses its arena" % [biome, seed])
+			assert_true(g.player_spawns.size() >= 4 and g.enemy_spawns.size() >= MapGen.MIN_ENEMY_SPAWNS, biome + " arena spawns")
+			var a: Vector2i = g.marker("boss")[0]
+			assert_true(g.reachable(g.player_spawns[0], 999).has(a), biome + " boss reachable from the drop zone")
+	# Hale holds the highest ground: his anchor is the upper roof of the command post.
+	assert_eq(MapGen.generate(_spec("boss", 1, "port")).level(MapGen.generate(_spec("boss", 1, "port")).marker("boss")[0]), 2, "Hale starts on the upper roof")
+
+
+func test_drop_zone_sight_stays_under_the_cap() -> void:
+	for biome in BIOMES:
+		for o in ["skirmish", "extract", "hold", "hack"]:
+			for seed in range(1, 9):
+				var g := MapGen.generate(_spec(o, seed, biome))
+				assert_true(MapGen.drop_sight(g, g.player_spawns[0]) <= MapGen.DROP_SIGHT_CAP + 0.001, "%s %s seed %d drop zone sight" % [biome, o, seed])
+
+
+func test_lane_plots_give_three_routes_and_height() -> void:
+	var lanes := 0
+	var raised := 0.0
+	for seed in range(1, 41):
+		var g := MapGen.generate(_spec("skirmish", seed, "wall"))
+		if MapGen.last_plot.begins_with(MapGen.LANE_PLOT_PREFIX):
+			lanes += 1
+			raised += (g.levels.size() - g.levels.count(0)) / float(g.levels.size())
+	assert_true(lanes >= 15, "lane plots are the usual skirmish map (got %d of 40)" % lanes)
+	assert_true(raised / maxi(lanes, 1) >= 0.10, "lane maps carry real height")
 
 
 func test_pods_sit_inside_two_moves() -> void:

@@ -35,6 +35,12 @@ const FULL_COVER := Vector2(0.03, 0.24)   # share of all tiles
 const HALF_COVER := Vector2(0.04, 0.22)
 const DEAD_GROUND := 4                    # every floor tile within this many tiles of cover
 const MAX_SIGHTLINE := 24                 # longest straight open run in a row or column
+## Lane plots (three routes between the drop court and the objective, see maps/biome_*.txt) are
+## picked this often when the objective has any; the older free-form plots share the rest.
+const LANE_PLOT_PREFIX := "lanes_"
+const LANE_PLOT_SHARE := 0.65
+const DROP_SIGHT_CAP := 0.35              # share of walkable ground the drop zone can see on turn one
+const DROP_SIGHT_SLABS := 10              # blast walls the sight pass may add to get under the cap
 const BOSS_DEAD_GROUND := 3               # boss arenas keep the tighter fix-ups they were tuned on
 const BOSS_MAX_SIGHTLINE := 12
 const REINFORCE_MIN_STEPS := 6
@@ -62,6 +68,8 @@ const BARREL_DROP_GAP := 7
 const BARREL_POD_REACH := 3
 ## Why the last rejected layout failed validation (dev aid for tuning parcels).
 static var last_reject := ""
+## Name of the plot the last generated map was built from (dev aid for stats scripts).
+static var last_plot := ""
 
 
 ## The map for `spec`. Rerolls up to MAX_TRIES layouts that fail validation, then falls back
@@ -70,6 +78,16 @@ static func generate(spec: Dictionary) -> Grid:
 	var biome := _biome_name(str(spec.get("biome", "wall")))
 	var objective := str(spec.get("objective", "skirmish"))
 	var data := _load_biome(biome)
+	if objective == "boss" and not data.arenas.is_empty():
+		var arng := RandomNumberGenerator.new()
+		arng.seed = ("%d:%s:arena" % [int(spec.get("seed", 0)), biome]).hash()
+		var arena := _build_arena(data.arenas[arng.randi() % data.arenas.size()], arng)
+		if arena != null:
+			arena.biome = biome
+			arena.objective = objective
+			last_plot = "arena"
+			return arena
+		push_warning("MapGen: arena for %s is invalid: %s" % [biome, last_reject])
 	var plots: Array = data.plots.filter(func(p: Dictionary) -> bool: return p.objectives.has(objective))
 	if plots.is_empty():
 		objective = "skirmish"
@@ -77,16 +95,68 @@ static func generate(spec: Dictionary) -> Grid:
 	for attempt in MAX_TRIES:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = ("%d:%s:%s:%d" % [int(spec.get("seed", 0)), biome, objective, attempt]).hash()
-		var g := _build(data, plots[rng.randi() % plots.size()], objective, rng)
+		var pool: Array = plots
+		var lane_plots: Array = plots.filter(func(p: Dictionary) -> bool: return str(p.name).begins_with(LANE_PLOT_PREFIX))
+		if not lane_plots.is_empty() and rng.randf() < LANE_PLOT_SHARE:
+			pool = lane_plots
+		var plot_of: Dictionary = pool[rng.randi() % pool.size()]
+		var g := _build(data, plot_of, objective, rng)
 		if g != null:
 			g.biome = biome
 			g.objective = objective
+			last_plot = str(plot_of.get("name", ""))
 			return g
 	push_warning("MapGen: no valid layout for %s, using the fallback map" % [spec])
 	var fb := Grid.load_file(FALLBACK_MAP)
 	fb.biome = biome
 	fb.objective = "skirmish"
 	return fb
+
+
+## A boss arena drawn whole in the biome file (20x20, plain glyphs; P deploy, E pod cells, B boss
+## anchor). Mirrored left-right half the time. Null (with last_reject set) when it is not playable.
+static func _build_arena(arena: Dictionary, rng: RandomNumberGenerator) -> Grid:
+	var rows := PackedStringArray()
+	var flip := rng.randf() < 0.5
+	for r in arena.rows:
+		# B and b mark the boss anchor on the ground and on an upper roof; both are floor in the grid.
+		var row: String = r.replace("B", ".").replace("b", "2")
+		rows.append(row.reverse() if flip else row)
+	var g := Grid.from_rows(rows)
+	var deploy: Array[Vector2i] = []
+	var pods: Array[Vector2i] = []
+	var boss := Vector2i(-1, -1)
+	for y in g.height:
+		for x in g.width:
+			match arena.rows[y][(g.width - 1 - x) if flip else x]:
+				"P": deploy.append(Vector2i(x, y))
+				"E": pods.append(Vector2i(x, y))
+				"B", "b": boss = Vector2i(x, y)
+	if deploy.size() < 4 or pods.size() < MIN_ENEMY_SPAWNS or boss.x < 0:
+		last_reject = "arena needs 4 deploy cells, %d pod cells and a boss anchor" % MIN_ENEMY_SPAWNS
+		return null
+	deploy.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
+	var dist := _distance_map(g, deploy)
+	var back := _can_return(g, [deploy[0]])
+	for c in pods + [boss]:
+		if not dist.has(c) or not back.has(c):
+			last_reject = "arena cell %s unreachable" % c
+			return null
+	for y in g.height:
+		for x in g.width:
+			var c := Vector2i(x, y)
+			if g.is_walkable(c) and not (dist.has(c) and back.has(c)):
+				g.tiles[y * g.width + x] = Types.Tile.WALL
+	var markers := {}
+	for k in MARKER_KEYS:
+		markers[k] = []
+	markers.boss.append(boss)
+	g.player_spawns.assign(deploy)
+	g.enemy_spawns.assign(pods)
+	markers.reinforce.assign(_reinforce_cells(g, "boss", dist, markers))
+	g.markers = markers
+	_place_barrels(g, deploy, rng)
+	return g
 
 
 static func _biome_name(b: String) -> String:
@@ -107,6 +177,7 @@ static func _load_biome(biome: String) -> Dictionary:
 static func parse(text: String) -> Dictionary:
 	var parcels := {}
 	var plots: Array = []
+	var arenas: Array = []
 	var current: Dictionary = {}
 	for raw in text.split("\n"):
 		# Only the right side is trimmed: a double-resolution row can start with an open border (a space).
@@ -115,7 +186,10 @@ static func parse(text: String) -> Dictionary:
 			continue
 		if line.begins_with("@"):
 			var parts := line.substr(1).split(" ", false)
-			if parts[0] == "plot":
+			if parts[0] == "arena":
+				current = {"name": parts[1], "rows": PackedStringArray()}
+				arenas.append(current)
+			elif parts[0] == "plot":
 				var lanes := 0
 				for p in parts:
 					if p.begins_with("lanes="):
@@ -132,7 +206,7 @@ static func parse(text: String) -> Dictionary:
 	for role in parcels:
 		for parcel in parcels[role]:
 			parcel.rows = _double(parcel.rows)
-	return {"parcels": parcels, "plots": plots}
+	return {"parcels": parcels, "plots": plots, "arenas": arenas}
 
 
 ## A parcel's rows at double resolution (cells at odd positions, borders between; see
@@ -220,7 +294,7 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 
 	var pools := {}
 	var slot_role := {"D": "deploy", "B": "breach", "E": "pod", "F": "filler", "T": "tower",
-		"L": "landmark", "O": OBJECTIVE_ROLE.get(objective, "filler")}
+		"L": "landmark", "C": "compound", "R": "roofline", "S": "street", "O": OBJECTIVE_ROLE.get(objective, "filler")}
 	var deploy: Array[Vector2i] = []
 	var pods: Array = []                  # one Array[Vector2i] per pod parcel
 	var markers := {}
@@ -330,6 +404,8 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 		return null
 	_fix_dead_ground(g, fixed, rng, DEAD_GROUND if open_ground else BOSS_DEAD_GROUND)
 	_fix_sightlines(g, fixed, rng, MAX_SIGHTLINE if open_ground else BOSS_MAX_SIGHTLINE)
+	if open_ground:
+		_cap_drop_sight(g, deploy, fixed, rng)
 
 	# Connectivity: everything that matters must be reachable from the drop zone and able to walk
 	# back to it (drop-downs are one way); seal the rest. `back` keeps only round-trip cells.
@@ -366,6 +442,9 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 
 	if not _validate(g, objective, dist, deploy, pods, markers, spine_rows):
 		return null
+	if open_ground and drop_sight(g, deploy[0]) > DROP_SIGHT_CAP:
+		last_reject = "drop zone sees %.2f" % drop_sight(g, deploy[0])
+		return null
 
 	g.player_spawns.assign(deploy)
 	g.enemy_spawns.assign(_interleave_pods(g, pods, dist, reserved))
@@ -377,6 +456,54 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 	markers.reinforce.assign(_reinforce_cells(g, objective, dist, markers))
 	g.markers = markers
 	return g
+
+
+## Share of the walkable ground-level tiles a soldier at `from` can see (map geometry only: walls,
+## edge walls and raised cells block as in Combat.line_clear). `step` 2 samples every other tile.
+static func drop_sight(g: Grid, from: Vector2i, step := 1) -> float:
+	var seen := 0
+	var total := 0
+	for y in range(0, g.height, step):
+		for x in range(0, g.width, step):
+			var c := Vector2i(x, y)
+			if not g.is_walkable(c) or g.level(c) > 0:
+				continue
+			total += 1
+			if Combat.line_clear(g, from, c, g.level(from)):
+				seen += 1
+	return seen / float(maxi(total, 1))
+
+
+## Breaks up the drop zone's view: blast walls across the open ground 4 to 10 tiles out, each the
+## one of a few random candidates that hides the most, until the drop zone sees DROP_SIGHT_CAP or less.
+static func _cap_drop_sight(g: Grid, deploy: Array[Vector2i], reserved: Dictionary, rng: RandomNumberGenerator) -> void:
+	var from := deploy[0]
+	var best_share := drop_sight(g, from, 2)
+	for pass_i in DROP_SIGHT_SLABS:
+		if best_share <= DROP_SIGHT_CAP - 0.02:
+			return
+		var pick := []
+		for tries in 24:
+			var c := Vector2i(rng.randi_range(0, g.width - 1), rng.randi_range(0, g.height - 1))
+			var d := maxi(absi(c.x - from.x), absi(c.y - from.y))
+			if d < 4 or d > 10:
+				continue
+			var along: Vector2i = Vector2i(1, 0) if rng.randf() < 0.5 else Vector2i(0, 1)
+			var side: Vector2i = Vector2i(0, 1) if along.x == 1 else Vector2i(1, 0)
+			if not _slab_room(g, c, along, side, reserved):
+				continue
+			g.set_edge(c, along, Grid.EDGE_WALL)
+			g.set_edge(c + side, along, Grid.EDGE_WALL)
+			var share := drop_sight(g, from, 2)
+			g.set_edge(c, along, Grid.EDGE_NONE)
+			g.set_edge(c + side, along, Grid.EDGE_NONE)
+			if share < best_share - 0.005:
+				best_share = share
+				pick = [c, along, side]
+		if pick.is_empty():
+			continue
+		g.set_edge(pick[0], pick[1], Grid.EDGE_WALL)
+		g.set_edge(pick[0] + pick[2], pick[1], Grid.EDGE_WALL)
 
 
 ## Now and then a two-tile sandbag line along a street beside a parcel, so the streets stay open
