@@ -45,6 +45,7 @@ const SCORCHED_PURGE := 10
 const WARRANT_AIM := 20
 const WARRANT_FOREVER := 1000000
 const WILDFIRE_TURNS := 1
+const CROSSHAIR_AIM := 20   # reaction: overwatch shots at a Marked enemy
 ## Kindled Spores: Infection each ignition costs the soldier.
 const KINDLED_INFECTION := 2
 
@@ -180,6 +181,8 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 			breakdown.append(["Bayonet", 10 if mk(a, "bayonet") < 2 else 15])
 	if a.team == Types.Team.PLAYER and t.status.get("warrant", false) and is_marked(s, t):
 		breakdown.append(["Warrant", WARRANT_AIM])
+	if reaction and a.team == Types.Team.PLAYER and is_marked(s, t):
+		breakdown.append(["Crosshair", CROSSHAIR_AIM])
 	if a.team == Types.Team.PLAYER and a.status.get("doctrines", []).has("buddy_system"):
 		for o in s.living(Types.Team.PLAYER):
 			if o != a and _cheb(o.pos, from) == 1 and not o.is_enemy_of(a):
@@ -221,6 +224,9 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 
 ## Damage of a landed shot after gear.
 static func shot_damage(s: GameState, u: Unit, t: Unit, dmg: int, reaction: bool) -> int:
+	if dmg > 0 and u.team == Types.Team.PLAYER and _dist(u.pos, t.pos) <= CLOSE and Combat.has_status(s, t, "suppressed"):
+		dmg += 1
+		s.emit({"type": "gear", "unit": u.id, "item": "pinned_close", "target": t.id})
 	if not u.status.has("gear") or dmg <= 0:
 		return dmg
 	var close := _dist(u.pos, t.pos) <= CLOSE
@@ -579,6 +585,15 @@ static func on_team_phase_start(s: GameState) -> void:
 			if src != null and has(src, "spotter_flare") and is_marked(s, u):
 				dmg *= 2
 			s.emit({"type": "burn", "unit": u.id, "damage": dmg})
+			if in_smoke(s, u):
+				var cells: Array[Vector2i] = []
+				for dx in range(-1, 2):
+					for dy in range(-1, 2):
+						var c := u.pos + Vector2i(dx, dy)
+						if s.grid.in_bounds(c):
+							cells.append(c)
+				s.emit({"type": "gear", "unit": u.id, "item": "flare_up"})
+				set_fire(s, u, cells, 1)
 			var wild := src != null and src.is_alive() and has_capstone(src, "Burn") and src.is_enemy_of(u)
 			if wild:
 				wildfire.append([u, src])
