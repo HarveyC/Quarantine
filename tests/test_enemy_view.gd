@@ -139,6 +139,7 @@ func _watch(v: MissionView, turns: int, seen: Dictionary) -> void:
 		for u in v.state.living(Types.Team.PLAYER):
 			u.max_hp = 99
 			u.hp = 99
+			u.infection = 0
 		for p in v.state.players:
 			Rules.set_ready(v.state, p, true)
 		_drain(v)
@@ -200,9 +201,8 @@ func test_the_source_three_phases_play_through_the_view() -> void:
 	var seen := {}
 	var soldier: Unit = v.state.living(Types.Team.PLAYER)[0]
 	# A raised platform under the squad, so the collapse has something to bring down.
-	for u in v.state.living(Types.Team.PLAYER):
-		for c in EnemyAbilities.square(v.state.grid, u.pos, 1):
-			v.state.grid.set_level(c, 1)
+	for c in EnemyAbilities.square(v.state.grid, src.pos + Vector2i(4, 4), 2):
+		v.state.grid.set_level(c, 1)
 	_watch(v, 3, seen)
 	assert_true(seen.get("lash", 0) >= 1, "the roots lash")
 	assert_true(seen.get("strike:lash", 0) >= 1 and seen.get("red_tiles", 0) >= 1, "marked, then landed")

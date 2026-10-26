@@ -29,7 +29,8 @@ const HIVE_HP := {1: 6, 2: 8, 3: 10, 4: 12}
 const ELITE_HP_SQUAD := {1: 0.6, 2: 0.75, 3: 0.9, 4: 1.0}
 const NEST_SPAWN_EVERY_EXTRA := {1: 2, 2: 2, 3: 1, 4: 0}
 const HIDDEN_REVEAL_RANGE := 4
-const SOURCE_PULSE := 5          # Infection to every soldier per turn in the Source's phase 1
+const SOURCE_PULSE := 5          # Infection to every soldier per turn while the Source is shielded (4 soldiers)
+const SOURCE_PULSE_SQUAD := {1: 2, 2: 4, 3: 5, 4: 5}
 const SOURCE_SAFE_RADIUS := 3    # spore rings stop this close to the Source
 const CARRIER_BONUS := 1.5       # damage to the opened core from Mutating+ soldiers
 const VIRULENT_EXTRA := 15
@@ -373,9 +374,10 @@ static func on_enemy_phase_start(s: GameState) -> void:
 		var hit: Array[int] = []
 		for u in s.living(Types.Team.PLAYER):
 			hit.append(u.id)
-		s.emit({"type": "source_pulse", "unit": src.id, "units": hit, "amount": SOURCE_PULSE})
+		var amount: int = SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)]
+		s.emit({"type": "source_pulse", "unit": src.id, "units": hit, "amount": amount})
 		for id in hit:
-			Infection.add(s, s.get_unit(id), SOURCE_PULSE)
+			Infection.add(s, s.get_unit(id), amount)
 	_run_spawners(s)
 	_spawn_incoming(s)
 	_reveal_near(s)

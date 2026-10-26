@@ -12,13 +12,13 @@ extends RefCounted
 ## Encounter, EnemyBehaviours and FightBuilder call in here. OWNER: enemies workstream.
 
 ## Boss HP as a share of its 30, by squad size (FightBuilder, instead of SQUAD_BOSS_HEALTH).
-const HEALTH := {1: 0.3, 2: 0.6, 3: 0.9, 4: 1.3}
+const HEALTH := {1: 0.22, 2: 0.55, 3: 0.9, 4: 1.3}
 const LASH := {1: 1, 2: 1, 3: 2, 4: 2}               # lashes per turn while the roots are up
 const LASH_DAMAGE := 3
 const REGROW := {1: 1, 2: 1, 3: 2, 4: 2}             # roots it regrows in the collapse
 const REGROW_OFFSETS: Array[Vector2i] = [Vector2i(-5, 1), Vector2i(5, 1)]
 const ECHO_EVERY := {1: 5, 2: 4, 3: 3, 4: 3}         # turns between Echoes (phases 2 and 3)
-const COLLAPSE_RADIUS := 10
+const COLLAPSE_RADIUS := 12
 
 
 # --- phases --------------------------------------------------------------------------------

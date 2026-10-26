@@ -371,7 +371,7 @@ func test_fights_scale_with_squad_size() -> void:
 	var boss: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3, "squad": 2})
 	assert_eq(boss.encounter.get("boss_health_mult", 1.0), BroodMother.HEALTH[2], "smaller squads face a weaker Brood Mother")
 	var hale: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 3, "squad": 2})
-	assert_eq(hale.encounter.get("boss_health_mult", 1.0), FightBuilder.SQUAD_BOSS_HEALTH[2], "and a weaker Hale")
+	assert_eq(hale.encounter.get("boss_health_mult", 1.0), ColonelHale.HEALTH[2], "and a weaker Hale")
 	var run := RunRules.new_run(3, 9)
 	var cfg := MatchConfig.for_fight(run, {"kind": "skirmish", "objective": "hold", "seed": 4})
 	assert_eq(cfg.fight.squad, 3, "the fight spec carries the squad size")

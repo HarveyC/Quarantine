@@ -11,7 +11,7 @@ extends RefCounted
 ## Encounter, EnemyBehaviours and FightBuilder call in here. OWNER: enemies workstream.
 
 ## Boss HP as a share of his 36, by squad size (FightBuilder, instead of SQUAD_BOSS_HEALTH).
-const HEALTH := {1: 0.28, 2: 0.45, 3: 0.65, 4: 0.85}
+const HEALTH := {1: 0.3, 2: 0.5, 3: 0.8, 4: 1.05}
 const MOBILITY := {2: 6, 3: 7}
 const HEAL := 0.15              # share of max HP he regains when the Bloom takes him
 const POST_RADIUS := 6          # how far from his start he looks for the highest ground
