@@ -25,6 +25,12 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 	if u.kind == "brood_mother":
 		BroodMother.take_turn(s, u)
 		return true
+	if u.kind == "colonel_hale":
+		ColonelHale.take_turn(s, u)
+		return true
+	if u.kind == "the_source":
+		SourceBoss.take_turn(s, u)
+		return true
 	if u.status.has("swelling"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "burst"})
 		return true
@@ -61,9 +67,6 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 	if u.kind == "lurker" and u.status.get("hidden", false):
 		_ambush(s, u)
 		return true
-	if u.kind == "the_source":
-		_source_turn(s, u)
-		return true
 	return false
 
 
@@ -85,7 +88,6 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"carapace": return rush(s, u, hostiles, "slam")
 		"stalker": return _stalker(s, u, hostiles)
 		"weaver": return _weaver(s, u, hostiles)
-		"colonel_hale": return _hale(s, u, hostiles)
 	return {}
 
 
@@ -685,23 +687,6 @@ static func _weaver(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 
 # --- bosses --------------------------------------------------------------------------------
 
-static func _hale(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
-	if int(u.status.get("boss_phase", 1)) >= 2:
-		return rush(s, u, hostiles, "slam")
-	var strike := best_square(s, u, hostiles)
-	if strike.hits >= 1:
-		var a := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "airstrike", "cell": strike.cell})
-		if not a.is_empty():
-			return a
-	if u.cooldowns.get("flashbang", 0) <= 0:
-		for h in hostiles:
-			if Combat.is_overwatching(s, h) or Combat.is_hunkered(s, h):
-				var f := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "flashbang", "cell": h.pos})
-				if not f.is_empty():
-					return f
-	return cover_shooter(s, u, hostiles)
-
-
 ## 3x3 centre covering the most hostiles: {cell, hits}.
 static func best_square(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 	var best := {"cell": u.pos, "hits": 0}
@@ -718,27 +703,6 @@ static func best_square(s: GameState, u: Unit, hostiles: Array[Unit]) -> Diction
 				if hits > best.hits:
 					best = {"cell": c, "hits": hits}
 	return best
-
-
-static func _source_turn(s: GameState, u: Unit) -> void:
-	if int(u.status.get("boss_phase", 1)) < 2:
-		return
-	_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "pull"})
-	var hostiles := EnemyAI._hostiles(s, u)
-	var best := {}
-	var best_hits := 0
-	for h in hostiles:
-		for axis in ["row", "col"]:
-			var cells := EnemyAbilities.slam_line(s, u, h.pos, axis)
-			var hits := 0
-			for o in hostiles:
-				if cells.has(o.pos):
-					hits += 1
-			if hits > best_hits:
-				best_hits = hits
-				best = {"cell": h.pos, "axis": axis}
-	if not best.is_empty():
-		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "core_slam", "cell": best.cell, "axis": best.axis})
 
 
 # --- helpers -------------------------------------------------------------------------------

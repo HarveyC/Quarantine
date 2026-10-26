@@ -54,7 +54,9 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 		"telegraph":
 			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
 				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
-				"acid_rain": "ACID RAIN", "hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN"}
+				"acid_rain": "ACID RAIN", "stomp": "STOMP", "hurl": "WRECKAGE INCOMING", "danger_close": "DANGER CLOSE",
+				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES",
+				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN"}
 			if ev.get("kind", "") == "erupt":   # the boss is underground: label the ground that will break
 				var cells: Array = ev.get("cells", [])
 				if not cells.is_empty():
@@ -65,9 +67,13 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			ep._sfx("alert", -6.0)
 			return {"dur": 0.6}
 		"strike":
+			if ev.get("kind") == "collapse":   # the floor's own events (level_changed, fell) carry the show
+				view.camera_rig.shake(1.4)
+				ep._sfx("collapse")
+				return {"dur": 0.6}
 			for c in ev.get("cells", []):
 				var w := Board.cell_to_world(c)
-				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "satchel"] else Palette.TEAL, 6, 4.0, true, 0.05)
+				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "danger_close", "satchel"] else Palette.TEAL, 6, 4.0, true, 0.05)
 			if not (ev.get("cells", []) as Array).is_empty():
 				var mid := Board.cell_to_world(ev.cells[ev.cells.size() / 2])
 				fx.flash_light(mid + Vector3(0, 1.0, 0), Palette.AMBER, 8.0, 0.35, 6.0)
@@ -193,6 +199,8 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			if uv != null:
 				ep._focus(uv)
 				uv.scale *= 1.15
+				if uv.has_method("set_bloom"):
+					uv.set_bloom(0.5 * int(ev.get("phase", 2)))
 				if ev.has("max_hp"):
 					uv.max_hp = int(ev.max_hp)
 					uv.set_hp(int(ev.get("hp", 0)))
