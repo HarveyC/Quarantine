@@ -6,4 +6,3 @@
 
 **Survival on set bonuses.** Burn, Mark and Suppress sets now cut damage from enemies carrying that status, Strain cuts damage from the Infected, and Close and Overwatch kills heal 1 HP. A lone soldier with one tag should hold up better.
 
-**Also in this build:** ammo and reloading (magazines, Reload action, mag gear), reload sounds, Hale and Source three-phase fights.
