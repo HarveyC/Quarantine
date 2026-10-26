@@ -898,12 +898,12 @@ deploys in their place (`Progression.on_recruit_deployed(new_prog, lost_prog)` s
 
 ### Node map
 
-`RunMap.generate(rng, act)` returns the act's nodes. A node: `id`, `row` (1-5), `col`, `x` (0-1
+`RunMap.generate(rng, act)` returns the act's nodes. A node: `id`, `row` (1-5 in Act 1, 1-6 in Acts 2-3: `RunState.rows_for`), `col`, `x` (0-1
 layout), `type` (`RunMap.SKIRMISH`/`NEST`/`EVENT`/`DEPOT`/`HOSPITAL`/`SURVIVORS`/`BOSS`/`UNKNOWN`),
 `links` (ids in the next row), `objective` (`extract`/`hold`/`rescue`/`purge` for fights, `boss`),
 `seed` (fight seed), `visited`, `hidden` (an unrevealed "?"), `resolved` (what a "?" became:
 `event`/`ambush`/`depot`/`survivors`). Show `RunMap.shown_type(n)` on the map. Rules from the doc:
-row 1 Skirmish, row 4 Field hospital, row 5 boss, rows 2-3 rolled from the act weights with the
+row 1 Skirmish, the second-to-last row Field hospital, the last row boss, the rows between rolled from the act weights (Acts 2-3 have a third rolled row, row 4, which adds no Outbreak) with the
 placement rules (no act-1 row-2 nest, no back-to-back depots/hospitals, a non-combat node on every
 path, a nest and a depot every act); links never cross, 1-2 out per node.
 

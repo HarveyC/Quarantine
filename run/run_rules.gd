@@ -255,7 +255,8 @@ static func enter_node(run: RunState, id: int) -> void:
 	run.votes.clear()
 	n.visited = true
 	run.modifiers.erase("force_nest_next")
-	add_outbreak(run, 1, "node")
+	if not RunState.is_extra_row(run.act, n.row):
+		add_outbreak(run, 1, "node")
 	if n.hidden:
 		RunMap.resolve_unknown(run, n)
 		n.hidden = false

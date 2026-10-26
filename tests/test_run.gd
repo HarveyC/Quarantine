@@ -14,9 +14,15 @@ func test_map_shape_and_fixed_rows() -> void:
 		var map := RunMap.generate(rng, act)
 		assert_true(_nodes_in_row(map, 1).size() in [2, 3], "2-3 start nodes")
 		assert_true(_nodes_in_row(map, 1).all(func(n): return n.type == RunMap.SKIRMISH), "row 1 skirmish")
-		assert_true(_nodes_in_row(map, 4).all(func(n): return n.type == RunMap.HOSPITAL), "row 4 hospital")
-		assert_eq(_nodes_in_row(map, 5).size(), 1, "one boss")
-		assert_true(RunMap._valid(act, [_nodes_in_row(map, 1), _nodes_in_row(map, 2), _nodes_in_row(map, 3)]), "placement rules hold, seed %d" % seed)
+		var rows := RunState.rows_for(act)
+		assert_eq(rows, 5 if act == 1 else 6, "Act 1 has five rows, later acts six")
+		assert_true(_nodes_in_row(map, rows - 1).all(func(n): return n.type == RunMap.HOSPITAL), "hospital before the boss")
+		assert_eq(_nodes_in_row(map, rows).size(), 1, "one boss")
+		assert_eq(_nodes_in_row(map, rows + 1).size(), 0, "no rows past the boss")
+		var rolled: Array = []
+		for r in range(2, rows - 1):
+			rolled.append(_nodes_in_row(map, r))
+		assert_true(RunMap._valid(act, rolled), "placement rules hold, seed %d" % seed)
 
 
 func test_map_links_cover_every_node_and_never_cross() -> void:
@@ -26,7 +32,7 @@ func test_map_links_cover_every_node_and_never_cross() -> void:
 		var map := RunMap.generate(rng, 2)
 		var incoming := {}
 		for n in map:
-			if n.row < 5:
+			if n.row < RunState.rows_for(2):
 				assert_true(n.links.size() in [1, 2], "1-2 links out")
 			for id in n.links:
 				incoming[id] = true
@@ -284,7 +290,7 @@ func test_bridge_removes_a_column_and_keeps_the_map_connected() -> void:
 			for id in n.links:
 				assert_true(ids.has(id), "no link to a removed node")
 				incoming[id] = true
-			if n.row < 5:
+			if n.row < RunState.rows_for(run.act):
 				assert_true(not n.links.is_empty(), "every node leads on")
 		for n in run.map:
 			if n.row > 2:
@@ -431,3 +437,40 @@ func test_fights_move_outbreak() -> void:
 	_win_fight(run, true)
 	assert_eq(run.outbreak, maxi(0, expect), "a clean win pushes Outbreak back")
 	assert_true(run.log.any(func(e): return e.type == "outbreak" and e.reason == "bonus objective"), "logged with its cause")
+
+
+func test_added_row_adds_no_outbreak_point() -> void:
+	var run := RunRules.new_run(1, 11)
+	run.act = 2
+	run.map = RunMap.generate(run.rng, 2)
+	var first: Dictionary = run.map.filter(func(n): return n.row == 1)[0]
+	run.outbreak = 0
+	RunRules.enter_node(run, first.id)
+	assert_eq(run.outbreak, 1, "an ordinary node adds a point")
+	var extra: Dictionary = run.map.filter(func(n): return n.row == RunState.EXTRA_ROW)[0]
+	var before := run.outbreak
+	RunRules.enter_node(run, extra.id)
+	assert_eq(run.outbreak, before, "the added row adds none")
+	run.act = 1
+	assert_true(not RunState.is_extra_row(1, RunState.EXTRA_ROW), "Act 1 has no added row")
+
+
+func test_bridge_keeps_a_six_row_map_connected() -> void:
+	for seed in 30:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed + 900
+		var map := RunMap.generate(rng, 3)
+		RunMap.remove_column(map, 1)
+		var ids := {}
+		var incoming := {}
+		for n in map:
+			ids[n.id] = true
+		for n in map:
+			if n.row < 6:
+				assert_true(not n.links.is_empty(), "every node leads on")
+			for id in n.links:
+				assert_true(ids.has(id), "no link to a removed node")
+				incoming[id] = true
+		for n in map:
+			if n.row > 1:
+				assert_true(incoming.has(n.id), "every later node is reachable")
