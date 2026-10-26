@@ -97,6 +97,8 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 						fx.crumble(at, 0.7)
 					"crack":
 						fx.burst(at + Vector3(0, 1.0, 0), Vector3.UP, Color("5d5a52"), 6, 2.0, false, 0.06)
+					"open":   # a shut door swings open
+						fx.burst(at + Vector3(0, 1.0, 0), Vector3.UP, Color("8a8478"), 4, 1.5, false, 0.05)
 			ep._sfx("collapse" if heavy else "concrete", -2.0 if heavy else 0.0)
 			if heavy:
 				view.camera_rig.shake(0.6)

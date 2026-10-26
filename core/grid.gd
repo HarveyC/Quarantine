@@ -53,6 +53,9 @@ const EDGE_WALL := 1
 const EDGE_WINDOW := 2
 const EDGE_LOW := 3
 const EDGE_DOOR := 4
+## A shut door: blocks sight, movement-free but costs DOOR_COST to open; the first unit through opens it for good (EDGE_DOOR).
+const EDGE_CLOSED := 5
+const DOOR_COST := 1
 ## Extra steps to vault a low wall or climb through a window.
 const VAULT_COST := 1
 ## Steps a ladder climb costs (going up or down a ladder).
@@ -124,6 +127,7 @@ static func edge_glyph(ch: String) -> int:
 		"o": return EDGE_WINDOW
 		"=", ":": return EDGE_LOW
 		"d": return EDGE_DOOR
+		"D": return EDGE_CLOSED
 	return EDGE_NONE
 
 
@@ -339,7 +343,8 @@ func set_edge(c: Vector2i, d: Vector2i, kind: int) -> void:
 
 ## A solid edge wall stands between `c` and `c + d` (orthogonal).
 func edge_blocks_los(c: Vector2i, d: Vector2i) -> bool:
-	return edge(c, d) == EDGE_WALL
+	var e := edge(c, d)
+	return e == EDGE_WALL or e == EDGE_CLOSED
 
 
 ## Height an edge wall reaches: one storey above the higher of its two floors.
@@ -350,7 +355,7 @@ func edge_top(c: Vector2i, d: Vector2i) -> int:
 ## Cover the border between `c` and `c + d` gives to a unit at `c`.
 func edge_cover(c: Vector2i, d: Vector2i) -> int:
 	match edge(c, d):
-		EDGE_WALL: return Types.Cover.FULL
+		EDGE_WALL, EDGE_CLOSED: return Types.Cover.FULL
 		EDGE_WINDOW, EDGE_LOW: return Types.Cover.HALF
 	return Types.Cover.NONE
 
@@ -429,7 +434,8 @@ func cover_sides(c: Vector2i) -> Dictionary:
 ## onto stairs (cost 1) or a ladder (LADDER_COST); down the same way, or by dropping off any
 ## ledge (one way, 1 per level dropped, no damage). `ignore_levels` (leapers, flyers) changes level
 ## anywhere for 1. Diagonals never cut a wall corner nor a ledge corner, nor pass any edge.
-## Edge walls block; vaulting a low wall or a window costs VAULT_COST extra; doorways are free.
+## Edge walls block; vaulting a low wall or a window costs VAULT_COST extra; doorways are free and a
+## shut door costs DOOR_COST extra to open.
 ## `climb` (Hydraulic legs) takes ladders for a normal step.
 func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_levels := false, climb := false) -> int:
 	var to := from + d
@@ -448,6 +454,7 @@ func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_lev
 	match edge(from, d):
 		EDGE_WALL: return -1
 		EDGE_WINDOW, EDGE_LOW: extra = VAULT_COST
+		EDGE_CLOSED: extra = DOOR_COST
 	var rise := level(to) - level(from)
 	if rise == 0 or ignore_levels:
 		return 1 + extra

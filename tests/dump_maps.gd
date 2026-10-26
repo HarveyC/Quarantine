@@ -65,7 +65,7 @@ static func render(g: Grid) -> String:
 			out += "\n"
 		return out
 	# Edge walls: double resolution, borders between cells (| - wall, o window, : low wall, d door).
-	var glyph := {Grid.EDGE_WALL: ["|", "-"], Grid.EDGE_WINDOW: ["o", "o"], Grid.EDGE_LOW: [":", ":"], Grid.EDGE_DOOR: ["d", "d"]}
+	var glyph := {Grid.EDGE_WALL: ["|", "-"], Grid.EDGE_WINDOW: ["o", "o"], Grid.EDGE_LOW: [":", ":"], Grid.EDGE_DOOR: ["d", "d"], Grid.EDGE_CLOSED: ["D", "D"]}
 	var lines := ""
 	for y in g.height:
 		var row := ""

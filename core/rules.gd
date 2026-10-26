@@ -285,7 +285,16 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 	var segment: Array[Vector2i] = []
 	var walked: Array[Vector2i] = []
 	var from := u.pos
+	var prev := u.pos
 	for c in path:
+		if s.grid.edge(prev, c - prev) == Grid.EDGE_CLOSED:
+			# Opening a door ends the walk so far, so the view shows the door swing before the next step.
+			if not segment.is_empty():
+				s.emit({"type": "move", "unit": u.id, "from": from, "path": segment.duplicate()})
+				from = prev
+				segment.clear()
+			open_door(s, prev, c - prev, u)
+		prev = c
 		u.pos = c
 		segment.append(c)
 		walked.append(c)
@@ -315,6 +324,24 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 	if not segment.is_empty():
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": segment})
 	Hazards.on_move(s, u, path)
+
+
+## The first unit through a shut door opens it for good: the border becomes a doorway.
+## Emitted as a "cover_destroyed" change of kind "open" so the board redraws and fog refreshes.
+static func open_door(s: GameState, c: Vector2i, d: Vector2i, by: Unit = null) -> void:
+	if s.grid.edge(c, d) != Grid.EDGE_CLOSED:
+		return
+	s.grid.set_edge(c, d, Grid.EDGE_DOOR)
+	s.emit({"type": "cover_destroyed", "cells": [c, c + d], "unit": by.id if by != null else -1,
+		"changes": [{"cell": c, "kind": "open", "tile": s.grid.tile(c), "edge": Grid.edge_key(c, d)}]})
+
+
+## Opens every shut door a path crosses (for movers that jump along a path instead of walking).
+static func open_doors_along(s: GameState, from: Vector2i, path: Array[Vector2i], by: Unit = null) -> void:
+	var prev := from
+	for c in path:
+		open_door(s, prev, c - prev, by)
+		prev = c
 
 
 ## Central damage entry point: every module deals damage through here.

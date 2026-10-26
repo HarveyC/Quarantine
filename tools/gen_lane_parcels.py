@@ -70,7 +70,11 @@ class P:
                 elif ry % 2 == 0 and rx % 2 == 0:
                     row.append("+")
                 else:
-                    row.append(self.e.get((rx, ry), " "))
+                    ch = self.e.get((rx, ry), " ")
+                    # Compounds shut their street doors (opened by the first unit through); inner doors stay open.
+                    if ch == "d" and self.role == "compound" and rx in (0, 8) or ch == "d" and self.role == "compound" and ry in (0, 8):
+                        ch = "D"
+                    row.append(ch)
             out.append("".join(row))
         return "\n".join(out)
 

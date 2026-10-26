@@ -409,6 +409,12 @@ func _build_edges(look: Dictionary, trim: Material, hazard: Material, crack_mat:
 			Grid.EDGE_LOW:
 				put.call(low, 0.98, base, base + 0.8, 0.26)
 				put.call(hazard if (k.x + k.y) % 3 == 0 else trim, 1.0, base + 0.8, base + 0.86, 0.3)
+			Grid.EDGE_CLOSED:
+				put.call(wall, 1.0, base, base + h - 0.3)
+				put.call(frame, 0.82, base + 0.05, base + h - 0.4, EDGE_THICK + 0.05)
+				put.call(Palette.emissive(Palette.AMBER, 0.8), 0.18, base + 1.0, base + 1.14, EDGE_THICK + 0.1, 0.3)   # handle
+				put.call(wall, 1.0, base + h - 0.3, base + h)
+				put.call(Palette.emissive(Palette.AMBER, 0.8), 0.6, base + h - 0.36, base + h - 0.3, EDGE_THICK + 0.04)
 			Grid.EDGE_DOOR:
 				for side in [-0.42, 0.42]:
 					put.call(wall, 0.16, base, base + h, EDGE_THICK + 0.02, side)

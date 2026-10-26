@@ -156,3 +156,27 @@ func test_lone_pillars_are_gone() -> void:
 							and not Grid.DIRS4.any(func(d: Vector2i) -> bool: return g.tile(c + d) == Types.Tile.WALL):
 						lone += 1
 		assert_true(lone <= 30, "%s: %d lone pillars in 20 maps" % [biome, lone])
+
+
+func test_a_shut_door_blocks_sight_and_opens_for_good_when_walked_through() -> void:
+	var g := Grid.from_edge_rows(PackedStringArray([
+		"+ + + + +",
+		" . . . . ",
+		"+ +D+ + +",
+		" . . . . ",
+		"+ + + + +"]))
+	var a := Vector2i(1, 0)
+	var b := Vector2i(1, 1)
+	assert_eq(g.edge(a, Vector2i(0, 1)), Grid.EDGE_CLOSED, "shut door parsed")
+	assert_true(g.edge_blocks_los(a, Vector2i(0, 1)), "a shut door blocks sight")
+	assert_eq(g.edge_cover(a, Vector2i(0, 1)), Types.Cover.FULL, "and gives full cover")
+	assert_eq(g.step_cost(a, Vector2i(0, 1)), 1 + Grid.DOOR_COST, "opening it costs a move")
+	assert_eq(g.step_cost(Vector2i(0, 0), Vector2i(0, 1)), 1, "a plain border costs nothing extra")
+	var s := _state()
+	s.grid = g
+	var u := s.add_unit(UnitData.make("trooper", Types.Team.PLAYER), a)
+	var before := s.grid.fingerprint()
+	Rules.move_along(s, u, b)
+	assert_eq(s.grid.edge(a, Vector2i(0, 1)), Grid.EDGE_DOOR, "the door stays open behind the walker")
+	assert_true(not s.grid.edge_blocks_los(a, Vector2i(0, 1)), "an open door no longer blocks sight")
+	assert_true(s.grid.fingerprint() != before, "opening a door changes the map checksum")

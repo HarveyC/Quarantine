@@ -181,7 +181,7 @@ static func _hit_edges(g: Grid, hits: Dictionary) -> Array:
 		var cell: Vector2i = Grid.edge_cells(k)[0]
 		var change := ""
 		match kind:
-			Grid.EDGE_WALL, Grid.EDGE_WINDOW:
+			Grid.EDGE_WALL, Grid.EDGE_WINDOW, Grid.EDGE_CLOSED:
 				var worn := int(g.edge_wear.get(k, 0)) + n
 				if worn < WALL_HITS:
 					g.edge_wear[k] = worn
