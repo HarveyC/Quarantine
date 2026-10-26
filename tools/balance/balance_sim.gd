@@ -8,12 +8,19 @@ extends SceneTree
 ## bosshp (multiplies boss health), seed (first seed), enemies (comma enemy specs: overrides FightBuilder), rank (default by act),
 ## tag (free text echoed in every line), guns (comma weapon ids lined up with squad; "-" keeps
 ## the signature gun), order (a DeployOrders id every soldier deploys with, e.g. bloom_cache;
-## "none" or unset means no starting gear).
+## "none" or unset means no starting gear), build (none|scattered|lane|full: gear, perks, mutations and
+## Grafts of that quality, see build_quality.gd; node=act plays a whole act, three skirmishes then
+## the boss, with HP, Infection and deaths carried over and the after-fight heal).
 
 const SquadBot := preload("res://tools/balance/squad_bot.gd")
+const BuildQuality := preload("res://tools/balance/build_quality.gd")
 const TURN_CAP := 25
 ## Rank a soldier typically has when reaching each act (rank-ups after fights 1/3/5/7).
 const RANK_BY_ACT := {1: 1, 2: 3, 3: 5}
+## node=act: skirmishes before the boss, and the run Outbreak the act starts at (the mid-act value
+## from run_sims.py, less one, then +1 per fight).
+const ACT_SKIRMISHES := 3
+const ACT_OUTBREAK := {1: 2, 2: 5, 3: 8}
 
 
 func _init() -> void:
@@ -29,8 +36,12 @@ func _init() -> void:
 	var rank := int(args.get("rank", RANK_BY_ACT[act]))
 	objective_override = str(args.get("objective", ""))
 	boss_hp = float(args.get("bosshp", 1.0))
+	build_level = str(args.get("build", "none"))
 	for i in n:
 		var seed := seed0 + i
+		if node == "act":
+			print(JSON.stringify(run_act(squad_kinds, act, seed, rank, str(args.get("tag", "")))))
+			continue
 		print(JSON.stringify(run_fight(squad_kinds, act, node, int(args.get("outbreak", 0)), seed, rank,
 			str(args.get("enemies", "")), str(args.get("tag", "")), str(args.get("guns", "")), str(args.get("order", "")))))
 	quit(0)
@@ -38,27 +49,18 @@ func _init() -> void:
 
 var boss_hp := 1.0   # bosshp= scales the boss's health on top of FightBuilder's (for tuning)
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
+var build_level := "none"       # build= (see build_quality.gd)
 
 
 func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, seed: int, rank: int,
-		enemy_override: String, tag: String, guns: String = "", order: String = "") -> Dictionary:
+		enemy_override: String, tag: String, guns: String = "", order: String = "", pre: Dictionary = {}) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed * 31 + 7
-	var squad: Array = []
-	for i in kinds.size():
-		var prog := Progression.new_record(kinds[i])
-		prog.rank = rank
-		var pool: Array = []
-		for id in PerkData.PERKS:
-			var p: Dictionary = PerkData.PERKS[id]
-			if p["class"] == kinds[i] and (not p.rare or rank >= 4):
-				pool.append(id)
-		for k in mini(rank - 1, 4):
-			if pool.is_empty():
-				break
-			prog.perks.append(pool.pop_at(rng.randi() % pool.size()))
-		squad.append({"kind": kinds[i], "player": i if kinds.size() < 4 else 0, "prog": prog})
-	var records := _deploy(rng, squad, order)
+	# `pre` is a squad already built (node=act): {squad, records, carry} with carry[i] = {hp, infection}.
+	var made: Dictionary = pre if not pre.is_empty() else _make_squad(rng, kinds, act, rank, order)
+	var squad: Array = made.squad
+	var records: Array = made.records
+	var carry: Array = made.get("carry", [])
 	var objective := "boss" if node == "boss" else "skirmish"
 	if objective_override != "":
 		objective = objective_override
@@ -80,13 +82,30 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		for i in mini(gl.size(), sq.size()):
 			if gl[i] != "-":
 				Weapons.equip_unit(sq[i], gl[i])
+	var squad_units := s.units.filter(func(u): return Kit.is_soldier(u))
 	if not records.is_empty():
-		var sq := s.units.filter(func(u): return Kit.is_soldier(u))
-		for i in mini(records.size(), sq.size()):
-			GearRun.apply_to_unit(sq[i], records[i])
-			sq[i].hp = sq[i].max_hp
-			if int(records[i].infection) > 0:
-				Infection.add(s, sq[i], int(records[i].infection))
+		for i in mini(records.size(), squad_units.size()):
+			GearRun.apply_to_unit(squad_units[i], records[i])
+			squad_units[i].hp = squad_units[i].max_hp
+			var inf := int(carry[i].infection) if carry.size() > i else int(records[i].infection)
+			if inf > 0:
+				Infection.add(s, squad_units[i], inf)
+	for i in mini(carry.size(), squad_units.size()):
+		squad_units[i].hp = clampi(int(carry[i].hp), 1, squad_units[i].max_hp)
+		if records.is_empty() and int(carry[i].infection) > 0:
+			Infection.add(s, squad_units[i], int(carry[i].infection))
+	var slot_of := {}   # unit id -> squad index
+	var hp_start := 0
+	for i in squad_units.size():
+		slot_of[squad_units[i].id] = i
+		hp_start += squad_units[i].hp
+	var tag_peak: Array = []
+	for i in records.size():
+		var c := BuildQuality.tags(records[i])
+		var peak := 0
+		for t in c:
+			peak = maxi(peak, int(c[t]))
+		tag_peak.append(peak)
 	var stats := {}   # unit id -> {dealt, taken, kills}
 	for u in s.units:
 		stats[u.id] = {"dealt": 0, "taken": 0}
@@ -149,7 +168,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	for u in s.units:
 		var st: Dictionary = stats.get(u.id, {"dealt": 0, "taken": 0})
 		if Kit.is_soldier(u) or u.status.has("turned"):
-			soldiers.append({"kind": u.kind, "max_hp": u.max_hp, "hp": u.hp, "dealt": st.dealt, "taken": st.taken,
+			soldiers.append({"slot": slot_of.get(u.id, -1), "peak_tag": tag_peak[slot_of[u.id]] if slot_of.has(u.id) and slot_of[u.id] < tag_peak.size() else 0,
+				"kind": u.kind, "max_hp": u.max_hp, "hp": u.hp, "dealt": st.dealt, "taken": st.taken,
 				"kills": int(u.status.get("kills", 0)), "weapon": Weapons.id_of(u), "infection": u.infection, "turned": u.status.get("turned", false)})
 		elif u.team == Types.Team.ENEMY and not Objectives.is_civilian(u):
 			foes.append({"kind": u.kind, "elite": u.status.get("elite", false), "max_hp": u.max_hp,
@@ -157,7 +177,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var res := "timeout"
 	if s.phase == Types.Phase.ENDED:
 		res = "win" if s.result == Types.Result.VICTORY else "loss"
-	return {"tag": tag, "order": order, "act": act, "node": node, "squad": kinds.size(), "seed": seed, "result": res,
+	return {"tag": tag, "order": order, "build": build_level, "hp_start": hp_start, "act": act, "node": node, "squad": kinds.size(), "seed": seed, "result": res,
 		"turns": s.turn, "lapses": counter.lapses,
 		"terrain": {"explosions": counter.explosions, "barrels": counter.barrels,
 			"barrel_shots": counter.barrel_shots, "barrel_hits": counter.barrel_hits, "walls": counter.walls,
@@ -183,3 +203,71 @@ func _deploy(rng: RandomNumberGenerator, squad: Array, id: String) -> Array:
 		rec.infection = maxi(int(rec.infection), int(card.get("infection", 0)))
 		out.append(rec)
 	return out
+
+
+## The squad for a fight or act: entries for MatchConfig plus the run records that carry the gear
+## ([] when the build is "none" and no deployment order is set).
+func _make_squad(rng: RandomNumberGenerator, kinds: PackedStringArray, act: int, rank: int, order: String) -> Dictionary:
+	var squad: Array = []
+	var records: Array = []
+	for i in kinds.size():
+		var rec := BuildQuality.make(rng, kinds[i], act, rank, build_level)
+		squad.append({"kind": kinds[i], "player": i if kinds.size() < 4 else 0, "prog": rec.prog})
+		records.append(rec)
+	if build_level == "none":
+		records = _deploy(rng, squad, order)
+	return {"squad": squad, "records": records}
+
+
+## One act as a run plays it: ACT_SKIRMISHES skirmishes, then the boss. Survivors heal 35% of max
+## HP after each won fight and carry their Infection; the fallen stay down. The act is lost when
+## any fight is, or when the squad is gone.
+func run_act(kinds: PackedStringArray, act: int, seed: int, rank: int, tag: String) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed * 31 + 7
+	var made := _make_squad(rng, kinds, act, rank, "")
+	var records: Array = made.records
+	if records.is_empty():   # no build: the fights still need run records to hold HP and Infection
+		for k in kinds:
+			records.append({"infection": 0})
+	var alive: Array = range(kinds.size())
+	var carry: Array = []
+	for r in records:
+		carry.append({"hp": 99, "infection": int(r.get("infection", 0))})
+	var fights: Array = []
+	var result := "win"
+	for f in ACT_SKIRMISHES + 1:
+		var boss := f == ACT_SKIRMISHES
+		var pre := {"squad": alive.map(func(i): return made.squad[i]),
+			"records": alive.map(func(i): return made.records[i]) if not made.records.is_empty() else [],
+			"carry": alive.map(func(i): return carry[i])}
+		var kinds_now := PackedStringArray(alive.map(func(i): return kinds[i]))
+		var res := run_fight(kinds_now, act, "boss" if boss else "skirmish", ACT_OUTBREAK[act] + f, seed * 10 + f, rank, "", tag, "", "", pre)
+		var taken := 0
+		var pool := 0
+		for sd in res.soldiers:
+			taken += int(sd.taken)
+			pool += int(sd.max_hp)
+		fights.append({"node": "boss" if boss else "skirmish", "result": res.result, "turns": res.turns, "taken": taken, "pool": pool,
+			"hp_start": res.hp_start, "boss_acts": res.boss_acts})
+		if res.result != "win":
+			result = res.result
+			break
+		var next: Array = []
+		for sd in res.soldiers:
+			if sd.slot >= 0 and sd.hp > 0 and not sd.turned:
+				var i: int = alive[sd.slot]
+				carry[i] = {"hp": mini(int(sd.max_hp), int(sd.hp) + ceili(int(sd.max_hp) * RunRules.HEAL_AFTER_FIGHT)),
+					"infection": int(sd.infection)}
+				next.append(i)
+		alive = next
+		if alive.is_empty():
+			result = "loss"
+			break
+	var peak := 0
+	for r in records:
+		if r.has("prog"):
+			for t in BuildQuality.tags(r).values():
+				peak = maxi(peak, int(t))
+	return {"tag": tag, "build": build_level, "node": "act", "act": act, "squad": kinds.size(), "seed": seed, "result": result,
+		"fights": fights, "peak_tag": peak, "capstones": records.filter(func(r): return r.has("prog") and BuildQuality.capstones(r) > 0).size()}

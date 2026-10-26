@@ -14,7 +14,10 @@ class StubSession:
 
 	func submit_run(action: Dictionary) -> void:
 		sent.append(action)
-		NodeRules.apply(run, action)
+		if str(action.get("type", "")).begins_with("prog_"):
+			RunRules.apply(run, action)
+		else:
+			NodeRules.apply(run, action)
 
 
 func _setup(kind: String, num_players := 2, event_id := "") -> Dictionary:

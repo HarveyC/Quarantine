@@ -10,7 +10,7 @@ const SUPPORT_MIN := 6.0
 const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
-	"leaper", "drifter", "sharpshooter", "burrower",
+	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver",
 	"brood_mother", "colonel_hale", "the_source"]
 
 
@@ -54,6 +54,11 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 	if u.status.has("emerge_cell"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "erupt"})
 		return true
+	if u.status.has("hooked"):
+		if _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "reel"}):
+			return true
+		u.status.erase("hooked")
+		s.emit({"type": "lock_lost", "unit": u.id})
 	if u.status.has("sighted"):
 		if _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "snipe"}):
 			return true
@@ -78,12 +83,19 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"drifter": return _drifter(s, u, hostiles)
 		"sharpshooter": return _sharpshooter(s, u, hostiles)
 		"burrower": return _burrower(s, u, hostiles)
+		"hooker": return _hooker(s, u, hostiles)
+		"sapper": return _sapper(s, u, hostiles)
+		"carapace": return rush(s, u, hostiles, "slam")
+		"stalker": return _stalker(s, u, hostiles)
+		"weaver": return _weaver(s, u, hostiles)
 	return {}
 
 
 ## After the unit's turn: Bloaters swell next to clusters, Brutes wind up a charge.
 static func end_turn(s: GameState, u: Unit) -> void:
 	var hostiles := EnemyAI._hostiles(s, u)
+	if u.status.get("plate", false):
+		_face(s, u, hostiles)
 	if u.kind in ["bloater", "broodling"] and not u.status.has("swelling") and EnemyAI.is_alerted(u):
 		var need := 1 if u.kind == "broodling" else 2
 		if _adjacent(s, u.pos, hostiles) >= need:
@@ -143,7 +155,10 @@ static func rush(s: GameState, u: Unit, hostiles: Array[Unit], ability: String) 
 			var c: Vector2i = h.pos + d
 			if c == u.pos or not reach.has(c) or not s.grid.melee_reach(c, h.pos):
 				continue
-			var score := EnemyAI._target_score(s, u, h, c) - int(reach[c]) * 0.1
+			if EnemyAI.telegraph_cost(s, c) > 0.0:
+				continue
+			var score := EnemyAI._target_score(s, u, h, c) - int(reach[c]) * 0.1 \
+					- maxi(0, EnemyAI.crowding(s, u, h) - 1) * 0.8
 			if score > best_score:
 				best_score = score
 				best_cell = c
@@ -195,9 +210,11 @@ static func _cover_cell_score(s: GameState, u: Unit, c: Vector2i, hostiles: Arra
 			Types.Cover.HALF: cover += 1.0
 			_: cover -= 1.5
 		best_hit = maxi(best_hit, int(Combat.hit_chance(s, u, h, c).hit))
-	var score := best_hit / 20.0 - Hazards.avoid_cost(s, u, c)
+	var score := best_hit / 20.0 - Hazards.avoid_cost(s, u, c) - EnemyAI.telegraph_cost(s, c)
 	if watchers > 0:
 		score += cover / watchers
+	if u.hp * 3 <= u.max_hp:
+		score -= watchers * 1.5   # badly hurt: slip out of sight instead of trading
 	if nearest > 10.0:
 		score -= (nearest - 10.0) * 0.5
 	return score
@@ -441,6 +458,231 @@ static func _most_exposed(s: GameState, u: Unit, hostiles: Array[Unit]) -> Unit:
 			best_score = score
 			best = h
 	return best
+
+
+# --- 2026-10-25 sprint: Hooker, Sapper, Carapace, Stalker, Weaver ---------------------------
+
+## Hooker: finds a perch with a clear line to a soldier 3-7 tiles away, locks on, and reels the
+## pull that costs the squad most (off a roof, out of cover, onto a waiting Brute or Bloater).
+static func _hooker(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	var best := {}
+	var best_score := -INF
+	for t in hostiles:
+		var a := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "hook", "target": t.id})
+		if a.is_empty():
+			continue
+		var score := _hook_score(s, u, t)
+		if score > best_score:
+			best_score = score
+			best = a
+	if not best.is_empty():
+		return best
+	if u.actions_left >= 2:
+		var reach := Rules.move_range(s, u)
+		var here := _hook_perch(s, u, u.pos, hostiles)
+		var best_cell := u.pos
+		var cell_score := here
+		for c in reach:
+			var sc := _hook_perch(s, u, c, hostiles) - int(reach[c]) * 0.05
+			if sc > cell_score:
+				cell_score = sc
+				best_cell = c
+		if best_cell != u.pos and cell_score > here + 0.5:
+			var move := EnemyAI._check(s, {"type": Types.MOVE, "unit": u.id, "to": best_cell})
+			if not move.is_empty():
+				return move
+		var adv := EnemyAI._advance(s, u, hostiles)
+		if not adv.is_empty():
+			return adv
+	return EnemyAI._check(s, {"type": Types.OVERWATCH, "unit": u.id})
+
+
+## How good the pull is for the Infected: wounded and exposed targets, a landing beside friends,
+## a drop off high ground, a soldier torn out of cover or out of overwatch.
+static func _hook_score(s: GameState, u: Unit, t: Unit) -> float:
+	var land := EnemyAbilities.reel_landing(s, u, t)
+	var score := 4.0 + EnemyAI._target_score(s, u, t, u.pos) * 0.5
+	for o in s.living(u.team):
+		if o != u and not EnemyRoster.is_static(o) and EnemyAI._cheb(o.pos, land) <= 1:
+			score += 3.0 if o.kind in ["brute", "carapace", "bloater", "runner", "leaper"] else 1.0
+	score += EnemyTerrain.fall_damage(s, t.pos, land) * 1.5
+	if Combat.cover_against(s.grid, t.pos, u.pos) != Types.Cover.NONE and Combat.cover_against(s.grid, land, u.pos) == Types.Cover.NONE:
+		score += 2.0
+	if Combat.is_overwatching(s, t) or Combat.is_hunkered(s, t):
+		score += 2.0
+	for o in s.living(t.team):
+		if o != t and EnemyAI._cheb(o.pos, land) <= 1:
+			score -= 2.0   # a squad-mate beside the landing makes the Hooker the target
+	return score
+
+
+static func _hook_perch(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Unit]) -> float:
+	var score := _cover_cell_score(s, u, c, hostiles) + EnemyTerrain.level(s, c) * 1.5
+	var can := false
+	for h in hostiles:
+		var d := EnemyAI._cheb(c, h.pos)
+		if d >= EnemyRoster.HOOK_MIN and d <= EnemyRoster.HOOK_RANGE and Combat.can_see(s, c, h.pos):
+			can = true
+			break
+	return score + (5.0 if can else 0.0)
+
+
+## Sapper: throws a satchel on the squad's cover, then runs. Walks to a cell with a clear throw when
+## it has none, and keeps out of reach while the satchel is on cooldown.
+static func _sapper(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	if int(u.cooldowns.get("satchel", 0)) <= 0:
+		var throw := _best_satchel(s, u, u.pos, hostiles)
+		if not throw.is_empty():
+			return EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "satchel", "cell": throw.cell})
+		if u.actions_left >= 2:
+			var reach := Rules.move_range(s, u)
+			var best_cell := u.pos
+			var best_score := -INF
+			for c in reach:
+				var th := _best_satchel(s, u, c, hostiles)
+				if th.is_empty():
+					continue
+				var sc := float(th.score) - int(reach[c]) * 0.1 - Hazards.avoid_cost(s, u, c)
+				if sc > best_score:
+					best_score = sc
+					best_cell = c
+			if best_cell != u.pos:
+				var move := EnemyAI._check(s, {"type": Types.MOVE, "unit": u.id, "to": best_cell})
+				if not move.is_empty():
+					return move
+			var adv := EnemyAI._advance(s, u, hostiles)
+			if not adv.is_empty():
+				return adv
+		return {}
+	# On cooldown: back off to 5-8 tiles from the squad, out of sight.
+	var reach := Rules.move_range(s, u)
+	var here := _flee_score(s, u, u.pos, hostiles)
+	var best := u.pos
+	var best_score := here
+	for c in reach:
+		var sc := _flee_score(s, u, c, hostiles) - int(reach[c]) * 0.02
+		if sc > best_score:
+			best_score = sc
+			best = c
+	if best != u.pos and best_score > here + 0.25:
+		return EnemyAI._check(s, {"type": Types.MOVE, "unit": u.id, "to": best})
+	return {}
+
+
+static func _flee_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Unit]) -> float:
+	var nearest := INF
+	for h in hostiles:
+		nearest = minf(nearest, EnemyAI._dist(c, h.pos))
+	var score := -Hazards.avoid_cost(s, u, c)
+	if _seen_by(s, c, hostiles):
+		score -= 2.0
+	if EnemyAI.telegraph_cost(s, c) > 0.0:
+		score -= 4.0
+	if nearest < 5.0:
+		score -= (5.0 - nearest) * 1.5
+	elif nearest > 8.0:
+		score -= (nearest - 8.0) * 0.5
+	return score
+
+
+## Best satchel from `from`: {cell, score}, or {} when no throw hits a soldier. Aims at the cover
+## a soldier stands behind: more cracked cover, more squad-mates and fewer friends in the blast.
+static func _best_satchel(s: GameState, u: Unit, from: Vector2i, hostiles: Array[Unit]) -> Dictionary:
+	var best := {}
+	var best_score := 0.0
+	var seen := {}
+	for h in hostiles:
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var c: Vector2i = h.pos + Vector2i(dx, dy)
+				if seen.has(c) or not s.grid.in_bounds(c) or s.grid.tile(c) == Types.Tile.WALL:
+					continue
+				seen[c] = true
+				if EnemyAI._cheb(from, c) > EnemyRoster.SATCHEL_RANGE or EnemyAI._cheb(from, c) <= 1 \
+						or not Combat.can_see(s, from, c):
+					continue
+				var hits := 0
+				var cover := 0.0
+				var friends := 0
+				for o in s.living():
+					if o == u or EnemyAI._cheb(o.pos, c) > 1:
+						continue
+					if u.is_enemy_of(o):
+						hits += 1
+						for d in Grid.DIRS4:
+							if s.grid.cover_toward(o.pos, d) > 0:
+								cover += 0.4
+					else:
+						friends += 1
+				if hits == 0:
+					continue
+				var score := hits * 3.0 + cover - friends * 4.0 - EnemyAI.telegraph_cost(s, c)
+				if score > best_score:
+					best_score = score
+					best = {"cell": c, "score": score}
+	return best
+
+
+## Turns a Carapace's plate toward the nearest soldier and tells the view.
+static func _face(s: GameState, u: Unit, hostiles: Array[Unit]) -> void:
+	var near := _nearest(u, hostiles)
+	if near == null:
+		return
+	var f := Vector2i(signi(near.pos.x - u.pos.x), signi(near.pos.y - u.pos.y))
+	if f != Vector2i.ZERO and f != u.status.get("facing", Vector2i.ZERO):
+		u.status["facing"] = f
+		s.emit({"type": "braced", "unit": u.id, "facing": f})
+
+
+## True when `src` hits a plated unit on its armoured side: the arc within about 50 degrees of where
+## it faces, from level ground or below.
+static func plate_covers(s: GameState, target: Unit, src: Unit) -> bool:
+	if not target.status.get("plate", false) or src == null:
+		return false
+	if Elevation.height(s, src) > Elevation.height(s, target):
+		return false
+	var d := Vector2(src.pos - target.pos)
+	var f := Vector2(target.status.get("facing", Vector2i(0, 1)))
+	if d == Vector2.ZERO or f == Vector2.ZERO:
+		return false
+	return d.normalized().dot(f.normalized()) >= 0.6
+
+
+## The three cells a Carapace's plate guards (for the overlay).
+static func plate_cells(s: GameState, u: Unit) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var f: Vector2i = u.status.get("facing", Vector2i(0, 1))
+	for d in Grid.DIRS8:
+		if Vector2(d).normalized().dot(Vector2(f).normalized()) >= 0.6:
+			var c: Vector2i = u.pos + d
+			if s.grid.in_bounds(c) and s.grid.tile(c) != Types.Tile.WALL:
+				out.append(c)
+	return out
+
+
+## Stalker: frozen while a soldier can see it, so it only claws what is already beside it. Unseen it
+## closes on the soldier furthest from the rest (the extra reach comes from Encounter).
+static func _stalker(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	if is_watched(s, u):
+		for h in hostiles:
+			if s.grid.melee_reach(u.pos, h.pos):
+				var claw := EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "claw", "target": h.id})
+				if not claw.is_empty():
+					return claw
+		return {}
+	return rush(s, u, hostiles, "claw")
+
+
+static func is_watched(s: GameState, u: Unit) -> bool:
+	return Vision.sees_unit(s, Types.Team.PLAYER, u)
+
+
+## Weaver: mends the most wounded Infected it can thread to, then keeps behind its friends.
+static func _weaver(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	var t := EnemyAbilities.mend_target(s, u)
+	if t != null:
+		return EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "mend", "target": t.id})
+	return support(s, u, hostiles)
 
 
 # --- bosses --------------------------------------------------------------------------------

@@ -31,6 +31,12 @@ const PURGE_BUDGET_CUT := 2
 const HALE_ADDS := {1: [], 2: [], 3: ["fallen"], 4: ["fallen", "fallen", "sharpshooter"]}
 ## A lone soldier can't break a Lurker's pin (a teammate has to hit it), so it never meets one.
 const SOLO_BANNED: Array[String] = ["lurker"]
+## Chance a plain skirmish carries an elite, by act and the lowest Outbreak stage each rate starts at.
+## Act 1 stays gentle; act 3 expects a build with the counters to its affixes (Armoured needs big hits,
+## Regenerating Burn, Splitting area damage, Virulent Guard, Hasted Suppress, ...).
+const ELITE_ODDS := {1: {3: 0.5}, 2: {1: 0.5, 3: 1.0}, 3: {0: 0.6, 2: 1.0}}
+## Act 3 fights from this stage on (squads of 3+) also bring a second elite.
+const SECOND_ELITE_STAGE := 3
 const STAGE_NAMES: Array[String] = ["Contained", "Spreading", "Rampant", "Critical", "Collapse"]
 
 
@@ -45,6 +51,16 @@ static func stage(outbreak: int) -> int:
 	if outbreak >= 3:
 		return 1
 	return 0
+
+
+## Chance of an elite in a plain skirmish at this act and Outbreak stage.
+static func elite_odds(act: int, st: int) -> float:
+	var odds := 0.0
+	var table: Dictionary = ELITE_ODDS.get(act, {})
+	for from_stage in table:
+		if st >= int(from_stage):
+			odds = maxf(odds, float(table[from_stage]))
+	return odds
 
 
 ## Threat budget Outbreak adds to a regular fight (not a boss).
@@ -82,13 +98,19 @@ static func build(spec: Dictionary) -> Dictionary:
 	var enc := {"act": act, "node": node, "objective": objective, "outbreak": int(spec.get("outbreak", 0)),
 		"stage": st, "waves": [], "squad": squad}
 	if node == "nest":
-		enemies.append(EnemyRoster.spec(elite_kind, true, _affixes(rng, 2 if st >= 3 and squad >= 3 else 1, true)))
+		enemies.append(EnemyRoster.spec(elite_kind, true, _affixes(rng, 2 if (st >= 3 or (act == 3 and st >= 2)) and squad >= 3 else 1, true)))
 		enc["hive"] = true
-	elif node != "boss" and st >= 3 and rng.randf() < 0.5:
+	elif node != "boss" and rng.randf() < elite_odds(act, st):
 		var cost: int = EnemyRoster.COST[elite_kind] * 2
 		if budget >= cost + 1:
 			enemies.append(EnemyRoster.spec(elite_kind, true, _affixes(rng, 1, false)))
 			budget -= cost
+			if act == 3 and st >= SECOND_ELITE_STAGE and squad >= 3:
+				var second := _pick(rng, EnemyRoster.elite_pool(act))
+				var c2: int = EnemyRoster.COST[second] * 2
+				if budget >= c2 + 1:
+					enemies.append(EnemyRoster.spec(second, true, _affixes(rng, 1, false)))
+					budget -= c2
 	if node == "boss":
 		enc["boss"] = EnemyRoster.BOSS_OF_ACT[act]
 		if act == 2:
@@ -216,6 +238,10 @@ static func _objective_pressure(rng: RandomNumberGenerator, objective: String, p
 				enc.waves.append({"turn": 3, "every": 2, "kinds": _wave(rng, pool, 1, act)})
 		"extract":
 			enc.waves.append({"turn": 2, "every": 2, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2, act)})
+		"escort", "samples":   # the long walks: a wave behind the squad every 3 turns
+			enc.waves.append({"turn": 3, "every": 3, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2, act)})
+		"demolish", "hack":    # the squad is digging in: one runner at a time
+			enc.waves.append({"turn": 3, "every": 2, "kinds": _wave(rng, pool, 1, act)})
 
 
 static func _hasten_wave(waves: Array) -> bool:

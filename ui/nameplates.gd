@@ -11,6 +11,7 @@ const Icons := preload("res://ui/icons.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const InputController := preload("res://view/input_controller.gd")
 const IntentOverlay := preload("res://view/intent_overlay.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 const HEAD := Vector3(0, 2.0, 0)
 const HEAD_ENEMY := Vector3(0, 1.6, 0)   # infected models are shorter
@@ -134,6 +135,9 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 		if view.player != null and view.player.concealed and e != null and not EnemyAI.is_alerted(e) \
 				and not EnemyRoster.is_static(e):
 			row.add_child(W.Icon.new("detected", Styles.DANGER, 14.0, 2.0))
+	# Hovering a new enemy's plate opens its card (what it does, how to beat it).
+	if not uv.is_soldier and Glossary.has("enemy_" + uv.kind):
+		Tips.term(f, "enemy_" + uv.kind)
 	var held := view.state.get_unit(uv.unit_id)
 	for k in TAG_ICONS:
 		# A Lurker pin has no set length, so it comes from the state rather than a timed tag.

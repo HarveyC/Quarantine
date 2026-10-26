@@ -27,7 +27,7 @@ static func _screens() -> Array[String]:
 		"runend", "pause", "settings_graphics", "settings_audio", "settings_gameplay", "settings_accessibility",
 		"settings_controls", "depot_grafts", "hospital_grafts", "reward_grafts", "loadout_grafts", "hq_unlocks", "hq_severity", "hq_record", "hq_achievements", "archive", "story",
 		"ending_vote", "offer_training", "reward_compare", "mutation_compare", "guns_compare", "kit_compare", "reward_loadout", "depot_compare",
-		"event_loadout"]
+		"event_loadout", "loadout_veteran"]
 	for i in TutorialScript.STEPS.size():
 		out.append("training:%d" % i)
 	return out
@@ -143,8 +143,10 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 				run.squad()[0].prog.grafts["arm"] = "bloom_limb"
 			NodeRules.enter(run, kind, "the_trial" if screen == "event" else "")
 			_full_screen(root, NodeRules.screen(kind).new(), run)
-		"reward", "loadout", "doctrine", "kit", "reward_grafts", "loadout_grafts":
-			var run := GearDemo.make_run(screen)
+		"reward", "loadout", "loadout_veteran", "doctrine", "kit", "reward_grafts", "loadout_grafts":
+			if screen == "loadout_veteran":
+				_sample_profile()   # finished runs: every gear tag shows
+			var run := GearDemo.make_run(screen.trim_suffix("_veteran"))
 			var ctl: Control = (GearRun.loadout_screen() if screen.begins_with("loadout") else GearRun.reward_screen()).new()
 			_full_screen(root, ctl, run)
 		"reward_compare", "mutation_compare", "guns_compare", "kit_compare", "reward_loadout":

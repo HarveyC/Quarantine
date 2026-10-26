@@ -1136,6 +1136,13 @@ const GEAR_PROCS := {
 	"crossfire": {"text": "CROSSFIRE", "color": Color("6fc3ff")},
 	"scorched_earth": {"text": "SCORCHED EARTH", "color": Color("ff8a3d")},
 	"symbiotic": {"text": "SYMBIOTIC SUIT", "color": Palette.TEAL},
+	# Capstones (6 of a tag): a bigger label, a flash and a burst, and a sound of their own.
+	"wildfire": {"text": "WILDFIRE", "color": Color("ff7a45"), "on_target": true, "sound": "cap_wildfire", "cap": true},
+	"warrant": {"text": "WARRANT", "color": Color("ff5c86"), "on_target": true, "sound": "cap_warrant", "cap": true},
+	"warrant_served": {"text": "WARRANT SERVED  +1 ACTION", "color": Color("ff5c86"), "sound": "cap_warrant", "cap": true},
+	"field_of_fire": {"text": "FIELD OF FIRE", "color": Color("6fc3ff"), "sound": "cap_field", "cap": true},
+	"aegis_hold": {"text": "AEGIS HOLDS", "color": Color("a9c46c"), "sound": "cap_aegis", "cap": true},
+	"aegis_return": {"text": "AEGIS RETURNS IT", "color": Color("a9c46c"), "on_target": true, "sound": "cap_aegis", "cap": true},
 }
 
 
@@ -1172,11 +1179,18 @@ func _beat_gear(ev: Dictionary) -> Dictionary:
 		uv.flash(Palette.TEAL)
 	if tv != null and tv != uv:
 		view.fx.tracer(uv.aim_point(), tv.aim_point(), col, 0.35)
-	view.fx.floating_text(_head(on) + Vector3(0, 0.2, 0), text, col, 34, 1.3)
-	view.fx.pulse(on.position, col, 0.5)
-	if not GEAR_PROCS.has(item) or item in ["restrained", "bloodletting", "guard_set"]:
+	var cap: bool = proc.get("cap", false)
+	view.fx.floating_text(_head(on) + Vector3(0, 0.2, 0), text, col, 44 if cap else 34, 1.6 if cap else 1.3)
+	view.fx.pulse(on.position, col, 0.9 if cap else 0.5)
+	if cap:
+		on.flash(col)
+		view.fx.flash_light(on.position + Vector3(0, 1.0, 0), col, 4.0, 0.5)
+		view.fx.burst(on.aim_point(), Vector3.UP, col, 18, 2.4, true, 0.05)
+	if proc.has("sound"):
+		_sfx(proc.sound)
+	elif not GEAR_PROCS.has(item) or item in ["restrained", "bloodletting", "guard_set"]:
 		_sfx("ui_confirm", -6.0)
-	return {"dur": 0.4}
+	return {"dur": 0.6 if cap else 0.4}
 
 
 ## Set Burning (Incendiary rounds, Ember plating, Firestarter, Phosphor rounds...).
@@ -1230,10 +1244,45 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 ## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
 	"burrow", "erupt", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull",
-	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit"]
+	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
+	"hook", "reel", "satchel", "mend",
+	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
+
+## Rank 2 signatures (Signatures): the sound, title and colour of each one's beat.
+const SIGNATURE_LOOK := {
+	"lockdown": {"sound": "gadget_deploy", "title": "LOCKDOWN", "color": Palette.AMBER},
+	"deadeye": {"sound": "sniper", "title": "DEADEYE", "color": Palette.AMBER},
+	"quarantine_field": {"sound": "foam_spray", "title": "QUARANTINE FIELD", "color": Palette.TEAL},
+	"bring_down": {"sound": "collapse", "title": "BRING DOWN", "color": Palette.AMBER},
+	"flashover": {"sound": "explosion", "title": "FLASHOVER", "color": Palette.DANGER},
+	"vent": {"sound": "spore_burst", "title": "VENT", "color": Palette.TEAL},
+	"death_sweep": {"sound": "blade", "title": "DEATH SWEEP", "color": Palette.DANGER},
+	"provoke": {"sound": "plate_clang", "title": "PROVOKE", "color": Palette.AMBER},
+}
+
+
+func _signature_beat(ev: Dictionary) -> Dictionary:
+	var look: Dictionary = SIGNATURE_LOOK[ev.ability]
+	_sfx(look.sound)
+	var beat := _power_beat(ev, look.title, look.color)
+	for id in ev.get("units", []):
+		var tv := view.view_for(int(id))
+		if tv != null:
+			view.fx.pulse(tv.position, look.color)
+	var uv := _uv(ev)
+	if uv != null and ev.has("radius"):
+		view.fx.pulse(uv.position, look.color)
+	beat["dur"] = maxf(float(beat.get("dur", 0.0)), 0.7)
+	return beat
 
 
 func _beat_ability(ev: Dictionary) -> Dictionary:
+	if str(ev.get("ability", "")).begins_with("item:"):
+		var user := _uv(ev)
+		if user != null:
+			user.spend_pocket(str(ev.ability).trim_prefix("item:"))   # the pouch empties on the body
+	if SIGNATURE_LOOK.has(str(ev.get("ability", ""))):
+		return _signature_beat(ev)
 	match str(ev.get("ability", "")):
 		"claw", "slam", "pounce", "maul", "spore_drop":
 			return _melee_beat(ev)
@@ -1261,6 +1310,27 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return _throw_beat(ev)
 		"spit":
 			return _spit_beat(ev)
+		"hook", "reel":
+			_sfx("hook_whip", -3.0)
+			var hb := _power_beat(ev, "hook" if ev.ability == "hook" else "reel", Palette.DANGER)
+			var hv := _uv(ev)
+			var ht := _uv(ev, "target")
+			if hv != null and ht != null:
+				view.fx.tracer(hv.position + Vector3(0, 1.0, 0), ht.aim_point(), Palette.DANGER, 0.5)
+			if ev.ability == "reel":
+				hb.dur = 0.5
+			return hb
+		"satchel":
+			_sfx("satchel_arm", -4.0)
+			return _throw_beat(ev)
+		"mend":
+			_sfx("weave_hum", -6.0)
+			var mb := _power_beat(ev, "mend", Palette.TEAL)
+			var mv := _uv(ev)
+			var mt := _uv(ev, "target")
+			if mv != null and mt != null:
+				view.fx.tracer(mv.position + Vector3(0, 1.0, 0), mt.aim_point(), Palette.TEAL, 0.7)
+			return mb
 		"suppress":
 			return _suppress_beat(ev)
 		"stim", "item:medkit":
@@ -1485,7 +1555,7 @@ func _throw_beat(ev: Dictionary) -> Dictionary:
 	var w := Board.cell_to_world(ev.cell)
 	uv.face_towards(w)
 	var demo: bool = ev.ability == "item:demo_charge"
-	view.fx.floating_text(_head(uv), "DEMO CHARGE" if demo else "FRAG OUT", Palette.AMBER, 44)
+	view.fx.floating_text(_head(uv), "DEMO CHARGE" if demo else ("SATCHEL" if ev.ability == "satchel" else "FRAG OUT"), Palette.AMBER, 44)
 	_sfx("ui_click", -2.0)
 	var from := uv.position + Vector3(0, 1.3, 0)
 	var to := w + Vector3(0, 0.6 if demo and _grid().tile(ev.cell) == Types.Tile.WALL else 0.12, 0)
@@ -1614,6 +1684,15 @@ func _beat_mutation(ev: Dictionary) -> Dictionary:
 		view.fx.floating_text(_head(uv) + Vector3(0, -0.35, 0), "+1 ACTION", Palette.AMBER, 38)
 		view.fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.AMBER, 10, 1.6, true, 0.03)
 		_sfx("ui_confirm", -4.0)
+	if uv != null and ev.get("mutation") == "kindled_spores":
+		# Kindled Spores: the shot sets the target alight, so the beat is fire, not teal.
+		var fire: Color = Board.HAZARD_COLORS.fire
+		var tv := _uv(ev, "target")
+		if tv != null:
+			view.fx.burst(tv.aim_point(), Vector3.UP, fire, 14, 2.0, true, 0.04)
+			view.fx.flash_light(tv.position + Vector3(0, 1.0, 0), fire, 3.0, 0.4)
+		_sfx("breach", -10.0)
+		return _power_beat(ev, "kindled spores", fire)
 	return _power_beat(ev, str(ev.get("mutation", "mutation")), Palette.TEAL)
 
 
@@ -1808,6 +1887,69 @@ func _beat_rescued(ev: Dictionary) -> Dictionary:
 	view.fx.floating_text(_head(uv), "SAFE", Color(0.45, 0.95, 0.55), 44)
 	_sfx("radio")
 	return {"dur": 0.5}
+
+
+## A marked spot of the sprint objectives (charge, relay, sample): label floats over the cell.
+func _site_beat(ev: Dictionary, text: String, col: Color, sfx := "radio", look := true) -> Dictionary:
+	if not (ev.get("cell") is Vector2i):
+		return {}
+	var at := Board.cell_to_world(ev.cell)
+	if look and not in_cinematic:
+		view.camera_rig.focus(at)
+	view.fx.pulse(at, col)
+	view.fx.floating_text(at + Vector3(0, 1.4, 0), text, col, 44)
+	_sfx(sfx)
+	if view.hud != null:
+		view.hud.refresh()
+	return {"dur": 0.6}
+
+
+func _beat_charge_armed(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "ARMED", Palette.AMBER, "gadget_deploy")
+
+
+func _beat_charge_defused(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "DEFUSED", Palette.DANGER, "alert")
+
+
+func _beat_charge_blown(ev: Dictionary) -> Dictionary:
+	return {"dur": 0.0}
+
+
+func _beat_relay_hacking(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "HACKING", Palette.AMBER, "radio", false)
+
+
+func _beat_relay_hacked(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "HACKED", TileOverlays.color("relay"))
+
+
+func _beat_relay_lost(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "RELAY DOWN", Palette.DANGER, "alert")
+
+
+func _beat_sample_taken(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "SAMPLE", TileOverlays.color("sample"), "radio", false)
+
+
+func _beat_sample_dropped(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "DROPPED", Palette.DANGER, "alert")
+
+
+func _beat_sample_delivered(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "DELIVERED", TileOverlays.color("sample"))
+
+
+func _beat_sample_lost(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "SAMPLE LOST", Palette.DANGER, "alert")
+
+
+func _beat_courier_waits(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	view.fx.floating_text(_head(uv), "WAITING", Palette.AMBER, 40)
+	return {"dur": 0.3}
 
 
 func _beat_left_behind(ev: Dictionary) -> Dictionary:

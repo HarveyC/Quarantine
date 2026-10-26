@@ -29,7 +29,7 @@ const NO_CELL := Vector2i(-999, -999)
 const ABILITIES := {
 	"suppress": {"name": "Suppress", "targeting": "unit", "cost": -1, "cooldown": 2,
 		"desc": "Pin a visible enemy: -30 aim on its next shot and cancels its overwatch. Ends turn."},
-	"tag": {"name": "Marksman Tag", "targeting": "unit", "cost": 1, "cooldown": 2,
+	"tag": {"name": "Mark", "targeting": "unit", "cost": 1, "cooldown": 2,
 		"desc": "Mark a visible enemy until the end of the next enemy phase: all soldiers get +15 aim against it. 1 action."},
 	"stim": {"name": "Stim", "targeting": "unit", "cost": 1, "cooldown": 2,
 		"desc": "Self or adjacent ally: heal 3 and reduce infection by 15. 1 action."},
@@ -272,7 +272,7 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 		breakdown.append(["Defense", -target.defense])
 	Weapons.range_terms(attacker, from.distance_to(target.pos), breakdown)
 	if attacker.team == Types.Team.PLAYER and has_status(s, target, "tagged"):
-		breakdown.append(["Tagged", TAG_BONUS])
+		breakdown.append(["Marked", TAG_BONUS])
 	if has_status(s, attacker, "suppressed"):
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
 	if reaction and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
@@ -476,6 +476,7 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 		"tag":
 			t.status["tagged"] = phase_index(s) + (2 if s.phase != Types.Phase.ENEMY else 3) + Grafts.tag_bonus(s, u)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
+			GearFx.on_marked(s, u, t)
 		"stim":
 			var healed := mini(Kit.medic_heal(t, STIM_HEAL), t.max_hp - t.hp)
 			t.hp += healed
@@ -488,11 +489,18 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			var dmg := s.rng.randi_range(BREACH_DAMAGE.x, BREACH_DAMAGE.y)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id, "hit": true, "damage": dmg})
 			var cover := Destruction.cover_cells(s.grid, t.pos, u.pos)   # the blast knocks its cover down a step
+			var shaped := Kit.has_perk(u, "shaped_charge")
 			Rules.deal_damage(s, t, dmg, u)
-			if not cover.is_empty() and s.phase != Types.Phase.ENDED:
+			if (not cover.is_empty() or shaped) and s.phase != Types.Phase.ENDED:
 				var hits := {}
 				for c in cover:
 					hits[c] = 1
+				if shaped:
+					# Shaped Charge: the blast takes the walls, cover and roofs around the target too.
+					s.emit({"type": "perk", "unit": u.id, "perk": "shaped_charge", "cell": t.pos})
+					var blast := Destruction.pattern(s.grid, t.pos, Destruction.SHAPED)
+					for c in blast:
+						hits[c] = maxi(int(hits.get(c, 0)), int(blast[c]))
 				Destruction.hit(s, hits, u)
 		"claw":
 			var odds := melee_chance(s, u, t)
@@ -637,3 +645,4 @@ static func resolve_reactions(s: GameState, mover: Unit, reactors: Array[Unit]) 
 			fire_at_barrel(s, w, barrel, true)
 		else:
 			fire(s, w, mover, true)
+		Signatures.after_reaction(s, w, mover)

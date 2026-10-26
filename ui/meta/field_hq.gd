@@ -151,6 +151,15 @@ func _build_unlocks() -> void:
 	var open := Progression.unlocked_classes(Profile.meta())
 	for kind in UnitData.SOLDIERS:
 		classes.add_child(_class_card(kind, open.has(kind)))
+	_section("Loadout", "")
+	var all := CheckBox.new()
+	all.text = "Show all gear tags"
+	all.focus_mode = Control.FOCUS_NONE
+	all.button_pressed = Profile.tags_all_shown()
+	all.disabled = Profile.stat("runs") > 0   # after a first run every tag shows anyway
+	all.toggled.connect(func(on: bool) -> void: Profile.set_show_all_tags(on))
+	Tips.term(all, "gear_tag")
+	_body.add_child(all)
 
 
 func _pack_card(id: String, have: Array, fd: int) -> Control:
@@ -428,21 +437,21 @@ func _mini_stat(icon: String, value: String) -> Control:
 	return b
 
 
-## How far a run got: 3 acts of 5 rows as segments, filled up to the act and row reached.
+## How far a run got: each act's rows as segments, filled up to the act and row reached.
 class RunTrack extends Control:
 	var act := 1
 	var row := 0
 	var won := false
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(3 * 5 * 11 + 2 * 8, 14)
+		custom_minimum_size = Vector2((RunState.BASE_ROWS + 2 * RunState.LONG_ROWS) * 11 + 2 * 8, 14)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
 		var x := 0.0
 		var y := (size.y - 8) * 0.5
 		for a in range(1, RunState.ACTS + 1):
-			for r in range(1, RunState.ROWS + 1):
+			for r in range(1, RunState.rows_for(a) + 1):
 				var done := won or a < act or (a == act and r <= row)
 				var col := Styles.HP if won else (Styles.AMBER if done else Styles.HP_OFF)
 				if not won and a == act and r == row:

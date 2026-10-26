@@ -10,7 +10,21 @@ signal event(ev: Dictionary)
 enum Phase { MAP, NODE, FIGHT, REWARD, ENDED }
 
 const ACTS := 3
-const ROWS := 5
+## Rows in Act 1 (Skirmish, two rolled rows, Field hospital, boss). Acts 2 and 3 have LONG_ROWS: one more
+## rolled row at EXTRA_ROW, which adds no Outbreak point (see RunRules.enter_node).
+const BASE_ROWS := 5
+const LONG_ROWS := 6
+const EXTRA_ROW := 4
+
+
+static func rows_for(act: int) -> int:
+	return BASE_ROWS if act <= 1 else LONG_ROWS
+
+
+## The added rolled row of a long act.
+static func is_extra_row(act: int, row: int) -> bool:
+	return rows_for(act) > BASE_ROWS and row == EXTRA_ROW
+
 
 var seed := 0
 var rng := RandomNumberGenerator.new()

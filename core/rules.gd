@@ -314,14 +314,19 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = null) -> void:
 	if not target.is_alive():
 		return
+	var struck := target
 	target = GearFx.guard_redirect(s, target, source)
+	var intercepted := target != struck
 	amount = GearFx.damage_taken(s, target, amount, source)
 	amount = Encounter.modify_damage(s, target, amount, source)
 	if amount <= 0:
 		return
 	amount = Kit.modify_incoming(s, target, amount, source)
+	amount = GearFx.aegis_hold(s, target, amount)
 	target.hp = max(0, target.hp - amount)
 	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1})
+	if intercepted:
+		GearFx.aegis_return(s, target, source, amount)
 	if source != null and source.is_enemy_of(target):
 		Vision.expose(s, source)
 	Concealment.on_damage(s, target, source)

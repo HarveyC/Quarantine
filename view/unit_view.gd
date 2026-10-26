@@ -22,7 +22,10 @@ const ModelKit := preload("res://view/model_kit.gd")
 const GunModels := preload("res://view/gun_models.gd")
 const SkinnedBody := preload("res://view/skinned_body.gd")
 const MeleeKit := preload("res://view/melee_kit.gd")
+const EnemyKit := preload("res://view/enemy_kit.gd")
 const GraftKit := preload("res://view/graft_kit.gd")
+const GearKit := preload("res://view/gear_kit.gd")
+const MutationKit := preload("res://view/mutation_kit.gd")
 const TURN_SPEED := 9.0   # radians per second
 ## Units are drawn a little larger than life so they read from the tactical camera.
 const MODEL_SCALE := 1.12
@@ -53,6 +56,11 @@ var concealed := false    # squad Concealed: a cold-blue dashed ring at the feet
 var tags := {}
 ## Grafts the body wears ({slot: id}), hung on the skeleton by GraftKit.
 var grafts := {}
+## Equipment and mutations the body shows (unit.status "gear", "pockets", "mutations"), drawn
+## by GearKit and MutationKit from replicated state.
+var gear := {}
+var pockets := []
+var mutations := {}
 
 var _body: Node3D        # yaw only
 const SINK_DEPTH := 2.8   # how far below the floor a burrowed body goes
@@ -72,6 +80,8 @@ var _glow: OmniLight3D
 var _key: OmniLight3D    # the soft character light that travels with the unit
 var _mats := {}          # role -> ShaderMaterial (this unit's own copies)
 var _growths := []       # [stage, MeshInstance3D] infection growths
+var _mut_nodes := {}    # mutation id -> [MeshInstance3D] growths
+var _dormant_mat: StandardMaterial3D
 var _shown_stage := 0
 var _popping: Array[Node3D] = []   # growths bursting out during pulse_infection
 var _yaw := 0.0
@@ -137,6 +147,9 @@ func build(u: Unit) -> void:
 	tier = Infection.tier(u.infection)
 	lapsed = u.status.get("lapsed", false)
 	grafts = Grafts.of_unit(u).duplicate()
+	gear = (u.status.get("gear", {}) as Dictionary).duplicate(true)
+	pockets = (u.status.get("pockets", []) as Array).duplicate(true)
+	mutations = (u.status.get("mutations", {}) as Dictionary).duplicate()
 	name = "Unit%d" % unit_id
 	_time = float(unit_id) * 1.37
 	_body = Node3D.new()
@@ -162,15 +175,19 @@ func _build_model() -> void:
 		GunModels.swap_look(_model, Weapons.look_of(weapon))
 	if soldier_body:
 		GraftKit.dress(_model, grafts)
+		GearKit.dress(_model, kind, gear, pockets)
+		MutationKit.dress(_model, mutations)
 	_rig.add_child(_model)
 	_mats = ModelKit.apply_materials(_model, owner_player, soldier_body)
 	MeleeKit.tint(kind, _mats)
+	EnemyKit.tint(kind, _mats)
 	_growths = ModelKit.growths(_model)
+	_mut_nodes = MutationKit.nodes(_model)
 	_sac = ModelKit.find(_model, "sac")
 	if ModelKit.is_skinned(_model):
 		_skin = SkinnedBody.new()
 		_skin.setup(_model, not soldier_body)
-		_skin.speed = {"runner": 1.3, "leaper": 1.2, "broodling": 1.4, "brood_mother": 0.7, "brute": 0.85}.get(kind, 1.0)
+		_skin.speed = {"runner": 1.3, "leaper": 1.2, "broodling": 1.4, "brood_mother": 0.7, "brute": 0.85, "carapace": 0.8, "sapper": 1.3}.get(kind, 1.0)
 	else:
 		_prop = ModelKit.find(_model, "body")
 		_prop_y = _prop.position.y if _prop != null else 0.0
@@ -877,6 +894,7 @@ func _refresh_infection() -> void:
 			_popping.append(n)
 		n.visible = show
 	_shown_stage = stage
+	_refresh_mutations()
 	var k := 1.0 if turned else clampf(infection / 100.0, 0.0, 1.0)
 	_set_veins(k if stage > 0 else 0.0)
 	if _mats.has("visor"):
@@ -884,6 +902,32 @@ func _refresh_infection() -> void:
 	if not turned:
 		_glow.visible = tier >= 2
 		_glow.light_energy = 0.35 * tier
+
+
+## A pocket item was used: one charge off, and the pouch comes off the body when it is empty.
+func spend_pocket(id: String) -> void:
+	for i in pockets.size():
+		var p: Variant = pockets[i]
+		if p is Dictionary and str(p.get("id", "")) == id and int(p.get("charges", 0)) > 0:
+			p["charges"] = int(p.charges) - 1
+			if int(p.charges) <= 0 and _model != null:
+				for n in _model.find_children("pocket_%d_*" % i, "MeshInstance3D", true, false):
+					n.visible = false
+			return
+
+
+## A mutation's growths glow while Infection is at its tier and hang dull and unlit below it.
+func _refresh_mutations() -> void:
+	if _mut_nodes.is_empty():
+		return
+	if _dormant_mat == null:
+		_dormant_mat = StandardMaterial3D.new()
+		_dormant_mat.albedo_color = Color("4a4443")
+		_dormant_mat.roughness = 0.95
+	for id in _mut_nodes:
+		var awake := tier >= MutationData.awake_at(id)
+		for n in _mut_nodes[id]:
+			(n as MeshInstance3D).material_override = null if awake else _dormant_mat
 
 
 func _refresh_status() -> void:

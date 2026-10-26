@@ -247,6 +247,13 @@ Body-part upgrades from Act 2 and Rank 3 (`GraftData.FROM_ACT`/`FROM_RANK`). Fou
   (minimum 2).
 - View: `view/graft_kit.gd` hangs the parts on the soldier skeleton; `ui/graft_figure.gd` is the four-slot body
   diagram on soldier cards, the hospital, depot, reward card and loadout. `--lineup-mode=grafts` renders them.
+- Soldier bodies show their loadout: `view/gear_kit.gd` (armour, gadget and loaded pockets from `unit.status` "gear" and
+  "pockets") and `view/mutation_kit.gd` (one growth set per mutation in `status["mutations"]`, drawn dull and unlit by
+  `UnitView._refresh_mutations` while Infection is below the mutation's tier). All of it is read from replicated unit
+  state in `UnitView.build`, so every peer draws the same body; a used pocket item comes off through `spend_pocket`.
+  A new armour or gadget needs an `ARMOR_LOOK`/`GADGET_LOOK` entry and a new mutation needs `_parts` (test_view
+  fails otherwise). Weapon mods and ammo are not drawn. `--lineup-spec="trooper:armor=plated_rig;mut=bloom;inf=90|..."`
+  renders any mix (keys: inf, armor, gadget, pocket, mut, graft; `--lineup-cam=z,y`, `--lineup-yaw=deg`).
 
 ## Equipment (gear/)
 
@@ -265,6 +272,13 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   `Progression.unit_tag_counts` (perks and awake mutations; loaded by path `res://progression/progression.gd`,
   optional). `has_set`, `active_sets`, `ranked`, `qualified_prototypes`, `preview(record, id)` (threshold
   preview for cards). Set bonus at 3, Prototype at two tags at 2.
+- **Capstones** (6 pieces of a tag, `GearData.CAPSTONE_THRESHOLD`; `TAG_INFO[tag].capstone`): Burn Wildfire,
+  Mark Warrant, Overwatch Field of Fire, Guard Aegis. `GearTags.has_capstone` / `active_capstones`,
+  `GearFx.has_capstone(unit, tag)` in the rules. Hooks: `GearFx.on_team_phase_start` (Wildfire spread, `fire_damage`,
+  `hazard_damage`), `on_marked` / `odds_terms` / `on_kill` (Warrant), `Kit.keep_overwatch` (Field of Fire),
+  `Rules.deal_damage` -> `GearFx.aegis_hold` / `aegis_return` (Aegis). Beats live in `EventPlayer.GEAR_PROCS` (each
+  names a `cap_*` sound from tools/gen_sfx.py). `Builds` (gear/builds.gd) holds the eight easy builds plus Killbox;
+  tests/test_capstones.gd checks that each reaches 6 of its tag.
 - **Draws** (`GearDraw`): tag weight = 1 + 2 per point (max +6); rarity odds per act with +2% Rare pity per
   Common seen; `draw_item(rng, counts, rarity, exclude, only_tags)`; `depot_items(rng, squad_counts, act)`.
 - **Run hooks** (`GearRun`, the run framework's contract): `init_run` (also gives every soldier, reserve
@@ -386,13 +400,16 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 
 - **Input**: `spec = {"biome", "objective", "seed"}` (other keys ignored). Biome "wall" (act 1) has
   parcels; "port" and "bore" fall back to it until `maps/biome_port.txt` / `biome_bore.txt` exist.
-  Objective is skirmish / extract / hold / rescue / purge / elite / boss; unknown ones use skirmish.
+  Objective is skirmish / extract / hold / rescue / purge / elite / boss / escort / demolish / hack / samples; unknown ones use skirmish.
 - **Determinism**: its own RNG seeded from the spec (never `state.rng`), so every peer generates the
   same map from the `MatchConfig` the host broadcasts. A resync snapshot also carries the grid.
 - **Content**: `maps/biome_<name>.txt` holds the parcels and plots; its header documents the format.
   Add parcels there to add variety, no code needed. Every plot gets streets at least `MIN_LANES` (2)
   tiles wide between its parcels, so maps are 22x22 (4x4 plots) or 22x28 (extract); boss arenas
-  keep their compact 20x20.
+  keep their compact 20x20. **Grand maps** are 5x5 plots (`grand_*` plots, 28x28, two landmarks) used
+  by the sprint objectives (escort / demolish / hack / samples) and now and then by skirmish, purge,
+  rescue and extract; their pods may sit up to `GRAND_POD_MAX` steps out. Objective sites come from `@site`
+  parcels (one `O` cell); the objective picks the marker (`SITE_MARKER`: charge, relay, sample).
   Streets stay open apart from the odd two-tile sandbag line (`_street_barricades`), and `_declutter`
   clears about half of the lone crates parcels scatter (lines, rooms and roofs stay). Most plots have
   2-3 `T` tower slots (high ground parcels).
@@ -564,6 +581,10 @@ The objective comes with the map: `grid.objective` (set by MapGen, saved with th
 | hold | 4 rounds survived (`held`) | 2 rounds in a row (`overrun`) ending with enemies and no soldier in `beacon`; the first emits `beacon_overrun` and isn't counted as held |
 | rescue | every living civilian on `exit` (kills win only once no civilian is alive) | |
 | purge | no living unit of kind `spore_nest` (or every enemy dead) | |
+| escort | the courier (a civilian-status unit, 8 HP) reaches `evac`. It walks 3 tiles toward it at each squad turn's end while a soldier is within 4 | courier dies (`courier_down`) |
+| demolish | all 3 `charge` sites have blown. A soldier on a site at squad turn end arms it; it blows 2 rounds later (demo blast, hurts soldiers too); an enemy on it defuses it | after round 10 (`charges_late`) |
+| hack | 2 of 3 `relay` sites hacked (a soldier on one for 2 squad turns in a row) | an enemy ending a round on an unhacked relay with no soldier there destroys it; too few left (`relays_lost`) |
+| samples | 2 of 3 `sample` points delivered to the drop zone (`exit` = deploy). A soldier on one at squad turn end carries it (-1 move); a fallen carrier drops it | an enemy ending a round on a loose sample destroys it; too few left (`samples_lost`) |
 
 - **Hooks**: `Objectives.setup(s)` at the end of `Rules.new_mission_on_grid`; `on_team_phase_end`
   (after hazards, from `Rules.set_ready`) and `on_enemy_phase_end` (after hazards); `Rules.check_end`
@@ -574,10 +595,11 @@ The objective comes with the map: `grid.objective` (set by MapGen, saved with th
   and hazards apply), and step onto the exit when a soldier is within 3 tiles. Enemies target them.
 - **Bonus** (`Objectives.bonus_met(s)`, used by `RunRules.fight_outcome`): extract nobody left
   behind; hold the beacon never contested; rescue every civilian saved; skirmish / elite / purge
-  won by the end of turn 5; boss none.
+  won by the end of turn 5; boss none; escort courier unhurt; demolish done 3 rounds early; hack no
+  relay lost; samples none lost. The four newer objectives never win on kills alone.
 - **HUD**: `Objectives.describe(s)` is the objective line under the turn banner.
 - **Loss cause**: `Objectives.loss_cause(s)` names why a lost fight was lost (`beacon`, `left_behind`,
-  `turned`, `squad_down`; text in `Objectives.LOSS`). The view focuses `loss_cells(s)` and names it,
+  `courier_down`, `charges_late`, `relays_lost`, `samples_lost`, `turned`, `squad_down`; text in `Objectives.LOSS`). The view focuses `loss_cells(s)` and names it,
   then the debrief (or quick-play overlay) shows it after a beat.
 
 ## Fog of war (vision/)
@@ -883,12 +905,12 @@ deploys in their place (`Progression.on_recruit_deployed(new_prog, lost_prog)` s
 
 ### Node map
 
-`RunMap.generate(rng, act)` returns the act's nodes. A node: `id`, `row` (1-5), `col`, `x` (0-1
+`RunMap.generate(rng, act)` returns the act's nodes. A node: `id`, `row` (1-5 in Act 1, 1-6 in Acts 2-3: `RunState.rows_for`), `col`, `x` (0-1
 layout), `type` (`RunMap.SKIRMISH`/`NEST`/`EVENT`/`DEPOT`/`HOSPITAL`/`SURVIVORS`/`BOSS`/`UNKNOWN`),
 `links` (ids in the next row), `objective` (`extract`/`hold`/`rescue`/`purge` for fights, `boss`),
 `seed` (fight seed), `visited`, `hidden` (an unrevealed "?"), `resolved` (what a "?" became:
 `event`/`ambush`/`depot`/`survivors`). Show `RunMap.shown_type(n)` on the map. Rules from the doc:
-row 1 Skirmish, row 4 Field hospital, row 5 boss, rows 2-3 rolled from the act weights with the
+row 1 Skirmish, the second-to-last row Field hospital, the last row boss, the rows between rolled from the act weights (Acts 2-3 have a third rolled row, row 4, which adds no Outbreak) with the
 placement rules (no act-1 row-2 nest, no back-to-back depots/hospitals, a non-combat node on every
 path, a nest and a depot every act); links never cross, 1-2 out per node.
 
@@ -1127,6 +1149,28 @@ kind) and `view/intent_overlay.gd` (`MissionView.intents`, refreshed when the ev
   5-enemy fight); reinforcement waves are melee only. Melee AI paths by real walking cost (stairs and
   ladders, `EnemyAI._distance_field`), and a rusher out of reach ends its move in cover when that
   costs no ground.
+- **Enemy sprint (2026-10-25)**: five kinds and two affixes that each ask the squad a question.
+  Hooker (act 1, ranged-capped): `hook` locks a line (`status.hooked`, telegraph `hook`), next turn
+  `reel` pulls the first soldier on the line up to 3 tiles for 2 damage (fall damage off height;
+  broken by line of sight, suppression, or an Infected on the line). Sapper (act 2): `satchel`
+  throws a 3x3 telegraph (3 damage, `smash`) that survives the Sapper, then it backs off. Carapace
+  (act 2): `status.plate` and `status.facing`; `Encounter.modify_damage` takes `PLATE_REDUCTION`
+  off hits from the front arc (`EnemyBehaviours.plate_covers`, none from higher ground), emits
+  `plated`; `braced` turns the model. Stalker (act 3): cannot move while `Vision.sees_unit`; unseen
+  it gets +3 move and its first hit on a soldier more than 4 tiles from the rest gets +2 (`stalked`;
+  never for a squad of one). Weaver (act 3): `mend` heals the most wounded Infected in line of
+  sight (not bosses or props) for 3, shown as `regenerate`. Affixes: `volatile` (3x3 blast on death
+  through `Destruction.explode`, kind `volatile`) and `rallying` (+1 damage within 3 tiles of it).
+  Every affix has a `counter` line in `EnemyRoster.AFFIX_INFO` (shown on its card). Constants live
+  at the top of `EnemyRoster`. Melee kinds weigh double against ranged ones in `weight()`.
+  Pack AI (`EnemyAI`): `telegraph_cost` (rushers will not step onto ground an ally marked),
+  `crowding` (a third attacker on one soldier is penalised, so packs use other sides),
+  `isolation` (strays score higher), and badly hurt shooters prefer cells nobody watches.
+  Views: `view/enemy_kit.gd` dresses another rig (Spitter, Runner, Brute, Shrieker) with props and
+  a tint; plates and rally rings are drawn by `IntentOverlay`; hovering an enemy's nameplate opens
+  its `enemy_<kind>` glossary card. Sounds `hook_whip`, `satchel_arm`, `weave_hum`, `plate_clang`
+  (tools/gen_sfx.py) and a bark and death cry per kind (tools/gen_music.py). Elites per fight:
+  `FightBuilder.ELITE_ODDS` (act 1 gentle, act 3 near-certain, a second elite at Collapse-ward stages).
 - **Map markers used** (`grid.markers`, optional): `hive`, `boss`, `nest`, `reinforce`.
 - Dev aid: `-- --fight=<node>,<act>,<outbreak>` plays one built fight on the test map.
 

@@ -12,7 +12,7 @@ const ABILITIES := {
 		"desc": "3-tile cone: 3 damage to every unit in it (allies too), ignoring cover. Leaves fire for 1 turn. Ends turn."},
 	"siphon": {"name": "Siphon", "targeting": "unit", "cost": 1, "cooldown": 1,
 		"desc": "Move up to 15 Infection from an adjacent ally onto yourself and heal 1 HP per 5 moved. 1 action."},
-	"purge": {"name": "Purge", "targeting": "unit", "cost": -1, "cooldown": 3,
+	"purge": {"name": "Flush", "targeting": "unit", "cost": -1, "cooldown": 3,
 		"desc": "Remove 30 Infection from an adjacent ally. Ends turn."},
 	"decon": {"name": "Decon Shower", "targeting": "unit", "cost": 1, "cooldown": 2,
 		"desc": "An adjacent ally loses 10 Infection and gains none until the next team phase. 1 action."},
@@ -22,7 +22,7 @@ const ABILITIES := {
 		"desc": "Dash up to 4 tiles to a visible enemy and cut it for 4-6, +1 per Infection tier. Only half cover counts. Kills on Infected add 5 Infection. Ends turn."},
 	"bash": {"name": "Shield Bash", "targeting": "unit", "cost": 1, "cooldown": 1,
 		"desc": "Hit an adjacent enemy for 3-5, knock it back a tile and stun it (it loses its next turn). +2 damage on Turned soldiers. 1 action."},
-	"guard": {"name": "Guard", "targeting": "none", "cost": -1, "cooldown": 0,
+	"guard": {"name": "Brace", "targeting": "none", "cost": -1, "cooldown": 0,
 		"desc": "Until your next turn, Bash the first enemy that steps next to you, which stops it in its tracks. Ends turn."},
 	"shield_charge": {"name": "Shield Charge", "targeting": "unit", "cost": -1, "cooldown": 3,
 		"desc": "Move up to 3 tiles to a visible enemy and Bash it. Ends turn."},
@@ -35,6 +35,23 @@ const ABILITIES := {
 		"desc": "Rake an adjacent enemy for 3-5, +1 per Infection tier. A kill heals 1 HP. 1 action."},
 	"runner_leap": {"name": "Leap", "targeting": "cell", "cost": 1, "cooldown": 0,
 		"desc": "Once per fight: jump up to 4 tiles to a free cell, over cover and past overwatch. 1 action."},
+	# Rank 2 signatures (Signatures): one per class, each carries a gear tag.
+	"lockdown": {"name": "Lockdown", "targeting": "none", "cost": -1, "cooldown": 4, "sig": true,
+		"desc": "Until your next turn you hold overwatch that never runs out: you shoot every enemy that moves in sight, once each, and pin whoever you hit. Ends turn."},
+	"deadeye": {"name": "Deadeye", "targeting": "unit", "cost": 1, "cooldown": 4, "sig": true,
+		"desc": "Shoot a visible enemy: never misses, ignores cover, deals 3 extra damage and Marks it. 1 action."},
+	"quarantine_field": {"name": "Quarantine Field", "targeting": "none", "cost": 1, "cooldown": 5, "sig": true,
+		"desc": "Seal the ground within 2 tiles of you for 2 turns. Soldiers inside gain no Infection and heal 1 each turn. Enemies inside lose 15 aim. 1 action."},
+	"bring_down": {"name": "Bring Down", "targeting": "unit", "cost": -1, "cooldown": 4, "sig": true,
+		"desc": "Collapse the cover around a visible enemy within 5 tiles: 4 damage to it and 2 to enemies next to it, ignoring cover. Ends turn."},
+	"flashover": {"name": "Flashover", "targeting": "none", "cost": 1, "cooldown": 4, "sig": true,
+		"desc": "Every enemy in sight that is burning or standing in fire erupts: 4 damage, 2 to enemies next to it. The fire is used up. 1 action."},
+	"vent": {"name": "Vent", "targeting": "none", "cost": 1, "cooldown": 4, "sig": true,
+		"desc": "Expel 25 of your Infection in a spore burst. Enemies within 2 tiles take 3, plus 1 per Infection tier you hold. Needs 10 Infection. 1 action."},
+	"death_sweep": {"name": "Death Sweep", "targeting": "none", "cost": 1, "cooldown": 4, "sig": true,
+		"desc": "Cut every adjacent enemy for 3 and leave them bleeding. A kill resets Lunge and gives an action back. 1 action."},
+	"provoke": {"name": "Provoke", "targeting": "none", "cost": 1, "cooldown": 5, "sig": true,
+		"desc": "Until your next turn every enemy picks you as its target. You gain 20 defense and take 1 less damage from each hit. 1 action."},
 }
 
 const INCINERATE_DAMAGE := 3
@@ -82,7 +99,7 @@ static func available(s: GameState, u: Unit) -> Array[Dictionary]:
 		var has_targets: bool = def.targeting != "unit" or not targets.is_empty()
 		var entry := {"id": id, "name": def.name, "targeting": def.targeting, "cost": def.cost,
 			"cooldown": cd, "desc": def.desc, "targets": targets,
-			"ready": cd <= 0 and u.actions_left >= maxi(1, def.cost) and u.is_alive() and has_targets and _extra_error(u, id) == ""}
+			"ready": cd <= 0 and u.actions_left >= maxi(1, def.cost) and u.is_alive() and has_targets and _extra_error(s, u, id) == ""}
 		if id == "runner_leap":
 			entry["range"] = GraftData.LEAP_RANGE
 		out.append(entry)
@@ -99,7 +116,9 @@ static func targets_for(s: GameState, u: Unit, id: String) -> Array[int]:
 	return out
 
 
-static func _extra_error(u: Unit, id: String) -> String:
+static func _extra_error(s: GameState, u: Unit, id: String) -> String:
+	if Signatures.is_signature(id):
+		return Signatures.extra_error(s, u, id)
 	if id == "squad_order" and u.status.get("k_squad_order", false):
 		return "Already used this fight"
 	if id == "serum" and int(u.status.get("serum", 0)) <= 0:
@@ -114,6 +133,8 @@ static func target_error(s: GameState, u: Unit, id: String, t: Unit) -> String:
 		return "No such target"
 	if id in ["lunge", "bash", "shield_charge"]:
 		return _strike_target_error(s, u, id, t)
+	if id in ["deadeye", "bring_down"]:
+		return Signatures.target_error(s, u, id, t)
 	if id == "bloom_claw":
 		if not u.is_enemy_of(t):
 			return "Not an enemy"
@@ -159,7 +180,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		return "On cooldown"
 	if u.actions_left < maxi(1, def.cost):
 		return "Not enough actions"
-	var extra := _extra_error(u, id)
+	var extra := _extra_error(s, u, id)
 	if extra != "":
 		return extra
 	if def.targeting == "none":
@@ -230,6 +251,9 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 		return
 	if id == "runner_leap":
 		Grafts.leap(s, u, action.cell)
+		return
+	if Signatures.is_signature(id):
+		Signatures.apply(s, u, id, s.get_unit(action.target) if action.has("target") else null)
 		return
 	if id == "bloom_claw":
 		Grafts.claw(s, u, s.get_unit(action.target))

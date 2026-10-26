@@ -34,11 +34,14 @@ const KINDS := {
 	"smoke": {"term": "smoke", "name": "Smoke", "color": SMOKE, "pattern": "haze"},
 	"evac": {"term": "zone_evac", "name": "Evac zone", "color": EVAC, "pattern": "zone", "label": "EVAC"},
 	"beacon": {"term": "zone_beacon", "name": "Beacon", "color": Palette.AMBER, "pattern": "zone", "label": "BEACON"},
+	"charge": {"term": "zone_charge", "name": "Charge site", "color": Color("ff9a3c"), "pattern": "zone", "label": "CHARGE"},
+	"relay": {"term": "zone_relay", "name": "Relay", "color": Color("6fb2ff"), "pattern": "zone", "label": "RELAY"},
+	"sample": {"term": "zone_sample", "name": "Sample point", "color": Color("e6d46a"), "pattern": "zone", "label": "SAMPLE"},
 	"exit": {"term": "zone_drop", "name": "Drop zone", "color": EVAC, "pattern": "zone", "label": "DROP ZONE"},
 }
 
 ## Objective zones, drawn from Grid.markers.
-const ZONES: Array[String] = ["evac", "beacon", "exit"]
+const ZONES: Array[String] = ["evac", "beacon", "exit", "charge", "relay", "sample"]
 
 
 static func color(key: String) -> Color:

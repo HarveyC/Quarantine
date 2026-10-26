@@ -18,7 +18,7 @@ const ELITE_SCALE := 1.2
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
 	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell",
-	"jammed", "slowed"]
+	"jammed", "slowed", "plated", "stalked", "braced"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -55,7 +55,8 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
 				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
 				"acid_rain": "ACID RAIN", "stomp": "STOMP", "hurl": "WRECKAGE INCOMING", "danger_close": "DANGER CLOSE",
-				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES"}
+				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES",
+				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN"}
 			if ev.get("kind", "") == "erupt":   # the boss is underground: label the ground that will break
 				var cells: Array = ev.get("cells", [])
 				if not cells.is_empty():
@@ -72,7 +73,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				return {"dur": 0.6}
 			for c in ev.get("cells", []):
 				var w := Board.cell_to_world(c)
-				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "danger_close"] else Palette.TEAL, 6, 4.0, true, 0.05)
+				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "danger_close", "satchel"] else Palette.TEAL, 6, 4.0, true, 0.05)
 			if not (ev.get("cells", []) as Array).is_empty():
 				var mid := Board.cell_to_world(ev.cells[ev.cells.size() / 2])
 				fx.flash_light(mid + Vector3(0, 1.0, 0), Palette.AMBER, 8.0, 0.35, 6.0)
@@ -150,6 +151,22 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				fx.pulse(uv.position, Palette.TEAL)
 			ep._sfx("infect", -8.0)
 			return {"dur": 0.3}
+		"plated":   # a hit glances off a Carapace's front plate
+			if uv != null:
+				fx.floating_text(head.call(uv), "PLATED", Palette.AMBER, 40)
+				fx.burst(uv.aim_point(), Vector3.UP, Color(0.85, 0.8, 0.66), 8, 2.5, false, 0.03)
+			ep._sfx("plate_clang", -4.0)
+			return {"dur": 0.3}
+		"stalked":   # a Stalker's first hit out of the dark on a soldier alone
+			var tv: Node3D = view.view_for(int(ev.get("target", -1)))
+			if tv != null:
+				fx.floating_text(head.call(tv), "CUT OFF", Palette.DANGER, 44)
+			ep._sfx("alert", -6.0)
+			return {"dur": 0.3}
+		"braced":   # a Carapace turns its plate toward the squad
+			if uv != null and ev.get("facing") is Vector2i:
+				uv.face_towards(Board.cell_to_world(uv.cell + ev.facing))
+			return {}
 		"fell":
 			if uv != null:
 				fx.floating_text(head.call(uv), "FELL", Palette.DANGER, 48)
@@ -243,6 +260,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"jammed": return "[color=#%s]%s's Machine grafts jam[/color]" % [red, who.call("unit")]
 		"slowed": return "%s is slowed by %s's Heart knot" % [who.call("unit"), who.call("by")]
 		"fell": return "[color=#%s]%s falls off the ledge (%d)[/color]" % [red, who.call("unit"), int(ev.get("damage", 0))]
+		"plated": return "%s's plate turns the blow" % who.call("unit")
+		"stalked": return "[color=#%s]%s is cut off and takes a stalker's bonus hit[/color]" % [red, who.call("target")]
 		"boss_defeated": return "[b]%s is defeated[/b]" % name_of.call(int(ev.get("unit", -1)))
 	return ""
 

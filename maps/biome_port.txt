@@ -579,14 +579,14 @@ FETF
 BBBF
 TFFD
 
-@plot extract tram_run lanes=0
+@plot extract,escort tram_run lanes=0
 FOTF
 EFFE
 BBBB
 FTFF
 FFDF
 
-@plot extract docks_run lanes=0
+@plot extract,escort docks_run lanes=0
 OFTF
 FETF
 EFFE
@@ -655,7 +655,7 @@ FLLF
 FLLE
 FTDF
 
-@plot extract port_landmark_run lanes=0
+@plot extract,escort port_landmark_run lanes=0
 FOTE
 ELLF
 FLLE
@@ -679,3 +679,66 @@ EOTE
 FLLF
 TLLF
 FFDF
+
+; ---------------------------------------------------------------- objective sites (charges, relays, samples)
+@site pylon_yard
+.=..
+.O..
+..==
+=...
+
+@site tram_switch
+....
+=O=.
+....
+.=.=
+
+@site lab_annex
+=..=
+.O=.
+..=.
+=...
+
+; ---------------------------------------------------------------- set pieces (sprint: maps)
+@landmark lab_complex
+..=.....
+s^^^^^^s
+.^22$2^.
+.^2##2^.
+.^S222^.
+.^^^^^^.
+........
+...=....
+
+@landmark container_stack
+........
+.222S^^/
+.222^^^.
+........
+/^^^^.!.
+.^^^^...
+........
+.=....=.
+
+
+; ---------------------------------------------------------------- grand maps (28x28): 5x5 plots
+@plot skirmish grand_yards lanes=0
+ETFTE
+FLLFF
+ELLLL
+FFFLL
+FTDFF
+
+@plot demolish,hack,samples,purge,rescue grand_sites lanes=0
+FTOTF
+EFFFE
+OLLFO
+TLLFF
+FFDFF
+
+@plot escort,extract grand_convoy lanes=0
+ETOTF
+LLFLL
+LLFLL
+EFFFE
+FFDFT
