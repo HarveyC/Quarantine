@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Runs the balance sim in parallel and writes one JSONL file per batch.
 
-    GODOT=path/to/godot python3 tools/balance/run_sims.py OUT_DIR [--quick] [--only=fight,boss,real,nest,nestpurge,purge,melee,meleeboss,duel,threat]
+    GODOT=path/to/godot python3 tools/balance/run_sims.py OUT_DIR [--quick] [--only=fight,boss,real,nest,nestpurge,purge,melee,meleeboss,duel,threat,build,buildboss]
 
 Then: python3 tools/balance/report.py OUT_DIR
 """
@@ -15,6 +15,11 @@ MELEE = ["reaper", "warden"]
 ALL = STARTERS + ["hazmat", "vector"] + MELEE
 # Mid-act Outbreak per act for the "real" batches; RUN_OUTBREAK=2,4,6 overrides it.
 RUN_OUTBREAK = dict(zip((1, 2, 3), map(int, os.environ.get("RUN_OUTBREAK", "3,6,9").split(","))))
+BUILD_LEVELS = ["none", "scattered", "lane", "full"]
+# Squads of 1, 2 and 4 soldiers for the build-quality batches (the last one is the four newer classes).
+BUILD_SQUADS = [["trooper"], ["marksman"], ["trooper", "medic"], ["marksman", "breacher"],
+                ["trooper", "marksman", "medic", "breacher"], ["hazmat", "vector", "reaper", "warden"]]
+ACT_OUTBREAK = {1: 2, 2: 5, 3: 8}   # keep in step with balance_sim.gd
 REGULARS = ["runner", "spitter", "fallen", "bloater", "leaper", "brute", "lurker", "drifter",
             "sharpshooter", "shrieker", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver"]
 
@@ -58,6 +63,18 @@ def batches(quick):
             if len(combo) >= 2:
                 out.append(dict(tag=f"meleeboss|a{act}|s{len(combo)}|{'+'.join(combo)}", squad=",".join(combo),
                                 act=act, node="boss", n=4 * k))
+    # Build quality: a whole act (3 skirmishes + the boss, HP carried over) and the boss alone, at
+    # each build level. BUILD_N=acts per cell, BUILD_BOSS_N=boss fights per cell.
+    n_act = int(os.environ.get("BUILD_N", 16 if k > 1 else 4))
+    n_boss = int(os.environ.get("BUILD_BOSS_N", 12 if k > 1 else 3))
+    for act in map(int, os.environ.get("BUILD_ACTS", "1,2,3").split(",")):
+        for combo in BUILD_SQUADS:
+            for level in BUILD_LEVELS:
+                name = f"a{act}|s{len(combo)}|{'+'.join(combo)}"
+                out.append(dict(tag=f"build|{level}|{name}", squad=",".join(combo), act=act, node="act",
+                                build=level, n=n_act))
+                out.append(dict(tag=f"buildboss|{level}|{name}", squad=",".join(combo), act=act, node="boss",
+                                build=level, outbreak=ACT_OUTBREAK[act] + 3, n=n_boss))
     # Class duels: one soldier against two of each regular enemy (act 1 rank).
     for cls in ALL:
         for e in REGULARS:
