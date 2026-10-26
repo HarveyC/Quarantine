@@ -586,6 +586,11 @@ func _autoplay_advance(u: Unit) -> Dictionary:
 	var goals: Array = foes.map(func(e: Unit) -> Vector2i: return e.pos)
 	if goals.is_empty():   # nobody left to fight: walk to the objective (a rescue needs an escort to the exit)
 		goals = state.grid.marker({"rescue": "exit", "extract": "evac", "hold": "beacon"}.get(str(state.grid.objective), ""))
+		if str(state.grid.objective) == "rescue":   # civilians wait to be found: walk to the nearest one first
+			var lost: Array = Objectives._civilians(state).filter(func(c: Unit) -> bool:
+				return not state.objective.rescued.has(c.id) and Objectives._nearest_soldier_dist(state, c.pos) > Objectives.ESCORT_LEASH)
+			if not lost.is_empty():
+				goals = lost.map(func(c: Unit) -> Vector2i: return c.pos)
 	if goals.is_empty():
 		return {}
 	var goal: Vector2i = goals[0]

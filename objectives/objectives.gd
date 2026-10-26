@@ -14,11 +14,12 @@ extends RefCounted
 ##            soldier on it at the end of HOLD_OVERRUN_ROUNDS rounds in a row. The first such round
 ##            only warns (a `beacon_overrun` event) and doesn't count as held, so the squad always
 ##            gets a turn to retake it.
-##   rescue:  civilians follow the nearest soldier; win when every living civilian has reached the
+##   rescue:  civilians stay put until a soldier is within ESCORT_LEASH, then follow the nearest soldier; win when every living civilian has reached the
 ##            exit (the drop zone). If every civilian dies, killing every enemy wins instead.
 ##   purge:   destroy every spore nest (units of kind NEST_KIND), or kill every enemy.
-##   escort:  a courier walks from the drop zone to the evac zone on its own, ESCORT_MOVE tiles at the end
-##            of each squad turn, but only while a soldier is within ESCORT_LEASH of it. Lost if it dies.
+##   escort:  a courier starts with the squad and walks toward the evac zone, up to ESCORT_MOVE tiles at the
+##            end of each squad turn, but only while a soldier is within ESCORT_LEASH of it and never
+##            further than ESCORT_STAY from the nearest soldier. Lost if it dies.
 ##   demolish: stand on a charge site at the end of a squad turn to arm it. An armed charge blows
 ##            CHARGE_FUSE rounds later (a demo blast, soldiers in it are hurt too); an enemy standing on
 ##            it defuses it. Won when every charge has blown, lost after DEMOLISH_TURNS rounds.
@@ -38,6 +39,7 @@ const NEST_KIND := "spore_nest"
 const ESCORT_HP := 8
 const ESCORT_MOVE := 3          # tiles the courier walks at the end of each squad turn
 const ESCORT_LEASH := 4         # ... if a soldier is within this many tiles
+const ESCORT_STAY := 2          # ... and never ends a walk further than this from the nearest soldier
 const CHARGE_FUSE := 2          # rounds from arming to the blast
 const CHARGE_BLAST := {"radius": 1, "centre": 3, "ring": 1, "damage": 3}
 const DEMOLISH_TURNS := 10      # all charges must have blown by the end of this round
@@ -261,6 +263,13 @@ static func _dist_to_evac(s: GameState) -> Dictionary:
 	return seen
 
 
+static func _nearest_soldier_dist(s: GameState, cell: Vector2i) -> int:
+	var best := 1 << 20
+	for u in soldiers(s):
+		best = mini(best, _cheb(u.pos, cell))
+	return best
+
+
 static func _escort_turn(s: GameState) -> void:
 	var c := courier(s)
 	if c == null or not c.is_alive():
@@ -466,8 +475,8 @@ static func _rescue_turn(s: GameState) -> void:
 	for c in _civilians(s):
 		if s.objective.rescued.has(c.id):
 			continue
-		if not exit.has(c.pos):
-			_follow(s, c)
+		if not exit.has(c.pos) and _nearest_soldier_dist(s, c.pos) <= ESCORT_LEASH:
+			_follow(s, c)   # until a soldier finds them, a civilian stays hidden where they are
 		if c.is_alive() and exit.has(c.pos):
 			s.objective.rescued.append(c.id)
 			s.emit({"type": "rescued", "unit": c.id})

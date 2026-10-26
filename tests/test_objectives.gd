@@ -216,6 +216,15 @@ func test_rescue_civilians_follow_and_reach_the_exit() -> void:
 	assert_eq(civs.size(), s.grid.marker("civilian").size(), "civilians spawned on their markers")
 	assert_true(civs.all(func(c: Unit) -> bool: return c.owner_player == -1 and not c.ai_controlled), "nobody commands them")
 	assert_eq(s.controllable_units(0).size() + s.controllable_units(1).size(), 4, "squad unchanged")
+	# With no soldier near, a civilian stays where they are.
+	var lone: Unit = civs[0]
+	var home := lone.pos
+	for u in Objectives.soldiers(s):
+		if Objectives._cheb(u.pos, home) <= Objectives.ESCORT_LEASH:
+			_place(s, u, Vector2i(0, 0) if s.unit_at(Vector2i(0, 0)) == null else Vector2i(1, 0))
+	if Objectives._nearest_soldier_dist(s, home) > Objectives.ESCORT_LEASH:
+		_end_round(s)
+		assert_eq(lone.pos, home, "an unfound civilian does not wander off")
 	# A soldier next to each civilian: they follow towards it.
 	var c: Unit = civs[0]
 	var start := c.pos
@@ -291,6 +300,7 @@ func test_escort_courier_walks_with_the_squad_and_wins_at_evac() -> void:
 	assert_true(d0 > 0, "the evac zone is a walk away")
 	_end_round(s)
 	assert_true(Objectives._courier_dist(s, c.pos) < d0, "it advanced with the squad close")
+	assert_true(Objectives._nearest_soldier_dist(s, c.pos) <= maxi(Objectives.ESCORT_STAY, 1), "it did not outrun the squad")
 	# Far from every soldier it waits.
 	for u in Objectives.soldiers(s):
 		_place(s, u, Vector2i(0, 0) if s.unit_at(Vector2i(0, 0)) == null else Vector2i(1, 0))
