@@ -542,6 +542,10 @@ func _autoplay_step() -> void:
 	for p in session.local_players():
 		for u in state.controllable_units(p):
 			if u.actions_left > 0:
+				var reload := {"type": Types.RELOAD, "unit": u.id}
+				if not Ammo.can_fire(u) and Rules.validate(state, reload) == "":
+					session.submit(reload)   # a dry gun reloads before anything else
+					return
 				var targets := Combat.shot_targets(state, u)
 				var shot := {"type": Types.SHOOT, "unit": u.id, "target": targets[0].id} if not targets.is_empty() else {}
 				if not shot.is_empty() and Rules.validate(state, shot) == "":
