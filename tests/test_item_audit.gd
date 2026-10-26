@@ -177,6 +177,23 @@ func _cases() -> Dictionary:
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "bash") else "no strike"}
 	c["lunge"] = {"kind": "reaper", "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "lunge") else "no strike"}
+	# Rank 2 signatures (Signatures).
+	c["lockdown"] = {"abilities": ["lockdown"], "kind": "trooper", "act": func(x): return {},
+		"check": func(x): return "" if x.u.overwatch and Signatures.keeps_overwatch(x.s, x.u) else "not watching"}
+	c["deadeye"] = {"abilities": ["deadeye"], "kind": "marksman", "act": func(x): return {"target": x.foe.id},
+		"check": func(x): return "" if x.foe.hp < x.foe.max_hp and Combat.has_status(x.s, x.foe, "tagged") else "no hit or Mark"}
+	c["quarantine_field"] = {"abilities": ["quarantine_field"], "kind": "medic", "act": func(x): return {},
+		"check": func(x): return "" if Signatures.field_blocks_infection(x.s, x.u) else "no field"}
+	c["bring_down"] = {"abilities": ["bring_down"], "kind": "breacher", "act": func(x): return {"target": x.foe.id},
+		"check": func(x): return "" if x.foe.hp < x.foe.max_hp else "no damage"}
+	c["flashover"] = {"abilities": ["flashover"], "kind": "hazmat", "pre": func(x): x.foe.status["burning"] = 2, "act": func(x): return {},
+		"check": func(x): return "" if x.foe.hp < x.foe.max_hp and not x.foe.status.has("burning") else "fire not spent"}
+	c["vent"] = {"abilities": ["vent"], "kind": "vector", "pre": func(x): x.u.infection = 40, "act": func(x): return {},
+		"check": func(x): return "" if x.u.infection == 15 and x.near.hp < x.near.max_hp else "nothing vented"}
+	c["death_sweep"] = {"abilities": ["death_sweep"], "kind": "reaper", "act": func(x): return {},
+		"check": func(x): return "" if x.near.hp < x.near.max_hp else "no cut"}
+	c["provoke"] = {"abilities": ["provoke"], "kind": "warden", "act": func(x): return {},
+		"check": func(x): return "" if Signatures.provoking(x.s, x.u) else "not provoking"}
 	# Bloom graft abilities (Grafts): the arm's claw and the legs' leap.
 	c["bloom_claw"] = {"kind": "trooper", "pre": func(x): Grafts.apply_to_unit(x.u, {"grafts": {"arm": "bloom_limb"}}),
 		"act": func(x): return {"target": x.near.id},

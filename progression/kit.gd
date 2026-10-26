@@ -120,6 +120,7 @@ static func refresh_stats(s: GameState, u: Unit) -> void:
 
 static func on_team_phase_start(s: GameState) -> void:
 	Zones.on_phase_start(s, Types.Team.ENEMY)
+	Signatures.on_team_phase_start(s)
 	_bleed_tick(s, Types.Team.PLAYER)
 	for u in s.living(Types.Team.PLAYER):
 		if not is_soldier(u):
@@ -294,6 +295,8 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 			breakdown.append(["Triage Cover", -TRIAGE_DEFENSE])
 		if target.status.has("k_wall") and Combat.has_status(s, target, "k_wall"):
 			breakdown.append(["Last Wall", -LAST_WALL_DEFENSE])
+		if target.status.has("k_provoke") and Combat.has_status(s, target, "k_provoke"):
+			breakdown.append(["Provoke", -Signatures.PROVOKE_DEFENSE])
 		if has_perk(target, "juggernaut") and target.status.get("k_flanked_turn") == s.turn:
 			breakdown.append(["Juggernaut", -JUGGERNAUT_DEFENSE])
 		if has_perk(target, "steady_hands") and target.status.has("k_steady") and Combat.has_status(s, target, "k_steady"):
@@ -305,6 +308,9 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 		if reaction and has_passive(target, "bulwark"):
 			breakdown.append(["Shield up", -SHIELD_UP])
 	# Attacker side.
+	var field_penalty := Signatures.field_aim_penalty(s, attacker)
+	if field_penalty > 0:
+		breakdown.append(["Quarantine Field", -field_penalty])
 	if is_soldier(attacker):
 		if has_passive(attacker, "steady_aim"):
 			var moved := tiles_moved(s, attacker) if from == attacker.pos else 99
@@ -355,6 +361,8 @@ static func modify_incoming(s: GameState, target: Unit, amount: int, source: Uni
 		return amount
 	if source != null and target.status.get("k_flies", false):
 		amount += 1
+	if source != null and target.status.has("k_provoke") and Combat.has_status(s, target, "k_provoke"):
+		amount = maxi(1, amount - 1)
 	if source != null and has_perk(target, "battle_hardened") and _once(target, "k_battle_hardened"):
 		amount = maxi(1, amount - 1)
 	if awake(target, "hollow_bones"):
@@ -585,6 +593,9 @@ static func shared_sight(s: GameState, w: Unit, cell: Vector2i) -> bool:
 ## Called before a reaction shot clears overwatch. True keeps it up (Kill Zone's second shot, and
 ## every shot of the Field of Fire capstone).
 static func keep_overwatch(s: GameState, w: Unit, mover: Unit) -> bool:
+	if Signatures.keeps_overwatch(s, w):
+		w.status["k_kz_last"] = mover.id   # Lockdown: one shot per mover, the pin lands in Signatures.after_reaction
+		return true
 	if GearFx.has_capstone(w, "Overwatch"):
 		w.status["k_kz_last"] = mover.id   # Field of Fire: one shot per mover, never the same one twice running
 		s.emit({"type": "gear", "unit": w.id, "item": "field_of_fire", "target": mover.id})
@@ -602,6 +613,8 @@ static func infection_change(s: GameState, u: Unit, amount: int) -> int:
 	if amount <= 0 or not is_soldier(u) or s.turn == 0:
 		return amount   # before turn 1 the run is just restoring carried Infection
 	if u.status.has("k_decon") and Combat.has_status(s, u, "k_decon"):
+		return 0
+	if Signatures.field_blocks_infection(s, u):
 		return 0
 	for v in s.living(Types.Team.PLAYER):
 		if v != u and awake(v, "host_body") and not v.ai_controlled and cheb(v.pos, u.pos) <= 2 \
@@ -674,4 +687,5 @@ static func can_be_spotted(_s: GameState, watcher: Unit, h: Unit) -> bool:
 
 ## Extra AI target score: Lure Scent makes the lured soldier the Infected's favourite.
 static func target_bias(s: GameState, _u: Unit, t: Unit) -> float:
-	return 20.0 if t.status.get("k_lure_until", -1) > Combat.phase_index(s) else 0.0
+	var bias := 20.0 if t.status.get("k_lure_until", -1) > Combat.phase_index(s) else 0.0
+	return bias + (Signatures.PROVOKE_BIAS if Signatures.provoking(s, t) else 0.0)
