@@ -1143,6 +1143,8 @@ const GEAR_PROCS := {
 	"rounds_back": {"text": "ROUND BACK", "color": Color("e0a050")},
 	"mark_set": {"text": "MARK JUMPS", "color": Color("ff5c86"), "on_target": true},
 	"suppress_set": {"text": "PINNED SHOT", "color": Color("b9a7ff")},
+	"overwatch_set": {"text": "STEADY", "color": Color("6fc3ff")},
+	"close_set_heal": {"text": "BLOODED", "color": Color("e0a050")},
 	"guard_set": {"text": "TAKES THE HIT", "color": Color("a9c46c")},
 	"purge_set": {"text": "PURGE SET", "color": Color("e9e4d4")},
 	"restrained": {"text": "RESTRAINED", "color": Color("e4ece9")},

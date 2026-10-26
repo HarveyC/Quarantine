@@ -332,11 +332,13 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		u.overwatch = true
 		u.status["ow_until"] = Combat.phase_index(s) + 2
 		s.emit({"type": "overwatch", "unit": u.id})
+		_heal_one(s, u, "overwatch_set")
 	if has_set(u, "Close") and _dist(u.pos, t.pos) <= CLOSE and u.status.get("gear_refund_turn", -1) != s.turn \
 			and s.phase == Types.Phase.TEAM and not reaction:
 		u.status["gear_refund_turn"] = s.turn
 		u.actions_left += 1
 		s.emit({"type": "gear", "unit": u.id, "item": "close_set", "actions": u.actions_left})
+		_heal_one(s, u, "close_set_heal")
 	if was_marked and t.status.get("warrant", false) and has_capstone(u, "Mark") and s.phase == Types.Phase.TEAM \
 			and u.status.get("warrant_turn", -1) != s.turn:
 		u.status["warrant_turn"] = s.turn
@@ -361,6 +363,12 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		for o in s.living():
 			if u.is_enemy_of(o) and _cheb(o.pos, t.pos) <= radius:
 				ignite(s, u, o, 1)
+
+
+static func _heal_one(s: GameState, u: Unit, item: String) -> void:
+	if u.hp < u.max_hp:
+		u.hp += 1
+		s.emit({"type": "gear", "unit": u.id, "item": item, "heal": 1, "hp": u.hp})
 
 
 static func _mark(s: GameState, t: Unit, phases: int, u: Unit = null) -> void:
@@ -525,8 +533,24 @@ static func damage_taken(s: GameState, target: Unit, amount: int, source: Unit) 
 		ignite(s, target, source, mk(target, "ember_plating"))
 	if amount > 0 and source != null and source.is_enemy_of(target) and target.status.has("gear"):
 		GearLinks.on_hurt(s, target, source)
+		amount = maxi(1, amount - survival_cut(s, target, source))
 	var armor := int(target.status.get("armor", 0))
 	return maxi(1, amount - armor) if armor > 0 and amount > 0 else amount
+
+
+## Survival half of a set bonus: damage `target` shrugs off from `source` while `source` carries the
+## status of a tag `target` has the set for (Burning, Marked, Suppressed), or Infected for Strain.
+static func survival_cut(s: GameState, target: Unit, source: Unit) -> int:
+	var cut := 0
+	if has_set(target, "Burn") and is_burning(s, source):
+		cut += 1
+	if has_set(target, "Mark") and is_marked(s, source):
+		cut += 1
+	if has_set(target, "Suppress") and Combat.has_status(s, source, "suppressed"):
+		cut += 1
+	if has_set(target, "Strain") and Infection.tier(target.infection) >= Infection.Tier.EXPOSED and EnemyRoster.infects(source):
+		cut += 1
+	return cut
 
 
 ## Infection a soldier gains from a bite or hit after gear.

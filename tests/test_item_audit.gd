@@ -676,6 +676,12 @@ func test_set_bonuses_do_what_they_say() -> void:
 	var ally_hp: int = x.ally.hp
 	Rules.deal_damage(s, x.ally, 2, x.foe)
 	assert_eq(x.ally.hp, ally_hp - 2, "only once per enemy phase")
+	# Survival halves: statused enemies, and the Infected at Exposed, hit for 1 less.
+	for pair in [["Burn", "burning", 2], ["Mark", "tagged", Combat.phase_index(s) + 2], ["Suppress", "suppressed", Combat.phase_index(s) + 2]]:
+		set_on.call(pair[0])
+		x.foe.status[pair[1]] = pair[2]
+		assert_eq(GearFx.survival_cut(s, u, x.foe), 1, "%s set: statused enemy hits for 1 less" % pair[0])
+		x.foe.status.erase(pair[1])
 	# Close: +1 movement, kill within 3 refunds a move (covered in test_gear_fx).
 	s.phase = Types.Phase.TEAM
 	set_on.call("Close")
