@@ -5,7 +5,7 @@ extends SceneTree
 ##   godot --headless -s tools/balance/balance_sim.gd -- squad=trooper,medic act=1 node=skirmish n=50
 ##
 ## Args: squad (comma classes), act (1-3), node (skirmish|nest|boss), objective (default skirmish/boss), outbreak, n (fights),
-## seed (first seed), enemies (comma enemy specs: overrides FightBuilder), rank (default by act),
+## bosshp (multiplies boss health), seed (first seed), enemies (comma enemy specs: overrides FightBuilder), rank (default by act),
 ## tag (free text echoed in every line), guns (comma weapon ids lined up with squad; "-" keeps
 ## the signature gun), order (a DeployOrders id every soldier deploys with, e.g. bloom_cache;
 ## "none" or unset means no starting gear).
@@ -28,6 +28,7 @@ func _init() -> void:
 	var seed0 := int(args.get("seed", 1))
 	var rank := int(args.get("rank", RANK_BY_ACT[act]))
 	objective_override = str(args.get("objective", ""))
+	boss_hp = float(args.get("bosshp", 1.0))
 	for i in n:
 		var seed := seed0 + i
 		print(JSON.stringify(run_fight(squad_kinds, act, node, int(args.get("outbreak", 0)), seed, rank,
@@ -35,6 +36,7 @@ func _init() -> void:
 	quit(0)
 
 
+var boss_hp := 1.0   # bosshp= scales the boss's health on top of FightBuilder's (for tuning)
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
 
 
@@ -61,7 +63,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	if objective_override != "":
 		objective = objective_override
 	var spec := {"act": act, "row": 2, "node": node, "objective": objective, "outbreak": outbreak,
-		"seed": seed, "players": kinds.size(), "squad": kinds.size(), "modifiers": {}}
+		"seed": seed, "players": kinds.size(), "squad": kinds.size(),
+		"modifiers": {"boss_health_mult": boss_hp} if boss_hp != 1.0 else {}}
 	var built := FightBuilder.build(spec)
 	var enemies: Array = built.enemies
 	var enc: Dictionary = built.encounter

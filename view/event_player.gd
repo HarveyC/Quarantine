@@ -25,6 +25,7 @@ const UnitView := preload("res://view/unit_view.gd")
 const CameraRig := preload("res://view/camera_rig.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
 const ItemBeats := preload("res://view/item_beats.gd")
+const BossBeats := preload("res://view/boss_beats.gd")
 const ShotCamera := preload("res://view/shot_camera.gd")
 const GunFeel := preload("res://view/gun_feel.gd")
 const MeleeFx := preload("res://view/melee_beats.gd")
@@ -1228,7 +1229,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 ## Ability ids with a beat of their own below; the rest go to ItemBeats (gadgets, pocket items,
 ## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
-	"burrow", "erupt",
+	"burrow", "erupt", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit"]
 
 
@@ -1275,6 +1276,8 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return beat
 		"siphon":
 			_show_heal(_uv(ev), int(ev.get("heal", 0)), int(ev.get("hp", 0)), false)
+	if BossBeats.handles(str(ev.get("ability", ""))):
+		return BossBeats.beat(self, ev)
 	if ItemBeats.handles(ev):
 		return ItemBeats.beat(self, ev)
 	generic_log.append("ability:" + str(ev.get("ability", "")))

@@ -212,6 +212,14 @@ func _enemy_glow() -> float:
 	return 1.1 if kind in ["spitter", "bloater", "drifter", "the_source"] else 0.7
 
 
+## A boss whose phase changed shows more of the Bloom: stronger veins and a brighter glow.
+func set_bloom(k: float) -> void:
+	_set_veins(k)
+	if _glow != null:
+		_glow.visible = true
+		_glow.light_energy = _enemy_glow() * (1.0 + k)
+
+
 func _set_veins(k: float) -> void:
 	for m in _mats.values():
 		var role: String = m.get_meta("role")

@@ -182,6 +182,8 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			if uv != null:
 				ep._focus(uv)
 				uv.scale *= 1.15
+				if uv.has_method("set_bloom"):
+					uv.set_bloom(0.5 * int(ev.get("phase", 2)))
 				if ev.has("max_hp"):
 					uv.max_hp = int(ev.max_hp)
 					uv.set_hp(int(ev.get("hp", 0)))

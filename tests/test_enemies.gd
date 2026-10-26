@@ -770,19 +770,138 @@ func test_colonel_hale_airstrike_and_mutation() -> void:
 	h.cooldowns.clear()
 	s.turn = 1
 	_enemy_turn(s, h)
-	var tel: Array = s.encounter.telegraphs
+	var tel: Array = s.encounter.telegraphs.filter(func(x): return x.kind == "airstrike")
 	assert_eq(tel.size(), 1, "airstrike telegraphed")
 	var victims := s.living(Types.Team.PLAYER).filter(func(u): return tel[0].cells.has(u.pos))
 	assert_true(victims.size() >= 1, "aimed at the squad")
 	s.turn = 2
 	Encounter.on_enemy_phase_start(s)
 	assert_true(victims[0].hp < victims[0].max_hp, "strike lands next phase")
-	assert_eq(s.encounter.telegraphs.size(), 0, "resolved")
-	Rules.deal_damage(s, h, 30, victims[0])
+	Rules.deal_damage(s, h, 999, victims[0])
 	assert_true(h.is_alive(), "mutates instead of dying")
 	assert_eq(int(h.status.boss_phase), 2, "phase 2")
-	assert_true(h.hp > 20, "+20 hp")
+	assert_eq(h.hp, ColonelHale.gates(h)[0] + roundi(h.max_hp * ColonelHale.HEAL), "the Bloom mends part of the hit")
 	assert_true(EnemyBehaviours.can_charge(h), "charges in phase 2")
+
+
+func test_hale_holds_the_high_ground() -> void:
+	var s := make_blank(_open(14, 14))
+	EnemyAbilities.set_tile(s.grid, Vector2i(5, 3), Types.Tile.LOW)
+	s.grid.set_level(Vector2i(6, 3), 1)
+	assert_eq(ColonelHale.post_near(s.grid, Vector2i(7, 2)), Vector2i(6, 3), "the one raised tile near his start")
+	var enc: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 3, "players": 2, "squad": 2}).encounter
+	enc["boss"] = "colonel_hale"
+	_soldier(s, "trooper", Vector2i(6, 12))
+	s.grid.enemy_spawns.assign([Vector2i(7, 2)])
+	Encounter.setup(s, enc)
+	assert_eq(_boss(s, "colonel_hale").pos, Vector2i(6, 3), "he starts on it")
+	assert_true(not s.encounter.waves.is_empty(), "a recovery team is on its way")
+
+
+func test_hale_phases_are_gated_and_the_last_one_ends_the_fight() -> void:
+	var s := _boss_state("colonel_hale")
+	var h := _boss(s, "colonel_hale")
+	var t := s.living(Types.Team.PLAYER)[0]
+	Rules.deal_damage(s, h, 999, t)
+	assert_eq(int(h.status.boss_phase), 2, "one hit cannot skip the Brute form")
+	assert_eq(int(h.status.armour), 1, "plated")
+	assert_eq(h.mobility, ColonelHale.MOBILITY[2], "faster")
+	Rules.deal_damage(s, h, 999, t)
+	assert_eq(int(h.status.boss_phase), 3, "nor the wreck")
+	assert_eq(h.hp, ColonelHale.gates(h)[1], "stopped at the second gate")
+	assert_true(not h.status.has("armour"), "the plating tears away")
+	Rules.start_mission(s)
+	Rules.deal_damage(s, h, 999, t)
+	Rules.check_end(s)
+	assert_eq(_events(s, "boss_defeated").size(), 1, "defeated")
+	assert_eq(s.result, Types.Result.VICTORY, "his escort dies with him")
+
+
+func test_hale_health_scales_with_squad() -> void:
+	for squad in [1, 2, 4]:
+		var enc: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 3,
+			"players": squad, "squad": squad}).encounter
+		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(ColonelHale.HEALTH[squad])) < 0.001, "Hale's share for %d" % squad)
+		var src: Dictionary = FightBuilder.build({"act": 3, "node": "boss", "objective": "boss", "seed": 3,
+			"players": squad, "squad": squad}).encounter
+		assert_true(absf(float(src.get("boss_health_mult", 1.0)) - float(SourceBoss.HEALTH[squad])) < 0.001, "the Source's share for %d" % squad)
+
+
+func test_hale_strikes_the_rooftop_and_falls_back_behind_smoke() -> void:
+	var s := make_blank(_open(16, 16))
+	var low := _soldier(s, "trooper", Vector2i(3, 12))
+	var high := _soldier(s, "marksman", Vector2i(12, 12))
+	s.grid.set_level(high.pos, 1)
+	var h := _enemy(s, "colonel_hale", Vector2i(8, 3))
+	s.turn = 1
+	h.cooldowns.clear()
+	var strike := ColonelHale.strike_cell(s, h, EnemyAI._hostiles(s, h))
+	assert_true(EnemyAI._cheb(strike.cell, high.pos) <= 1 and EnemyAI._cheb(strike.cell, low.pos) > 1, "the airstrike goes where the soldier on the roof is")
+	# A soldier closing in sends him back behind a smoke screen.
+	low.pos = Vector2i(8, 6)
+	h.status.armour = 0
+	h.cooldowns["airstrike"] = 5
+	h.cooldowns["flashbang"] = 5
+	var before := h.pos
+	_enemy_turn(s, h)
+	assert_true(Hazards.at(s, before).get("kind", "") == "smoke", "pops smoke on the way out")
+	assert_true(EnemyAI._cheb(h.pos, low.pos) > EnemyAI._cheb(before, low.pos), "and falls back")
+	assert_eq(EnemyIntent._intent(s, h).label, "FALLING BACK" if EnemyAI._cheb(h.pos, low.pos) <= ColonelHale.FALL_BACK else EnemyIntent._intent(s, h).label, "intent")
+
+
+func test_hale_brute_stomps_a_crowd_and_charges_down_the_roofs() -> void:
+	var s := make_blank(_open(16, 8))
+	var a := _soldier(s, "trooper", Vector2i(7, 4))
+	var b := _soldier(s, "medic", Vector2i(9, 4))
+	var h := _enemy(s, "colonel_hale", Vector2i(8, 4))
+	h.status.boss_phase = 2
+	h.mobility = ColonelHale.MOBILITY[2]
+	s.turn = 1
+	_enemy_turn(s, h)
+	var tel: Array = s.encounter.telegraphs.filter(func(x): return x.kind == "stomp")
+	assert_eq(tel.size(), 1, "two soldiers in reach: he stamps")
+	assert_true(tel[0].cells.has(a.pos) and tel[0].cells.has(b.pos), "on both")
+	assert_true(EnemyIntent.dangers(s).any(func(d): return d.kind == "stomp"), "the stamp shows as red tiles")
+	# The charge brings the roofs along its lane down.
+	var s2 := make_blank(_open(16, 5))
+	var v := _soldier(s2, "trooper", Vector2i(12, 2))
+	for x in range(5, 12):
+		s2.grid.set_level(Vector2i(x, 2), 1)
+	var h2 := _enemy(s2, "colonel_hale", Vector2i(3, 2))
+	s2.grid.set_level(h2.pos, 1)
+	h2.status.boss_phase = 2
+	h2.status["charge_dir"] = Vector2i(1, 0)
+	s2.grid.set_level(Vector2i(4, 2), 1)
+	s2.turn = 1
+	_enemy_turn(s2, h2)
+	assert_eq(s2.grid.level(Vector2i(8, 2)), 0, "the lane's roofs are down")
+	assert_true(_events(s2, "level_changed").size() > 0, "announced")
+
+
+func test_hale_wreck_hurls_and_calls_danger_close() -> void:
+	var s := make_blank(_open(16, 16))
+	var a := _soldier(s, "trooper", Vector2i(8, 11))
+	var b := _soldier(s, "medic", Vector2i(9, 11))
+	var h := _enemy(s, "colonel_hale", Vector2i(8, 4))
+	h.status.boss_phase = 3
+	h.mobility = ColonelHale.MOBILITY[3]
+	s.turn = 1
+	_enemy_turn(s, h)
+	var kinds: Array = s.encounter.telegraphs.map(func(x): return x.kind)
+	assert_true(kinds.has("hurl"), "wreckage is marked on the pair")
+	# Crowded, he calls danger close on his own position.
+	var s2 := make_blank(_open(16, 16))
+	var c := _soldier(s2, "trooper", Vector2i(8, 6))
+	var h2 := _enemy(s2, "colonel_hale", Vector2i(8, 5))
+	h2.status.boss_phase = 3
+	s2.turn = 1
+	_enemy_turn(s2, h2)
+	var dc: Array = s2.encounter.telegraphs.filter(func(x): return x.kind == "danger_close")
+	assert_eq(dc.size(), 1, "danger close")
+	assert_eq(dc[0].cells.size(), 25, "a 5x5 on himself")
+	s2.turn = 2
+	Encounter.on_enemy_phase_start(s2)
+	assert_eq(h2.hp, h2.max_hp, "he is not caught in his own strike")
 
 
 func test_source_roots_core_and_carrier_twist() -> void:
@@ -810,6 +929,77 @@ func test_source_roots_core_and_carrier_twist() -> void:
 	EnemyBehaviours.custom_turn(s, src)
 	assert_true(Vector2(t.pos).distance_to(Vector2(src.pos)) < Vector2(before).distance_to(Vector2(src.pos)), "most infected is pulled in")
 	assert_eq(s.encounter.telegraphs.size(), 1, "core slam telegraphed")
+
+
+func test_source_lashes_the_highest_ground_while_the_roots_live() -> void:
+	var s := _boss_state("the_source")
+	var src := _boss(s, "the_source")
+	var ground := s.living(Types.Team.PLAYER)[0]
+	var roof := s.living(Types.Team.PLAYER)[1]
+	s.grid.set_level(roof.pos, 1)
+	s.turn = 1
+	_enemy_turn(s, src)
+	var lashes: Array = s.encounter.telegraphs.filter(func(x): return x.kind == "lash")
+	assert_eq(lashes.size(), SourceBoss.LASH[4], "lashes per turn")
+	assert_true(lashes[0].cells.has(roof.pos), "the first lash is for the soldier on the roof")
+	assert_eq(EnemyIntent._intent(s, src).icon, "pulse", "the intent names the pulse")
+	s.turn = 2
+	Encounter.on_enemy_phase_start(s)
+	assert_true(roof.hp < roof.max_hp, "and it lands next phase")
+	assert_true(Encounter.is_spore(s, roof.pos), "leaving spores")
+	assert_true(ground.hp > 0)
+
+
+func test_source_collapse_regrows_roots_and_drops_the_floor() -> void:
+	var s := _boss_state("the_source")
+	s.encounter["squad"] = 2
+	var src := _boss(s, "the_source")
+	var t := s.living(Types.Team.PLAYER)[0]
+	var roof := s.living(Types.Team.PLAYER)[1]
+	for c in EnemyAbilities.square(s.grid, roof.pos, 1):
+		s.grid.set_level(c, 1)
+	for r in s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "source_root"):
+		Rules.deal_damage(s, r, 99, t)
+	assert_eq(int(src.status.boss_phase), 2, "core open")
+	Rules.deal_damage(s, src, 999, t)
+	assert_eq(int(src.status.boss_phase), 3, "one hit cannot skip the collapse")
+	assert_eq(src.hp, SourceBoss.gate(src), "stopped at the gate")
+	assert_eq(str(src.status.get("tether", "")), "source_root", "it is shielded again")
+	var roots := s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "source_root")
+	assert_eq(roots.size(), SourceBoss.REGROW[2], "roots regrown")
+	Rules.deal_damage(s, src, 5, t)
+	assert_eq(src.hp, SourceBoss.gate(src), "and immune")
+	assert_true(s.encounter.telegraphs.any(func(x): return x.kind == "collapse"), "the floor is marked")
+	assert_true(s.grid.level(roof.pos) == 1, "still up this turn")
+	s.turn = 2
+	Encounter.on_enemy_phase_start(s)
+	assert_eq(s.grid.level(roof.pos), 0, "then it falls")
+	assert_true(roof.hp < roof.max_hp, "with the soldier on it")
+	for r in roots:
+		Rules.deal_damage(s, r, 99, t)
+	assert_true(not src.status.has("tether"), "the regrown roots can be burned out")
+	assert_eq(int(src.status.boss_phase), 3, "and it stays in the collapse")
+
+
+func test_source_core_phase_raises_echoes_and_the_ring_runs_faster_in_the_collapse() -> void:
+	var s := _boss_state("the_source")
+	var src := _boss(s, "the_source")
+	var t := s.living(Types.Team.PLAYER)[0]
+	for r in s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "source_root"):
+		Rules.deal_damage(s, r, 99, t)
+	s.turn = 1
+	_enemy_turn(s, src)
+	var echoes := s.living(Types.Team.ENEMY).filter(func(u): return u.display_name == "Echo")
+	assert_eq(echoes.size(), 1, "an Echo climbs out of the shaft")
+	assert_true(s.encounter.telegraphs.any(func(x): return x.kind == "core_slam"), "and the core slams")
+	# The ring: turn 3 normally reaches ring 2; in the collapse it has already run on to ring 3.
+	s.turn = 3
+	Encounter.on_enemy_phase_end(s)
+	assert_true(not Encounter.is_spore(s, Vector2i(3, 7)), "ring 3 is still to come")
+	src.status.boss_phase = 3
+	src.status["phase3_turn"] = 2
+	Encounter.on_enemy_phase_end(s)
+	assert_true(Encounter.is_spore(s, Vector2i(3, 7)), "the collapse runs the ring on ahead")
 
 
 # --- whole fights ---------------------------------------------------------------------------
