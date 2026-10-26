@@ -19,87 +19,88 @@ extends RefCounted
 ## tiles, like the rest of Combat:
 ##   "close": tiles at or under which the "close_aim" term applies (it may be negative).
 ##   "falloff": distance past which every started tile costs "falloff_aim" aim.
+## "mag": rounds in a full magazine (see Ammo).
 ## Traits: "pin" (a miss still suppresses the target), "snap" (overwatch reaction shots take
 ## "reaction" instead of Combat.REACTION_PENALTY), "spread" (a wider graze band).
 
 const DEFAULT := "rifle"
 
 const TABLE := {
-	"rifle": {"name": "Assault rifle", "close": 3.0, "close_aim": 15, "falloff": 10.0, "falloff_aim": 3,
+	"rifle": {"name": "Assault rifle", "mag": 6, "close": 3.0, "close_aim": 15, "falloff": 10.0, "falloff_aim": 3,
 		"desc": "Reliable at any range."},
-	"dmr": {"name": "Marksman rifle", "close": 2.0, "close_aim": -10, "falloff": 14.0, "falloff_aim": 3,
+	"dmr": {"name": "Marksman rifle", "mag": 4, "close": 2.0, "close_aim": -10, "falloff": 14.0, "falloff_aim": 3,
 		"crit": 15, "close_label": "Too close to scope",
 		"desc": "No range penalty out to sight range, +15% crit. -10 aim at 2 tiles or less."},
-	"pdw": {"name": "PDW", "close": 4.0, "close_aim": 20, "falloff": 7.0, "falloff_aim": 5,
+	"pdw": {"name": "PDW", "mag": 8, "close": 4.0, "close_aim": 20, "falloff": 7.0, "falloff_aim": 5,
 		"desc": "+20 aim within 4 tiles; falls off fast past 7."},
-	"shotgun": {"name": "Combat shotgun", "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 8,
+	"shotgun": {"name": "Combat shotgun", "mag": 4, "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 8,
 		"graze": 20, "trait": "spread",
 		"desc": "+25 aim within 3 tiles, steep falloff past 5. Spread: wider graze band."},
-	"lmg": {"name": "Light machine gun", "close": 3.0, "close_aim": 5, "falloff": 11.0, "falloff_aim": 2,
+	"lmg": {"name": "Light machine gun", "mag": 10, "close": 3.0, "close_aim": 5, "falloff": 11.0, "falloff_aim": 2,
 		"trait": "pin",
 		"desc": "Pinning fire: a miss still suppresses the target (-30 aim on its next shot)."},
-	"carbine": {"name": "Bio-carbine", "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3,
+	"carbine": {"name": "Bio-carbine", "mag": 6, "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3,
 		"trait": "snap", "reaction": 0,
 		"desc": "Snap shots: overwatch reaction shots take no aim penalty."},
-	"sidearm": {"name": "Sidearm", "close": 3.0, "close_aim": 10, "falloff": 7.0, "falloff_aim": 4,
+	"sidearm": {"name": "Sidearm", "mag": 6, "close": 3.0, "close_aim": 10, "falloff": 7.0, "falloff_aim": 4,
 		"desc": "Backup pistol: +10 aim within 3 tiles, falls off past 7. The real weapon is in the other hand."},
-	"revolver": {"name": "Heavy revolver", "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "crit": 10,
+	"revolver": {"name": "Heavy revolver", "mag": 6, "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "crit": 10,
 		"desc": "One-handed over the shield rim: +10% crit, falls off past 6."},
 	# Alternate guns.
-	"battle_rifle": {"name": "Battle rifle", "classes": ["trooper", "marksman"], "rarity": "uncommon", "tag": "Suppress",
+	"battle_rifle": {"name": "Battle rifle", "mag": 5, "classes": ["trooper", "marksman"], "rarity": "uncommon", "tag": "Suppress",
 		"look": "rifle", "close": 3.0, "close_aim": 10, "falloff": 12.0, "falloff_aim": 2, "aim": -5, "dmg": 1,
 		"desc": "Heavier rounds: +1 damage, -5 aim. Holds its accuracy out to 12 tiles."},
-	"burst_carbine": {"name": "Burst carbine", "classes": ["trooper", "vector"], "rarity": "rare", "tag": "Overwatch",
+	"burst_carbine": {"name": "Burst carbine", "mag": 6, "classes": ["trooper", "vector"], "rarity": "rare", "tag": "Overwatch",
 		"look": "carbine", "close": 4.0, "close_aim": 15, "falloff": 8.0, "falloff_aim": 4, "crit": 5,
 		"trait": "snap", "reaction": 5,
 		"desc": "Snap shots: overwatch reaction shots take only -5 aim. +15 aim within 4 tiles."},
-	"anti_materiel": {"name": "Anti-materiel rifle", "classes": ["marksman"], "rarity": "rare", "tag": "Mark",
+	"anti_materiel": {"name": "Anti-materiel rifle", "mag": 3, "classes": ["marksman"], "rarity": "rare", "tag": "Mark",
 		"look": "dmr", "close": 3.0, "close_aim": -20, "falloff": 16.0, "falloff_aim": 3, "crit": 20, "dmg": 2,
 		"mobility": -1, "close_label": "Too close to scope",
 		"desc": "+2 damage, +20% crit, no range penalty to 16 tiles. -20 aim at 3 tiles or less, -1 movement."},
-	"scout_carbine": {"name": "Scout carbine", "classes": ["marksman", "medic"], "rarity": "uncommon", "tag": "Close",
+	"scout_carbine": {"name": "Scout carbine", "mag": 6, "classes": ["marksman", "medic"], "rarity": "uncommon", "tag": "Close",
 		"look": "pdw", "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3, "crit": 10, "mobility": 1,
 		"desc": "Light and quick: +1 movement, +10% crit, +10 aim within 3 tiles."},
-	"flechette_smg": {"name": "Flechette SMG", "classes": ["medic", "vector", "breacher"], "rarity": "uncommon", "tag": "Close",
+	"flechette_smg": {"name": "Flechette SMG", "mag": 8, "classes": ["medic", "vector", "breacher"], "rarity": "uncommon", "tag": "Close",
 		"look": "pdw", "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 6, "graze": 20, "trait": "spread",
 		"desc": "+25 aim within 3 tiles, falls off fast past 5. Spread: wider graze band."},
-	"dart_rifle": {"name": "Dart rifle", "classes": ["medic"], "rarity": "rare", "tag": "Purge",
+	"dart_rifle": {"name": "Dart rifle", "mag": 5, "classes": ["medic"], "rarity": "rare", "tag": "Purge",
 		"look": "dmr", "close": 2.0, "close_aim": 0, "falloff": 12.0, "falloff_aim": 2, "aim": 10,
 		"desc": "Steady: +10 aim, and it holds that out to 12 tiles."},
-	"slug_gun": {"name": "Slug shotgun", "classes": ["breacher"], "rarity": "uncommon", "tag": "Mark",
+	"slug_gun": {"name": "Slug shotgun", "mag": 4, "classes": ["breacher"], "rarity": "uncommon", "tag": "Mark",
 		"look": "shotgun", "close": 3.0, "close_aim": 15, "falloff": 8.0, "falloff_aim": 4, "crit": 10,
 		"desc": "Single slugs: +15 aim within 3 tiles, +10% crit, reaches out to 8 tiles."},
-	"auto_shotgun": {"name": "Auto shotgun", "classes": ["breacher", "hazmat"], "rarity": "rare", "tag": "Suppress",
+	"auto_shotgun": {"name": "Auto shotgun", "mag": 5, "classes": ["breacher", "hazmat"], "rarity": "rare", "tag": "Suppress",
 		"look": "shotgun", "close": 3.0, "close_aim": 20, "falloff": 5.0, "falloff_aim": 8, "trait": "pin",
 		"desc": "+20 aim within 3 tiles, steep falloff past 5. Pinning fire: a miss still suppresses the target."},
-	"pump_shotgun": {"name": "Pump shotgun", "classes": ["trooper", "hazmat"], "rarity": "uncommon", "tag": "Guard",
+	"pump_shotgun": {"name": "Pump shotgun", "mag": 4, "classes": ["trooper", "hazmat"], "rarity": "uncommon", "tag": "Guard",
 		"look": "shotgun", "close": 3.0, "close_aim": 20, "falloff": 5.0, "falloff_aim": 8, "graze": 20, "trait": "spread",
 		"dmg": 1, "desc": "+1 damage, +20 aim within 3 tiles, steep falloff past 5. Spread: wider graze band."},
-	"heavy_mg": {"name": "Heavy machine gun", "classes": ["hazmat"], "rarity": "rare", "tag": "Overwatch",
+	"heavy_mg": {"name": "Heavy machine gun", "mag": 12, "classes": ["hazmat"], "rarity": "rare", "tag": "Overwatch",
 		"look": "lmg", "close": 3.0, "close_aim": 0, "falloff": 12.0, "falloff_aim": 2, "dmg": 1, "mobility": -1,
 		"trait": "pin", "desc": "+1 damage, pinning fire (a miss still suppresses), holds out to 12 tiles. -1 movement."},
-	"spore_rifle": {"name": "Spore rifle", "classes": ["vector"], "rarity": "rare", "tag": "Strain",
+	"spore_rifle": {"name": "Spore rifle", "mag": 5, "classes": ["vector"], "rarity": "rare", "tag": "Strain",
 		"look": "carbine", "close": 3.0, "close_aim": 5, "falloff": 10.0, "falloff_aim": 3, "crit": 10, "dmg": 1, "aim": -5,
 		"trait": "snap", "reaction": 0,
 		"desc": "+1 damage, +10% crit, -5 aim. Snap shots: overwatch reaction shots take no aim penalty."},
 	# Melee classes' alternates are all one-handed, so they ride in the hand the sidearm did.
-	"machine_pistol": {"name": "Machine pistol", "classes": ["reaper"], "rarity": "uncommon", "tag": "Close",
+	"machine_pistol": {"name": "Machine pistol", "mag": 8, "classes": ["reaper"], "rarity": "uncommon", "tag": "Close",
 		"look": "sidearm", "close": 3.0, "close_aim": 20, "falloff": 5.0, "falloff_aim": 6, "graze": 20, "trait": "spread",
 		"desc": "Sprays up close: +20 aim within 3 tiles, falls off fast past 5. Spread: wider graze band."},
-	"bloom_pistol": {"name": "Bloom pistol", "classes": ["reaper"], "rarity": "rare", "tag": "Strain",
+	"bloom_pistol": {"name": "Bloom pistol", "mag": 5, "classes": ["reaper"], "rarity": "rare", "tag": "Strain",
 		"look": "sidearm", "close": 3.0, "close_aim": 10, "falloff": 7.0, "falloff_aim": 4, "dmg": 1, "aim": -5,
 		"trait": "snap", "reaction": 0,
 		"desc": "+1 damage, -5 aim. Snap shots: overwatch reaction shots take no aim penalty."},
-	"hand_cannon": {"name": "Hand cannon", "classes": ["reaper", "warden"], "rarity": "rare", "tag": "Mark",
+	"hand_cannon": {"name": "Hand cannon", "mag": 4, "classes": ["reaper", "warden"], "rarity": "rare", "tag": "Mark",
 		"look": "revolver", "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "dmg": 1, "crit": 15, "aim": -5,
 		"desc": "+1 damage, +15% crit, -5 aim. Falls off past 6."},
-	"stun_pistol": {"name": "Stun pistol", "classes": ["warden"], "rarity": "uncommon", "tag": "Suppress",
+	"stun_pistol": {"name": "Stun pistol", "mag": 6, "classes": ["warden"], "rarity": "uncommon", "tag": "Suppress",
 		"look": "sidearm", "close": 3.0, "close_aim": 10, "falloff": 6.0, "falloff_aim": 4, "dmg": -1, "trait": "pin",
 		"desc": "-1 damage. Pinning fire: a miss still suppresses the target."},
-	"longslide": {"name": "Longslide pistol", "classes": ["warden"], "rarity": "uncommon", "tag": "Overwatch",
+	"longslide": {"name": "Longslide pistol", "mag": 6, "classes": ["warden"], "rarity": "uncommon", "tag": "Overwatch",
 		"look": "sidearm", "close": 3.0, "close_aim": 0, "falloff": 9.0, "falloff_aim": 3, "aim": 5, "crit": 5,
 		"desc": "Long barrel: +5 aim, +5% crit, holds out to 9 tiles."},
-	"spit": {"name": "Spit", "close": 3.0, "close_aim": 15, "falloff": 10.0, "falloff_aim": 3,
+	"spit": {"name": "Spit", "mag": 6, "close": 3.0, "close_aim": 15, "falloff": 10.0, "falloff_aim": 3,
 		"desc": "Acidic spit."},
 }
 
@@ -199,6 +200,11 @@ static func equip_unit(u: Unit, id: String) -> void:
 	u.mobility = maxi(1, u.mobility + int(st.get("mobility", 0)))
 	var d := int(st.get("dmg", 0))
 	u.damage = Vector2i(maxi(1, u.damage.x + d), maxi(1, u.damage.y + d))
+
+
+## Rounds in a full magazine of this unit's gun, before gear and perks (Ammo.mag_size).
+static func mag_of(u: Unit) -> int:
+	return int(of(u).get("mag", Ammo.DEFAULT_MAG))
 
 
 static func has_trait(u: Unit, t: String) -> bool:

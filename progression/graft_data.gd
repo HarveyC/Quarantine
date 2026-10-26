@@ -51,7 +51,7 @@ const GRAFTS := {
 		"desc": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers come through as +1 Intel after each fight.",
 		"look": "The mask cracked open, teal crystals growing through the visor"},
 	"servo_arm": {"name": "Servo arm", "slot": "arm", "path": MACHINE, "tag": "Suppress",
-		"desc": "+1 melee damage, +2 throw range, and heavy guns no longer slow you.",
+		"desc": "+1 melee damage, +2 throw range, +2 rounds in your magazine, and heavy guns no longer slow you.",
 		"look": "A bare servo forearm and hand, pistons showing"},
 	"bloom_limb": {"name": "Bloom limb", "slot": "arm", "path": BLOOM, "tag": "Close",
 		"desc": "Bloom Claw: strike an adjacent enemy for 3-5, +1 per Infection tier. A kill heals 1 HP.",

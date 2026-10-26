@@ -205,6 +205,31 @@ def bolt():
     return reverb(out, 0.15, 0.15)
 
 
+def reload_mag():
+    # Magazine drops out, a beat, the new one slaps in and the bolt catch is hit.
+    out = np.zeros(int(0.7 * SR))
+    for st, f, d, a in [(0.0, 700, 0.012, 0.7), (0.05, 1200, 0.01, 0.4), (0.32, 1000, 0.014, 0.9),
+                        (0.37, 1700, 0.01, 0.6), (0.52, 2200, 0.008, 0.7)]:
+        c = mech_click(f, d) * a
+        i = int(st * SR)
+        out[i:i + len(c)] += c
+    thud = lowpass(noise(0.06), 600) * env(int(0.06 * SR), 0.002, 0.03) * 0.5
+    i = int(0.32 * SR)
+    out[i:i + len(thud)] += thud
+    return reverb(out, 0.12, 0.12)
+
+
+def dry_fire():
+    # The hammer falls on nothing.
+    out = np.zeros(int(0.2 * SR))
+    c = mech_click(1400, 0.008) * 0.8
+    out[:len(c)] += c
+    c2 = mech_click(900, 0.01) * 0.3
+    i = int(0.04 * SR)
+    out[i:i + len(c2)] += c2
+    return reverb(out, 0.08, 0.1)
+
+
 def enemy_spit():
     n = noise(0.6)
     sweep = np.linspace(1800, 300, len(n))
@@ -1113,6 +1138,7 @@ SOUNDS = {
     "drone": drone, "grapple": grapple, "flare_pop": flare_pop, "emitter_hum": emitter_hum, "order_call": order_call,
     "cap_wildfire": cap_wildfire, "cap_warrant": cap_warrant, "cap_field": cap_field, "cap_aegis": cap_aegis,
     "hook_whip": hook_whip, "satchel_arm": satchel_arm, "weave_hum": weave_hum, "plate_clang": plate_clang,
+    "reload": reload_mag, "dry_fire": dry_fire,
 }
 
 if __name__ == "__main__":

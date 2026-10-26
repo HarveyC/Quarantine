@@ -37,7 +37,7 @@ const ABILITIES := {
 		"desc": "Once per fight: jump up to 4 tiles to a free cell, over cover and past overwatch. 1 action."},
 	# Rank 2 signatures (Signatures): one per class, each carries a gear tag.
 	"lockdown": {"name": "Lockdown", "targeting": "none", "cost": -1, "cooldown": 4, "sig": true,
-		"desc": "Until your next turn you hold overwatch that never runs out: you shoot every enemy that moves in sight, once each, and pin whoever you hit. Ends turn."},
+		"desc": "Reload, then until your next turn hold overwatch that never runs out: you shoot every enemy that moves in sight, once each, and pin whoever you hit. Ends turn."},
 	"deadeye": {"name": "Deadeye", "targeting": "unit", "cost": 1, "cooldown": 4, "sig": true,
 		"desc": "Shoot a visible enemy: never misses, ignores cover, deals 3 extra damage and Marks it. 1 action."},
 	"quarantine_field": {"name": "Quarantine Field", "targeting": "none", "cost": 1, "cooldown": 5, "sig": true,

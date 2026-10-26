@@ -95,6 +95,13 @@ static func _parts(id: String) -> Array:
 				for i in 3:
 					p.append(["claw", "tube", Vector3(sx * 0.2, 0.2, -0.04 + i * 0.07), Vector3(sx * (0.27 + i * 0.01), 0.36 - abs(i - 1) * 0.04, -0.06 + i * 0.07), 0.026, 0.004])
 			return [["spine_03", "barbs", p]]
+		"bone_magazine":   # a column of bone rounds growing down the plate carrier, tips glowing
+			var p := []
+			for i in 4:
+				var y := 0.14 - i * 0.075
+				p.append(["m_bone", "tube", Vector3(-0.2, y, 0.17), Vector3(-0.2, y + 0.055, 0.21), 0.024, 0.014])
+				p.append(["glow", "ball", Vector3(-0.2, y + 0.06, 0.215), 0.012])
+			return [["spine_03", "rounds", p]]
 		"hollow_bones":   # pale bone spurs out of the elbows and knees
 			var out := []
 			for lat in [-1.0, 1.0]:

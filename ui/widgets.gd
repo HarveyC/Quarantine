@@ -208,6 +208,46 @@ class Diamonds extends Control:
 				draw_arc(c, rad - 0.5, 0, TAU, 20, Color(Styles.DIM, 0.45), 1.2, true)
 
 
+## Rounds left in a magazine: one upright round per slot, amber while loaded, an empty outline
+## once spent, and danger red when the gun is empty. Wraps to a second row past PER_ROW.
+class AmmoPips extends Control:
+	const PER_ROW := 10
+	var total := 6
+	var left := 6
+	var w := 5.0
+	var h := 11.0
+	var gap := 3.0
+
+	func _init(round_h := 11.0) -> void:
+		h = round_h
+		w = round_h * 0.46
+		gap = maxf(2.0, round_h * 0.28)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func set_values(t: int, l: int) -> void:
+		total = maxi(t, 1)
+		left = clampi(l, 0, total)
+		var cols := mini(total, PER_ROW)
+		var rows := ceili(total / float(PER_ROW))
+		custom_minimum_size = Vector2(cols * (w + gap) - gap, rows * (h + gap) - gap)
+		queue_redraw()
+
+	func _draw() -> void:
+		var col := Styles.DANGER if left == 0 else (Styles.AMBER if left * 3 > total else Styles.DANGER_TEXT)
+		for i in total:
+			var x := (i % PER_ROW) * (w + gap)
+			var y := (i / PER_ROW) * (h + gap)
+			var body := Rect2(x, y + h * 0.28, w, h * 0.72)
+			var tip := PackedVector2Array([Vector2(x, y + h * 0.3), Vector2(x + w * 0.5, y), Vector2(x + w, y + h * 0.3)])
+			if i < left:
+				draw_rect(body, col)
+				draw_colored_polygon(tip, col.lightened(0.25))
+			else:
+				var dim := Color(Styles.DIM, 0.45)
+				draw_rect(body, dim, false, 1.0)
+				draw_polyline(PackedVector2Array([tip[0], tip[1], tip[2]]), dim, 1.0)
+
+
 ## Infection 0-100 as a rounded teal bar with tier marks at 25/50/75, a glow on the fill, and
 ## an optional preview value drawn as a ghost.
 class InfBar extends Control:

@@ -251,6 +251,11 @@ static func stat_mods(s: GameState, u: Unit, want: Dictionary) -> void:
 			want.mobility -= gun
 
 
+## Rounds Machine parts add to the magazine (Servo arm).
+static func mag_bonus(u: Unit) -> int:
+	return Ammo.SERVO_MAG if has(u, "servo_arm") else 0
+
+
 ## Infection change after Machine parts (-10% of a gain per part, up to -30%).
 static func infection_gain(s: GameState, u: Unit, amount: int) -> int:
 	if amount <= 0:

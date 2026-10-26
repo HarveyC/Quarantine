@@ -83,6 +83,9 @@ const ITEMS := {
 	# Suppress
 	"compensator": {"name": "Compensator", "tag": "Suppress", "slot": "weapon", "rarity": "common",
 		"desc": "Your Suppress gives a further -10 aim", "desc_mk2": "Your Suppress gives a further -15 aim"},
+	"scavenger_rounds": {"name": "Scavenger rounds", "tag": "Suppress", "slot": "ammo", "rarity": "uncommon",
+		"desc": "A kill gives 1 round back",
+		"desc_mk2": "A kill gives 2 rounds back"},
 	"shock_rounds": {"name": "Shock rounds", "tag": "Suppress", "slot": "ammo", "rarity": "uncommon",
 		"desc": "Hits Suppress the target (-15 aim on its next shot)",
 		"desc_mk2": "Hits Suppress the target (-25 aim on its next shot)"},
@@ -93,6 +96,9 @@ const ITEMS := {
 		"desc": "Your Suppress becomes a 3-tile cone that hits every enemy in it",
 		"desc_mk2": "Your Suppress becomes a 4-tile cone that hits every enemy in it"},
 	# Overwatch
+	"extended_mag": {"name": "Extended mag", "tag": "Overwatch", "slot": "weapon", "rarity": "common",
+		"desc": "+2 rounds in your magazine, so overwatch lasts longer",
+		"desc_mk2": "+3 rounds in your magazine, so overwatch lasts longer"},
 	"bipod": {"name": "Bipod", "tag": "Overwatch", "slot": "weapon", "rarity": "common",
 		"desc": "+10 overwatch aim if you didn't move", "desc_mk2": "+15 overwatch aim if you didn't move"},
 	"motion_tracker": {"name": "Motion tracker", "tag": "Overwatch", "slot": "gadget", "rarity": "common",
@@ -107,6 +113,9 @@ const ITEMS := {
 		"desc": "Once per fight: deploy a sentry turret within 3 tiles that fires each turn for 3 turns (aim 60, 2 damage)",
 		"desc_mk2": "Once per fight: deploy a sentry turret within 3 tiles that fires each turn for 4 turns (aim 70, 3 damage)"},
 	# Close
+	"speed_loader": {"name": "Speed loader", "tag": "Close", "slot": "weapon", "rarity": "uncommon",
+		"desc": "The first Reload each turn costs no action",
+		"desc_mk2": "The first Reload each turn costs no action, and shots that turn get +10 aim"},
 	"light_harness": {"name": "Light harness", "tag": "Close", "slot": "armor", "rarity": "common",
 		"desc": "+1 movement", "desc_mk2": "+2 movement",
 		"stats": {"mobility": 1}, "stats_mk2": {"mobility": 2}},

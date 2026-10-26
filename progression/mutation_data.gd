@@ -26,6 +26,8 @@ const MUTATIONS := {
 		"desc": "Melee attackers take 2 damage.", "drawback": "Allies next to you at the end of your turn gain 2 Infection."},
 	"hollow_bones": {"name": "Hollow Bones", "slot": "exposed", "active": false, "tag": "Close",
 		"desc": "+2 movement.", "drawback": "Take +1 damage from every hit."},
+	"bone_magazine": {"name": "Bone Magazine", "slot": "exposed", "active": false, "tag": "Suppress",
+		"desc": "+2 rounds in your magazine, and a kill gives 1 round back.", "drawback": "Each Reload adds 3 Infection."},
 	"lure_scent": {"name": "Lure Scent", "slot": "exposed", "active": true, "tag": "Overwatch", "targeting": "none", "actions": 1,
 		"desc": "Until your next turn, teammates' overwatch shots get +15 aim against enemies within 6 tiles of you.",
 		"drawback": "Infected enemies go for you, and you can't hunker down this turn."},
