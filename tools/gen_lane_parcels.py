@@ -329,19 +329,26 @@ RROEC
 ERSCC
 RRDCC
 
-@plot demolish,hack,samples,purge,rescue lanes_sites_a lanes=0
-CCERO
+@plot demolish,hack,samples,purge lanes_sites_a lanes=0
+CCEOR
 OESRR
-CCSRE
+CCSRO
 CESRR
 CCDRR
 
-@plot demolish,hack,samples,purge,rescue lanes_sites_b lanes=0
+@plot demolish,hack,samples,purge lanes_sites_b lanes=0
 ORECC
 RRSEC
 ERSCO
-RRSEC
+RRSOC
 RRDCC
+
+@plot rescue lanes_rescue lanes=0
+CCERR
+CESRR
+CCSRO
+CESRR
+CCDRR
 
 @plot elite lanes_hive lanes=0
 CCOER
