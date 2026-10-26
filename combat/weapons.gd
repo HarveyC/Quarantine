@@ -26,24 +26,24 @@ extends RefCounted
 const DEFAULT := "rifle"
 
 const TABLE := {
-	"rifle": {"name": "Assault rifle", "mag": 6, "close": 3.0, "close_aim": 15, "falloff": 10.0, "falloff_aim": 3,
+	"rifle": {"rarity": "rare", "name": "Assault rifle", "mag": 6, "close": 3.0, "close_aim": 15, "falloff": 10.0, "falloff_aim": 3,
 		"desc": "Reliable at any range."},
-	"dmr": {"name": "Marksman rifle", "mag": 4, "close": 2.0, "close_aim": -10, "falloff": 14.0, "falloff_aim": 3,
+	"dmr": {"rarity": "rare", "name": "Marksman rifle", "mag": 4, "close": 2.0, "close_aim": -10, "falloff": 14.0, "falloff_aim": 3,
 		"crit": 15, "close_label": "Too close to scope",
 		"desc": "No range penalty out to sight range, +15% crit. -10 aim at 2 tiles or less."},
-	"pdw": {"name": "PDW", "mag": 8, "close": 4.0, "close_aim": 20, "falloff": 7.0, "falloff_aim": 5,
+	"pdw": {"rarity": "rare", "name": "PDW", "mag": 8, "close": 4.0, "close_aim": 20, "falloff": 7.0, "falloff_aim": 5,
 		"desc": "+20 aim within 4 tiles; falls off fast past 7."},
-	"shotgun": {"name": "Combat shotgun", "mag": 4, "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 8,
+	"shotgun": {"rarity": "rare", "name": "Combat shotgun", "mag": 4, "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 8,
 		"graze": 20, "trait": "spread",
 		"desc": "+25 aim within 3 tiles, steep falloff past 5. Spread: wider graze band."},
-	"lmg": {"name": "Light machine gun", "mag": 10, "close": 3.0, "close_aim": 5, "falloff": 11.0, "falloff_aim": 2,
+	"lmg": {"rarity": "rare", "name": "Light machine gun", "mag": 10, "close": 3.0, "close_aim": 5, "falloff": 11.0, "falloff_aim": 2,
 		"trait": "pin",
 		"desc": "Pinning fire: a miss still suppresses the target (-30 aim on its next shot)."},
-	"carbine": {"name": "Bio-carbine", "mag": 6, "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3,
+	"carbine": {"rarity": "rare", "name": "Bio-carbine", "mag": 6, "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3,
 		"trait": "snap", "reaction": 0,
 		"desc": "Snap shots: overwatch reaction shots take no aim penalty."},
 	"sidearm": {"name": "Sidearm", "mag": 6, "close": 3.0, "close_aim": 10, "falloff": 7.0, "falloff_aim": 4,
-		"desc": "Backup pistol: +10 aim within 3 tiles, falls off past 7. The real weapon is in the other hand."},
+		"desc": "Backup pistol: +10 aim within 3 tiles, falls off past 7. As a starter pistol on a ranged soldier: -1 damage and 4 rounds."},
 	"revolver": {"name": "Heavy revolver", "mag": 6, "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "crit": 10,
 		"desc": "One-handed over the shield rim: +10% crit, falls off past 6."},
 	# Alternate guns.
@@ -112,6 +112,13 @@ const BY_KIND := {
 }
 
 
+## Ranged classes start a run on the sidearm and find their class gun later (see Loadout.has_primary).
+const START_GUN := "sidearm"
+## A ranged soldier's starting pistol is weaker than the Reaper's: -1 damage and a short magazine.
+const STARTER_DAMAGE_PENALTY := 1
+const STARTER_MAG := 4
+const FOUND_PRIMARY: Array[String] = ["trooper", "marksman", "medic", "breacher", "hazmat", "vector"]
+
 const PRICES := {"uncommon": 55, "rare": 90}
 
 
@@ -164,7 +171,13 @@ static func alternates_for(kind: String, rarity: String = "") -> Array[String]:
 
 
 static func can_carry(kind: String, id: String) -> bool:
-	return id == "" or id == id_for(kind) or TABLE.get(id, {}).get("classes", []).has(kind)
+	return id == "" or id == id_for(kind) or TABLE.get(id, {}).get("classes", []).has(kind) \
+		or (id == START_GUN and starts_on_sidearm(kind))
+
+
+## True for classes that start a run on the sidearm and have to find their signature gun.
+static func starts_on_sidearm(kind: String) -> bool:
+	return FOUND_PRIMARY.has(kind)
 
 
 static func rarity_of(id: String) -> String:
@@ -198,12 +211,14 @@ static func equip_unit(u: Unit, id: String) -> void:
 	var st := stats(id)
 	u.aim += int(st.get("aim", 0))
 	u.mobility = maxi(1, u.mobility + int(st.get("mobility", 0)))
-	var d := int(st.get("dmg", 0))
+	var d := int(st.get("dmg", 0)) - (STARTER_DAMAGE_PENALTY if id == START_GUN and starts_on_sidearm(u.kind) else 0)
 	u.damage = Vector2i(maxi(1, u.damage.x + d), maxi(1, u.damage.y + d))
 
 
 ## Rounds in a full magazine of this unit's gun, before gear and perks (Ammo.mag_size).
 static func mag_of(u: Unit) -> int:
+	if id_of(u) == START_GUN and starts_on_sidearm(u.kind):
+		return STARTER_MAG
 	return int(of(u).get("mag", Ammo.DEFAULT_MAG))
 
 

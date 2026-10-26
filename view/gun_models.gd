@@ -77,6 +77,15 @@ const GUNS := {
 		],
 		"muzzle": Vector3(0, 0.06, 0.77), "support": Vector3(0, 0.0, 0.3),
 	},
+	"sidearm": {   # service pistol: slide over a short grip, no stock
+		"parts": [
+			["metal", "box", Vector3(0, 0.07, 0.07), Vector3(0.05, 0.07, 0.22)],
+			["metal", "tube", Vector3(0, 0.065, 0.17), Vector3(0, 0.065, 0.22), 0.012],
+			["strap", "box", Vector3(0, -0.01, 0.0), Vector3(0.04, 0.12, 0.06)],
+			["amber", "box", Vector3(0.026, 0.07, 0.08), Vector3(0.004, 0.015, 0.08)],
+		],
+		"muzzle": Vector3(0, 0.065, 0.23), "support": Vector3(0, 0.0, 0.05),
+	},
 	"carbine": {   # bio-carbine: compact, a glowing culture vial along the receiver
 		"parts": [
 			["metal", "box", Vector3(0, 0.05, 0.02), Vector3(0.065, 0.1, 0.3)],

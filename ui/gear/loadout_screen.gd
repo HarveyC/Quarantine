@@ -232,7 +232,7 @@ func _refresh() -> void:
 	_sub.text = ("%s%s · %s" % ["Rank %d " % int(rank) if rank != null else "", UI.class_name_of(r), _player_name(r.owner)]).to_upper()
 	if not _can_edit(r):
 		_sub.text += "  ·  VIEW ONLY"
-	for id in [Weapons.id_for(r.kind)] + Loadout.guns(r):
+	for id in ([Weapons.id_for(r.kind)] if Loadout.has_primary(r) else []) + Loadout.guns(r):
 		_guns.add_child(_gun_tile(r, id))
 	var feeding := _preview_tags()
 	for slot in GearData.SLOTS:
