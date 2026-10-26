@@ -13,7 +13,28 @@ const ICON_COLORS := {"patch": NodeUi.HEALTH, "purge": NodeUi.TEAL, "train": Nod
 	"refit": GraftFigure.STEEL, "amputate": GraftFigure.STEEL}
 
 
+## Trained soldiers of ours whose perk pick is still waiting: the pick opens at once, here.
+func _training_pending() -> bool:
+	if not RunHooks.has("Progression", "pending_picks") or not RunHooks.has("Progression", "pick_screen"):
+		return false
+	for rec in RunAccess.active_soldiers(run):
+		if ns().treated.get(rec.id, "") == "train" and rec.owner in local_players() \
+				and RunHooks.call_static("Progression", "pending_picks", [rec], 0) > 0:
+			return true
+	return false
+
+
 func _build(into: VBoxContainer) -> void:
+	if _training_pending():
+		into.add_child(header("Field hospital · Act %d" % run.act, "Training: pick a perk", NodeUi.AMBER, wallet(), "train"))
+		var ctl: Control = RunHooks.call_static("Progression", "pick_screen").new()
+		ctl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ctl.custom_minimum_size = Vector2(0, 560)
+		into.add_child(ctl)
+		ctl.setup(run, session)
+		if is_inside_tree():
+			Feel.sound("open")
+		return
 	into.add_child(header("Field hospital · Act %d" % run.act, "One treatment each", NodeUi.HEALTH, wallet(), "hospital"))
 	var rule := NodeUi.hbox(10)
 	var paid: bool = ns().outbreak_paid

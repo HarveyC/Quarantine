@@ -393,6 +393,11 @@ func test_hospital_treatments() -> void:
 	assert_true(_act(run, "node_treat", 0, {"soldier": 2, "treatment": "train"}), "train")
 	assert_eq(run.outbreak, 0, "train is free of Outbreak")
 	assert_eq(_events(run, "perk_pick_granted").size(), 1, "perk pick")
+	assert_eq(Progression.pending_picks(run.get_soldier(2)), 1, "the pick waits for the hospital screen to open it")
+	var pick := {"type": "prog_perk_pick", "player": 0, "sid": 2, "perk": Progression.perk_offer(run, run.get_soldier(2))[0]}
+	assert_eq(Progression.validate(run, pick), "", "pick is legal inside the hospital")
+	Progression.apply(run, pick)
+	assert_eq(Progression.pending_picks(run.get_soldier(2)), 0, "pick spent")
 	assert_true(not _act(run, "node_treat", 0, {"soldier": 2, "treatment": "purge"}), "one treatment each")
 	assert_true(_act(run, "node_treat", 0, {"soldier": 1, "treatment": "patch"}), "patch")
 	assert_eq(run.get_soldier(1).hp, run.get_soldier(1).max_hp, "full HP")
