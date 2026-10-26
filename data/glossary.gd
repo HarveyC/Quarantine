@@ -607,6 +607,16 @@ static func _build() -> Dictionary:
 		"more": ["Gear, perks and awake mutations all count.", "Purging a mutation mid-fight can switch a bonus off."],
 		"see": ["gear_tag", "mutation", "perk"],
 		"aliases": ["Set bonuses"], "labels": ["Set"]}
+	for job in BuildRead.JOBS:
+		var tags: Array = BuildRead.JOB_TAGS[job]
+		t["job_" + job.to_lower()] = {"name": job, "kind": "build job", "icon": "doctrine", "tone": BuildRead.JOB_INFO[job].color,
+			"line": str(BuildRead.JOB_INFO[job].line),
+			"art": "set",
+			"stats": [["%d" % tags.size(), "tags"]],
+			"more": ["A build wants one tag from each job: Setup opens the window, Payoff spends it, Sustain keeps the carrier alive.",
+				"Tags: " + ", ".join(tags) + "."],
+			"see": ["gear_tag", "set_bonus"] + tags.map(func(x): return "tag_" + str(x).to_lower()),
+			"aliases": [job + " job"], "scan": false}
 	for tag in GearData.TAGS:
 		var info: Dictionary = GearData.TAG_INFO[tag]
 		t["tag_" + tag.to_lower()] = {"name": tag, "kind": "gear tag", "icon": "doctrine", "tone": info.color,

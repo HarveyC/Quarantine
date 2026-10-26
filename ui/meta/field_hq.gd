@@ -151,6 +151,15 @@ func _build_unlocks() -> void:
 	var open := Progression.unlocked_classes(Profile.meta())
 	for kind in UnitData.SOLDIERS:
 		classes.add_child(_class_card(kind, open.has(kind)))
+	_section("Loadout", "")
+	var all := CheckBox.new()
+	all.text = "Show all gear tags"
+	all.focus_mode = Control.FOCUS_NONE
+	all.button_pressed = Profile.tags_all_shown()
+	all.disabled = Profile.stat("runs") > 0   # after a first run every tag shows anyway
+	all.toggled.connect(func(on: bool) -> void: Profile.set_show_all_tags(on))
+	Tips.term(all, "gear_tag")
+	_body.add_child(all)
 
 
 func _pack_card(id: String, have: Array, fd: int) -> Control:
