@@ -70,9 +70,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          NOTES="Download the zip for your computer, unzip, and run. Mac and Windows will warn that the game is unsigned; see HOW-TO-PLAY.txt inside the zip."
+          if [ -f release/NOTES.md ]; then
+            { cat release/NOTES.md; echo; echo "$NOTES"; } > build/notes.md
+          else
+            echo "$NOTES" > build/notes.md
+          fi
           gh release create "$VERSION" build/dist/*.zip --target "$GITHUB_SHA" \
             --title "Quarantine $VERSION" \
-            --notes "Download the zip for your computer, unzip, and run. Mac and Windows will warn that the game is unsigned; see HOW-TO-PLAY.txt inside the zip."
+            --notes-file build/notes.md
 
       - name: Push to itch.io
         if: (startsWith(github.ref, 'refs/tags/') || inputs.version != '') && env.HAS_KEY == 'true'
