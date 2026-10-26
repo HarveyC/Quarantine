@@ -154,6 +154,12 @@ static func _parts(id: String) -> Array:
 				["flesh_raw", "ball", Vector3(0.0, 0.03, 0.19), 0.045], ["glow", "ball", Vector3(0.0, 0.03, 0.23), 0.015],
 				["flesh_raw", "ball", Vector3(-0.08, 0.02, 0.17), 0.035], ["flesh_raw", "ball", Vector3(0.08, 0.02, 0.17), 0.035],
 				["glow", "ball", Vector3(-0.08, 0.02, 0.2), 0.012], ["glow", "ball", Vector3(0.08, 0.02, 0.2), 0.012]]]]
+		"kindled_spores":   # smouldering spore pods crowding the shoulder, glowing like embers
+			return [["upperarm_r", "embers", [
+				["flesh_raw", "ball", Vector3(0.1, 0.08, 0.02), 0.08], ["flesh_raw", "ball", Vector3(0.13, 0.17, -0.03), 0.055],
+				["flesh_raw", "ball", Vector3(0.08, 0.2, 0.05), 0.045],
+				["glow", "ball", Vector3(0.15, 0.08, 0.06), 0.025], ["glow", "ball", Vector3(0.16, 0.18, 0.0), 0.02],
+				["glow", "ball", Vector3(0.1, 0.22, 0.09), 0.016]]]]
 		"hive_hush":   # fungal gills fanned over both ears, muffling the helmet
 			var p := []
 			for sx in [-1.0, 1.0]:

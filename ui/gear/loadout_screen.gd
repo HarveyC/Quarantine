@@ -557,8 +557,8 @@ func _add_tag_row(tag: String, counts: Dictionary, changes: Dictionary) -> void:
 	elif ch.get("loses", false):
 		_tags.add_child(_bonus_line("Turns off: " + GearData.TAG_INFO[tag].bonus, UI.DANGER))
 	if GearData.has_capstone(tag) and n >= GearData.CAPSTONE_THRESHOLD:
-		var cap: Dictionary = GearData.TAG_INFO[tag]
-		_tags.add_child(_bonus_line("Capstone on, %s: %s" % [cap.capstone_name, cap.capstone], col))
+		var cap_info: Dictionary = GearData.TAG_INFO[tag]
+		_tags.add_child(_bonus_line("Capstone on, %s: %s" % [cap_info.capstone_name, cap_info.capstone], col))
 
 
 ## A diamond after the pips: the capstone, lit when the soldier has enough of the tag.
