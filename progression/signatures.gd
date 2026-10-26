@@ -54,6 +54,9 @@ static func _active(s: GameState, u: Unit, key: String) -> bool:
 ## Why `id` can't be used right now ("" if it can). Targets are checked by target_error.
 static func extra_error(s: GameState, u: Unit, id: String) -> String:
 	match id:
+		"deadeye":
+			if not Ammo.can_fire(u):
+				return "Out of ammo"
 		"flashover":
 			if burning_targets(s, u).is_empty():
 				return "Nothing is burning"
@@ -101,6 +104,7 @@ static func apply(s: GameState, u: Unit, id: String, t: Unit) -> void:
 			u.overwatch = true
 			u.status["ow_until"] = Combat.phase_index(s) + 2
 			u.status["k_lockdown"] = Combat.phase_index(s) + 2
+			Ammo.refill(u)
 			s.emit({"type": "overwatch", "unit": u.id})
 			s.emit({"type": "ability", "unit": u.id, "ability": id})
 		"deadeye":
@@ -128,9 +132,10 @@ static func _deadeye(s: GameState, u: Unit, t: Unit) -> void:
 	dmg = Kit.shot_damage(s, u, t, dmg)
 	dmg = GearFx.shot_damage(s, u, t, dmg, false)
 	u.status.erase("suppressed")
+	Ammo.spend(u)
 	s.emit({"type": "ability", "unit": u.id, "ability": "deadeye", "target": t.id})
 	s.emit({"type": "shot", "unit": u.id, "target": t.id, "hit": true, "graze": false, "crit": false,
-		"damage": dmg, "chance": 100, "reaction": false})
+		"damage": dmg, "chance": 100, "reaction": false, "ammo": Ammo.rounds(u)})
 	t.status["tagged"] = Combat.phase_index(s) + (2 if s.phase != Types.Phase.ENEMY else 3)
 	GearFx.on_marked(s, u, t)
 	Rules.deal_damage(s, t, dmg, u)

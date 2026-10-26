@@ -426,6 +426,11 @@ func actions() -> Array[Dictionary]:
 		"desc": "%s: %s" % [gun.name, gun.desc]})
 	out.append({"key": "overwatch", "label": "Overwatch", "targeting": "none", "type": Types.OVERWATCH, "enabled": has_ap})
 	out.append({"key": "hunker", "label": "Hunker", "targeting": "none", "type": Types.HUNKER, "enabled": has_ap})
+	if Ammo.tracked(u):
+		var dry := Ammo.reload_error(view.state, u)
+		out.append({"key": "reload", "label": "Reload", "targeting": "none", "type": Types.RELOAD, "enabled": has_ap and dry == "",
+			"reason": dry, "desc": "Refill the magazine (%d of %d rounds). Costs %s." % [Ammo.rounds(u), Ammo.mag_size(u),
+			"no action" if Ammo.reload_is_free(view.state, u) else "1 action"]})
 	for a in Combat.available_abilities(view.state, u):
 		out.append({"key": "ability:%s" % a.id, "label": str(a.get("name", a.id)), "targeting": str(a.get("targeting", "none")),
 			"type": Types.ABILITY, "id": a.id, "enabled": has_ap and a.get("ready", true), "desc": str(a.get("desc", "")),
@@ -461,6 +466,10 @@ func _trigger(u: Unit, a: Dictionary) -> void:
 		return
 	match a.targeting:
 		"shoot":
+			if not Ammo.can_fire(u):
+				view.hud.toast("Out of ammo: Reload")
+				view.sfx.play("dry_fire")
+				return
 			if mode == Mode.SHOOT:
 				confirm_shot()
 				return

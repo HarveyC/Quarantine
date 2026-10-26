@@ -106,6 +106,11 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 			d.set_values(Rules.action_slots(u), u.actions_left)
 			d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row.add_child(d)
+		if u != null and Ammo.tracked(u) and Ammo.rounds(u) <= 2 and not uv.turned and not uv.lapsed and not view.player.enemy_phase:
+			var ap := W.AmmoPips.new(10.0)   # nearly dry: the rounds left, so a reload isn't a surprise
+			ap.set_values(Ammo.mag_size(u), Ammo.rounds(u))
+			ap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(ap)
 		if uv.overwatch:
 			row.add_child(W.Icon.new("overwatch", Styles.AMBER, 14.0, 2.0))
 		if uv.hunkered:

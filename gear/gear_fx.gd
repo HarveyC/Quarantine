@@ -174,6 +174,8 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 			breakdown.append(["Spotter scope", 15 if mk(a, "spotter_scope") < 2 else 20])
 		if reaction and has(a, "match_rounds"):
 			breakdown.append(["Match rounds", 5 if mk(a, "match_rounds") < 2 else 10])
+		if mk(a, "speed_loader") >= 2 and a.status.get("gear_fresh_turn", -1) == s.turn:
+			breakdown.append(["Speed loader", Ammo.FRESH_AIM])
 		if has(a, "bayonet") and _dist(from, t.pos) <= CLOSE:
 			breakdown.append(["Bayonet", 10 if mk(a, "bayonet") < 2 else 15])
 	if a.team == Types.Team.PLAYER and t.status.get("warrant", false) and is_marked(s, t):
@@ -299,7 +301,28 @@ static func _kindle(s: GameState, u: Unit, t: Unit) -> void:
 	Infection.add(s, u, KINDLED_INFECTION)
 
 
+## Rounds Extended mag adds to the magazine.
+static func mag_bonus(u: Unit) -> int:
+	return Ammo.EXTENDED_MAG[clampi(mk(u, "extended_mag"), 1, 2) - 1] if has(u, "extended_mag") else 0
+
+
+## Speed loader: the first Reload each turn costs no action.
+static func free_reload(u: Unit) -> bool:
+	return has(u, "speed_loader")
+
+
+static func after_reload(s: GameState, u: Unit, _had: int) -> void:
+	if mk(u, "speed_loader") >= 2:
+		u.status["gear_fresh_turn"] = s.turn
+
+
+## Rounds a kill gives back (Scavenger rounds).
+static func kill_rounds(u: Unit) -> int:
+	return Ammo.SCAVENGER[clampi(mk(u, "scavenger_rounds"), 1, 2) - 1] if has(u, "scavenger_rounds") else 0
+
+
 static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
+	Ammo.on_kill(s, u)
 	var was_marked := t.status.has("tagged") and int(t.status.tagged) > Combat.phase_index(s)
 	if reaction and has_set(u, "Overwatch"):
 		u.overwatch = true

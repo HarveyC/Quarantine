@@ -45,6 +45,9 @@ static func choose(s: GameState, u: Unit) -> Dictionary:
 	var hostiles := _hostiles(s, u)
 	if hostiles.is_empty():
 		return {}
+	var reload := {"type": Types.RELOAD, "unit": u.id}
+	if Ammo.tracked(u) and Ammo.rounds(u) == 0 and _ok(s, reload):
+		return reload   # a dry gun reloads before anything else
 	var a := _support(s, u)
 	if not a.is_empty():
 		return a
@@ -60,6 +63,8 @@ static func choose(s: GameState, u: Unit) -> Dictionary:
 		if not dodge.is_empty():
 			return dodge
 	var shot := _best_shot(s, u, u.pos)
+	if Ammo.tracked(u) and Ammo.rounds(u) <= 1 and u.actions_left >= 2 and (shot.is_empty() or shot.hit < 60) and _ok(s, reload):
+		return reload   # last round and no sure shot: reload now, shoot with the second action
 	if u.actions_left >= 2:
 		var move := _best_move(s, u, hostiles, shot)
 		if not move.is_empty():
@@ -75,6 +80,8 @@ static func choose(s: GameState, u: Unit) -> Dictionary:
 	var guard := {"type": Types.ABILITY, "unit": u.id, "ability": "guard"}
 	if u.abilities.has("guard") and _ok(s, guard) and _melee_threat_near(s, u, 8):
 		return guard
+	if Ammo.tracked(u) and Ammo.rounds(u) * 2 <= Ammo.mag_size(u) and _ok(s, reload):
+		return reload   # nothing to do this turn but top up
 	var ow := {"type": Types.OVERWATCH, "unit": u.id}
 	return ow if _ok(s, ow) else {}
 

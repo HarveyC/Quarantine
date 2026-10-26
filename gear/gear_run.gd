@@ -544,6 +544,7 @@ static func apply_to_unit(u: Unit, record) -> void:
 	u.status["pockets"] = Loadout.pockets(record).duplicate(true)
 	if total.get("armor", 0) > 0:
 		u.status["armor"] = total.armor
+	Ammo.setup(u)
 
 
 ## After a mission (RunSoldier.absorb): consumables used in the fight are spent on the record.

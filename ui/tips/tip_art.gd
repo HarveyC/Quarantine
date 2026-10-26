@@ -8,7 +8,7 @@ const Icons := preload("res://ui/icons.gd")
 
 const HEIGHTS := {"tiers": 58, "cover": 66, "high_ground": 72, "flank": 74, "hit_roll": 44,
 	"damage": 50, "overwatch": 62, "lapse": 46, "turning": 40, "set": 30, "outbreak": 52,
-	"severity": 40, "hazards": 50, "rank": 42, "intel": 46, "healing": 30, "hp_pips": 36, "tile": 44, "climb": 58}
+	"severity": 40, "hazards": 50, "rank": 42, "intel": 46, "healing": 30, "hp_pips": 36, "magazine": 44, "tile": 44, "climb": 58}
 
 var kind := ""
 var ctx := {}
@@ -46,6 +46,7 @@ func _draw() -> void:
 		"intel": _intel()
 		"healing": _healing()
 		"hp_pips": _hp_pips()
+		"magazine": _magazine()
 		"tile": _tile()
 		"climb": _climb()
 
@@ -440,6 +441,30 @@ func _hp_pips() -> void:
 		elif i == 1:
 			draw_rect(Rect2(r.position, Vector2(w * 0.5, 10)), Styles.HP)
 	_num(Vector2(0, 30), "1 pip = %d HP" % per, 11, Styles.TEXT, HORIZONTAL_ALIGNMENT_LEFT, 120)
+
+
+## A magazine of rounds, some spent, then the same magazine full again after a Reload.
+func _magazine() -> void:
+	var n := 6
+	var spent := 3
+	var rw := 7.0
+	var rh := 18.0
+	for pass_i in 2:
+		var ox := 4.0 + pass_i * (size.x * 0.5 + 8.0)
+		for i in n:
+			var x := ox + i * (rw + 5.0)
+			var loaded: bool = pass_i == 1 or i >= spent
+			var col := Styles.AMBER if loaded else Color(Styles.DIM, 0.5)
+			var body := Rect2(x, 14, rw, rh - 5)
+			var tip := PackedVector2Array([Vector2(x, 15), Vector2(x + rw * 0.5, 6), Vector2(x + rw, 15)])
+			if loaded:
+				draw_rect(body, col)
+				draw_colored_polygon(tip, col.lightened(0.25))
+			else:
+				draw_rect(body, col, false, 1.0)
+				draw_polyline(tip, col, 1.0)
+		_text(Vector2(ox, 40), "after shots" if pass_i == 0 else "reloaded", 9, Styles.MUTED)
+	_icon("reload", Vector2(size.x * 0.5 + 2.0, 22), 16, Styles.AMBER)
 
 
 ## A strip of floor with the marking ctx.overlay (a TileOverlays key) painted on the middle

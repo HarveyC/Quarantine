@@ -29,6 +29,8 @@ var _class: Label
 var _ap: W.Diamonds
 var _loss: HBoxContainer
 var _hp: W.HpPips
+var _ammo: W.AmmoPips
+var _ammo_row: HBoxContainer
 var _empty: Label
 var _soldier_box: VBoxContainer
 var _buttons: Control
@@ -76,6 +78,13 @@ func build() -> void:
 	_hp = W.HpPips.new(Vector2(12, 5), 3.0)
 	hp.add_child(_hp)
 	_soldier_box.add_child(hp)
+	_ammo_row = Styles.hbox(0)
+	_ammo_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_ammo = W.AmmoPips.new(12.0)
+	_ammo_row.add_child(_ammo)
+	Tips.term(_ammo_row, "ammo")
+	_ammo_row.mouse_filter = Control.MOUSE_FILTER_PASS
+	_soldier_box.add_child(_ammo_row)
 	_empty = Styles.label("Select a soldier\n(click or Tab)", 14, Styles.DIM)
 	_empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -136,6 +145,9 @@ func refresh(view: MissionView) -> void:
 		_ap.set_values(Rules.action_slots(u), u.actions_left)
 		_show_losses(Rules.action_losses(view.state, u))
 		_hp.set_values(u.max_hp, u.hp, 0, Styles.DANGER if u.hp * 3 <= u.max_hp else Styles.HP)
+		_ammo_row.visible = Ammo.tracked(u)
+		if Ammo.tracked(u):
+			_ammo.set_values(Ammo.mag_size(u), Ammo.rounds(u))
 		_fit_soldier_box()
 		_place(input.actions(), input, can_act)
 	# Ready applies to the owner of the selected soldier, else the first local player.

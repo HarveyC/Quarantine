@@ -15,6 +15,7 @@ const MOVE := "move"            # + "to": Vector2i
 const SHOOT := "shoot"          # + "target": unit id
 const OVERWATCH := "overwatch"
 const HUNKER := "hunker"
+const RELOAD := "reload"        # refills the magazine (see Ammo)
 const ABILITY := "ability"      # + "ability": String, optional "target" (unit id) / "cell" (Vector2i)
 const MUTATION := "mutation"    # + "mutation": String, optional "target" / "cell"
 const STRUGGLE := "struggle"    # a pinned soldier fights the Lurker off (costs no actions, once a turn)

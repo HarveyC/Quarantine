@@ -381,6 +381,8 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 		"suppress", "tag":
 			if not u.is_enemy_of(t) or not can_see(s, u.pos, t.pos) or not in_squad_sight(s, u, t):
 				return "No line of sight"
+			if id == "suppress" and not Ammo.can_fire(u):
+				return "Out of ammo"
 		"stim":
 			if u.is_enemy_of(t):
 				return "Not an ally"
@@ -469,6 +471,7 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 	var t: Unit = s.get_unit(action.target) if action.has("target") else u
 	match id:
 		"suppress":
+			Ammo.spend(u, Ammo.suppress_rounds(u))
 			t.status["suppressed"] = phase_index(s) + 2
 			t.overwatch = false
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
@@ -525,6 +528,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		Types.SHOOT:
 			if UnitData.is_melee_only(u.kind):
 				return "Melee only"
+			if not Ammo.can_fire(u):
+				return "Out of ammo"
 			if action.has("cell"):
 				var c: Variant = action.cell
 				if not c is Vector2i or not _shoots_barrels(u):
@@ -533,6 +538,11 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			var t := s.get_unit(action.get("target", -1))
 			if t == null or not shot_targets(s, u).has(t):
 				return "No line of sight"
+		Types.OVERWATCH:
+			if not Ammo.can_fire(u):
+				return "Out of ammo"
+		Types.RELOAD:
+			return Ammo.reload_error(s, u)
 		Types.ABILITY:
 			return _validate_ability(s, u, action)
 	return ""
@@ -557,6 +567,8 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			u.status["hunker_until"] = phase_index(s) + 2
 			u.actions_left = 0
 			s.emit({"type": "hunker", "unit": u.id})
+		Types.RELOAD:
+			Ammo.apply_reload(s, u)
 		Types.ABILITY:
 			_apply_ability(s, u, action)
 
@@ -564,6 +576,9 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 ## Rolls one shot from `u` at `t`, emits the "shot" event and deals damage. Spends no actions.
 ## A graze has hit = true, graze = true and reduced damage.
 static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
+	if not Ammo.can_fire(u):
+		return   # an extra shot (Return Fire, Crossfire, a Suppress set shot) with an empty gun
+	Ammo.spend(u)
 	var odds := hit_chance(s, u, t, u.pos, reaction)
 	var r := resolve_roll(s.rng.randi_range(1, 100), odds)
 	u.status.erase("suppressed")
@@ -572,7 +587,7 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		dmg = Kit.shot_damage(s, u, t, final_damage(s.rng.randi_range(u.damage.x, u.damage.y), r.graze, r.crit))
 		dmg = GearFx.shot_damage(s, u, t, dmg, reaction)
 	s.emit({"type": "shot", "unit": u.id, "target": t.id, "hit": r.hit or r.graze, "graze": r.graze,
-		"crit": r.crit, "damage": dmg, "chance": odds.hit, "reaction": reaction})
+		"crit": r.crit, "damage": dmg, "chance": odds.hit, "reaction": reaction, "ammo": Ammo.rounds(u)})
 	if dmg > 0:
 		Rules.deal_damage(s, t, dmg, u)
 	elif not (r.hit or r.graze):
@@ -584,10 +599,13 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 ## Rolls one shot from `u` at the fuel barrel on `c` and emits "barrel_shot"; a hit sets it off
 ## (Destruction.hit, chain and fire included). Spends no actions.
 static func fire_at_barrel(s: GameState, u: Unit, c: Vector2i, reaction: bool) -> void:
+	if not Ammo.can_fire(u):
+		return
+	Ammo.spend(u)
 	var odds := barrel_chance(s, u, c, u.pos, reaction)
 	var hit := s.rng.randi_range(1, 100) <= int(odds.hit)
 	u.status.erase("suppressed")
-	s.emit({"type": "barrel_shot", "unit": u.id, "cell": c, "hit": hit, "chance": odds.hit, "reaction": reaction})
+	s.emit({"type": "barrel_shot", "unit": u.id, "cell": c, "hit": hit, "chance": odds.hit, "reaction": reaction, "ammo": Ammo.rounds(u)})
 	if hit:
 		Destruction.hit(s, {c: 1}, u)
 
@@ -620,7 +638,7 @@ static func reaction_barrel(s: GameState, w: Unit, mover: Unit) -> Vector2i:
 static func reactions_to_move(s: GameState, mover: Unit, cell: Vector2i) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for w in s.units:
-		if w != mover and is_overwatching(s, w) and w.is_enemy_of(mover) and Kit.can_react(w, mover) \
+		if w != mover and is_overwatching(s, w) and Ammo.can_fire(w) and w.is_enemy_of(mover) and Kit.can_react(w, mover) \
 				and (Vision.overwatch_sees(s, w, mover, cell) or (not mover.status.get("hidden", false) and Kit.shared_sight(s, w, cell))):
 			out.append(w)
 		elif w != mover and GearFx.suppress_shot_ready(s, w, mover, cell):

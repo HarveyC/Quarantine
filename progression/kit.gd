@@ -28,6 +28,7 @@ const WILLING_HOST_FLOOR := 25
 const STEADY_HANDS_DEFENSE := 15
 const SPORE_VEIL_DEFENSE := 10
 const HIGH_PERCH_AIM := 10
+const FRESH_MAG_AIM := 15
 const LOW_PROFILE := 15
 const SHIELD_UP := 20
 
@@ -84,6 +85,37 @@ static func _once(u: Unit, key: String, value: Variant = true) -> bool:
 		return false
 	u.status[key] = value
 	return true
+
+
+# ---------------------------------------------------------------- ammo
+
+## Rounds perks and mutations add to the magazine (Ammo.mag_size).
+static func mag_bonus(u: Unit) -> int:
+	var n := 0
+	if has_perk(u, "bandolier"):
+		n += Ammo.BANDOLIER
+	if has_perk(u, "belt_fed"):
+		n += Ammo.BELT_FED
+	if awake(u, "bone_magazine"):
+		n += Ammo.BONE_MAG
+	return n
+
+
+## Shell Game: Reload costs no action.
+static func free_reload(u: Unit) -> bool:
+	return has_perk(u, "shell_game")
+
+
+static func after_reload(s: GameState, u: Unit, _had: int) -> void:
+	if has_perk(u, "fresh_mag"):
+		u.status["k_fresh_turn"] = s.turn
+	if awake(u, "bone_magazine"):
+		Infection.add(s, u, Ammo.BONE_MAG_INFECTION)
+
+
+## Rounds a kill gives back (Bone Magazine).
+static func kill_rounds(u: Unit) -> int:
+	return 1 if awake(u, "bone_magazine") else 0
 
 
 # ---------------------------------------------------------------- stats
@@ -205,7 +237,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	var type: String = action.get("type", "")
 	if u.status.get("k_move_only") == s.turn and type != Types.MOVE:
 		return "Kick In: only a move is left"
-	if u.status.get("k_shoot_only") == s.turn and type != Types.SHOOT:
+	if u.status.get("k_shoot_only") == s.turn and type != Types.SHOOT and type != Types.RELOAD:
 		return "Run and Gun: only a shot is left"
 	if type == Types.HUNKER:
 		if awake(u, "chitin_plates"):
@@ -318,6 +350,8 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 				breakdown.append(["Steady Aim", STEADY_AIM])
 		if reaction and has_perk(attacker, "long_watch"):
 			breakdown.append(["Long Watch", Combat.REACTION_PENALTY])
+		if has_perk(attacker, "fresh_mag") and attacker.status.get("k_fresh_turn", -1) == s.turn:
+			breakdown.append(["Fresh Mag", FRESH_MAG_AIM])
 		if has_perk(attacker, "high_perch") and s.grid.level(from) > s.grid.level(target.pos):
 			breakdown.append(["High Perch", HIGH_PERCH_AIM])
 		if reaction:

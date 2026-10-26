@@ -315,6 +315,17 @@ func _probes() -> Dictionary:
 	p["ember_plating"] = func(x):
 		GearFx.damage_taken(x.s, x.u, 2, x.foe)
 		return _expect(GearFx.is_burning(x.s, x.foe), "attacker not Burning")
+	p["extended_mag"] = func(x):
+		return _expect(Ammo.mag_size(x.u) == int(Weapons.TABLE.rifle.mag) + 2 and Ammo.rounds(x.u) == Ammo.mag_size(x.u), "magazine not bigger")
+	p["speed_loader"] = func(x):
+		x.u.status["ammo"] = 1
+		Rules.apply(x.s, {"type": Types.RELOAD, "unit": x.u.id})
+		return _expect(x.u.actions_left == 2 and Ammo.rounds(x.u) == Ammo.mag_size(x.u), "reload still cost an action")
+	p["scavenger_rounds"] = func(x):
+		x.u.status["ammo"] = 2
+		x.foe.hp = 0
+		GearFx.on_kill(x.s, x.u, x.foe, false)
+		return _expect(Ammo.rounds(x.u) == 3, "no round back")
 	p["tracer_rounds"] = func(x):
 		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
 		return _expect(Combat.has_status(x.s, x.foe, "tagged"), "not Marked")

@@ -26,6 +26,7 @@ static func new_mission_on_grid(grid: Grid, squad: Array, enemies: Array[String]
 			RunSoldier.apply_entry(s, u, squad[i])
 		elif squad[i].has("prog"):
 			Progression.apply_record(u, squad[i].prog)
+		Ammo.setup(u)   # last: gear, perks, Grafts and mutations all move the magazine
 	s.players.assign(players.keys())
 	for i in enemies.size():
 		var spawn := s.grid.enemy_spawns[i % s.grid.enemy_spawns.size()]
@@ -104,7 +105,7 @@ static func validate(s: GameState, action: Dictionary) -> String:
 		return kit_err
 	match action.get("type"):
 		Types.MOVE: return _validate_move(s, u, action.get("to", u.pos))
-		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: return Combat.validate(s, u, action)
+		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.RELOAD, Types.ABILITY: return Combat.validate(s, u, action)
 		Types.MUTATION: return Infection.validate_mutation(s, u, action)
 	return "Unknown action"
 
@@ -131,7 +132,7 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 	Kit.before_action(s, u, action)
 	match action.type:
 		Types.MOVE: _do_move(s, u, action.to)
-		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.ABILITY: Combat.apply(s, u, action)
+		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.RELOAD, Types.ABILITY: Combat.apply(s, u, action)
 		Types.MUTATION: Infection.apply_mutation(s, u, action)
 	Concealment.after_action(s, u, action)
 	Encounter.after_action(s, u, action)

@@ -161,7 +161,7 @@ func _start(ev: Dictionary) -> void:
 			view.show_vision(ev)
 	beat.merge({"dur": 0.0, "pad": 0.0, "update": null, "finish": null, "t": 0.0})
 	beat["ev"] = ev
-	if enemy_phase and beat.dur > 0.0 and ev.get("type") in ["move", "shot", "barrel_shot", "ability", "mutation", "overwatch", "hunker"]:
+	if enemy_phase and beat.dur > 0.0 and ev.get("type") in ["move", "shot", "barrel_shot", "ability", "mutation", "overwatch", "hunker", "reload"]:
 		beat.pad += ENEMY_PAD
 	_cur = beat
 
@@ -1030,6 +1030,19 @@ func _beat_overwatch(ev: Dictionary) -> Dictionary:
 	return _status_beat(ev, true, "OVERWATCH")
 
 
+## A fresh magazine: the word over the soldier's head, rounds in the new count, a mag-change click.
+func _beat_reload(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	var free: bool = ev.get("free", false)
+	view.fx.floating_text(_head(uv), "RELOAD", Palette.AMBER, 40)
+	view.fx.pulse(uv.position, Palette.AMBER, 0.5)
+	uv.flash(Palette.AMBER)
+	_sfx("reload", -2.0)
+	return {"dur": 0.35 if free else 0.5}
+
+
 func _beat_hunker(ev: Dictionary) -> Dictionary:
 	return _status_beat(ev, false, "HUNKER DOWN")
 
@@ -1127,6 +1140,7 @@ func _beat_heal(ev: Dictionary) -> Dictionary:
 ## target (the unit acted on) rather than the soldier whose gear fired.
 const GEAR_PROCS := {
 	"close_set": {"text": "MOVE REFUNDED", "color": Color("e0a050")},
+	"rounds_back": {"text": "ROUND BACK", "color": Color("e0a050")},
 	"mark_set": {"text": "MARK JUMPS", "color": Color("ff5c86"), "on_target": true},
 	"suppress_set": {"text": "PINNED SHOT", "color": Color("b9a7ff")},
 	"guard_set": {"text": "TAKES THE HIT", "color": Color("a9c46c")},

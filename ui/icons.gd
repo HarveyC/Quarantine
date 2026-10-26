@@ -29,6 +29,8 @@ static func for_action(a: Dictionary) -> String:
 			return "overwatch"
 		"hunker":
 			return "hunker"
+		"reload":
+			return "reload"
 		"struggle":
 			return "pinned"
 	return ABILITY_ICON.get(str(a.get("id", "")), "ability")
@@ -106,6 +108,11 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 		"overwatch":
 			line.call([[2, 12], [5, 8.5], [8.5, 6], [12, 5], [15.5, 6], [19, 8.5], [22, 12], [19, 15.5], [15.5, 18], [12, 19], [8.5, 18], [5, 15.5], [2, 12]])
 			circle.call(12, 12, 3)
+		"reload":
+			line.call([[8, 3], [16, 3], [16, 15], [8, 15], [8, 3]])
+			line.call([[8, 7], [16, 7]])
+			arc.call(12, 18, 4, 0.0, PI)
+			line.call([[6.5, 17], [8, 19.5], [10.5, 18.5]])
 		"hunker":
 			line.call([[3, 20], [21, 20]])
 			line.call([[6, 20], [6, 14]])
