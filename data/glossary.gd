@@ -420,12 +420,12 @@ static func _build() -> Dictionary:
 		"see": ["overwatch", "tag_suppress"],
 		"aliases": ["Suppression", "Suppresses"], "labels": ["Suppress"]}
 	t["mark"] = {"name": "Marked", "kind": "status", "icon": "tag", "tone": Color("#ff5c86"),
-		"line": "Tagged by a Marksman: every soldier aims better against it.",
+		"line": "Marked by a Marksman: every soldier aims better against it.",
 		"art": "",
 		"stats": [["+%d" % Combat.TAG_BONUS, "aim for all"], ["1", "round"]],
 		"more": ["Lasts until the end of the next enemy phase."],
 		"see": ["tag_mark", "hit_chance"],
-		"aliases": ["Tagged", "Marksman Tag"], "labels": ["Mark", "Tag"]}
+		"aliases": ["Marksman Tag", "Marks"], "labels": ["Mark"]}
 	t["burning"] = {"name": "Burning", "kind": "status", "icon": "alert", "tone": Color("#ff7a45"),
 		"line": "On fire: damage at the start of each of its turns.",
 		"art": "hazards",
@@ -593,6 +593,21 @@ static func _build() -> Dictionary:
 			"more": ["Set bonus: " + str(info.bonus) + "."],
 			"see": ["set_bonus", "gear_tag"],
 			"aliases": [tag + " tag"], "scan": false}
+		if info.has("capstone"):
+			t["cap_" + tag.to_lower()] = {"name": info.capstone_name, "kind": "capstone", "icon": "perk", "tone": info.color,
+				"line": str(info.capstone) + ".",
+				"art": "set",
+				"art_ctx": {"tag": tag, "count": GearData.CAPSTONE_THRESHOLD, "color": info.color},
+				"stats": [["%d" % GearData.CAPSTONE_THRESHOLD, "%s pieces" % tag]],
+				"more": ["On top of the {set_bonus}: it stays on while you hold %d or more." % GearData.CAPSTONE_THRESHOLD],
+				"see": ["capstone", "tag_" + tag.to_lower()]}
+	t["capstone"] = {"name": "Capstone", "kind": "gear", "icon": "perk", "tone": "amber",
+		"line": "%d of the same {gear_tag|tag} on one soldier switch on a capstone that bends a rule, on top of the {set_bonus}." % GearData.CAPSTONE_THRESHOLD,
+		"art": "set",
+		"stats": [["%d" % GearData.CAPSTONE_THRESHOLD, "same tag"], ["1", "per tag"]],
+		"more": ["Gear, guns, perks, Grafts and awake mutations all count.", "A full build reaches it; a scattered one never will."],
+		"see": ["set_bonus", "gear_tag"],
+		"aliases": ["Capstones"]}
 	t["mk2"] = {"name": "Mk II", "kind": "gear", "icon": "plus", "tone": "amber",
 		"line": "The upgraded version of an item: same idea, bigger numbers.",
 		"art": "",

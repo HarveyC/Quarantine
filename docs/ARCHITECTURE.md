@@ -265,6 +265,13 @@ Run-level and pure data, like the rules core. Design: "Equipment and builds" in 
   `Progression.unit_tag_counts` (perks and awake mutations; loaded by path `res://progression/progression.gd`,
   optional). `has_set`, `active_sets`, `ranked`, `qualified_prototypes`, `preview(record, id)` (threshold
   preview for cards). Set bonus at 3, Prototype at two tags at 2.
+- **Capstones** (6 pieces of a tag, `GearData.CAPSTONE_THRESHOLD`; `TAG_INFO[tag].capstone`): Burn Wildfire,
+  Mark Warrant, Overwatch Field of Fire, Guard Aegis. `GearTags.has_capstone` / `active_capstones`,
+  `GearFx.has_capstone(unit, tag)` in the rules. Hooks: `GearFx.on_team_phase_start` (Wildfire spread, `fire_damage`,
+  `hazard_damage`), `on_marked` / `odds_terms` / `on_kill` (Warrant), `Kit.keep_overwatch` (Field of Fire),
+  `Rules.deal_damage` -> `GearFx.aegis_hold` / `aegis_return` (Aegis). Beats live in `EventPlayer.GEAR_PROCS` (each
+  names a `cap_*` sound from tools/gen_sfx.py). `Builds` (gear/builds.gd) holds the eight easy builds plus Killbox;
+  tests/test_capstones.gd checks that each reaches 6 of its tag.
 - **Draws** (`GearDraw`): tag weight = 1 + 2 per point (max +6); rarity odds per act with +2% Rare pity per
   Common seen; `draw_item(rng, counts, rarity, exclude, only_tags)`; `depot_items(rng, squad_counts, act)`.
 - **Run hooks** (`GearRun`, the run framework's contract): `init_run` (also gives every soldier, reserve

@@ -295,24 +295,33 @@ func _turning() -> void:
 	_icon("turned", Vector2(w + 116, y + 5), 20, Infection.tier_color(Infection.Tier.TURNED))
 
 
-## Pips toward a set bonus (3 by default), filled to `count`.
+## Pips toward a set bonus (3 by default), filled to `count`. A tag with a capstone runs on to 6.
 func _set_pips() -> void:
 	var col: Color = ctx.get("color", tone)
+	var capstone: bool = GearData.has_capstone(str(ctx.get("tag", "")))
 	var need := GearData.SET_THRESHOLD
 	var have := int(ctx.get("count", need))
-	var n := maxi(need, have)
+	var n := GearData.CAPSTONE_THRESHOLD if capstone else maxi(need, have)
+	n = maxi(n, mini(have, GearData.CAPSTONE_THRESHOLD))
+	var step := 22.0 if n > 4 else 26.0
 	for i in n:
-		var c := Vector2(10 + i * 26, 13)
+		var c := Vector2(10 + i * step, 13)
 		if i < have:
-			draw_circle(c, 9, col)
+			draw_circle(c, 9 if i < need else 7, col)
 		else:
-			draw_arc(c, 8.5, 0, TAU, 28, Color(col, 0.6), 1.5, true)
-	var x := n * 26 + 4
+			draw_arc(c, 8.5 if i < need else 6.5, 0, TAU, 28, Color(col, 0.6), 1.5, true)
+	var x := n * step + 4
 	draw_line(Vector2(x, 13), Vector2(x + 22, 13), Styles.MUTED, 1.5)
 	_arrow_head(Vector2(x + 26, 13), Vector2.RIGHT, Styles.MUTED)
+	var label := "bonus on"
 	var on := have >= need
+	if capstone and have >= need:
+		on = true
+		label = "capstone on" if have >= GearData.CAPSTONE_THRESHOLD else "%d to capstone" % (GearData.CAPSTONE_THRESHOLD - have)
+	elif not on:
+		label = "%d more" % (need - have)
 	_icon("perk", Vector2(x + 44, 13), 18, col if on else Styles.MUTED)
-	_text(Vector2(x + 58, 18), "bonus on" if on else "%d more" % (need - have), 10, col if on else Styles.MUTED)
+	_text(Vector2(x + 58, 18), label, 10, col if on else Styles.MUTED)
 
 
 ## Outbreak track with its stages; the marker sits on the run's value. Stage names that don't

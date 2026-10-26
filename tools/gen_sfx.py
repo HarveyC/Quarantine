@@ -1004,6 +1004,52 @@ def order_call():
     return mix(radio_beep(), np.concatenate([np.zeros(int(0.12 * SR)), _blip(660, 0.3, 0.1) * 0.5, _blip(880, 0.3, 0.12) * 0.5]))
 
 
+def cap_wildfire():
+    """Wildfire capstone: a low whoosh of gas catching, then a crackling roar that rolls outward."""
+    d = 1.4
+    x = t(d)
+    whoosh = lowpass(noise(d), np.linspace(300, 2600, len(x))) * env(len(x), 0.12, 0.45) * 1.2
+    thump = sine(np.linspace(90, 45, len(x)), d) * env(len(x), 0.01, 0.18) * 0.9
+    crackle = np.zeros(len(x))
+    for k in range(34):
+        s0 = int(rng.uniform(0.1, 1.2) * SR)
+        g = highpass(noise(0.03), 2500) * env(int(0.03 * SR), 0.0005, 0.006) * rng.uniform(0.08, 0.35)
+        crackle[s0:s0 + len(g)] += g[:len(crackle) - s0]
+    return reverb(distort(mix(whoosh, thump, crackle * 0.8), 1.8), 0.4, 0.2)
+
+
+def cap_warrant():
+    """Warrant capstone: a rangefinder lock (two tight pings), then a heavy stamp of approval."""
+    ping1 = _blip(1760, 0.12, 0.05)
+    ping2 = _blip(2349, 0.2, 0.09)
+    stamp = (sine(np.linspace(140, 55, int(0.3 * SR)), 0.3) + lowpass(noise(0.3), 700) * 0.6) * env(int(0.3 * SR), 0.001, 0.07)
+    z = lambda sec: np.zeros(int(sec * SR))
+    return reverb(mix(ping1, np.concatenate([z(0.1), ping2]), np.concatenate([z(0.26), stamp * 1.2])), 0.3, 0.2)
+
+
+def cap_field():
+    """Field of Fire capstone: a radar sweep, a rising run of clicks that ends on a bolt slamming home."""
+    d = 0.9
+    sweep = sine(np.linspace(400, 1800, int(0.5 * SR)), 0.5) * env(int(0.5 * SR), 0.05, 0.3) * 0.35
+    clicks = np.zeros(int(d * SR))
+    for k in range(9):
+        s0 = int((0.05 + k * 0.055) * SR)
+        c = _blip(900 + k * 140, 0.03, 0.008)
+        clicks[s0:s0 + len(c)] += c * 0.7
+    slam = mech_click(2200, 0.03)
+    return reverb(mix(sweep, clicks, np.concatenate([np.zeros(int(0.58 * SR)), slam * 1.4, ])), 0.3, 0.18)
+
+
+def cap_aegis():
+    """Aegis capstone: a struck steel plate. Inharmonic partials ring out over a dull impact."""
+    d = 1.6
+    x = t(d)
+    ring = sum(sine(f, d) * env(len(x), 0.001, dec) * g for f, dec, g in
+               [(310, 0.7, 1.0), (703, 0.5, 0.7), (1142, 0.35, 0.5), (1788, 0.22, 0.35), (2630, 0.12, 0.2)])
+    hit = (lowpass(noise(0.1), 3000) + sine(80, 0.1) * 1.2) * env(int(0.1 * SR), 0.0005, 0.02)
+    return reverb(mix(ring * 0.5, hit), 0.4, 0.25)
+
+
 SOUNDS = {
     "rifle": rifle, "sniper": sniper, "shotgun": shotgun, "spit": enemy_spit, "claw": claw,
     "whiz": tracer_whiz, "impact_flesh": impact_flesh, "impact_armor": impact_armor,
@@ -1029,6 +1075,7 @@ SOUNDS = {
     "ping": ping, "ping_attack": ping_attack, "ping_danger": ping_danger,
     "smoke_hiss": smoke_hiss, "flashbang": flashbang, "gadget_deploy": gadget_deploy, "foam_spray": foam_spray,
     "drone": drone, "grapple": grapple, "flare_pop": flare_pop, "emitter_hum": emitter_hum, "order_call": order_call,
+    "cap_wildfire": cap_wildfire, "cap_warrant": cap_warrant, "cap_field": cap_field, "cap_aegis": cap_aegis,
 }
 
 if __name__ == "__main__":

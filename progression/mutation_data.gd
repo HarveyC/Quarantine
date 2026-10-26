@@ -43,6 +43,9 @@ const MUTATIONS := {
 		"desc": "The first time you'd go down each fight, you stay up at 1 HP.", "drawback": "You gain 15 Infection when it triggers."},
 	"rally_musk": {"name": "Rally Musk", "slot": "mutating", "active": true, "tag": "Guard", "targeting": "none", "actions": 1,
 		"desc": "Allies within 3 tiles get +1 movement and +10 aim this turn.", "drawback": "Each of them gains 3 Infection."},
+	"kindled_spores": {"name": "Kindled Spores", "slot": "mutating", "active": false, "tag": "Burn",
+		"desc": "Your hits set the target Burning, and any spores around it flare into fire.",
+		"drawback": "Each ignition adds 2 Infection to you."},
 	"hive_hush": {"name": "Hive Hush", "slot": "mutating", "active": false, "tag": "Purge",
 		"desc": "Unaware Infected can't spot you beyond 4 tiles.", "drawback": "Medic Purge on you is half as effective."},
 	# --- Critical (75+): graft +20, actives cost 15

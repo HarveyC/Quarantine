@@ -80,6 +80,24 @@ static func unit_has_set(u: Unit, tag: String) -> bool:
 	return has_set(unit_counts(u), tag)
 
 
+## The capstone: 6 of a tag that has one built (GearData.TAG_INFO "capstone").
+static func has_capstone(c: Dictionary, tag: String) -> bool:
+	return GearData.has_capstone(tag) and c.get(tag, 0) >= GearData.CAPSTONE_THRESHOLD
+
+
+static func unit_has_capstone(u: Unit, tag: String) -> bool:
+	return GearData.has_capstone(tag) and has_capstone(unit_counts(u), tag)
+
+
+## Tags whose capstone is on.
+static func active_capstones(c: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	for t in GearData.TAGS:
+		if has_capstone(c, t):
+			out.append(t)
+	return out
+
+
 ## Tags whose set bonus is on.
 static func active_sets(c: Dictionary) -> Array[String]:
 	var out: Array[String] = []
@@ -157,4 +175,7 @@ static func _diff(before: Dictionary, after: Dictionary) -> Array[Dictionary]:
 			out.append({"tag": t, "from": a, "to": b,
 				"unlocks": a < GearData.SET_THRESHOLD and b >= GearData.SET_THRESHOLD,
 				"loses": a >= GearData.SET_THRESHOLD and b < GearData.SET_THRESHOLD})
+			if GearData.has_capstone(t):   # only the tags with a capstone carry its flags
+				out[-1]["cap_unlocks"] = a < GearData.CAPSTONE_THRESHOLD and b >= GearData.CAPSTONE_THRESHOLD
+				out[-1]["cap_loses"] = a >= GearData.CAPSTONE_THRESHOLD and b < GearData.CAPSTONE_THRESHOLD
 	return out

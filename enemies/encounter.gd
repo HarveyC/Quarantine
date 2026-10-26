@@ -529,6 +529,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 	var armour := int(target.status.get("armour", 0))
 	if EnemyRoster.has_affix(target, "armoured"):
 		armour = maxi(armour, EnemyRoster.ARMOURED_REDUCTION)   # doesn't stack with a Brute's own plating
+	if target.status.get("ignore_armour", false):
+		armour = 0   # Wildfire fire
 	if armour > 0:
 		amount = maxi(1, amount - armour)
 	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:

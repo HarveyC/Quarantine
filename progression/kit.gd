@@ -17,6 +17,7 @@ const SHOULDER_DEFENSE := 10
 const STEADFAST_DEFENSE := 20
 const HOLD_LINE_HUNKER := 10
 const TRIAGE_DEFENSE := 20
+const LAST_WALL_DEFENSE := 20
 const JUGGERNAUT_DEFENSE := 10
 const STEADY_AIM := 10
 const LURE_AIM := 15
@@ -250,7 +251,7 @@ static func on_step(s: GameState, u: Unit, _c: Vector2i) -> void:
 # ---------------------------------------------------------------- odds and damage
 
 ## Cover after perks: a Warden's Bulwark covers the ally right behind it (Tower Shield: full
-## cover); Expose lowers a Tagged enemy's cover by one step for the squad.
+## cover); Expose lowers a Marked enemy's cover by one step for the squad.
 static func cover_against(s: GameState, attacker: Unit, target: Unit, cover: int, from: Vector2i = attacker.pos) -> int:
 	cover = maxi(cover, bulwark_cover(s, target, from))
 	if cover == Types.Cover.NONE or attacker.team != Types.Team.PLAYER or not Combat.has_status(s, target, "tagged"):
@@ -291,6 +292,8 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 			breakdown.append(["Hold the Line", -HOLD_LINE_HUNKER])
 		if target.status.has("k_triage") and Combat.has_status(s, target, "k_triage"):
 			breakdown.append(["Triage Cover", -TRIAGE_DEFENSE])
+		if target.status.has("k_wall") and Combat.has_status(s, target, "k_wall"):
+			breakdown.append(["Last Wall", -LAST_WALL_DEFENSE])
 		if has_perk(target, "juggernaut") and target.status.get("k_flanked_turn") == s.turn:
 			breakdown.append(["Juggernaut", -JUGGERNAUT_DEFENSE])
 		if has_perk(target, "steady_hands") and target.status.has("k_steady") and Combat.has_status(s, target, "k_steady"):
@@ -368,11 +371,16 @@ static func modify_incoming(s: GameState, target: Unit, amount: int, source: Uni
 		Rules.deal_damage(s, partner, half, null)
 		partner.status.erase("k_splitting")
 	if amount >= target.hp and is_soldier(target):
+		if target.hp > 1 and GearFx.has_capstone(target, "Guard"):
+			return amount   # Aegis holds the line instead, so Last Stand and the like aren't spent
 		if has_perk(target, "last_stand") and _once(target, "k_last_stand"):
 			s.emit({"type": "perk", "unit": target.id, "perk": "last_stand"})
 			return target.hp - 1
 		if has_perk(target, "last_wall") and _once(target, "k_last_wall"):
 			s.emit({"type": "perk", "unit": target.id, "perk": "last_wall"})
+			for ally in s.living(Types.Team.PLAYER):
+				if ally != target and cheb(ally.pos, target.pos) == 1:
+					ally.status["k_wall"] = Combat.phase_index(s) + (2 if s.phase == Types.Phase.TEAM else 1)
 			return target.hp - 1
 		if awake(target, "second_heart") and _once(target, "k_second_heart"):
 			target.status["k_second_heart_pending"] = true
@@ -546,7 +554,7 @@ static func after_ability(s: GameState, u: Unit, id: String, t: Unit) -> void:
 			if has_perk(u, "suppressive_volley") and t != null and t.is_alive():
 				Rules.deal_damage(s, t, 1, u)
 		"tag":
-			if has_perk(u, "hunters_mark") and t != null and t.status.has("tagged"):
+			if has_perk(u, "hunters_mark") and t != null and t.status.has("tagged") and int(t.status.tagged) < GearFx.WARRANT_FOREVER:
 				t.status["tagged"] = int(t.status.tagged) + 2
 		"breach":
 			if t != null and has_perk(u, "frag_charge"):
@@ -574,8 +582,13 @@ static func shared_sight(s: GameState, w: Unit, cell: Vector2i) -> bool:
 	return p != null and Vision.unit_sees_cell(s, p, cell)
 
 
-## Called before a reaction shot clears overwatch. True keeps it up (Kill Zone's second shot).
+## Called before a reaction shot clears overwatch. True keeps it up (Kill Zone's second shot, and
+## every shot of the Field of Fire capstone).
 static func keep_overwatch(s: GameState, w: Unit, mover: Unit) -> bool:
+	if GearFx.has_capstone(w, "Overwatch"):
+		w.status["k_kz_last"] = mover.id   # Field of Fire: one shot per mover, never the same one twice running
+		s.emit({"type": "gear", "unit": w.id, "item": "field_of_fire", "target": mover.id})
+		return true
 	if not has_perk(w, "kill_zone"):
 		return false
 	w.status["k_kz_last"] = mover.id

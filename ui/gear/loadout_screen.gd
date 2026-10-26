@@ -499,6 +499,11 @@ func _build_tags(r: Dictionary) -> void:
 			_tags.add_child(_bonus_line("Completes the set: " + GearData.TAG_INFO[tag].bonus, UI.AMBER))
 		elif ch.get("loses", false):
 			_tags.add_child(_bonus_line("Turns off: " + GearData.TAG_INFO[tag].bonus, UI.DANGER))
+		if GearData.has_capstone(tag):
+			var cap: Dictionary = GearData.TAG_INFO[tag]
+			var cap_line := "%s: %s" % [cap.capstone_name, cap.capstone]
+			if n >= GearData.CAPSTONE_THRESHOLD and not ch.get("cap_loses", false):
+				_tags.add_child(_bonus_line("Capstone on, " + cap_line, col))
 	if not protos.is_empty():
 		var names := protos.map(func(id): return GearData.item_name(id))
 		_tags.add_child(_bonus_line("Prototypes unlocked: " + ", ".join(names) + ". Rare rewards may become one.", UI.AMBER))
@@ -513,6 +518,13 @@ func _build_summary(r: Dictionary) -> void:
 		h.add_theme_constant_override("separation", 10)
 		h.add_child(UI.tag_chip(t, "%s set" % t))
 		h.add_child(UI.text(GearData.TAG_INFO[t].bonus, 14, UI.TEXT, 640))
+		_build_box.add_child(h)
+	for t in GearTags.active_capstones(counts):
+		var cap: Dictionary = GearData.TAG_INFO[t]
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		h.add_child(UI.tag_chip(t, "%s capstone" % t))
+		h.add_child(UI.text("%s: %s" % [cap.capstone_name, cap.capstone], 14, UI.TEXT, 640))
 		_build_box.add_child(h)
 	var close: Array = GearTags.ranked(counts).filter(func(t): return counts[t] == GearData.SET_THRESHOLD - 1)
 	for t in close:

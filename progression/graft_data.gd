@@ -45,9 +45,9 @@ const LEAP_RANGE := 4
 
 const GRAFTS := {
 	"targeting_optic": {"name": "Targeting optic", "slot": "head", "path": MACHINE, "tag": "Mark",
-		"desc": "+15 aim, and your Tags last one turn longer.",
+		"desc": "+15 aim, and your Marks last one turn longer.",
 		"look": "A large targeting lens with a range-finder in place of one mask optic"},
-	"lattice_sight": {"name": "Lattice sight", "slot": "head", "path": BLOOM, "tag": "Strain",
+	"lattice_sight": {"name": "Lattice sight", "slot": "head", "path": BLOOM, "tag": "Overwatch",
 		"desc": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers come through as +1 Intel after each fight.",
 		"look": "The mask cracked open, teal crystals growing through the visor"},
 	"servo_arm": {"name": "Servo arm", "slot": "arm", "path": MACHINE, "tag": "Suppress",

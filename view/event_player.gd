@@ -1135,6 +1135,13 @@ const GEAR_PROCS := {
 	"crossfire": {"text": "CROSSFIRE", "color": Color("6fc3ff")},
 	"scorched_earth": {"text": "SCORCHED EARTH", "color": Color("ff8a3d")},
 	"symbiotic": {"text": "SYMBIOTIC SUIT", "color": Palette.TEAL},
+	# Capstones (6 of a tag): a bigger label, a flash and a burst, and a sound of their own.
+	"wildfire": {"text": "WILDFIRE", "color": Color("ff7a45"), "on_target": true, "sound": "cap_wildfire", "cap": true},
+	"warrant": {"text": "WARRANT", "color": Color("ff5c86"), "on_target": true, "sound": "cap_warrant", "cap": true},
+	"warrant_served": {"text": "WARRANT SERVED  +1 ACTION", "color": Color("ff5c86"), "sound": "cap_warrant", "cap": true},
+	"field_of_fire": {"text": "FIELD OF FIRE", "color": Color("6fc3ff"), "sound": "cap_field", "cap": true},
+	"aegis_hold": {"text": "AEGIS HOLDS", "color": Color("a9c46c"), "sound": "cap_aegis", "cap": true},
+	"aegis_return": {"text": "AEGIS RETURNS IT", "color": Color("a9c46c"), "on_target": true, "sound": "cap_aegis", "cap": true},
 }
 
 
@@ -1171,11 +1178,18 @@ func _beat_gear(ev: Dictionary) -> Dictionary:
 		uv.flash(Palette.TEAL)
 	if tv != null and tv != uv:
 		view.fx.tracer(uv.aim_point(), tv.aim_point(), col, 0.35)
-	view.fx.floating_text(_head(on) + Vector3(0, 0.2, 0), text, col, 34, 1.3)
-	view.fx.pulse(on.position, col, 0.5)
-	if not GEAR_PROCS.has(item) or item in ["restrained", "bloodletting", "guard_set"]:
+	var cap: bool = proc.get("cap", false)
+	view.fx.floating_text(_head(on) + Vector3(0, 0.2, 0), text, col, 44 if cap else 34, 1.6 if cap else 1.3)
+	view.fx.pulse(on.position, col, 0.9 if cap else 0.5)
+	if cap:
+		on.flash(col)
+		view.fx.flash_light(on.position + Vector3(0, 1.0, 0), col, 4.0, 0.5)
+		view.fx.burst(on.aim_point(), Vector3.UP, col, 18, 2.4, true, 0.05)
+	if proc.has("sound"):
+		_sfx(proc.sound)
+	elif not GEAR_PROCS.has(item) or item in ["restrained", "bloodletting", "guard_set"]:
 		_sfx("ui_confirm", -6.0)
-	return {"dur": 0.4}
+	return {"dur": 0.6 if cap else 0.4}
 
 
 ## Set Burning (Incendiary rounds, Ember plating, Firestarter, Phosphor rounds...).
@@ -1611,6 +1625,15 @@ func _beat_mutation(ev: Dictionary) -> Dictionary:
 		view.fx.floating_text(_head(uv) + Vector3(0, -0.35, 0), "+1 ACTION", Palette.AMBER, 38)
 		view.fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.AMBER, 10, 1.6, true, 0.03)
 		_sfx("ui_confirm", -4.0)
+	if uv != null and ev.get("mutation") == "kindled_spores":
+		# Kindled Spores: the shot sets the target alight, so the beat is fire, not teal.
+		var fire: Color = Board.HAZARD_COLORS.fire
+		var tv := _uv(ev, "target")
+		if tv != null:
+			view.fx.burst(tv.aim_point(), Vector3.UP, fire, 14, 2.0, true, 0.04)
+			view.fx.flash_light(tv.position + Vector3(0, 1.0, 0), fire, 3.0, 0.4)
+		_sfx("breach", -10.0)
+		return _power_beat(ev, "kindled spores", fire)
 	return _power_beat(ev, str(ev.get("mutation", "mutation")), Palette.TEAL)
 
 

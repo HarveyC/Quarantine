@@ -58,7 +58,7 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 				verb = "guard-bashes"
 			return "%s %s %s: %s (%d%%)" % [who.call("unit"), verb, who.call("target"), res, int(ev.get("chance", 0))]
 		"guard":
-			return "%s raises their shield (Guard)" % who.call("unit")
+			return "%s braces behind their shield" % who.call("unit")
 		"perk":
 			if ev.get("perk") == "bloodlust":
 				return _c("%s: Bloodlust, the kill refunds an action" % who.call("unit"), Palette.TEAL)
