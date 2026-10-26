@@ -187,7 +187,8 @@ func _build_gun(v: VBoxContainer) -> void:
 	v.add_child(UI.wrap(UI.caps(g.name, 36), W - 40))
 	var tags := HBoxContainer.new()
 	tags.add_theme_constant_override("separation", 6)
-	tags.add_child(UI.tag_chip(g.tag))
+	if g.has("tag"):
+		tags.add_child(UI.tag_chip(g.tag))
 	v.add_child(tags)
 	v.add_child(UI.text(g.desc, 15, UI.COPY, W - 40))
 	_art_at = v.get_child_count()
@@ -305,7 +306,7 @@ func _content_row(c: Dictionary) -> Control:
 			nm = g.name
 			what = "%s · Gun" % GearData.RARITY_NAMES[g.rarity]
 			desc = g.desc
-			tags = [g.tag]
+			tags = [g.tag] if g.has("tag") else []
 		"mutation":
 			nm = str(c.get("name", c.id))
 			what = "Mutation · %s" % Infection.tier_name(int(c.get("tier", 1)))

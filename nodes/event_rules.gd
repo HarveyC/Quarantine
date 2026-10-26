@@ -493,11 +493,13 @@ static func _run_effects(run, ns: Dictionary, effects: Array, ctx: Dictionary) -
 			"gun":
 				for rec in _targets(run, ns, e.who, ctx):
 					var id: String = GearRun.gun_card(run.rng, rec, e.get("rarity", "uncommon")).get("id", "")
+					if not Loadout.has_primary(rec):
+						id = Weapons.id_for(str(rec.get("kind", "")))
 					if id == "":
 						RunAccess.add_supplies(run, Weapons.PRICES.uncommon / 2)
 						ns.results.append("%s already carries everything in there; the rest is sold on." % rec.name)
 						continue
-					Loadout.add_gun(rec, id)
+					Loadout.take_gun(rec, id)
 					ns.results.append("%s takes the %s." % [rec.name, Weapons.gun_name(id)])
 					RunAccess.emit(run, {"type": "gun_gained", "sid": rec.id, "gun": id})
 			"modifier":

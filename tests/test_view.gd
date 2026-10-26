@@ -564,7 +564,9 @@ func test_run_fight_ends_on_debrief() -> void:
 	var sum: Dictionary = v.hud.debrief.summarize(s)
 	var row: Dictionary = sum.soldiers.filter(func(r: Dictionary) -> bool: return r.unit == soldier.id)[0]
 	assert_eq(row.kills, 1, "kill credited")
-	assert_eq(row.wounds, 2, "wounds = HP lost this fight")
+	var lost: int = int(soldier.status.get("start_hp", 0)) - soldier.hp   # gear may soak some of the 2
+	assert_true(lost > 0, "the hit landed")
+	assert_eq(row.wounds, lost, "wounds = HP lost this fight")
 	assert_true(row.infection_gained >= 5, "Infection gained")
 	assert_eq(row.fate, "wounded", "fate")
 	var finished := []

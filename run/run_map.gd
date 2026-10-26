@@ -17,6 +17,7 @@ const EVENT := "event"
 const DEPOT := "depot"
 const HOSPITAL := "hospital"
 const SURVIVORS := "survivors"
+const ARMORY := "armory"     # a weapons cache: every soldier takes a gun (the class gun first)
 const BOSS := "boss"
 const UNKNOWN := "unknown"   # a hidden "?" node
 const AMBUSH := "ambush"     # what a "?" node can resolve to: a Skirmish with enemies alerted
@@ -27,8 +28,8 @@ const BIOMES: Array[String] = ["wall", "port", "bore"]
 ## Weights for rows 2-3 per act (percent).
 const WEIGHTS := {
 	1: {SKIRMISH: 40, UNKNOWN: 25, NEST: 8, DEPOT: 12, SURVIVORS: 10, HOSPITAL: 5},
-	2: {SKIRMISH: 35, UNKNOWN: 25, NEST: 13, DEPOT: 12, SURVIVORS: 10, HOSPITAL: 5},
-	3: {SKIRMISH: 30, UNKNOWN: 25, NEST: 18, DEPOT: 12, SURVIVORS: 8, HOSPITAL: 7},
+	2: {SKIRMISH: 35, UNKNOWN: 25, NEST: 13, DEPOT: 12, SURVIVORS: 10, HOSPITAL: 5, ARMORY: 4},
+	3: {SKIRMISH: 30, UNKNOWN: 25, NEST: 18, DEPOT: 12, SURVIVORS: 8, HOSPITAL: 7, ARMORY: 4},
 }
 ## What a "?" node resolves to (percent), before the fight-chance streak bonus.
 const UNKNOWN_WEIGHTS := {EVENT: 60, AMBUSH: 20, DEPOT: 10, SURVIVORS: 10}
@@ -43,7 +44,7 @@ const NEST_OBJECTIVES := {"purge": 50, "hold": 50}
 
 const NAMES := {
 	SKIRMISH: "Skirmish", NEST: "Infested nest", EVENT: "Event", DEPOT: "Supply depot",
-	HOSPITAL: "Field hospital", SURVIVORS: "Survivors", BOSS: "Boss", UNKNOWN: "Unknown", AMBUSH: "Ambush",
+	HOSPITAL: "Field hospital", SURVIVORS: "Survivors", ARMORY: "Weapons cache", BOSS: "Boss", UNKNOWN: "Unknown", AMBUSH: "Ambush",
 }
 
 
@@ -180,6 +181,11 @@ static func _place_missing(rng: RandomNumberGenerator, act: int, by_row: Array) 
 		var c := middle.filter(func(n: Dictionary) -> bool: return n.type == SKIRMISH and (act > 1 or n.row == last_rolled))
 		if not c.is_empty():
 			c[rng.randi() % c.size()].type = NEST
+	if act == 1 and not middle.any(func(n: Dictionary) -> bool: return n.type == ARMORY):
+		# Act 1 always has a weapons cache on the first rolled row, where a path can reach it early.
+		var first: Array = rolled_rows(by_row)[0].filter(func(n: Dictionary) -> bool: return n.type != DEPOT and n.type != HOSPITAL)
+		if not first.is_empty():
+			first[rng.randi() % first.size()].type = ARMORY
 	if not middle.any(func(n: Dictionary) -> bool: return n.type == DEPOT):
 		var c := middle.filter(func(n: Dictionary) -> bool: return n.type in [EVENT, UNKNOWN, SURVIVORS])
 		if not c.is_empty():
@@ -204,11 +210,13 @@ static func _valid(act: int, rolled: Array) -> bool:
 		return false
 	if not all.any(func(n: Dictionary) -> bool: return n.type == DEPOT):
 		return false
+	if act == 1 and not rolled[0].any(func(n: Dictionary) -> bool: return n.type == ARMORY):
+		return false
 	for i in rolled.size() - 1:
 		for a in rolled[i]:
 			for id in a.links:
 				var b: Dictionary = _find(rolled[i + 1], id)
-				if a.type == b.type and (a.type == DEPOT or a.type == HOSPITAL):
+				if a.type == b.type and (a.type == DEPOT or a.type == HOSPITAL or a.type == ARMORY):
 					return false
 				if not _non_combat(a.type) and not _non_combat(b.type):
 					return false
@@ -224,6 +232,8 @@ static func _repair(rng: RandomNumberGenerator, by_row: Array) -> void:
 		for n in rolled[i]:
 			if i % 2 == 0:
 				n.type = DEPOT if (n.col == 0 and i == 0) else [UNKNOWN, SURVIVORS, UNKNOWN][n.col % 3]
+				if n.col == 1 and i == 0 and rolled[0].size() > 1:
+					n.type = ARMORY
 			else:
 				n.type = SKIRMISH
 				fights.append(n)

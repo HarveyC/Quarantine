@@ -383,7 +383,7 @@ func test_gun_stamps_onto_the_unit_and_survives_a_save() -> void:
 	Loadout.add_gun(rec, alt)
 	var back := RunState.from_save_string(rs.save_string())
 	assert_eq(Loadout.gun(back.get_soldier(rec.id)), alt, "carried gun saved")
-	assert_eq(Loadout.guns(back.get_soldier(rec.id)), [alt], "owned guns saved")
+	assert_eq(Loadout.guns(back.get_soldier(rec.id)).filter(func(g): return g != Weapons.START_GUN), [alt], "owned guns saved")
 
 
 func test_bosses_drop_a_gun() -> void:

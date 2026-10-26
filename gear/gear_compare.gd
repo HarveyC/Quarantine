@@ -108,9 +108,9 @@ static func _apply(after: Dictionary, c: Dictionary, st: Dictionary) -> Dictiona
 		"gun":
 			var s := {"kind": "gun", "slot": "gun", "slot_name": "Gun", "icon": "weapon",
 				"old": gun_side(Loadout.gun_id(after)), "new": gun_side(id), "mode": "carry", "fate": "spare"}
-			if Loadout.owns_gun(after, id):
+			if Loadout.owns_gun(after, id) and id != Weapons.id_for(str(after.get("kind", ""))):
 				s.fate = "owned"
-			Loadout.add_gun(after, id)
+			Loadout.take_gun(after, id)
 			return s
 		"perk":
 			var s := {"kind": "perk", "slot": "perk", "slot_name": "Perk", "icon": "perk", "mode": "add",

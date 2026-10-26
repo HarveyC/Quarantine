@@ -22,6 +22,9 @@ extends RefCounted
 
 const SKIP_SUPPLIES := 10
 const CACHE_SUPPLIES := 25
+## Odds (percent) per fight won that a reward offer carries the soldier's class gun while they are
+## still on the sidearm; the third offer always does.
+const PRIMARY_CHANCE := [35, 70, 100]
 const CARD_WEIGHTS := {"gear": 37, "gun": 8, "perk": 15, "mutation": 15, "consumable": 15, "cache": 10}
 const ACTION_TYPES: Array[String] = ["gear_pick", "gear_doctrine", "gear_stash_take", "gear_unequip", "gear_gun"]
 ## Odds (percent) that a gun card from act 2 on is Rare rather than Uncommon.
@@ -147,6 +150,11 @@ static func all_picked(run) -> bool:
 ## The run waits in REWARD while this is true (picks or a Doctrine vote open).
 static func has_pending(run) -> bool:
 	return not offers(run).is_empty() or not state(run).get("doctrine_vote", {}).is_empty()
+
+
+## A soldier at run start: ranged classes begin on the sidearm.
+static func start_soldier(record) -> void:
+	Loadout.start_on_sidearm(record)
 
 
 ## Before the first fight each soldier picks 1 of 3 deployment orders (1 of 4 with the Field kit
@@ -296,12 +304,29 @@ static func roll_offer(run, record, fight_kind: String) -> Array:
 		cards.append(card)
 	if gs.fights_won >= 2 and not ranked.is_empty() and fight_kind != "boss":
 		_ensure_on_and_off(rng, cards, counts, ranked, act, exclude)
+	_offer_primary(rng, gs, record, cards)
 	if fight_kind == "boss" and not cards.any(func(c): return c.get("kind") == "gun"):
 		# Bosses always drop a gun: the last card becomes one, Rare when there is one left.
 		var gun := gun_card(rng, record, "rare", _ids(cards))
 		if not gun.is_empty():
 			cards[cards.size() - 1] = gun
 	return cards
+
+
+## The soldier's class gun as a reward card, for soldiers still on the starting sidearm.
+static func primary_card(record) -> Dictionary:
+	var id := Weapons.id_for(str(record.get("kind", "")))
+	var g := Weapons.get_gun(id)
+	return {"kind": "gun", "id": id, "rarity": str(g.get("rarity", "rare")), "tags": [], "primary": true}
+
+
+## Swaps the last card for the class gun on a rising chance until the soldier has it.
+static func _offer_primary(rng: RandomNumberGenerator, gs: Dictionary, record, cards: Array) -> void:
+	if Loadout.has_primary(record) or cards.any(func(c): return c.get("primary", false)):
+		return
+	var chance: int = PRIMARY_CHANCE[clampi(int(gs.fights_won) - 1, 0, PRIMARY_CHANCE.size() - 1)]
+	if rng.randi_range(1, 100) <= chance:
+		cards[cards.size() - 1] = primary_card(record)
 
 
 ## A card for an alternate gun this soldier's class can carry and doesn't own yet, preferring
@@ -507,7 +532,7 @@ static func _grant(run, r, card: Dictionary, to_stash: bool) -> void:
 		"consumable":
 			Loadout.add_consumable(r, card.id, int(card.get("charges", GearData.CONSUMABLE_CHARGES)))
 		"gun":
-			Loadout.add_gun(r, card.id)
+			Loadout.take_gun(r, card.id)
 		"cache":
 			add_supplies(run, int(card.get("supplies", CACHE_SUPPLIES)), "Supply cache")
 

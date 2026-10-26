@@ -62,6 +62,7 @@ static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}, pick
 	run.intel = START_INTEL
 	for e in MatchConfig.squad_plan(n, picks):
 		run.soldiers.append(RunSoldier.make(run, e.kind, e.player))
+		RunHooks.call_static("GearRun", "start_soldier", [run.soldiers[-1]])
 		run.serum[e.player] += 2 if MetaUnlocks.owns(run.meta, "serum_reserve") else 1   # 1 sample per soldier you control (+1 Serum reserve)
 	for p in n:
 		for k in reserve_for(run.soldiers_of(p).size()):

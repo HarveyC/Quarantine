@@ -69,7 +69,7 @@ static func build(rng: RandomNumberGenerator, record, id: String) -> Dictionary:
 		"bloom_cache":
 			contents = _items(rng, ["rare"], lanes)
 		"requisition":
-			var gun := GearRun.gun_card(rng, record, "uncommon")
+			var gun := GearRun.gun_card(rng, record, "uncommon") if Loadout.has_primary(record) else GearRun.primary_card(record)
 			if not gun.is_empty():
 				contents = [gun]
 		"early_graft":

@@ -22,6 +22,7 @@ const KINDS: Array[String] = ["event", "depot", "hospital", "survivors"]
 static func enter(run: RunState, kind: String, event_id: String = "") -> Dictionary:
 	match kind:
 		"event": return EventRules.enter(run, event_id)
+		"armory": return EventRules.enter(run, "weapons_cache")
 		"depot": return Depot.enter(run)
 		"hospital": return FieldHospital.enter(run)
 		"survivors": return Survivors.enter(run)

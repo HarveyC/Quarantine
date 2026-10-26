@@ -90,7 +90,32 @@ static func guns(record) -> Array:
 
 
 static func owns_gun(record, id: String) -> bool:
-	return id == "" or id == Weapons.id_for(str(record.get("kind", ""))) or guns(record).has(id)
+	if id == "" or id == Weapons.id_for(str(record.get("kind", ""))):
+		return has_primary(record)
+	return guns(record).has(id)
+
+
+## False while a ranged soldier is still on the starting sidearm. Records without the flag
+## (older saves, melee classes) count as having their class gun.
+static func has_primary(record) -> bool:
+	return not Weapons.starts_on_sidearm(str(record.get("kind", ""))) or bool(of(record).get("primary", true))
+
+
+## Puts a new ranged soldier on the sidearm until they find their class gun.
+static func start_on_sidearm(record) -> void:
+	if not Weapons.starts_on_sidearm(str(record.get("kind", ""))):
+		return
+	var g := of(record)
+	g["primary"] = false
+	g["gun"] = Weapons.START_GUN
+	if not guns(record).has(Weapons.START_GUN):
+		guns(record).append(Weapons.START_GUN)
+
+
+## The soldier finds their class gun and carries it. The sidearm stays owned.
+static func unlock_primary(record) -> void:
+	of(record)["primary"] = true
+	set_gun(record, "")
 
 
 ## Adds an alternate gun to the soldier's kit and carries it. False if they can't use it.
@@ -102,6 +127,14 @@ static func add_gun(record, id: String, carry: bool = true) -> bool:
 	if carry:
 		set_gun(record, id)
 	return true
+
+
+## Takes a gun found on a run: the class gun (the primary) or an alternate. False if they can't use it.
+static func take_gun(record, id: String) -> bool:
+	if id == Weapons.id_for(str(record.get("kind", ""))):
+		unlock_primary(record)
+		return true
+	return add_gun(record, id)
 
 
 ## Carries `id` (an owned alternate, or "" / the signature id for the signature gun).
