@@ -102,14 +102,14 @@ const VARIANTS := {
 
 
 ## The reload sound of each gun, by mechanism: box or stick mag, shell tube, cylinder, belt box,
-## bolt action, energy cell, pneumatic canister. Anything unlisted falls back to the rifle swap.
+## bolt action, pneumatic canister. Only the alien guns (bio-carbine, spore rifle, bloom pistol) use the energy cell. Anything unlisted falls back to the rifle swap.
 const RELOADS := {
 	"rifle": "reload_rifle", "battle_rifle": "reload_rifle", "burst_carbine": "reload_rifle",
 	"pdw": "reload_smg", "scout_carbine": "reload_smg", "flechette_smg": "reload_smg", "machine_pistol": "reload_smg",
 	"dmr": "reload_bolt", "anti_materiel": "reload_bolt",
 	"shotgun": "reload_shotgun", "slug_gun": "reload_shotgun", "pump_shotgun": "reload_shotgun", "auto_shotgun": "reload_rifle",
 	"lmg": "reload_lmg", "heavy_mg": "reload_lmg",
-	"carbine": "reload_cell", "spore_rifle": "reload_cell", "bloom_pistol": "reload_cell", "stun_pistol": "reload_cell",
+	"carbine": "reload_cell", "spore_rifle": "reload_cell", "bloom_pistol": "reload_cell", "stun_pistol": "reload_pistol",
 	"dart_rifle": "reload_dart",
 	"sidearm": "reload_pistol", "longslide": "reload_pistol",
 	"revolver": "reload_revolver", "hand_cannon": "reload_revolver",

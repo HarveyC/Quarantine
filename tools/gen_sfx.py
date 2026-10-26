@@ -229,44 +229,62 @@ def _put(out, st, x, gain=1.0):
 
 
 def _thud(f, dur=0.09, gain=0.7):
+    # A soft impact: a burst of low-passed noise, no pitched tone.
     n = int(dur * SR)
-    return sine(np.linspace(f, f * 0.4, n), dur) * env(n, 0.001, dur * 0.35) * gain + lowpass(noise(dur), f * 4) * env(n, 0.001, dur * 0.3) * gain * 0.6
+    body = lowpass(noise(dur), f * 3) * env(n, 0.001, dur * 0.3) * gain * 1.6
+    knock = lowpass(noise(dur), f * 1.2) * env(n, 0.002, dur * 0.5) * gain
+    return body + knock
 
 
 def _slide(lo, hi, dur, gain=0.5):
+    # Metal or polymer scraping: band noise with a ragged, grainy envelope.
     n = int(dur * SR)
-    return bandpass(noise(dur), lo, hi) * env(n, dur * 0.2, dur * 0.5) * gain
+    grain = 0.55 + 0.45 * lowpass(noise(dur), 220)
+    return bandpass(noise(dur), lo, hi) * env(n, dur * 0.2, dur * 0.5) * np.abs(grain) * gain
 
 
 def _casing_ring(f, dur=0.3, gain=0.2):
+    # Brass on concrete: a short, inharmonic, noisy tink that dies fast.
     n = int(dur * SR)
-    return (sine(f, dur) + 0.5 * sine(f * 1.51, dur)) * env(n, 0.0005, 0.05) * gain
+    ring = sum(sine(f * m, dur) * env(n, 0.0003, 0.012 / m) * g for m, g in [(1.0, 1.0), (1.62, 0.6), (2.41, 0.4)])
+    return (ring * 0.35 + highpass(noise(dur), 2500) * env(n, 0.0003, 0.01) * 1.3) * gain
+
+
+def _clack(f, dec=0.01, gain=1.0):
+    # Metal or polymer parts meeting: a noise transient through a few heavily damped, inharmonic
+    # resonances (a click with a body, never a tone).
+    d = 0.06
+    n = int(d * SR)
+    hit = highpass(noise(d), 800) * env(n, 0.0002, 0.003) * 1.2
+    modes = sum(sine(f * m, d) * env(n, 0.0002, dec * g) * g for m, g in [(1.0, 0.7), (1.47, 0.5), (2.23, 0.35), (3.1, 0.2)])
+    body = lowpass(noise(d), f * 1.3) * env(n, 0.0004, dec * 1.2) * 0.8
+    return (hit + modes * 0.45 + body) * gain
 
 
 def reload_rifle():
     # Release catch, long mag drops out, a new one is seated with a thud, charging handle racked.
     out = np.zeros(int(1.15 * SR))
-    _put(out, 0.00, mech_click(1500, 0.008), 0.7)
+    _put(out, 0.00, _clack(1500, 0.008), 0.7)
     _put(out, 0.05, _slide(500, 2500, 0.12), 0.7)
     _put(out, 0.14, _thud(260, 0.06, 0.4))
     _put(out, 0.46, _slide(800, 3500, 0.09), 0.5)
     _put(out, 0.55, _thud(170, 0.1, 1.0))
-    _put(out, 0.57, mech_click(1100, 0.014), 0.9)
+    _put(out, 0.57, _clack(1100, 0.014), 0.9)
     _put(out, 0.80, _slide(600, 3000, 0.08), 0.8)
-    _put(out, 0.85, mech_click(900, 0.02), 1.0)
-    _put(out, 0.97, mech_click(1900, 0.01), 0.9)
+    _put(out, 0.85, _clack(900, 0.02), 1.0)
+    _put(out, 0.97, _clack(1900, 0.01), 0.9)
     return reverb(out, 0.14, 0.14)
 
 
 def reload_smg():
     # Short stick mag, quick swap, bolt slap.
     out = np.zeros(int(0.85 * SR))
-    _put(out, 0.00, mech_click(1900, 0.006), 0.6)
+    _put(out, 0.00, _clack(1900, 0.006), 0.6)
     _put(out, 0.07, _thud(330, 0.05, 0.3))
     _put(out, 0.34, _slide(1200, 5000, 0.06), 0.5)
     _put(out, 0.41, _thud(230, 0.07, 0.8))
-    _put(out, 0.42, mech_click(1700, 0.01), 0.9)
-    _put(out, 0.62, mech_click(1200, 0.012), 1.0)
+    _put(out, 0.42, _clack(1700, 0.01), 0.9)
+    _put(out, 0.62, _clack(1200, 0.012), 1.0)
     _put(out, 0.66, _slide(1500, 5000, 0.05), 0.6)
     return reverb(out, 0.1, 0.12)
 
@@ -274,34 +292,34 @@ def reload_smg():
 def reload_pistol():
     # Small mag drops, snaps in with a high click, slide released with a sharp snick.
     out = np.zeros(int(0.8 * SR))
-    _put(out, 0.00, mech_click(2300, 0.005), 0.6)
+    _put(out, 0.00, _clack(2300, 0.005), 0.6)
     _put(out, 0.06, _thud(420, 0.04, 0.25))
     _put(out, 0.30, _slide(1500, 6000, 0.05), 0.4)
-    _put(out, 0.36, mech_click(2600, 0.008), 1.0)
+    _put(out, 0.36, _clack(2600, 0.008), 1.0)
     _put(out, 0.38, _thud(300, 0.05, 0.5))
-    _put(out, 0.58, mech_click(1600, 0.01), 0.8)
+    _put(out, 0.58, _clack(1600, 0.01), 0.8)
     _put(out, 0.60, _slide(2000, 7000, 0.04), 0.7)
-    _put(out, 0.63, mech_click(3000, 0.004), 0.7)
+    _put(out, 0.63, _clack(3000, 0.004), 0.7)
     return reverb(out, 0.08, 0.1)
 
 
 def reload_revolver():
     # Ejector rod, spent brass tinkling out, rounds dropped in, cylinder spun and snapped shut.
     out = np.zeros(int(1.25 * SR))
-    _put(out, 0.00, mech_click(1500, 0.01), 0.9)
+    _put(out, 0.00, _clack(1500, 0.01), 0.9)
     _put(out, 0.10, _slide(700, 3000, 0.1), 0.5)
     for k, st in enumerate([0.22, 0.29, 0.35, 0.43]):
         _put(out, st, _casing_ring(2800 + 400 * k, 0.25, 0.22))
-        _put(out, st, mech_click(3200, 0.004), 0.3)
+        _put(out, st, _clack(3200, 0.004), 0.3)
     for k in range(6):
         st = 0.62 + 0.055 * k
-        _put(out, st, mech_click(1400 + 90 * k, 0.006), 0.5)
+        _put(out, st, _clack(1400 + 90 * k, 0.006), 0.5)
         _put(out, st, _thud(520, 0.03, 0.15))
     spin = np.zeros(int(0.3 * SR))
     for k in range(14):
-        _put(spin, k * (0.012 + 0.006 * k), mech_click(2100, 0.004), 0.3)
+        _put(spin, k * (0.012 + 0.006 * k), _clack(2100, 0.004), 0.3)
     _put(out, 0.96, spin)
-    _put(out, 1.12, mech_click(800, 0.02), 1.1)
+    _put(out, 1.12, _clack(800, 0.02), 1.1)
     _put(out, 1.12, _thud(240, 0.07, 0.6))
     return reverb(out, 0.13, 0.13)
 
@@ -311,28 +329,28 @@ def reload_shotgun():
     out = np.zeros(int(1.4 * SR))
     for k, st in enumerate([0.0, 0.2, 0.4, 0.6]):
         _put(out, st, _thud(380, 0.05, 0.35))
-        _put(out, st + 0.02, mech_click(1000 + 80 * k, 0.012), 0.9)
-        _put(out, st + 0.07, mech_click(2100, 0.006), 0.5)
+        _put(out, st + 0.02, _clack(1000 + 80 * k, 0.012), 0.9)
+        _put(out, st + 0.07, _clack(2100, 0.006), 0.5)
     _put(out, 0.92, _slide(300, 2200, 0.1), 0.8)
-    _put(out, 0.95, mech_click(750, 0.02), 1.1)
+    _put(out, 0.95, _clack(750, 0.02), 1.1)
     _put(out, 1.12, _slide(400, 2800, 0.09), 0.9)
-    _put(out, 1.15, mech_click(1250, 0.016), 1.1)
+    _put(out, 1.15, _clack(1250, 0.016), 1.1)
     return reverb(out, 0.15, 0.15)
 
 
 def reload_lmg():
     # Cover latch, heavy box mag clunks out, a belt is laid in with a rattle, cover slammed shut.
     out = np.zeros(int(1.6 * SR))
-    _put(out, 0.00, mech_click(800, 0.02), 1.0)
+    _put(out, 0.00, _clack(800, 0.02), 1.0)
     _put(out, 0.08, _thud(110, 0.18, 1.0))
     _put(out, 0.12, _slide(200, 1800, 0.25), 0.5)
     _put(out, 0.55, _thud(140, 0.15, 0.9))
     for k in range(10):
-        _put(out, 0.62 + k * 0.04 + rng.uniform(-0.006, 0.006), mech_click(rng.uniform(1500, 2800), 0.007), rng.uniform(0.3, 0.6))
+        _put(out, 0.62 + k * 0.04 + rng.uniform(-0.006, 0.006), _clack(rng.uniform(1500, 2800), 0.007), rng.uniform(0.3, 0.6))
     _put(out, 1.1, _thud(95, 0.22, 1.2))
-    _put(out, 1.1, mech_click(500, 0.03), 1.0)
+    _put(out, 1.1, _clack(500, 0.03), 1.0)
     _put(out, 1.3, _slide(250, 2000, 0.12), 0.7)
-    _put(out, 1.33, mech_click(700, 0.025), 1.2)
+    _put(out, 1.33, _clack(700, 0.025), 1.2)
     _put(out, 1.33, _thud(120, 0.14, 0.9))
     return reverb(out, 0.18, 0.15)
 
@@ -340,15 +358,15 @@ def reload_lmg():
 def reload_bolt():
     # Mag dropped, new one seated, then a slow bolt: lift, draw, push, lock. Weighty and deliberate.
     out = np.zeros(int(1.5 * SR))
-    _put(out, 0.00, mech_click(1100, 0.012), 0.8)
+    _put(out, 0.00, _clack(1100, 0.012), 0.8)
     _put(out, 0.08, _thud(200, 0.09, 0.4))
     _put(out, 0.42, _thud(150, 0.12, 1.0))
-    _put(out, 0.44, mech_click(900, 0.02), 1.0)
-    _put(out, 0.78, mech_click(700, 0.025), 1.0)
+    _put(out, 0.44, _clack(900, 0.02), 1.0)
+    _put(out, 0.78, _clack(700, 0.025), 1.0)
     _put(out, 0.82, _slide(300, 2500, 0.18), 0.7)
     _put(out, 1.05, _slide(400, 3000, 0.14), 0.7)
-    _put(out, 1.18, mech_click(1200, 0.015), 1.0)
-    _put(out, 1.24, mech_click(650, 0.03), 1.1)
+    _put(out, 1.18, _clack(1200, 0.015), 1.0)
+    _put(out, 1.24, _clack(650, 0.03), 1.1)
     _put(out, 1.24, _thud(130, 0.1, 0.6))
     return reverb(out, 0.16, 0.16)
 
@@ -374,12 +392,12 @@ def reload_dart():
     # Pneumatic: a gas canister twists out, a fresh one is pressed in, a short hiss of pressure builds.
     out = np.zeros(int(1.1 * SR))
     _put(out, 0.00, _slide(1500, 6500, 0.14), 0.7)
-    _put(out, 0.10, mech_click(1700, 0.008), 0.8)
+    _put(out, 0.10, _clack(1700, 0.008), 0.8)
     _put(out, 0.34, _thud(250, 0.06, 0.6))
-    _put(out, 0.36, mech_click(2400, 0.007), 0.9)
+    _put(out, 0.36, _clack(2400, 0.007), 0.9)
     _put(out, 0.46, _slide(3000, 9000, 0.3), 0.7)
     for k in range(4):
-        _put(out, 0.80 + 0.04 * k, mech_click(2900 + 200 * k, 0.004), 0.5)
+        _put(out, 0.80 + 0.04 * k, _clack(2900 + 200 * k, 0.004), 0.5)
     return reverb(out, 0.1, 0.12)
 
 
