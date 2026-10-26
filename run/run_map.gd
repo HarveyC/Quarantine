@@ -1,7 +1,7 @@
 class_name RunMap
 extends RefCounted
-## Node map generation for one act (design doc, "Run map and events"): 5 rows, row 1 Skirmish,
-## rows 2-3 rolled, row 4 Field hospital, row 5 the boss. Links never cross. Pure function of the
+## Node map generation for one act (design doc, "Run map and events"): 5 rows in Act 1 and 6 in Acts 2-3
+## (RunState.rows_for). Row 1 Skirmish, the rows up to the last two rolled, then the Field hospital and the boss. Links never cross. Pure function of the
 ## run rng, so every peer that generates from the same seed gets the same map.
 ##
 ## A node is a Dictionary:
@@ -73,11 +73,16 @@ static func pick_weighted(rng: RandomNumberGenerator, weights: Dictionary) -> St
 
 
 static func generate(rng: RandomNumberGenerator, act: int) -> Array:
-	var sizes: Array[int] = [rng.randi_range(2, 3), rng.randi_range(3, 4), rng.randi_range(3, 4), rng.randi_range(2, 3), 1]
+	var rows := RunState.rows_for(act)
+	var sizes: Array[int] = [rng.randi_range(2, 3)]
+	for r in rows - 3:
+		sizes.append(rng.randi_range(3, 4))
+	sizes.append(rng.randi_range(2, 3))
+	sizes.append(1)
 	var nodes: Array = []
 	var by_row: Array = []
 	var next_id := 1
-	for r in RunState.ROWS:
+	for r in rows:
 		var row_nodes: Array = []
 		for c in sizes[r]:
 			var n := {"id": next_id, "row": r + 1, "col": c, "x": (c + 0.5) / sizes[r], "type": "", "links": [],
@@ -86,7 +91,7 @@ static func generate(rng: RandomNumberGenerator, act: int) -> Array:
 			row_nodes.append(n)
 			nodes.append(n)
 		by_row.append(row_nodes)
-	for r in RunState.ROWS - 1:
+	for r in rows - 1:
 		_link_rows(rng, by_row[r], by_row[r + 1])
 	_assign_types(rng, act, by_row)
 	for n in nodes:
@@ -141,29 +146,38 @@ static func _link_rows(rng: RandomNumberGenerator, a: Array, b: Array) -> void:
 
 
 static func _assign_types(rng: RandomNumberGenerator, act: int, by_row: Array) -> void:
+	var rows := by_row.size()
 	for n in by_row[0]:
 		n.type = SKIRMISH
-	for n in by_row[3]:
+	for n in by_row[rows - 2]:
 		n.type = HOSPITAL
-	by_row[4][0].type = BOSS
+	by_row[rows - 1][0].type = BOSS
 	var weights: Dictionary = WEIGHTS[clampi(act, 1, 3)]
 	for attempt in 40:
-		for r in [1, 2]:
+		for r in range(1, rows - 2):
 			for n in by_row[r]:
 				n.type = pick_weighted(rng, weights)
 		_place_missing(rng, act, by_row)
-		if _valid(act, by_row):
+		if _valid(act, rolled_rows(by_row)):
 			return
 	_repair(rng, by_row)
+
+
+## The rolled rows between the opening Skirmish and the Field hospital.
+static func rolled_rows(by_row: Array) -> Array:
+	return by_row.slice(1, by_row.size() - 2)
 
 
 ## "At least one nest" and "at least one depot" are placed over rolled nodes rather than
 ## re-rolled: a Skirmish becomes the nest and a non-combat node the depot, so the per-path rules
 ## that held before still hold.
 static func _place_missing(rng: RandomNumberGenerator, act: int, by_row: Array) -> void:
-	var middle: Array = by_row[1] + by_row[2]
+	var middle: Array = []
+	for r in rolled_rows(by_row):
+		middle.append_array(r)
+	var last_rolled := by_row.size() - 2
 	if not middle.any(func(n: Dictionary) -> bool: return n.type == NEST):
-		var c := middle.filter(func(n: Dictionary) -> bool: return n.type == SKIRMISH and (act > 1 or n.row == 3))
+		var c := middle.filter(func(n: Dictionary) -> bool: return n.type == SKIRMISH and (act > 1 or n.row == last_rolled))
 		if not c.is_empty():
 			c[rng.randi() % c.size()].type = NEST
 	if not middle.any(func(n: Dictionary) -> bool: return n.type == DEPOT):
@@ -176,36 +190,44 @@ static func _non_combat(type: String) -> bool:
 	return type != SKIRMISH and type != NEST
 
 
-static func _valid(act: int, by_row: Array) -> bool:
-	var row2: Array = by_row[1]
-	var row3: Array = by_row[2]
-	if act == 1 and row2.any(func(n: Dictionary) -> bool: return n.type == NEST):
+## `rolled` is the rolled rows in order (see rolled_rows).
+static func _valid(act: int, rolled: Array) -> bool:
+	var all: Array = []
+	for r in rolled:
+		all.append_array(r)
+	if act == 1 and rolled[0].any(func(n: Dictionary) -> bool: return n.type == NEST):
 		return false
-	# A hospital in row 3 always leads into row 4's hospitals.
-	if row3.any(func(n: Dictionary) -> bool: return n.type == HOSPITAL):
+	# A hospital in the last rolled row always leads into the Field hospital row.
+	if rolled.back().any(func(n: Dictionary) -> bool: return n.type == HOSPITAL):
 		return false
-	if not (row2 + row3).any(func(n: Dictionary) -> bool: return n.type == NEST):
+	if not all.any(func(n: Dictionary) -> bool: return n.type == NEST):
 		return false
-	if not (row2 + row3).any(func(n: Dictionary) -> bool: return n.type == DEPOT):
+	if not all.any(func(n: Dictionary) -> bool: return n.type == DEPOT):
 		return false
-	for a in row2:
-		for id in a.links:
-			var b: Dictionary = _find(row3, id)
-			if a.type == b.type and (a.type == DEPOT or a.type == HOSPITAL):
-				return false
-			if not _non_combat(a.type) and not _non_combat(b.type):
-				return false
+	for i in rolled.size() - 1:
+		for a in rolled[i]:
+			for id in a.links:
+				var b: Dictionary = _find(rolled[i + 1], id)
+				if a.type == b.type and (a.type == DEPOT or a.type == HOSPITAL):
+					return false
+				if not _non_combat(a.type) and not _non_combat(b.type):
+					return false
 	return true
 
 
-## Fallback when every roll broke a rule: row 2 is all non-combat (a depot first), row 3 all
-## fights with one nest. Always valid.
+## Fallback when every roll broke a rule: the rolled rows alternate, the first all non-combat (a
+## depot first) and the next all fights, with one nest among the fights. Always valid.
 static func _repair(rng: RandomNumberGenerator, by_row: Array) -> void:
-	for n in by_row[1]:
-		n.type = DEPOT if n.col == 0 else [UNKNOWN, SURVIVORS, UNKNOWN][n.col % 3]
-	for n in by_row[2]:
-		n.type = SKIRMISH
-	by_row[2][rng.randi() % by_row[2].size()].type = NEST
+	var rolled := rolled_rows(by_row)
+	var fights: Array = []
+	for i in rolled.size():
+		for n in rolled[i]:
+			if i % 2 == 0:
+				n.type = DEPOT if (n.col == 0 and i == 0) else [UNKNOWN, SURVIVORS, UNKNOWN][n.col % 3]
+			else:
+				n.type = SKIRMISH
+				fights.append(n)
+	fights[rng.randi() % fights.size()].type = NEST
 
 
 static func _find(nodes: Array, id: int) -> Dictionary:
@@ -220,7 +242,8 @@ static func _find(nodes: Array, id: int) -> Dictionary:
 ## node (so nothing crosses), and gives any node left without a way in a link from the rightmost
 ## node of the row before.
 static func remove_column(map: Array, row: int) -> void:
-	for r in range(row + 1, RunState.ROWS):
+	var last := _last_row(map)
+	for r in range(row + 1, last):
 		var nodes := _row(map, r)
 		if nodes.size() < 2:
 			continue
@@ -232,11 +255,18 @@ static func remove_column(map: Array, row: int) -> void:
 				n.links.erase(gone.id)
 				if not n.links.has(keep.id):
 					n.links.append(keep.id)
-	for r in range(row + 2, RunState.ROWS + 1):
+	for r in range(row + 2, last + 1):
 		var prev := _row(map, r - 1)
 		for n in _row(map, r):
 			if not prev.any(func(p: Dictionary) -> bool: return p.links.has(n.id)):
 				prev.back().links.append(n.id)
+
+
+static func _last_row(map: Array) -> int:
+	var last := 1
+	for n in map:
+		last = maxi(last, n.row)
+	return last
 
 
 static func _row(map: Array, r: int) -> Array:

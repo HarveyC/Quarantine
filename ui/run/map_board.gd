@@ -11,7 +11,18 @@ const Icons := preload("res://ui/icons.gd")
 const W := preload("res://ui/widgets.gd")
 const NodeInfo := preload("res://ui/run/node_info.gd")
 
-const ROW_HINTS: Array[String] = ["", "Skirmish", "Rolled", "Rolled", "Field hospital", "Boss"]
+
+
+## Caption under a row header: row 1 is always a Skirmish, the last two rows the hospital and the boss.
+static func row_hint(act: int, row: int) -> String:
+	var rows := RunState.rows_for(act)
+	if row <= 0:
+		return ""
+	if row == 1:
+		return "Skirmish"
+	if row == rows:
+		return "Boss"
+	return "Field hospital" if row == rows - 1 else "Rolled"
 const LINE := Color(0.66, 0.78, 0.8, 0.32)
 const TRAVELLED := Color("c98a3a")
 const NIGHT := Color("111a28")
@@ -175,7 +186,7 @@ func _area() -> Rect2:
 ## Centre x of a column: 0 is the drop point, 1-5 the rows.
 func col_x(row: int) -> float:
 	var a := _area()
-	return a.position.x + a.size.x * row / float(RunState.ROWS)
+	return a.position.x + a.size.x * row / float(RunState.rows_for(run.act))
 
 
 func node_pos(n: Dictionary) -> Vector2:
@@ -387,15 +398,16 @@ func _draw() -> void:
 	W.Draw.glow(self, hc, (haze_r - full.position.x) * 0.9, Styles.TEAL, 0.9)
 
 	# Column headers.
-	for c in RunState.ROWS + 1:
+	for c in RunState.rows_for(run.act) + 1:
 		var cx := col_x(c)
 		var here := c == run.row or (c == 0 and run.node < 0)
 		var next := c == run.row + 1 and run.phase == RunState.Phase.MAP
 		var head_col := Styles.AMBER if next else (TRAVELLED if here else Styles.MUTED)
 		var label := "Drop" if c == 0 else "Row %d" % c
 		_text_c(font, label.to_upper(), Vector2(cx, 26), 15, head_col, 1.5)
-		if ROW_HINTS[c] != "":
-			_text_c(body, ROW_HINTS[c], Vector2(cx, 46), 13, Styles.MUTED)
+		var hint := row_hint(run.act, c)
+		if hint != "":
+			_text_c(body, hint, Vector2(cx, 46), 13, Styles.MUTED)
 		draw_line(Vector2(cx, 58), Vector2(cx, 64), Color(head_col, 0.6), 1.0)
 
 	# Links.

@@ -126,6 +126,8 @@ const STAGE_ADDS: Array[String] = ["", "a spore patch in every fight", "reinforc
 ## "+1 on arrival: 6, Rampant now (reinforcements from turn 4)" for a node in the next row; the
 ## plain "+1 on arrival" further ahead, where the number would be a guess.
 static func arrival(run: RunState, n: Dictionary) -> String:
+	if RunState.is_extra_row(run.act, n.row):
+		return "No rise on arrival"
 	if n.row != run.row + 1:
 		return "+1 on arrival"
 	var to := run.outbreak + 1
