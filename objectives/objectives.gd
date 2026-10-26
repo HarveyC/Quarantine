@@ -279,7 +279,10 @@ static func _escort_turn(s: GameState) -> void:
 	if near:
 		var best := c.pos
 		var best_d: int = dist.get(c.pos, 1 << 20)
+		var stay := maxi(ESCORT_STAY, _nearest_soldier_dist(s, c.pos))
 		for cell in Rules.move_range(s, c):
+			if _nearest_soldier_dist(s, cell) > stay:
+				continue   # never outrun the squad
 			var d: int = dist.get(cell, 1 << 20)
 			if d < best_d or (d == best_d and best != c.pos and (cell.y < best.y or cell.y == best.y and cell.x < best.x)):
 				best = cell
