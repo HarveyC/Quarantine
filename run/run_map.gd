@@ -35,9 +35,9 @@ const UNKNOWN_WEIGHTS := {EVENT: 60, AMBUSH: 20, DEPOT: 10, SURVIVORS: 10}
 ## Objectives a Skirmish or Ambush rolls, per act (percent). "skirmish" is a plain clear-the-area
 ## fight. Each roll already on the act's map divides that objective's weight (see roll_objective).
 const SKIRMISH_OBJECTIVES := {
-	1: {"skirmish": 30, "extract": 20, "hold": 20, "rescue": 15, "purge": 15},
-	2: {"skirmish": 20, "extract": 20, "hold": 20, "rescue": 20, "purge": 20},
-	3: {"skirmish": 20, "extract": 15, "hold": 25, "rescue": 15, "purge": 25},
+	1: {"skirmish": 24, "extract": 16, "hold": 16, "rescue": 12, "purge": 12, "escort": 10, "demolish": 10},
+	2: {"skirmish": 15, "extract": 14, "hold": 14, "rescue": 14, "purge": 14, "escort": 8, "demolish": 8, "hack": 7, "samples": 6},
+	3: {"skirmish": 16, "extract": 12, "hold": 16, "rescue": 13, "purge": 16, "demolish": 7, "hack": 9, "samples": 11},
 }
 const NEST_OBJECTIVES := {"purge": 50, "hold": 50}
 

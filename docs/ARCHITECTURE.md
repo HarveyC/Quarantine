@@ -393,13 +393,16 @@ rerolled until it passes. Design rules are in the design doc's "Tactical maps" s
 
 - **Input**: `spec = {"biome", "objective", "seed"}` (other keys ignored). Biome "wall" (act 1) has
   parcels; "port" and "bore" fall back to it until `maps/biome_port.txt` / `biome_bore.txt` exist.
-  Objective is skirmish / extract / hold / rescue / purge / elite / boss; unknown ones use skirmish.
+  Objective is skirmish / extract / hold / rescue / purge / elite / boss / escort / demolish / hack / samples; unknown ones use skirmish.
 - **Determinism**: its own RNG seeded from the spec (never `state.rng`), so every peer generates the
   same map from the `MatchConfig` the host broadcasts. A resync snapshot also carries the grid.
 - **Content**: `maps/biome_<name>.txt` holds the parcels and plots; its header documents the format.
   Add parcels there to add variety, no code needed. Every plot gets streets at least `MIN_LANES` (2)
   tiles wide between its parcels, so maps are 22x22 (4x4 plots) or 22x28 (extract); boss arenas
-  keep their compact 20x20.
+  keep their compact 20x20. **Grand maps** are 5x5 plots (`grand_*` plots, 28x28, two landmarks) used
+  by the sprint objectives (escort / demolish / hack / samples) and now and then by skirmish, purge,
+  rescue and extract; their pods may sit up to `GRAND_POD_MAX` steps out. Objective sites come from `@site`
+  parcels (one `O` cell); the objective picks the marker (`SITE_MARKER`: charge, relay, sample).
   Streets stay open apart from the odd two-tile sandbag line (`_street_barricades`), and `_declutter`
   clears about half of the lone crates parcels scatter (lines, rooms and roofs stay). Most plots have
   2-3 `T` tower slots (high ground parcels).
@@ -571,6 +574,10 @@ The objective comes with the map: `grid.objective` (set by MapGen, saved with th
 | hold | 4 rounds survived (`held`) | 2 rounds in a row (`overrun`) ending with enemies and no soldier in `beacon`; the first emits `beacon_overrun` and isn't counted as held |
 | rescue | every living civilian on `exit` (kills win only once no civilian is alive) | |
 | purge | no living unit of kind `spore_nest` (or every enemy dead) | |
+| escort | the courier (a civilian-status unit, 8 HP) reaches `evac`. It walks 3 tiles toward it at each squad turn's end while a soldier is within 4 | courier dies (`courier_down`) |
+| demolish | all 3 `charge` sites have blown. A soldier on a site at squad turn end arms it; it blows 2 rounds later (demo blast, hurts soldiers too); an enemy on it defuses it | after round 10 (`charges_late`) |
+| hack | 2 of 3 `relay` sites hacked (a soldier on one for 2 squad turns in a row) | an enemy ending a round on an unhacked relay with no soldier there destroys it; too few left (`relays_lost`) |
+| samples | 2 of 3 `sample` points delivered to the drop zone (`exit` = deploy). A soldier on one at squad turn end carries it (-1 move); a fallen carrier drops it | an enemy ending a round on a loose sample destroys it; too few left (`samples_lost`) |
 
 - **Hooks**: `Objectives.setup(s)` at the end of `Rules.new_mission_on_grid`; `on_team_phase_end`
   (after hazards, from `Rules.set_ready`) and `on_enemy_phase_end` (after hazards); `Rules.check_end`
@@ -581,10 +588,11 @@ The objective comes with the map: `grid.objective` (set by MapGen, saved with th
   and hazards apply), and step onto the exit when a soldier is within 3 tiles. Enemies target them.
 - **Bonus** (`Objectives.bonus_met(s)`, used by `RunRules.fight_outcome`): extract nobody left
   behind; hold the beacon never contested; rescue every civilian saved; skirmish / elite / purge
-  won by the end of turn 5; boss none.
+  won by the end of turn 5; boss none; escort courier unhurt; demolish done 3 rounds early; hack no
+  relay lost; samples none lost. The four newer objectives never win on kills alone.
 - **HUD**: `Objectives.describe(s)` is the objective line under the turn banner.
 - **Loss cause**: `Objectives.loss_cause(s)` names why a lost fight was lost (`beacon`, `left_behind`,
-  `turned`, `squad_down`; text in `Objectives.LOSS`). The view focuses `loss_cells(s)` and names it,
+  `courier_down`, `charges_late`, `relays_lost`, `samples_lost`, `turned`, `squad_down`; text in `Objectives.LOSS`). The view focuses `loss_cells(s)` and names it,
   then the debrief (or quick-play overlay) shows it after a beat.
 
 ## Fog of war (vision/)

@@ -17,13 +17,18 @@ const SHORT := {
 	RunMap.DEPOT: "Depot", RunMap.HOSPITAL: "Hospital", RunMap.SURVIVORS: "Survivors",
 	RunMap.BOSS: "Boss", RunMap.UNKNOWN: "Unknown",
 }
-const OBJECTIVE_NAMES := {"skirmish": "Clear", "extract": "Extract", "hold": "Hold", "rescue": "Rescue", "purge": "Purge", "boss": "Boss"}
+const OBJECTIVE_NAMES := {"skirmish": "Clear", "extract": "Extract", "hold": "Hold", "rescue": "Rescue", "purge": "Purge", "boss": "Boss",
+	"escort": "Escort", "demolish": "Sabotage", "hack": "Hack", "samples": "Samples"}
 const OBJECTIVE_TEXT := {
 	"skirmish": "Kill every enemy.",
 	"extract": "Get everyone to the evac zone.",
 	"hold": "Hold the beacon for %d turns. Don't leave it to the enemy two rounds running." % 4,
 	"rescue": "Escort the civilians to the drop zone.",
 	"purge": "Destroy the spore nests.",
+	"escort": "Walk the courier to the evac zone. It only moves while a soldier is close.",
+	"demolish": "Stand on each charge site to arm it, then get clear. All must blow within 10 rounds.",
+	"hack": "Hold a relay for 2 turns to hack it. Hack 2 of the 3 before the enemy wrecks them.",
+	"samples": "Pick up samples and carry 2 of the 3 back to the drop zone.",
 	"boss": "Kill the boss.",
 }
 ## Legend order, as shown under the map.

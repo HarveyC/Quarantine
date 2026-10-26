@@ -4,7 +4,7 @@ extends SceneTree
 
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
-	var objectives: Array = ["skirmish", "extract", "hold", "rescue", "purge", "elite", "boss"]
+	var objectives: Array = ["skirmish", "extract", "hold", "rescue", "purge", "elite", "boss", "escort", "demolish", "hack", "samples"]
 	if args.size() > 0 and args[0] != "all":
 		objectives = [args[0]]
 	var count := int(args[1]) if args.size() > 1 else 3
@@ -41,7 +41,7 @@ static func render(g: Grid) -> String:
 	var marks := {}
 	for k in g.markers:
 		for c in g.markers[k]:
-			marks[c] = {"evac": "X", "beacon": "B", "civilian": "C", "exit": "", "nest": "N", "hive": "H", "boss": "S", "reinforce": "r"}[k]
+			marks[c] = {"evac": "X", "beacon": "B", "civilian": "C", "exit": "", "nest": "N", "hive": "H", "boss": "S", "reinforce": "r", "charge": "Z", "relay": "R", "sample": "M"}[k]
 	var cell := {}
 	for y in g.height:
 		for x in g.width:

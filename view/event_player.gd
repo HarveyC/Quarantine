@@ -1811,6 +1811,69 @@ func _beat_rescued(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.5}
 
 
+## A marked spot of the sprint objectives (charge, relay, sample): label floats over the cell.
+func _site_beat(ev: Dictionary, text: String, col: Color, sfx := "radio", look := true) -> Dictionary:
+	if not (ev.get("cell") is Vector2i):
+		return {}
+	var at := Board.cell_to_world(ev.cell)
+	if look and not in_cinematic:
+		view.camera_rig.focus(at)
+	view.fx.pulse(at, col)
+	view.fx.floating_text(at + Vector3(0, 1.4, 0), text, col, 44)
+	_sfx(sfx)
+	if view.hud != null:
+		view.hud.refresh()
+	return {"dur": 0.6}
+
+
+func _beat_charge_armed(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "ARMED", Palette.AMBER, "gadget_deploy")
+
+
+func _beat_charge_defused(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "DEFUSED", Palette.DANGER, "alert")
+
+
+func _beat_charge_blown(ev: Dictionary) -> Dictionary:
+	return {"dur": 0.0}
+
+
+func _beat_relay_hacking(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "HACKING", Palette.AMBER, "radio", false)
+
+
+func _beat_relay_hacked(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "HACKED", TileOverlays.color("relay"))
+
+
+func _beat_relay_lost(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "RELAY DOWN", Palette.DANGER, "alert")
+
+
+func _beat_sample_taken(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "SAMPLE", TileOverlays.color("sample"), "radio", false)
+
+
+func _beat_sample_dropped(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "DROPPED", Palette.DANGER, "alert")
+
+
+func _beat_sample_delivered(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "DELIVERED", TileOverlays.color("sample"))
+
+
+func _beat_sample_lost(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "SAMPLE LOST", Palette.DANGER, "alert")
+
+
+func _beat_courier_waits(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	view.fx.floating_text(_head(uv), "WAITING", Palette.AMBER, 40)
+	return {"dur": 0.3}
+
+
 func _beat_left_behind(ev: Dictionary) -> Dictionary:
 	var uv := _uv(ev)
 	if uv == null:
