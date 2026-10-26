@@ -452,7 +452,7 @@ func test_added_row_adds_no_outbreak_point() -> void:
 	RunRules.enter_node(run, extra.id)
 	assert_eq(run.outbreak, before, "the added row adds none")
 	run.act = 1
-	assert_false(RunState.is_extra_row(1, RunState.EXTRA_ROW), "Act 1 has no added row")
+	assert_true(not RunState.is_extra_row(1, RunState.EXTRA_ROW), "Act 1 has no added row")
 
 
 func test_bridge_keeps_a_six_row_map_connected() -> void:
