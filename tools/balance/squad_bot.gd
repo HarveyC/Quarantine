@@ -6,6 +6,8 @@ extends RefCounted
 
 ## nosig=1 in balance_sim: the bot ignores Rank 2 signatures, for before/after comparisons.
 static var skip_signatures := false
+## nogear=1 in balance_sim: the bot leaves gadgets and pocket items alone, for before/after comparisons.
+static var skip_gear := false
 const COVER_WEIGHT := 1.5      # how much the bot values standing in cover vs. a better shot
 const FLANKED_PENALTY := 2.5   # standing in the open in sight of an alerted enemy
 
@@ -49,6 +51,9 @@ static func choose(s: GameState, u: Unit) -> Dictionary:
 	if Ammo.tracked(u) and Ammo.rounds(u) == 0 and _ok(s, reload):
 		return reload   # a dry gun reloads before anything else
 	var a := _support(s, u)
+	if not a.is_empty():
+		return a
+	a = _gear_use(s, u)
 	if not a.is_empty():
 		return a
 	a = _class_attack(s, u)
@@ -109,6 +114,54 @@ static func _support(s: GameState, u: Unit) -> Dictionary:
 			var a := {"type": Types.ABILITY, "unit": u.id, "ability": "siphon", "target": t.id}
 			if t.infection >= 30 and u.infection < 60 and _ok(s, a):
 				return a
+	return {}
+
+
+## Gadgets and pocket items a player would use: flares, concussion, thermite and grenades on a
+## cluster of alerted enemies, medkits and injectors on a hurt ally, Adrenal pump when busy.
+static func _gear_use(s: GameState, u: Unit) -> Dictionary:
+	if skip_gear:
+		return {}
+	var foes := _hostiles(s, u).filter(func(t: Unit) -> bool: return EnemyAI.is_alerted(t))
+	for ab in GearFx.available_abilities(s, u):
+		if not ab.ready:
+			continue
+		var id: String = ab.id
+		var base := {"type": Types.ABILITY, "unit": u.id, "ability": id}
+		match id:
+			"gear:flare_launcher", "gear:concussion_launcher", "gear:thermite_charge", "item:frag_grenade", "item:flashbang":
+				var need := 1 if id == "gear:flare_launcher" or id == "gear:thermite_charge" else 2
+				var best_cell := Vector2i(-1, -1)
+				var best_n := need - 1
+				for t in foes:
+					var n := 0
+					for o in foes:
+						if Kit.cheb(o.pos, t.pos) <= 1:
+							n += 1
+					for ally in s.living(Types.Team.PLAYER):
+						if Kit.cheb(ally.pos, t.pos) <= 1:
+							n -= 2
+					var a := base.duplicate()
+					a["cell"] = t.pos
+					if n > best_n and _ok(s, a):
+						best_n = n
+						best_cell = t.pos
+				if best_cell.x >= 0:
+					base["cell"] = best_cell
+					return base
+			"gear:med_injector", "item:medkit":
+				var worst: Unit = null
+				for t in s.living(Types.Team.PLAYER):
+					var a := base.duplicate()
+					a["target"] = t.id
+					if (t.max_hp - t.hp >= 4 or t.infection >= 50) and _ok(s, a) and (worst == null or t.hp < worst.hp):
+						worst = t
+				if worst != null:
+					base["target"] = worst.id
+					return base
+			"gear:adrenal_pump", "gear:containment_emitter":
+				if not foes.is_empty() and _ok(s, base):
+					return base
 	return {}
 
 
