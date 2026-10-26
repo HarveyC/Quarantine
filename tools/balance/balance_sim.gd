@@ -39,6 +39,7 @@ func _init() -> void:
 	build_level = str(args.get("build", "none"))
 	SquadBot.skip_signatures = args.has("nosig")
 	SquadBot.skip_gear = args.has("nogear")
+	SquadBot.skip_purge = args.has("nopurge")
 	for i in n:
 		var seed := seed0 + i
 		if node == "act":

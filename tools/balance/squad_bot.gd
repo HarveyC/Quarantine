@@ -8,6 +8,8 @@ extends RefCounted
 static var skip_signatures := false
 ## nogear=1 in balance_sim: the bot leaves gadgets and pocket items alone, for before/after comparisons.
 static var skip_gear := false
+## nopurge=1 in balance_sim: the bot does not Flush, Decon or Serum infected allies.
+static var skip_purge := false
 const COVER_WEIGHT := 1.5      # how much the bot values standing in cover vs. a better shot
 const FLANKED_PENALTY := 2.5   # standing in the open in sight of an alerted enemy
 
@@ -100,6 +102,20 @@ static func _support(s: GameState, u: Unit) -> Dictionary:
 			var a := {"type": Types.ABILITY, "unit": u.id, "ability": "talk_down", "target": t.id}
 			if _ok(s, a):
 				return a
+	if not skip_purge:
+		var worst: Unit = null
+		var worst_id := ""
+		for id in ["purge", "decon", "serum"]:
+			if not u.abilities.has(id):
+				continue
+			var floor_inf := 70 if id == "serum" else 25
+			for t in s.living(Types.Team.PLAYER):
+				var a := {"type": Types.ABILITY, "unit": u.id, "ability": id, "target": t.id}
+				if t.infection >= floor_inf and _ok(s, a) and (worst == null or t.infection > worst.infection):
+					worst = t
+					worst_id = id
+		if worst != null:
+			return {"type": Types.ABILITY, "unit": u.id, "ability": worst_id, "target": worst.id}
 	if u.abilities.has("stim"):
 		var best: Unit = null
 		for t in s.living(Types.Team.PLAYER):
