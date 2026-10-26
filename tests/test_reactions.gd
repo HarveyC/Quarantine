@@ -55,3 +55,13 @@ func test_flare_up_burning_enemy_in_smoke_sets_fire_around_it() -> void:
 	x.foe.status["burning"] = 2
 	GearFx.on_team_phase_start(x.s)
 	assert_eq(Hazards.at(x.s, x.foe.pos + Vector2i(1, 0)).get("kind", ""), "fire", "fire spread to the next tile")
+
+
+func test_resonance_is_a_small_aim_bonus_for_committing_to_one_tag() -> void:
+	var x := _setup()
+	x.u.status["gear_tags"] = {"Mark": 1}
+	assert_eq(GearFx.resonance_aim(x.u), 0, "one piece: nothing")
+	x.u.status["gear_tags"] = {"Mark": 4, "Burn": 2}
+	assert_eq(GearFx.resonance_aim(x.u), 6, "four pieces of a tag: +6")
+	x.u.status["gear_tags"] = {"Mark": 9}
+	assert_eq(GearFx.resonance_aim(x.u), GearFx.RESONANCE_CAP, "capped")

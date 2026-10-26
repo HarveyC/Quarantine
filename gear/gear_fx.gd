@@ -45,6 +45,8 @@ const SCORCHED_PURGE := 10
 const WARRANT_AIM := 20
 const WARRANT_FOREVER := 1000000
 const WILDFIRE_TURNS := 1
+const RESONANCE_AIM := 2
+const RESONANCE_CAP := 10
 const CROSSHAIR_AIM := 20   # reaction: overwatch shots at a Marked enemy
 ## Kindled Spores: Infection each ignition costs the soldier.
 const KINDLED_INFECTION := 2
@@ -183,6 +185,9 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 		breakdown.append(["Warrant", WARRANT_AIM])
 	if reaction and a.team == Types.Team.PLAYER and is_marked(s, t):
 		breakdown.append(["Crosshair", CROSSHAIR_AIM])
+	var resonance := resonance_aim(a)
+	if resonance > 0:
+		breakdown.append(["Resonance", resonance])
 	if a.team == Types.Team.PLAYER and a.status.get("doctrines", []).has("buddy_system"):
 		for o in s.living(Types.Team.PLAYER):
 			if o != a and _cheb(o.pos, from) == 1 and not o.is_enemy_of(a):
@@ -542,6 +547,18 @@ static func damage_taken(s: GameState, target: Unit, amount: int, source: Unit) 
 		amount = maxi(1, amount - survival_cut(s, target, source))
 	var armor := int(target.status.get("armor", 0))
 	return maxi(1, amount - armor) if armor > 0 and amount > 0 else amount
+
+
+## Resonance: a small aim bonus for committing to one tag, +2 per piece of the soldier's biggest
+## tag beyond the first, up to +10. Power comes from the links; this is only a nudge.
+static func resonance_aim(u: Unit) -> int:
+	if not u.status.has("gear_tags"):
+		return 0
+	var top := 0
+	var c := GearTags.unit_counts(u)
+	for k in c:
+		top = maxi(top, int(c[k]))
+	return clampi((top - 1) * RESONANCE_AIM, 0, RESONANCE_CAP)
 
 
 ## Survival half of a set bonus: damage `target` shrugs off from `source` while `source` carries the
