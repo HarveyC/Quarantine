@@ -326,6 +326,90 @@ func _probes() -> Dictionary:
 		x.foe.hp = 0
 		GearFx.on_kill(x.s, x.u, x.foe, false)
 		return _expect(Ammo.rounds(x.u) == 3, "no round back")
+	p["chain_link"] = func(x):
+		x.near.pos = x.foe.pos + Vector2i(0, 1)
+		GearFx._mark(x.s, x.foe, 2, x.u)
+		return _expect(GearFx.is_marked(x.s, x.near), "neighbour not Marked")
+	p["echo_array"] = func(x):
+		x.near.pos = x.foe.pos + Vector2i(0, 2)
+		x.foe.status["tagged"] = Combat.phase_index(x.s) + 2
+		x.near.status["tagged"] = Combat.phase_index(x.s) + 2
+		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
+		return _expect(x.near.hp == x.near.max_hp - 1, "other Marked enemy untouched")
+	p["cinder_lens"] = func(x):
+		GearFx.ignite(x.s, x.u, x.foe, 2)
+		return _expect(GearFx.is_marked(x.s, x.foe), "burning enemy not Marked")
+	p["flash_fry"] = func(x):
+		x.foe.pos = x.u.pos + Vector2i(2, 0)
+		x.near.pos = x.foe.pos + Vector2i(0, 1)
+		x.foe.hp = 0
+		GearFx.on_kill(x.s, x.u, x.foe, false)
+		return _expect(GearFx.is_burning(x.s, x.near), "neighbour not Burning")
+	p["pressure_nozzle"] = func(x):
+		GearFx._suppress(x.s, x.u, x.foe)
+		return _expect(GearFx.is_burning(x.s, x.foe), "suppressed enemy not Burning")
+	p["cascade_rounds"] = func(x):
+		x.near.pos = x.foe.pos + Vector2i(0, 1)
+		GearFx._suppress(x.s, x.u, x.foe)
+		return _expect(Combat.has_status(x.s, x.near, "suppressed"), "neighbour not Suppressed")
+	p["pin_tag_rounds"] = func(x):
+		x.foe.status["tagged"] = Combat.phase_index(x.s) + 2
+		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
+		return _expect(Combat.has_status(x.s, x.foe, "suppressed"), "Marked target not Suppressed")
+	p["hair_trigger"] = func(x):
+		x.u.overwatch = true
+		x.u.status["ow_until"] = Combat.phase_index(x.s) + 2
+		x.foe.pos = x.u.pos + Vector2i(3, 0)
+		var before: int = x.foe.hp
+		GearFx._mark(x.s, x.foe, 2, x.ally)
+		return _expect(x.foe.hp < before or _logged(x.s, "gear", "item", "hair_trigger"), "no shot at the new Mark")
+	p["patient_eye"] = func(x):
+		GearFx.after_shot(x.s, x.u, x.foe, true, true, 3)
+		return _expect(GearFx.is_marked(x.s, x.foe), "overwatch hit did not Mark")
+	p["kill_spill"] = func(x):
+		x.foe.pos = x.u.pos + Vector2i(2, 0)
+		x.near.pos = x.foe.pos + Vector2i(0, 1)
+		x.u.status["link_dmg"] = 4
+		x.foe.hp = 0
+		GearFx.on_kill(x.s, x.u, x.foe, false)
+		return _expect(x.near.hp == x.near.max_hp - 2, "spill missed the neighbour")
+	p["retaliation_plate"] = func(x):
+		GearFx.damage_taken(x.s, x.u, 2, x.foe)
+		return _expect(GearFx.is_marked(x.s, x.foe), "attacker not Marked")
+	p["serum_lance"] = func(x):
+		x.near.pos = x.ally.pos + Vector2i(0, 1)
+		GearFx.on_purge(x.s, x.u, x.ally, 10)
+		return _expect(GearFx.is_marked(x.s, x.near) and x.near.hp < x.near.max_hp, "enemy beside the purged ally untouched")
+	p["volatile_spores"] = func(x):
+		x.u.infection = 30
+		x.near.pos = x.foe.pos + Vector2i(0, 1)
+		x.foe.status["burning"] = 2
+		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
+		return _expect(x.near.hp == x.near.max_hp - 2, "burst missed the neighbour")
+	p["signal_drum"] = func(x):
+		x.u.status["ammo"] = 1
+		Rules.apply(x.s, {"type": Types.RELOAD, "unit": x.u.id})
+		return _expect(GearFx.is_marked(x.s, x.foe) or GearFx.is_marked(x.s, x.near), "reload Marked nobody")
+	p["ember_loader"] = func(x):
+		x.u.status["ammo"] = 1
+		Rules.apply(x.s, {"type": Types.RELOAD, "unit": x.u.id})
+		return _expect(GearFx.is_burning(x.s, x.near), "reload lit nobody")
+	p["ready_stance"] = func(x):
+		x.u.status["ammo"] = 1
+		Rules.apply(x.s, {"type": Types.RELOAD, "unit": x.u.id})
+		return _expect(x.u.overwatch, "reload did not set overwatch")
+	p["bounty_ledger"] = func(x):
+		x.u.cooldowns["lockdown"] = 4
+		x.foe.status["tagged"] = Combat.phase_index(x.s) + 2
+		x.foe.hp = 0
+		GearFx.on_kill(x.s, x.u, x.foe, false)
+		return _expect(int(x.u.cooldowns["lockdown"]) == 3, "cooldown not cut")
+	p["blood_clock"] = func(x):
+		x.u.cooldowns["lockdown"] = 4
+		x.foe.pos = x.u.pos + Vector2i(2, 0)
+		x.foe.hp = 0
+		GearFx.on_kill(x.s, x.u, x.foe, false)
+		return _expect(int(x.u.cooldowns["lockdown"]) == 3, "cooldown not cut")
 	p["tracer_rounds"] = func(x):
 		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
 		return _expect(Combat.has_status(x.s, x.foe, "tagged"), "not Marked")

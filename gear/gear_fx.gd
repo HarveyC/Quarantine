@@ -246,6 +246,7 @@ static func after_shot(s: GameState, u: Unit, t: Unit, hit: bool, reaction: bool
 	if not u.status.has("gear"):
 		return
 	var close := _dist(u.pos, t.pos) <= CLOSE
+	GearLinks.after_shot(s, u, t, hit, reaction, dmg)
 	if has(u, "spore_rounds"):
 		Infection.add(s, u, 2)
 	if hit and Kit.awake(u, "kindled_spores"):
@@ -312,6 +313,7 @@ static func free_reload(u: Unit) -> bool:
 
 
 static func after_reload(s: GameState, u: Unit, _had: int) -> void:
+	GearLinks.on_reload(s, u)
 	if mk(u, "speed_loader") >= 2:
 		u.status["gear_fresh_turn"] = s.turn
 
@@ -323,7 +325,9 @@ static func kill_rounds(u: Unit) -> int:
 
 static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 	Ammo.on_kill(s, u)
+	GearLinks.on_kill(s, u, t)
 	var was_marked := t.status.has("tagged") and int(t.status.tagged) > Combat.phase_index(s)
+	GearLinks.on_kill_signature(s, u, t, was_marked)
 	if reaction and has_set(u, "Overwatch"):
 		u.overwatch = true
 		u.status["ow_until"] = Combat.phase_index(s) + 2
@@ -360,15 +364,17 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 
 
 static func _mark(s: GameState, t: Unit, phases: int, u: Unit = null) -> void:
+	var was := is_marked(s, t)
 	var until := Combat.phase_index(s) + phases
 	if int(t.status.get("tagged", 0)) < until:
 		t.status["tagged"] = until
-	on_marked(s, u, t)
+	on_marked(s, u, t, was)
 
 
 ## Warrant (Mark capstone): a Mark `u` puts on `t` never runs out, and the whole squad aims better
 ## against it. Call after any Mark lands (the Marksman's Tag, tracer rounds, flares, Flies...).
-static func on_marked(s: GameState, u: Unit, t: Unit) -> void:
+static func on_marked(s: GameState, u: Unit, t: Unit, was := false) -> void:
+	GearLinks.on_marked(s, u, t, was)
 	if u == null or t == null or not t.is_alive() or not has_capstone(u, "Mark"):
 		return
 	t.status["tagged"] = WARRANT_FOREVER
@@ -392,6 +398,7 @@ static func _suppress(s: GameState, u: Unit, t: Unit, extra: int = 0) -> void:
 	if has(u, "pinpoint"):
 		_mark(s, t, 3, u)
 	s.emit({"type": "gear", "unit": u.id, "item": "suppress", "target": t.id})
+	GearLinks.on_suppressed(s, u, t)
 
 
 ## Sets `t` Burning for `turns` ticks (the Burn set adds one).
@@ -402,6 +409,7 @@ static func ignite(s: GameState, u: Unit, t: Unit, turns: int) -> void:
 		t.status["burning"] = turns
 		t.status["burn_source"] = u.id
 		s.emit({"type": "burning", "unit": t.id, "turns": turns})
+		GearLinks.on_ignite(s, u, t)
 
 
 ## Puts `u`'s fire on `cells` for `turns` rounds (Hazards; walls are skipped there).
@@ -498,6 +506,7 @@ static func on_suppress(s: GameState, u: Unit, t: Unit) -> void:
 		t.status["suppress_extra"] = 10 if mk(u, "compensator") < 2 else 15
 	if has(u, "pinpoint"):
 		_mark(s, t, 3, u)
+	GearLinks.on_suppressed(s, u, t)
 	if has(u, "rotary_feed"):
 		var reach := 3 if mk(u, "rotary_feed") < 2 else 4
 		var dir := Vector2(t.pos - u.pos).normalized()
@@ -514,6 +523,8 @@ static func on_suppress(s: GameState, u: Unit, t: Unit) -> void:
 static func damage_taken(s: GameState, target: Unit, amount: int, source: Unit) -> int:
 	if amount > 0 and source != null and source.is_alive() and source.is_enemy_of(target) and has(target, "ember_plating"):
 		ignite(s, target, source, mk(target, "ember_plating"))
+	if amount > 0 and source != null and source.is_enemy_of(target) and target.status.has("gear"):
+		GearLinks.on_hurt(s, target, source)
 	var armor := int(target.status.get("armor", 0))
 	return maxi(1, amount - armor) if armor > 0 and amount > 0 else amount
 
@@ -662,6 +673,7 @@ static func on_purge(s: GameState, u: Unit, t: Unit, amount: int, self_took := f
 		s.emit({"type": "gear", "unit": u.id, "item": "bloodletting", "actions": u.actions_left})
 		Infection.add(s, u, amount)
 	u.status["purged_turn"] = s.turn
+	GearLinks.on_purge(s, u, t)
 	if has_set(u, "Purge") and t.hp < t.max_hp:
 		t.hp += 1
 		s.emit({"type": "gear", "unit": t.id, "item": "purge_set", "heal": 1, "hp": t.hp})
