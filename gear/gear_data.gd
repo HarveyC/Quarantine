@@ -41,9 +41,9 @@ const TAG_INFO := {
 	"Strain": {"color": Color("#3fe0c5"), "about": "Powers fed by Infection",
 		"bonus": "+1 damage while Exposed or higher, active mutations cost 5 less Infection, and while Exposed or higher Infected hit you for 1 less"},
 	"Purge": {"color": Color("#e9e4d4"), "about": "Removing or moving Infection",
-		"bonus": "Allies you purge also heal 1 HP, and you gain no Infection on a turn you purge someone"},
+		"bonus": "Allies you purge also heal 1 HP, you gain no Infection on a turn you purge someone, and you and allies within 2 tiles take a quarter less Infection"},
 	"Guard": {"color": Color("#a9c46c"), "about": "Protecting adjacent allies",
-		"bonus": "Adjacent allies get +5 defense, and once per enemy phase you take a hit meant for an adjacent ally",
+		"bonus": "Adjacent allies get +5 defense, you and adjacent allies take a quarter less Infection, and once per enemy phase you take a hit meant for an adjacent ally",
 		"capstone_name": "Aegis", "capstone": "One hit can't kill you from above 1 HP, and damage you take for an ally goes back to the attacker"},
 }
 
@@ -297,6 +297,8 @@ const CONSUMABLES := {
 	"suppressant_shot": {"name": "Suppressant shot", "price": 20, "desc": "-15 Infection"},
 	"frag_grenade": {"name": "Frag grenade", "price": 20, "desc": "3 damage in radius 1. Strips half cover, cracks walls and roofs, brings down scaffolds"},
 	"demo_charge": {"name": "Demo charge", "price": 20, "desc": "Place on a tile or wall next to you: blows a doorway through a wall, 3 damage around it"},
+	"antiviral_dose": {"name": "Antiviral dose", "price": 28, "desc": "-35 Infection from an ally within reach"},
+	"breather_mask": {"name": "Breather mask", "price": 25, "desc": "You and allies within 2 tiles gain no Infection for 2 turns"},
 	"stim": {"name": "Stim", "price": 25, "desc": "+1 action this turn, +5 Infection"},
 	"containment_foam": {"name": "Containment foam", "price": 30, "desc": "Restrains a Lapsed or Turned soldier within 4 tiles for 2 turns without killing them"},
 }

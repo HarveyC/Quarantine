@@ -8,7 +8,7 @@ const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "b
 	"incinerate": "incinerate", "siphon": "siphon", "lunge": "lunge", "bash": "bash", "guard": "guard", "shield_charge": "shield_charge",
 	"item:frag_grenade": "grenade", "item:demo_charge": "charge",
 	"item:smoke_grenade": "smoke", "item:flashbang": "flash", "item:medkit": "medic", "item:stim": "medic",
-	"item:suppressant_shot": "purge", "item:recon_drone": "drone", "gear:flare_launcher": "tag",
+	"item:suppressant_shot": "purge", "item:antiviral_dose": "purge", "item:breather_mask": "cure", "item:recon_drone": "drone", "gear:flare_launcher": "tag",
 	"gear:concussion_launcher": "suppress", "gear:thermite_charge": "incinerate", "gear:med_injector": "purge",
 	"gear:adrenal_pump": "mutation", "gear:deployable_cover": "cover_half", "gear:grapple": "move",
 	"gear:containment_emitter": "cure", "gear:sentry_turret": "overwatch", "item:containment_foam": "lock",

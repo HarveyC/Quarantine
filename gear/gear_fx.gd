@@ -69,6 +69,8 @@ const TURRET := [{"turns": 3, "aim": 60, "damage": 2}, {"turns": 4, "aim": 70, "
 const CONSUMABLE_USE := {
 	"medkit": {"targeting": "unit", "cost": 1},
 	"suppressant_shot": {"targeting": "unit", "cost": 1},
+	"antiviral_dose": {"targeting": "unit", "cost": 1},
+	"breather_mask": {"targeting": "none", "cost": 1},
 	"stim": {"targeting": "none", "cost": 0},
 	"frag_grenade": {"targeting": "cell", "cost": 1, "range": 6.0},
 	"demo_charge": {"targeting": "cell", "cost": 1, "range": 1.5},
@@ -713,7 +715,22 @@ static func infection_gain(s: GameState, u: Unit, amount: int) -> int:
 		return 0
 	if has_set(u, "Purge") and int(u.status.get("purged_turn", -1)) == s.turn:
 		return 0
-	return amount
+	return ceili(amount * ward_factor(s, u))
+
+
+## Share of Infection `u` still takes with wards about: a Guard-set soldier covers themselves and
+## adjacent allies, a Purge-set soldier themselves and allies within 2 tiles. Each ward cuts a
+## quarter and they multiply.
+static func ward_factor(s: GameState, u: Unit) -> float:
+	var guard := false
+	var purge := false
+	for g in s.living(Types.Team.PLAYER):
+		var d := _cheb(g.pos, u.pos)
+		if has_set(g, "Guard") and d <= 1:
+			guard = true
+		if has_set(g, "Purge") and d <= 2:
+			purge = true
+	return (0.75 if guard else 1.0) * (0.75 if purge else 1.0)
 
 
 ## `u` took `amount` Infection off ally `t` (Purge, Decon, Siphon, Stim, Med-injector,
@@ -975,8 +992,8 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 				if u.is_enemy_of(o) and line.has(o.pos):
 					ignite(s, u, o, 1)
 			return
-		"med_injector", "suppressant_shot":
-			var amount := 15
+		"med_injector", "suppressant_shot", "antiviral_dose":
+			var amount := 35 if key == "antiviral_dose" else 15
 			if key == "med_injector" and mk(u, key) >= 2:
 				amount = 25
 			s.emit(ev)
@@ -998,6 +1015,14 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit(ev)
 			Infection.add(s, u, 5)
 			return
+		"breather_mask":
+			var sealed: Array = []
+			for o in s.living(Types.Team.PLAYER):
+				if _cheb(o.pos, u.pos) <= 2:
+					o.status["contained"] = Combat.phase_index(s) + 2
+					sealed.append(o.id)
+			ev["units"] = sealed
+			ev["until"] = Combat.phase_index(s) + 2
 		"containment_emitter":
 			var until := Combat.phase_index(s) + 2
 			var held: Array = []
