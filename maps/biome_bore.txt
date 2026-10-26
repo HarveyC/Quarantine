@@ -755,7 +755,7 @@ FFDFT
 
 @street fuel_line
 ....
-.!..
+.=..
 ...=
 =...
 
@@ -799,29 +799,44 @@ FFDFT
 ##..
 #...
 
-@compound pillar_hall
-....
-.##.
-.##.
-....
-
 @compound crooked_gallery
 ##..
 .#..
 .#.#
 ...#
 
-@compound ore_pocket
-#...
-#.#.
-#.#.
-..#.
+@compound mine_office
++-+-+-+ +
+|. . .|. 
++ + + + +
+o. . .d. 
++ + + + +
+|. . .|# 
++-+o+-+ +
+ . . . # 
++ + + + +
 
-@compound shaft_mouth
-.##.
-#..#
-#..#
-.##.
+@compound powder_store
++ + + + +
+ # . . . 
++ +-+o+-+
+ #|. . .|
++ + + + +
+ .|.d. .|
++ + + + +
+ .|. . .|
++ +-+-+-+
+
+@compound foreman_sheds
++-+-+ + +
+|. .|. . 
++ + + + +
+|. .d. # 
++ + + + +
+|. .|. # 
++ + + + +
+d. .|. . 
++d+-+ + +
 
 @roofline bore_stair_deck
 ^^^^

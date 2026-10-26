@@ -86,7 +86,7 @@ def wall_compounds():
     d = P("compound", "checkpoint_booths").box(0, 0, 1, 1).box(2, 2, 3, 3)
     d.v(1, 0, "d").h(1, 1, "o").h(2, 1, "d").v(3, 2, "o").cell(2, 0, "=").cell(1, 3, "=")
     e = P("compound", "armory").box(0, 0, 3, 3).v(3, 2, "d").v(-1, 1, "o").h(1, -1, "o").h(2, 3, "o")
-    e.cell(0, 0, "=").cell(1, 0, "=").cell(0, 3, "=").cell(2, 1, "!")
+    e.cell(0, 0, "=").cell(1, 0, "=").cell(0, 3, "=").cell(2, 1, "=")
     f = P("compound", "ward_pair").box(0, 0, 3, 1).box(0, 2, 3, 3).v(3, 0, "d").v(-1, 3, "d").h(1, 1, "d")
     f.v(1, 0, "|").v(1, 3, "|").cell(2, 1, "=").cell(1, 2, "=")
     return [a, b, c, d, e, f]
@@ -94,13 +94,13 @@ def wall_compounds():
 
 def port_compounds():
     a = P("compound", "warehouse").hline(-1, 0, 3).hline(3, 0, 3).vline(-1, 0, 3).vline(3, 0, 3)
-    a.v(3, 0, "d").v(3, 2, "d").h(1, 3, "d").cell(1, 1, "#").cell(2, 2, "#").cell(1, 0, "=")
+    a.v(3, 0, "d").v(3, 2, "d").h(1, 3, "d").cell(1, 1, "#").cell(2, 1, "#").cell(2, 2, "=").cell(1, 0, "=")
     b = P("compound", "customs_shed").box(0, 0, 3, 2).h(0, 2, "o").h(1, 2, "d").h(3, 2, "o").v(-1, 1, "o")
     b.cell(2, 1, "=").cell(3, 3, "=")
     c = P("compound", "office_row").box(0, 0, 3, 3).vline(1, 0, 1).hline(1, 2, 3).v(1, 0, "d").h(3, 1, "d")
     c.v(3, 0, "o").h(2, 3, "d").v(-1, 3, "o")
     d = P("compound", "pump_house").box(1, 1, 2, 2).v(2, 1, "d").h(1, 2, "d").v(0, 2, "o")
-    d.cell(0, 0, "!").cell(3, 3, "=").cell(0, 3, "=")
+    d.cell(0, 0, "=").cell(3, 3, "=").cell(0, 3, "=")
     e = P("compound", "cold_store").box(0, 0, 3, 3).h(2, -1, "d").v(-1, 2, "o").v(3, 1, "o").vline(1, 0, 1)
     e.v(1, 1, "d").cell(2, 2, "#").cell(3, 2, "#")
     f = P("compound", "crane_shed").hline(-1, 0, 3).hline(3, 0, 3).vline(3, 0, 3).h(0, 3, "d").h(3, 3, "d")
@@ -112,10 +112,7 @@ def bore_compounds():
     rows = {
         "twin_chambers": ["#..#", "#..#", "##.#", "...."],
         "pinch": ["#.##", "...#", "##..", "#..."],
-        "pillar_hall": ["....", ".##.", ".##.", "...."],
         "crooked_gallery": ["##..", ".#..", ".#.#", "...#"],
-        "ore_pocket": ["#...", "#.#.", "#.#.", "..#."],
-        "shaft_mouth": [".##.", "#..#", "#..#", ".##."],
     }
     out = []
     for n, r in rows.items():
@@ -124,7 +121,10 @@ def bore_compounds():
             for x in range(4):
                 p.cell(x, y, r[y][x])
         out.append(p)
-    return out
+    a = P("compound", "mine_office").box(0, 0, 2, 2).v(2, 1, "d").h(1, 2, "o").v(-1, 1, "o").cell(3, 3, "#").cell(3, 2, "#")
+    b = P("compound", "powder_store").box(1, 1, 3, 3).v(1, 2, "d").h(2, -1 + 1, "o").cell(0, 0, "#").cell(0, 1, "#")
+    c = P("compound", "foreman_sheds").box(0, 0, 1, 3).vline(1, 0, 3, "|").v(1, 1, "d").v(-1, 3, "d").h(0, 3, "d").cell(3, 1, "#").cell(3, 2, "#")
+    return out + [a, b, c]
 
 
 # ---------------------------------------------------------------- rooflines: height, perches
@@ -161,7 +161,7 @@ def streets():
     p.cell(1, 1, "#").cell(2, 1, "#").cell(0, 3, "=")
     out.append(p)
     p = P("street", "fuel_line")
-    p.cell(1, 1, "!").cell(3, 2, "=").cell(0, 3, "=")
+    p.cell(1, 1, "=").cell(3, 2, "=").cell(0, 3, "=")
     out.append(p)
     p = P("street", "open_square")
     p.cell(2, 1, "?").cell(1, 3, "?")
