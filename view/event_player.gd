@@ -1244,7 +1244,35 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
 	"burrow", "erupt",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
-	"hook", "reel", "satchel", "mend"]
+	"hook", "reel", "satchel", "mend",
+	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
+
+## Rank 2 signatures (Signatures): the sound, title and colour of each one's beat.
+const SIGNATURE_LOOK := {
+	"lockdown": {"sound": "gadget_deploy", "title": "LOCKDOWN", "color": Palette.AMBER},
+	"deadeye": {"sound": "sniper", "title": "DEADEYE", "color": Palette.AMBER},
+	"quarantine_field": {"sound": "foam_spray", "title": "QUARANTINE FIELD", "color": Palette.TEAL},
+	"bring_down": {"sound": "collapse", "title": "BRING DOWN", "color": Palette.AMBER},
+	"flashover": {"sound": "explosion", "title": "FLASHOVER", "color": Palette.DANGER},
+	"vent": {"sound": "spore_burst", "title": "VENT", "color": Palette.TEAL},
+	"death_sweep": {"sound": "blade", "title": "DEATH SWEEP", "color": Palette.DANGER},
+	"provoke": {"sound": "plate_clang", "title": "PROVOKE", "color": Palette.AMBER},
+}
+
+
+func _signature_beat(ev: Dictionary) -> Dictionary:
+	var look: Dictionary = SIGNATURE_LOOK[ev.ability]
+	_sfx(look.sound)
+	var beat := _power_beat(ev, look.title, look.color)
+	for id in ev.get("units", []):
+		var tv := view.view_for(int(id))
+		if tv != null:
+			view.fx.pulse(tv.position, look.color)
+	var uv := _uv(ev)
+	if uv != null and ev.has("radius"):
+		view.fx.pulse(uv.position, look.color)
+	beat["dur"] = maxf(float(beat.get("dur", 0.0)), 0.7)
+	return beat
 
 
 func _beat_ability(ev: Dictionary) -> Dictionary:
@@ -1252,6 +1280,8 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 		var user := _uv(ev)
 		if user != null:
 			user.spend_pocket(str(ev.ability).trim_prefix("item:"))   # the pouch empties on the body
+	if SIGNATURE_LOOK.has(str(ev.get("ability", ""))):
+		return _signature_beat(ev)
 	match str(ev.get("ability", "")):
 		"claw", "slam", "pounce", "maul", "spore_drop":
 			return _melee_beat(ev)

@@ -100,6 +100,9 @@ static func apply_record(u: Unit, prog: Dictionary) -> void:
 		u.mobility += int(p.get("mobility", 0))
 		if p.has("ability") and not u.abilities.has(p.ability):
 			u.abilities.append(p.ability)
+	var sig := Signatures.for_class(u.kind)
+	if sig != "" and int(prog.get("rank", 1)) >= Signatures.UNLOCK_RANK and not u.abilities.has(sig):
+		u.abilities.append(sig)
 	Infection.sync_passives(u)
 	Kit.refresh_stats(null, u)
 

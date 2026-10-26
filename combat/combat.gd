@@ -645,3 +645,4 @@ static func resolve_reactions(s: GameState, mover: Unit, reactors: Array[Unit]) 
 			fire_at_barrel(s, w, barrel, true)
 		else:
 			fire(s, w, mover, true)
+		Signatures.after_reaction(s, w, mover)
