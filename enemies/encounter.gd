@@ -448,6 +448,10 @@ static func _spawn_incoming(s: GameState) -> void:
 
 
 static func on_unit_turn_start(s: GameState, u: Unit) -> void:
+	if u.kind == "stalker" and u.is_alive() and not EnemyBehaviours.is_watched(s, u):
+		u.mobility += EnemyRoster.STALK_BONUS_MOVE
+		u.status["stalk_move"] = EnemyRoster.STALK_BONUS_MOVE
+		u.status["stalking"] = true
 	if EnemyRoster.has_affix(u, "hasted"):
 		u.actions_left = Types.ACTIONS_PER_TURN + 1
 	if EnemyRoster.has_affix(u, "regenerating") and u.hp < u.max_hp \
@@ -458,6 +462,10 @@ static func on_unit_turn_start(s: GameState, u: Unit) -> void:
 
 
 static func on_unit_turn_end(s: GameState, u: Unit) -> void:
+	if u.status.has("stalk_move"):
+		u.mobility -= int(u.status.stalk_move)
+		u.status.erase("stalk_move")
+	u.status.erase("stalking")
 	if u.is_alive() and s.phase != Types.Phase.ENDED:
 		EnemyBehaviours.end_turn(s, u)
 
@@ -531,6 +539,11 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		armour = maxi(armour, EnemyRoster.ARMOURED_REDUCTION)   # doesn't stack with a Brute's own plating
 	if armour > 0:
 		amount = maxi(1, amount - armour)
+	if EnemyBehaviours.plate_covers(s, target, source) and amount > 0:
+		amount = maxi(1, amount - EnemyRoster.PLATE_REDUCTION)
+		s.emit({"type": "plated", "unit": target.id, "source": source.id})
+	if source != null and target.team == Types.Team.PLAYER and source.team == Types.Team.ENEMY:
+		amount += _rally_bonus(s, source) + _stalk_bonus(s, source, target)
 	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:
 		amount = maxi(1, roundi(amount * float(BOSS_DAMAGE[clampi(int(s.encounter.get("squad", 4)), 1, 4)])))
 	if target.kind == "the_source" and source != null and source.team == Types.Team.PLAYER \
@@ -542,6 +555,34 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 	if target.kind == "colonel_hale" and int(target.status.get("boss_phase", 1)) == 1:
 		amount = mini(amount, target.hp - 1)
 	return amount
+
+
+## +1 damage when an Infected fights within RALLY_DAMAGE's reach of a Rallying elite.
+static func _rally_bonus(s: GameState, source: Unit) -> int:
+	if EnemyRoster.is_static(source):
+		return 0
+	for o in s.living(source.team):
+		if EnemyRoster.has_affix(o, "rallying") and o.pos.distance_to(source.pos) <= EnemyRoster.RALLY_RADIUS:
+			return EnemyRoster.RALLY_DAMAGE
+	return 0
+
+
+## A Stalker's first hit out of the dark on a soldier alone: +2 damage.
+static func _stalk_bonus(s: GameState, source: Unit, target: Unit) -> int:
+	if source.kind != "stalker" or not source.status.get("stalking", false):
+		return 0
+	var others := 0
+	for o in s.living(target.team):
+		if o == target:
+			continue
+		others += 1
+		if o.pos.distance_to(target.pos) <= EnemyRoster.STALK_ISOLATION:
+			return 0
+	if others == 0:
+		return 0   # a lone soldier has nobody to be cut off from
+	source.status.erase("stalking")
+	s.emit({"type": "stalked", "unit": source.id, "target": target.id})
+	return EnemyRoster.STALK_BONUS_DAMAGE
 
 
 static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) -> void:
@@ -589,6 +630,8 @@ static func on_died(s: GameState, u: Unit) -> void:
 			spawn(s, "runner", u.pos, u)
 	if u.kind in ["bloater", "broodling"] and not u.status.get("burst", false):
 		EnemyAbilities.burst(s, u)
+	if u.team == Types.Team.ENEMY and EnemyRoster.has_affix(u, "volatile") and s.phase != Types.Phase.ENDED:
+		Destruction.explode(s, u.pos, EnemyRoster.VOLATILE_BLAST, null, "volatile")
 	if EnemyRoster.is_boss(u):
 		s.encounter["over"] = true
 		s.emit({"type": "boss_defeated", "unit": u.id, "boss": u.kind})

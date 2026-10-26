@@ -795,8 +795,66 @@ static func _build() -> Dictionary:
 		var n: Array = nodes[type]
 		t["node_" + type] = {"name": n[0], "kind": "map node", "icon": n[1], "tone": n[2], "line": n[3],
 			"art": "intel" if type == RunMap.UNKNOWN else "", "stats": n[4], "see": ["outbreak"], "scan": false}
+	_add_enemy_terms(t)
 	_add_rules_terms(t)
 	return t
+
+
+## Cards for the enemies added in the 2026-10-25 sprint and the mechanics they teach. The enemy
+## cards open from the enemy's nameplate; the mechanic cards from the bold words in their text and
+## from the intent words (HOOKING, SATCHEL, FROZEN, MENDING). The common-word ones stay out of prose.
+static func _add_enemy_terms(t: Dictionary) -> void:
+	t["hook"] = {"name": "Hook", "kind": "enemy ability", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "A Hooker's locked line. Next turn it yanks the soldier on it toward the Hooker.",
+		"art": "", "stats": [["%d" % EnemyRoster.HOOK_PULL, "tiles pulled"], ["%d" % EnemyRoster.HOOK_DAMAGE, "damage"]],
+		"more": ["Break line of sight or {suppress} the Hooker and the line goes slack.",
+			"The first soldier on the line is the one pulled, so a squad-mate can step in front.",
+			"A pull off {high_ground} adds fall damage, and a pulled soldier loses overwatch and hunker."],
+		"see": ["suppress", "high_ground", "overwatch"],
+		"labels": ["Hooking", "Hooked", "Reel"]}
+	t["satchel"] = {"name": "Satchel", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "A thrown charge that goes off next enemy phase on the red 3x3.",
+		"art": "", "stats": [["%d" % EnemyRoster.SATCHEL_DAMAGE, "damage"], ["3x3", "blast"]],
+		"more": ["It cracks {cover} in the blast, so the squad is exposed afterwards.",
+			"Killing the Sapper does not stop it. Step off the red tiles instead.",
+			"Infected caught in the blast take the damage too."],
+		"see": ["cover"]}
+	t["plate"] = {"name": "Plate", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "Bone armour over the front of a Carapace. Hits from the front lose %d damage." % EnemyRoster.PLATE_REDUCTION,
+		"art": "", "stats": [["-%d" % EnemyRoster.PLATE_REDUCTION, "damage, front"], ["1", "least per hit"]],
+		"more": ["The amber tiles on the ground show the plated side.",
+			"Flank it, or shoot from {high_ground}, and the plate does nothing.",
+			"It turns toward the nearest soldier at the end of its turn."],
+		"see": ["flank", "high_ground"],
+		"labels": ["Plated"]}
+	t["watched"] = {"name": "Watched", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "A Stalker cannot move while any soldier can see it. Unseen, it hunts.",
+		"art": "", "stats": [["+%d" % EnemyRoster.STALK_BONUS_MOVE, "move, unseen"], ["+%d" % EnemyRoster.STALK_BONUS_DAMAGE, "damage, first hit"]],
+		"more": ["Its first hit on a soldier more than %d tiles from the rest gets the bonus." % EnemyRoster.STALK_ISOLATION,
+			"Keep a soldier looking at it, or put {overwatch} on its way in.",
+			"A squad of one is never cut off, so it gets no bonus."],
+		"see": ["overwatch", "fog"],
+		"labels": ["Frozen", "Stalking"]}
+	t["mend"] = {"name": "Mend", "kind": "enemy ability", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "A Weaver's thread heals the most wounded Infected it can see.",
+		"art": "", "stats": [["%d" % EnemyRoster.MEND_HEAL, "HP a turn"], ["%d" % EnemyRoster.MEND_RANGE, "tiles"]],
+		"more": ["A teal thread shows who it will mend next.",
+			"Kill the Weaver or put a wall between them and the mending stops.",
+			"It never mends bosses or nests."],
+		"labels": ["Mending"]}
+	var cards := {
+		"hooker": ["Locks a barbed line onto a soldier, then {hook|reels} them toward it next turn.", ["hook"]],
+		"sapper": ["Throws a {satchel} onto the squad's cover, then runs.", ["satchel"]],
+		"carapace": ["Slow Infected with a bone {plate} over its front. Flank it.", ["plate"]],
+		"stalker": ["Frozen while any soldier can see it. Unseen, it hunts the soldier who strayed.", ["watched"]],
+		"weaver": ["Threads to a wounded Infected and {mend|mends} it. Kill it first.", ["mend"]],
+	}
+	for kind in cards:
+		var st: Dictionary = UnitData.ENEMIES[kind]
+		t["enemy_" + kind] = {"name": st.name, "kind": "enemy", "icon": "enemy", "tone": "danger",
+			"line": cards[kind][0], "art": "",
+			"stats": [["%d" % int(st.max_hp), "HP"], ["%d-%d" % [int(st.damage[0]), int(st.damage[1])] if int(st.damage[1]) > 0 else "0", "damage"]],
+			"more": [], "see": cards[kind][1]}
 
 
 ## Soldier abilities and enemy traits, read from their rules tables so a new one is
@@ -824,7 +882,8 @@ static func _add_rules_terms(t: Dictionary) -> void:
 		var f: Dictionary = EnemyRoster.AFFIX_INFO[id]
 		if not taken.has(str(f.name).to_lower()):
 			t["affix_" + id] = {"name": f.name, "kind": "elite trait", "icon": "enemy", "tone": "danger",
-				"line": _first_sentence(str(f.desc)), "art": "", "stats": []}
+				"line": _first_sentence(str(f.desc)), "art": "", "stats": [],
+				"more": [str(f.get("counter", ""))] if f.has("counter") else []}
 
 
 static func _first_sentence(desc: String) -> String:

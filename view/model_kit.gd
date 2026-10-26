@@ -8,6 +8,7 @@ const Palette := preload("res://view/palette.gd")
 const SHADER := preload("res://view/character.gdshader")
 const GunModels := preload("res://view/gun_models.gd")
 const MeleeKit := preload("res://view/melee_kit.gd")
+const EnemyKit := preload("res://view/enemy_kit.gd")
 
 const MODELS := {
 	"drifter": preload("res://assets/models/drifter.glb"),
@@ -68,6 +69,10 @@ static func instantiate(kind: String, is_soldier: bool) -> Node3D:
 		return c
 	if MODELS.has(kind):
 		return MODELS[kind].instantiate()
+	if EnemyKit.has(kind):   # an infected rig in a scripted variant
+		var v: Node3D = CHARACTERS[EnemyKit.body_of(kind)].instantiate()
+		EnemyKit.dress(v, kind)
+		return v
 	if MeleeKit.is_melee(kind):   # borrowed body, melee props and a sidearm
 		var b: Node3D = CHARACTERS[MeleeKit.body_of(kind)].instantiate()
 		MeleeKit.dress(b, kind)
@@ -79,6 +84,8 @@ static func instantiate(kind: String, is_soldier: bool) -> Node3D:
 
 
 static func size_of(kind: String) -> float:
+	if EnemyKit.has(kind):
+		return EnemyKit.size_of(kind)
 	if MeleeKit.is_melee(kind):
 		return MeleeKit.size_of(kind)
 	return SIZE.get(kind, 1.0) if CHARACTERS.has(kind) else 1.0

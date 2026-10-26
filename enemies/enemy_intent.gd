@@ -53,6 +53,8 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		return {"icon": "burst", "label": "BURSTING", "target": -1}
 	if u.status.has("leap_cell"):
 		return {"icon": "leap", "label": "LEAPING", "target": -1}
+	if u.status.has("hooked"):
+		return {"icon": "hook", "label": "HOOKING", "target": int(u.status.hooked)}
 	if u.status.has("sighted"):
 		return {"icon": "snipe", "label": "AIMING", "target": int(u.status.sighted)}
 	if u.status.has("charge_dir"):
@@ -73,6 +75,21 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			return {"icon": "drop", "label": "DROP", "target": _most_exposed(s, u, hostiles)}
 		"burrower":
 			return {"icon": "claw", "label": "BURROW", "target": -1}
+		"hooker":
+			return {"icon": "hook", "label": "HOOK", "target": _best_visible(s, u)}
+		"sapper":
+			if int(u.cooldowns.get("satchel", 0)) <= 1:
+				return {"icon": "satchel", "label": "SATCHEL", "target": _nearest(u, hostiles)}
+			return {"icon": "hide", "label": "RETREATING", "target": -1}
+		"stalker":
+			if EnemyBehaviours.is_watched(s, u):
+				return {"icon": "hide", "label": "FROZEN", "target": -1}
+			return {"icon": "claw", "label": "STALKING", "target": _most_exposed(s, u, hostiles)}
+		"weaver":
+			var mt := EnemyAbilities.mend_target(s, u)
+			if mt != null:
+				return {"icon": "mend", "label": "MENDING", "target": mt.id}
+			return {"icon": "hide", "label": "HIDING", "target": -1}
 		"brood_mother":
 			if BroodMother.will_burrow(s, u, true):
 				return {"icon": "claw", "label": "BURROWING", "target": -1}
@@ -109,6 +126,10 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 		if u.status.has("charge_dir"):
 			var lane := EnemyAbilities.charge_lane(s, u, u.pos, u.status.charge_dir)
 			out.append({"kind": "charge", "cells": lane.cells, "unit": u.id, "turn": s.turn})
+		if u.status.has("hooked"):
+			var h := s.get_unit(int(u.status.hooked))
+			if h != null and h.is_alive():
+				out.append({"kind": "hook", "cells": EnemyAbilities.line_cells(u.pos, h.pos), "unit": u.id, "turn": s.turn})
 	return out
 
 
@@ -123,6 +144,36 @@ static func tethers(s: GameState) -> Array:
 		for o in s.living(Types.Team.ENEMY):
 			if o.kind == kind and Vision.sees_unit(s, Types.Team.PLAYER, o):
 				out.append([o.id, u.id])
+	return out
+
+
+## [{unit, cells}] the armoured side of every Carapace the squad sees.
+static func plates(s: GameState) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for u in s.living(Types.Team.ENEMY):
+		if u.status.get("plate", false) and Vision.sees_unit(s, Types.Team.PLAYER, u):
+			out.append({"unit": u.id, "cells": EnemyBehaviours.plate_cells(s, u)})
+	return out
+
+
+## [weaver id, mended id] for each Weaver's thread, seen by the squad.
+static func links(s: GameState) -> Array:
+	var out: Array = []
+	for u in s.living(Types.Team.ENEMY):
+		if u.kind != "weaver" or not Vision.sees_unit(s, Types.Team.PLAYER, u):
+			continue
+		var t := EnemyAbilities.mend_target(s, u)
+		if t != null and Vision.sees_unit(s, Types.Team.PLAYER, t):
+			out.append([u.id, t.id])
+	return out
+
+
+## [{unit, cell}] each Rallying enemy the squad sees: Infected within RALLY_RADIUS of it hit harder.
+static func rallies(s: GameState) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for u in s.living(Types.Team.ENEMY):
+		if EnemyRoster.has_affix(u, "rallying") and Vision.sees_unit(s, Types.Team.PLAYER, u):
+			out.append({"unit": u.id, "cell": u.pos})
 	return out
 
 
