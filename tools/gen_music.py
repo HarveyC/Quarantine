@@ -1495,11 +1495,88 @@ def source_voice(dur, rng, dying=False):
     return y * 0.6
 
 
+# Pain and death: one spec per kind, so a creature's yelp and its dying cry share a throat.
+# f0 = body pitch (Hz), v = vowels, rough/breath/growl/drive/shift as in creature(), tail = what
+# is left in the chest when it goes ("wet" bubbles, "click" chitin, "hiss", "radio", "none").
+PAIN = {
+    "runner": dict(f0=620, v=["a", "e"], rough=0.45, breath=0.25, growl=55, drive=2.5, shift=1.0, tail="hiss", len=0.9),
+    "spitter": dict(f0=190, v=["o", "a"], rough=0.7, breath=0.35, growl=18, drive=2.2, shift=1.0, tail="wet", len=1.1),
+    "fallen": dict(f0=125, v=["o", "a"], rough=0.25, breath=0.3, growl=9, drive=1.8, shift=1.0, tail="wet", len=1.3),
+    "bloater": dict(f0=80, v=["u", "o"], rough=0.85, breath=0.35, growl=11, drive=2.0, shift=1.0, tail="wet", len=1.2),
+    "lurker": dict(f0=900, v=["i", "e"], rough=0.4, breath=0.5, growl=60, drive=2.0, shift=1.1, tail="click", len=0.8),
+    "shrieker": dict(f0=1500, v=["i", "a"], rough=0.3, breath=0.3, growl=70, drive=3.0, shift=1.0, tail="hiss", len=1.1),
+    "brute": dict(f0=100, v=["a", "o"], rough=0.9, breath=0.3, growl=28, drive=3.2, shift=0.8, tail="wet", len=1.6),
+    "leaper": dict(f0=800, v=["e", "i"], rough=0.5, breath=0.4, growl=45, drive=2.2, shift=1.0, tail="click", len=0.7),
+    "drifter": dict(f0=400, v=["u", "o"], rough=0.05, breath=0.65, growl=4, drive=1.2, shift=1.0, tail="hiss", len=1.4),
+    "burrower": dict(f0=75, v=["o", "u"], rough=0.9, breath=0.5, growl=13, drive=2.5, shift=0.9, tail="click", len=1.2),
+    "hooker": dict(f0=240, v=["a", "o"], rough=0.65, breath=0.4, growl=20, drive=2.0, shift=1.0, tail="click", len=1.1),
+    "sapper": dict(f0=1100, v=["e", "a"], rough=0.35, breath=0.35, growl=65, drive=2.2, shift=1.05, tail="click", len=0.8),
+    "carapace": dict(f0=85, v=["a", "o"], rough=0.9, breath=0.35, growl=14, drive=3.2, shift=0.75, tail="click", len=1.9),
+    "stalker": dict(f0=470, v=["i", "u"], rough=0.2, breath=0.6, growl=30, drive=1.4, shift=1.0, tail="hiss", len=1.2),
+    "weaver": dict(f0=860, v=["i", "u"], rough=0.25, breath=0.3, growl=10, drive=2.2, shift=1.0, tail="hiss", len=1.2),
+    "broodling": dict(f0=1500, v=["i", "e"], rough=0.3, breath=0.3, growl=80, drive=2.0, shift=1.1, tail="wet", len=0.45),
+    "brood_mother": dict(f0=240, v=["a", "o"], rough=0.85, breath=0.4, growl=22, drive=3.0, shift=0.75, tail="wet", len=3.0),
+}
+RADIO_PAIN = {"sharpshooter": 112, "colonel_hale": 96}
+
+
+def _pain_tail(kind, rng, dur):
+    if kind == "wet":
+        return mix(bubbles(dur, rng, 16) * 1.2, lp(rng.uniform(-1, 1, n_of(dur)), 700) * perc_env(n_of(dur), 0.25, 0.02) * 0.5)
+    if kind == "click":
+        return clicks(dur, rng, 30, 1400) * np.linspace(1, 0.15, n_of(dur)) * 0.9
+    if kind == "hiss":
+        return hiss(dur, rng, 1800, 7500) * 0.35
+    return np.zeros(n_of(dur))
+
+
+def pain(kind, rng, take=0, die=False):
+    """Hurt: a short sharp yelp that jumps up in pitch and cuts off. Death: a long cry that
+    starts like a yelp, bends down and gives out into the kind's tail (gurgle, rattle, hiss)."""
+    sp = PAIN[kind]
+    f0 = sp["f0"] * (1.0 if take == 0 else 1.12)
+    if die:
+        dur = sp["len"]
+        pts = [f0 * 0.9, f0 * 1.45, f0 * 1.1, f0 * 0.6, f0 * 0.33]
+        v = sp["v"] + [sp["v"][0]]
+    else:
+        dur = min(0.55, 0.22 + sp["len"] * 0.2)
+        pts = [f0 * 0.85, f0 * 1.55, f0 * 1.05] if take == 0 else [f0 * 1.2, f0 * 0.8]
+        v = sp["v"]
+    y = creature(dur, pts, v, sp["rough"], sp["breath"], sp["growl"], rng, sp["drive"] * (1.1 if not die else 1.0), sp["shift"])
+    tail_dur = dur * (0.9 if die else 0.5)
+    tail = _pain_tail(sp["tail"], rng, tail_dur)
+    out = np.zeros(n_of(dur + tail_dur * 0.6))
+    out[: len(y)] += y
+    off = n_of(dur * (0.55 if die else 0.4))
+    out[off: off + len(tail)] += tail[: len(out) - off] * (0.8 if die else 0.5)
+    return out
+
+
+def radio_pain(f0, rng, die=False):
+    """Human: a grunt through a cutting-out radio."""
+    if die:
+        return np.concatenate([radio_babble(0.35, rng, f0 * 0.8), squelch(rng) * 1.5, squelch(rng) * 0.5])
+    return np.concatenate([squelch(rng) * 0.6, radio_babble(0.16, rng, f0 * 1.15) * 1.2])
+
+
 def voices():
     for kind, (bark, die) in VOICES.items():
-        for tag, make in (("", bark), ("_die", die)):
+        for tag, make in (("", bark), ("_die", die), ("_hurt", None), ("_hurt2", None)):
             rng = seeded(kind + tag)
-            y = make(rng)
+            if make is None:
+                if kind in PAIN:
+                    y = pain(kind, rng, 0 if tag == "_hurt" else 1)
+                elif kind in RADIO_PAIN:
+                    y = radio_pain(RADIO_PAIN[kind] * (1 if tag == "_hurt" else 1.1), rng)
+                else:
+                    continue   # the Source has no pain
+            elif tag == "_die" and kind in PAIN:
+                y = pain(kind, rng, 0, die=True)
+            elif tag == "_die" and kind in RADIO_PAIN:
+                y = radio_pain(RADIO_PAIN[kind], rng, die=True)
+            else:
+                y = make(rng)
             y = hp(y, 60)
             peak = np.max(np.abs(y)) + 1e-9
             write("vo/%s%s.ogg" % (kind, tag), fade_edges(y / peak * 0.85, 0.003, 0.08), 4)

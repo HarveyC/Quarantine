@@ -17,6 +17,7 @@ const MIN_GAP := 0.3
 ## (never on moves, shots or the idle chatter), at least TALK_GAP seconds apart.
 const TALKERS := {"colonel_hale": ["alerted", "revealed", "boss_phase", "ability", "telegraph"]}
 const TALK_GAP := 6.0
+const HURT_GAP := 0.5
 
 var _view: Node
 var _players: Array[AudioStreamPlayer3D] = []
@@ -25,6 +26,7 @@ var _last := -10.0
 var _last_unit := {}
 var _phase := {}   # unit id -> boss phase seen in the beats
 var _talk_i := 0
+var _hurt_i := 0
 
 
 func _init(view: Node) -> void:
@@ -49,6 +51,11 @@ func on_beat(ev: Dictionary) -> void:
 		if uv != null and (not uv.is_soldier or uv.turned):
 			bark(uv, 0.0, true)
 		return
+	if type == "damage":   # a wound that did not kill: the kind's own yelp
+		var hurt := _unit(ev)
+		if hurt != null and (not hurt.is_soldier or hurt.turned) and int(ev.get("hp", 1)) > 0 and int(ev.get("amount", 0)) > 0:
+			hurt_cry(hurt)
+		return
 	if not CUES.has(type):
 		return
 	var uv := _unit(ev)
@@ -71,6 +78,14 @@ static func voice_for(kind: String, die := false) -> String:
 	if k == "":
 		return ""
 	return "res://audio/vo/%s%s.ogg" % [k, "_die" if die else ""]
+
+
+## The pain cry file for a kind ("" if it has none): take 1 or 2.
+static func hurt_for(kind: String, take := 1) -> String:
+	var k: String = ALIAS.get(kind, kind)
+	if k == "":
+		return ""
+	return "res://audio/vo/%s_hurt%s.ogg" % [k, "" if take <= 1 else str(take)]
 
 
 ## A talking boss's spoken lines for a phase.
@@ -114,6 +129,35 @@ func talk(uv: Node3D, volume_db := 0.0) -> void:
 	p.global_position = uv.global_position + Vector3(0, 1.2, 0)
 	p.volume_db = volume_db + 4.0
 	p.pitch_scale = 1.0
+	p.play()
+
+
+## A short pain cry from the unit, alternating between two takes. Rate-limited per unit so
+## a burst of hits (or burning) is one yelp, not a stutter.
+func hurt_cry(uv: Node3D) -> void:
+	if not is_instance_valid(uv) or not uv.is_inside_tree() or not uv.visible or _players.is_empty() or not is_instance_valid(_players[0]):
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - float(_last_unit.get("hurt%d" % uv.unit_id, -10.0)) < HURT_GAP:
+		return
+	_hurt_i += 1
+	var path := hurt_for(uv.kind, 1 + _hurt_i % 2)
+	if path == "":
+		return
+	if not _streams.has(path):
+		_streams[path] = load(path) if ResourceLoader.exists(path) else null
+	if _streams[path] == null:
+		return
+	_last_unit["hurt%d" % uv.unit_id] = now
+	var p := _players[0]
+	for q in _players:
+		if not q.playing:
+			p = q
+			break
+	p.stream = _streams[path]
+	p.global_position = uv.global_position + Vector3(0, 1.2, 0)
+	p.volume_db = 1.0 + (2.0 if uv.scale.x > 1.15 else 0.0)
+	p.pitch_scale = randf_range(0.93, 1.07) * (0.85 if uv.scale.x > 1.15 else 1.0)
 	p.play()
 
 
