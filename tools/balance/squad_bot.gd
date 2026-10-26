@@ -4,6 +4,8 @@ extends RefCounted
 ## helps, overwatches when there is nothing to shoot. Every action goes through Rules.apply, so
 ## the sim plays by the real rules. Not used by the game itself.
 
+## nosig=1 in balance_sim: the bot ignores Rank 2 signatures, for before/after comparisons.
+static var skip_signatures := false
 const COVER_WEIGHT := 1.5      # how much the bot values standing in cover vs. a better shot
 const FLANKED_PENALTY := 2.5   # standing in the open in sight of an alerted enemy
 
@@ -103,7 +105,53 @@ static func _support(s: GameState, u: Unit) -> Dictionary:
 	return {}
 
 
+## Rank 2 signatures (Signatures): fired as soon as they are ready and clearly useful.
+static func _signature(s: GameState, u: Unit) -> Dictionary:
+	var id := Signatures.for_class(u.kind)
+	if skip_signatures or id == "" or not u.abilities.has(id) or int(u.cooldowns.get(id, 0)) > 0:
+		return {}
+	var hostiles := _hostiles(s, u)
+	var base := {"type": Types.ABILITY, "unit": u.id, "ability": id}
+	match id:
+		"deadeye", "bring_down":
+			var best: Unit = null
+			for t in hostiles:
+				var a := base.duplicate()
+				a["target"] = t.id
+				if _ok(s, a) and (best == null or t.hp > best.hp):
+					best = t
+			if best != null:
+				base["target"] = best.id
+				return base
+			return {}
+		"lockdown":
+			for t in hostiles:
+				if EnemyAI.is_alerted(t) and Kit.cheb(u.pos, t.pos) >= 4 and Kit.cheb(u.pos, t.pos) <= 12 and _ok(s, base):
+					return base
+		"quarantine_field":
+			for a in s.living(Types.Team.PLAYER):
+				if Kit.cheb(a.pos, u.pos) <= Signatures.FIELD_RADIUS and (a.infection >= 25 or a.hp * 2 <= a.max_hp) and _ok(s, base):
+					return base
+		"vent":
+			if u.infection >= 35:
+				for t in hostiles:
+					if Kit.cheb(u.pos, t.pos) <= Signatures.VENT_RADIUS and _ok(s, base):
+						return base
+		"provoke":
+			if u.hp * 2 > u.max_hp:
+				for t in hostiles:
+					if EnemyAI.is_alerted(t) and Kit.cheb(u.pos, t.pos) <= 8 and _ok(s, base):
+						return base
+		_:
+			if _ok(s, base):   # flashover, death_sweep: validation needs a burning or adjacent enemy
+				return base
+	return {}
+
+
 static func _class_attack(s: GameState, u: Unit) -> Dictionary:
+	var sig := _signature(s, u)
+	if not sig.is_empty():
+		return sig
 	var melee := _melee_attack(s, u)
 	if not melee.is_empty():
 		return melee

@@ -36,6 +36,7 @@ func _init() -> void:
 	var rank := int(args.get("rank", RANK_BY_ACT[act]))
 	objective_override = str(args.get("objective", ""))
 	build_level = str(args.get("build", "none"))
+	SquadBot.skip_signatures = args.has("nosig")
 	for i in n:
 		var seed := seed0 + i
 		if node == "act":
