@@ -45,6 +45,7 @@ const SCORCHED_PURGE := 10
 const WARRANT_AIM := 20
 const WARRANT_FOREVER := 1000000
 const WILDFIRE_TURNS := 1
+const CROSSHAIR_AIM := 20   # reaction: overwatch shots at a Marked enemy
 ## Kindled Spores: Infection each ignition costs the soldier.
 const KINDLED_INFECTION := 2
 
@@ -180,6 +181,8 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 			breakdown.append(["Bayonet", 10 if mk(a, "bayonet") < 2 else 15])
 	if a.team == Types.Team.PLAYER and t.status.get("warrant", false) and is_marked(s, t):
 		breakdown.append(["Warrant", WARRANT_AIM])
+	if reaction and a.team == Types.Team.PLAYER and is_marked(s, t):
+		breakdown.append(["Crosshair", CROSSHAIR_AIM])
 	if a.team == Types.Team.PLAYER and a.status.get("doctrines", []).has("buddy_system"):
 		for o in s.living(Types.Team.PLAYER):
 			if o != a and _cheb(o.pos, from) == 1 and not o.is_enemy_of(a):
@@ -221,6 +224,9 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 
 ## Damage of a landed shot after gear.
 static func shot_damage(s: GameState, u: Unit, t: Unit, dmg: int, reaction: bool) -> int:
+	if dmg > 0 and u.team == Types.Team.PLAYER and _dist(u.pos, t.pos) <= CLOSE and Combat.has_status(s, t, "suppressed"):
+		dmg += 1
+		s.emit({"type": "gear", "unit": u.id, "item": "pinned_close", "target": t.id})
 	if not u.status.has("gear") or dmg <= 0:
 		return dmg
 	var close := _dist(u.pos, t.pos) <= CLOSE
@@ -332,11 +338,13 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		u.overwatch = true
 		u.status["ow_until"] = Combat.phase_index(s) + 2
 		s.emit({"type": "overwatch", "unit": u.id})
+		_heal_one(s, u, "overwatch_set")
 	if has_set(u, "Close") and _dist(u.pos, t.pos) <= CLOSE and u.status.get("gear_refund_turn", -1) != s.turn \
 			and s.phase == Types.Phase.TEAM and not reaction:
 		u.status["gear_refund_turn"] = s.turn
 		u.actions_left += 1
 		s.emit({"type": "gear", "unit": u.id, "item": "close_set", "actions": u.actions_left})
+		_heal_one(s, u, "close_set_heal")
 	if was_marked and t.status.get("warrant", false) and has_capstone(u, "Mark") and s.phase == Types.Phase.TEAM \
 			and u.status.get("warrant_turn", -1) != s.turn:
 		u.status["warrant_turn"] = s.turn
@@ -361,6 +369,12 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		for o in s.living():
 			if u.is_enemy_of(o) and _cheb(o.pos, t.pos) <= radius:
 				ignite(s, u, o, 1)
+
+
+static func _heal_one(s: GameState, u: Unit, item: String) -> void:
+	if u.hp < u.max_hp:
+		u.hp += 1
+		s.emit({"type": "gear", "unit": u.id, "item": item, "heal": 1, "hp": u.hp})
 
 
 static func _mark(s: GameState, t: Unit, phases: int, u: Unit = null) -> void:
@@ -525,8 +539,24 @@ static func damage_taken(s: GameState, target: Unit, amount: int, source: Unit) 
 		ignite(s, target, source, mk(target, "ember_plating"))
 	if amount > 0 and source != null and source.is_enemy_of(target) and target.status.has("gear"):
 		GearLinks.on_hurt(s, target, source)
+		amount = maxi(1, amount - survival_cut(s, target, source))
 	var armor := int(target.status.get("armor", 0))
 	return maxi(1, amount - armor) if armor > 0 and amount > 0 else amount
+
+
+## Survival half of a set bonus: damage `target` shrugs off from `source` while `source` carries the
+## status of a tag `target` has the set for (Burning, Marked, Suppressed), or Infected for Strain.
+static func survival_cut(s: GameState, target: Unit, source: Unit) -> int:
+	var cut := 0
+	if has_set(target, "Burn") and is_burning(s, source):
+		cut += 1
+	if has_set(target, "Mark") and is_marked(s, source):
+		cut += 1
+	if has_set(target, "Suppress") and Combat.has_status(s, source, "suppressed"):
+		cut += 1
+	if has_set(target, "Strain") and Infection.tier(target.infection) >= Infection.Tier.EXPOSED and EnemyRoster.infects(source):
+		cut += 1
+	return cut
 
 
 ## Infection a soldier gains from a bite or hit after gear.
@@ -555,6 +585,15 @@ static func on_team_phase_start(s: GameState) -> void:
 			if src != null and has(src, "spotter_flare") and is_marked(s, u):
 				dmg *= 2
 			s.emit({"type": "burn", "unit": u.id, "damage": dmg})
+			if in_smoke(s, u):
+				var cells: Array[Vector2i] = []
+				for dx in range(-1, 2):
+					for dy in range(-1, 2):
+						var c := u.pos + Vector2i(dx, dy)
+						if s.grid.in_bounds(c):
+							cells.append(c)
+				s.emit({"type": "gear", "unit": u.id, "item": "flare_up"})
+				set_fire(s, u, cells, 1)
 			var wild := src != null and src.is_alive() and has_capstone(src, "Burn") and src.is_enemy_of(u)
 			if wild:
 				wildfire.append([u, src])
