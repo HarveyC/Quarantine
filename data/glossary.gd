@@ -594,12 +594,6 @@ static func _build() -> Dictionary:
 				"Tags: " + ", ".join(tags) + "."],
 			"see": ["gear_tag", "set_bonus"] + tags.map(func(x): return "tag_" + str(x).to_lower()),
 			"aliases": [job + " job"], "scan": false}
-	t["class_pair"] = {"name": "Class pair", "kind": "co-op", "icon": "coop", "tone": "amber",
-		"line": "Two classes whose kits help each other: one sets up what the other uses.",
-		"art": "",
-		"stats": [["8", "pairs"]],
-		"more": ["Each class has one best partner. The pair needs both classes in the squad.", "Pairs can be on one player or across players."],
-		"aliases": ["Class pairs", "Pair"], "scan": false}
 	for tag in GearData.TAGS:
 		var info: Dictionary = GearData.TAG_INFO[tag]
 		t["tag_" + tag.to_lower()] = {"name": tag, "kind": "gear tag", "icon": "doctrine", "tone": info.color,

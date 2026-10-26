@@ -58,7 +58,6 @@ var _soldier_row: HBoxContainer
 var _class_row: HBoxContainer
 var _address_row: HBoxContainer
 var _lobby_hint: Label
-var _pair_box: VBoxContainer   # class pair callouts under the player slots
 var _solo_btn: Button
 var _start_btn: Button
 var _start_run_btn: Button
@@ -310,8 +309,6 @@ func _build_lobby(body: Control) -> void:
 	v.add_child(head)
 	_slots = Styles.hbox(14)
 	v.add_child(_slots)
-	_pair_box = Styles.vbox(6)
-	v.add_child(_pair_box)
 	v.add_child(_build_squad_builder())
 	_lobby_hint = Styles.label("", 14, Styles.MUTED)
 	v.add_child(_lobby_hint)
@@ -566,7 +563,6 @@ func _render_lobby(entries: Array, plan: Dictionary, room: int, first: bool) -> 
 		_size_row.add_child(_size_tile(n, kinds.size(), n <= room, col))
 	var others := MatchConfig.MAX_SQUAD - room
 	_room_label.text = "%d of %d taken by the others" % [others, MatchConfig.MAX_SQUAD] if others > 0 else ""
-	_fill_pairs(entries, plan)
 	NodeUi.clear(_soldier_row)
 	for i in kinds.size():
 		_soldier_row.add_child(_soldier_tile(i, kinds[i], col, i == _sel))
@@ -582,52 +578,6 @@ func _render_lobby(entries: Array, plan: Dictionary, room: int, first: bool) -> 
 	if first and is_inside_tree():
 		Feel.deal(_slots.get_children(), 0.06)
 		Feel.sound("open")
-
-
-## Class pairs the squad forms (BuildRead.PAIRS); with none formed, the best partners in the pool
-## for the classes picked so far. Only with 2 or more players.
-func _fill_pairs(entries: Array, plan: Dictionary) -> void:
-	NodeUi.clear(_pair_box)
-	if entries.size() < 2:
-		return
-	var kinds: Array = []
-	for e in entries:
-		kinds.append_array(plan.get(e.player, []))
-	var formed := BuildRead.pairs_in(kinds)
-	if not formed.is_empty():
-		for p in formed.slice(0, 3):
-			_pair_box.add_child(_pair_line(p, true))
-		return
-	var open := Progression.unlocked_classes(Profile.meta())
-	var shown := 0
-	for p in BuildRead.PAIRS:
-		if shown >= 2:
-			break
-		if (kinds.has(p.a) and open.has(p.b)) or (kinds.has(p.b) and open.has(p.a)):
-			_pair_box.add_child(_pair_line(p, false))
-			shown += 1
-
-
-func _pair_line(p: Dictionary, formed: bool) -> Control:
-	var col := Styles.AMBER if formed else Styles.MUTED
-	var row := Styles.hbox(8)
-	for k in [p.a, p.b]:
-		var ic := W.Icon.new(Icons.for_class(k), col, 22, 1.8)
-		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		Tips.soldier_class(ic, k)
-		row.add_child(ic)
-		if k == p.a:
-			var link := W.Icon.new("coop", Styles.DIM, 18, 1.6)
-			link.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			Tips.term(link, "class_pair")
-			row.add_child(link)
-	var names := Styles.caps("%s + %s" % [UnitData.SOLDIERS[p.a].name, UnitData.SOLDIERS[p.b].name], 13, col)
-	names.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(names)
-	var t := Tips.text(str(p.text), 14, Styles.TEXT if formed else Styles.MUTED, 640.0)
-	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(t)
-	return row
 
 
 ## How many soldiers, how they're split and which of them gets the next class pick.

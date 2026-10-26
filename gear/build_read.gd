@@ -1,8 +1,8 @@
 class_name BuildRead
 extends RefCounted
 ## How a build reads on screen: the 8 gear tags sorted into three jobs (Setup opens a window,
-## Payoff spends it, Sustain keeps the carrier alive), each class's two lane tags, which tags a
-## new profile sees, and the class pairs the lobby calls out. Data only, no UI.
+## Payoff spends it, Sustain keeps the carrier alive), each class's two lane tags and which tags a
+## new profile sees. Data only, no UI.
 
 const JOBS: Array[String] = ["Setup", "Payoff", "Sustain"]
 const JOB_TAGS := {
@@ -22,19 +22,6 @@ const LANES := {
 	"breacher": ["Close", "Suppress"], "hazmat": ["Burn", "Purge"], "vector": ["Strain", "Purge"],
 	"reaper": ["Close", "Strain"], "warden": ["Guard", "Purge"],
 }
-
-## Best partner for each class: `a` helps `b`, for one concrete reason.
-const PAIRS: Array[Dictionary] = [
-	{"a": "marksman", "b": "breacher", "text": "Expose drops Tagged cover one step for the Breach."},
-	{"a": "breacher", "b": "reaper", "text": "Breach a wall, Lunge through."},
-	{"a": "reaper", "b": "hazmat", "text": "Hamstrung enemies cannot leave the fire."},
-	{"a": "hazmat", "b": "vector", "text": "Scorched earth burns Infection off allies."},
-	{"a": "vector", "b": "medic", "text": "Siphon moves Infection, Purge cleans it."},
-	{"a": "medic", "b": "warden", "text": "Quarantine field: no Infection when hunkered."},
-	{"a": "warden", "b": "trooper", "text": "Two Guard sets stack on one front."},
-	{"a": "trooper", "b": "marksman", "text": "Suppress plus Crossfire gives free overwatch shots."},
-]
-
 
 static func job_of(tag: String) -> String:
 	for j in JOBS:
@@ -78,22 +65,3 @@ static func leads(counts: Dictionary) -> Dictionary:
 ## Tag count that turns on the capstone, or 0 while capstones are not in the build.
 static func capstone_at() -> int:
 	return int((GearData as GDScript).get_script_constant_map().get("CAPSTONE_THRESHOLD", 0))
-
-
-## Pairs formed by two classes in `kinds` (one entry per soldier), each once, in PAIRS order.
-static func pairs_in(kinds: Array) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	for p in PAIRS:
-		if kinds.has(p.a) and kinds.has(p.b):
-			out.append(p)
-	return out
-
-
-## Classes that would complete a pair with any class in `kinds`.
-static func partners_of(kinds: Array) -> Array[String]:
-	var out: Array[String] = []
-	for p in PAIRS:
-		for pair in [[p.a, p.b], [p.b, p.a]]:
-			if kinds.has(pair[0]) and not out.has(pair[1]):
-				out.append(pair[1])
-	return out

@@ -1,5 +1,5 @@
 extends TestCase
-## Build readability: tag jobs, class lanes, first-run tag hiding and the lobby class pairs.
+## Build readability: tag jobs, class lanes, first-run tag hiding.
 
 
 func test_every_tag_has_exactly_one_job() -> void:
@@ -43,15 +43,6 @@ func test_leads_pick_the_strongest_tag_per_job() -> void:
 	assert_eq(l.Setup, "Suppress", "setup lead")
 	assert_eq(l.Payoff, "", "no payoff")
 	assert_eq(l.Sustain, "Guard", "sustain lead")
-
-
-func test_pairs_form_a_ring_over_all_classes() -> void:
-	assert_eq(BuildRead.PAIRS.size(), UnitData.SOLDIERS.size(), "one pair per class")
-	for k in UnitData.SOLDIERS:
-		assert_true(BuildRead.PAIRS.any(func(p): return p.a == k) and BuildRead.PAIRS.any(func(p): return p.b == k), "%s in the ring" % k)
-	assert_eq(BuildRead.pairs_in(["marksman", "breacher", "medic"]).size(), 1, "one pair formed")
-	assert_eq(BuildRead.pairs_in(["marksman", "medic"]).size(), 0, "none formed")
-	assert_true(BuildRead.partners_of(["marksman"]).has("breacher") and BuildRead.partners_of(["marksman"]).has("trooper"), "both neighbours")
 
 
 func test_loadout_strip_and_first_run_rows() -> void:
