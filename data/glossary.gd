@@ -672,6 +672,11 @@ static func _build() -> Dictionary:
 		"more": ["{patch_up} at the field hospital heals to full.", "{stim|Stims} and medkits heal in a fight."],
 		"see": ["patch_up", "stim", "outbreak"],
 		"labels": ["HP", "Heal"]}
+	t["hp_multiplier"] = {"name": "HP multiplier", "kind": "meter", "icon": "health", "tone": "hp",
+		"line": "Big monsters have too much HP for a pip each, so one pip stands for several HP.",
+		"art": "hp_pips",
+		"more": ["A part-filled pip is part of its HP.", "Soldiers and small enemies draw one pip per HP.", "The pink hatching is the HP the shot you are aiming could take."],
+		"see": ["healing"], "scan": false}
 	# --- Field hospital treatments and grafts -----------------------------------------------
 	t["patch_up"] = {"name": "Patch up", "kind": "treatment", "icon": "patch", "tone": "hp",
 		"line": "Field hospital treatment: back to full HP, and one {injury|injury} closes.",
