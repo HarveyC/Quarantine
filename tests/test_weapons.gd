@@ -169,3 +169,84 @@ func test_auto_shotgun_pins_on_a_miss() -> void:
 	assert_true(Weapons.has_trait(b, "pin"), "auto shotgun pins")
 	Weapons.after_miss(s, b, t)
 	assert_true(t.status.has("suppressed"), "pinned")
+
+
+func _armed(s: GameState, kind: String, gun: String, at: Vector2i) -> Unit:
+	var u := _add(s, kind, Types.Team.PLAYER, at)
+	Weapons.equip_unit(u, gun)
+	Ammo.setup(u)
+	return u
+
+
+func _foe(s: GameState, at: Vector2i, hp := 30) -> Unit:
+	var e := _add(s, "runner", Types.Team.ENEMY, at)
+	e.max_hp = hp
+	e.hp = hp
+	return e
+
+
+func test_pierce_carries_on_for_half_damage() -> void:
+	var s := make_blank(PackedStringArray(OPEN))
+	var u := _armed(s, "marksman", "anti_materiel", Vector2i(0, 0))
+	var a := _foe(s, Vector2i(3, 0))
+	var b := _foe(s, Vector2i(4, 0))
+	Weapons.after_hit(s, u, a, 6, false)
+	assert_eq(b.hp, 27, "the next enemy in line takes half")
+
+
+func test_heavy_rounds_shove_and_close_quarters_return_a_round() -> void:
+	var s := make_blank(PackedStringArray(OPEN))
+	var u := _armed(s, "trooper", "battle_rifle", Vector2i(0, 0))
+	var a := _foe(s, Vector2i(3, 0))
+	Weapons.after_hit(s, u, a, 3, false)
+	assert_eq(a.pos, Vector2i(4, 0), "pushed a tile")
+	var md := _add(s, "medic", Types.Team.PLAYER, Vector2i(0, 1))
+	Ammo.setup(md)
+	md.status["ammo"] = 2
+	var d := _foe(s, Vector2i(2, 1), 1)
+	d.hp = 0
+	Weapons.after_hit(s, md, d, 2, false)
+	assert_eq(Ammo.rounds(md), 3, "a close kill gives the round back")
+
+
+func test_breach_and_door_kicker_take_cover_away() -> void:
+	var s := make_blank(PackedStringArray(["........", "........"]))
+	var b := _add(s, "breacher", Types.Team.PLAYER, Vector2i(0, 0))
+	var bd: Array = []
+	Weapons.odds_terms(s, b, _foe(s, Vector2i(2, 0)), b.pos, Types.Cover.FULL, bd)
+	assert_eq(_term({"breakdown": bd}, "Breach"), Combat.COVER_FULL, "cover gone within 2 tiles")
+	var far: Array = []
+	Weapons.odds_terms(s, b, _foe(s, Vector2i(6, 0)), b.pos, Types.Cover.FULL, far)
+	assert_eq(_term({"breakdown": far}, "Breach"), null, "but not further out")
+	var sl := _armed(s, "breacher", "slug_gun", Vector2i(0, 1))
+	var half: Array = []
+	Weapons.odds_terms(s, sl, _foe(s, Vector2i(6, 1)), sl.pos, Types.Cover.HALF, half)
+	assert_eq(_term({"breakdown": half}, "Door kicker"), Combat.COVER_HALF, "slugs ignore half cover")
+
+
+func test_skirmisher_barbs_tranq_and_recoil() -> void:
+	var s := make_blank(PackedStringArray(OPEN))
+	s.turn = 2
+	var sc := _armed(s, "marksman", "scout_carbine", Vector2i(0, 0))
+	sc.status["gear_moved_turn"] = 2
+	sc.status["gear_move_len"] = 4
+	assert_true(Weapons.skirmish_free(s, sc), "a long move frees the first shot")
+	assert_true(not Weapons.skirmish_free(s, sc), "only once a turn")
+	var fl := _armed(s, "medic", "flechette_smg", Vector2i(0, 1))
+	var e := _foe(s, Vector2i(2, 1))
+	Weapons.after_hit(s, fl, e, 2, false)
+	var start := e.pos
+	e.pos = Vector2i(5, 1)
+	var hp := e.hp
+	Weapons.barbs_tick(s, e, start)
+	assert_eq(e.hp, hp - 1, "a moving enemy pays for its barb")
+	var dr := _armed(s, "medic", "dart_rifle", Vector2i(0, 0))
+	var f := _foe(s, Vector2i(3, 0))
+	Weapons.after_hit(s, dr, f, 2, false)
+	assert_true(not f.status.get("k_skip_turn", false), "one hit does nothing")
+	Weapons.after_hit(s, dr, f, 2, false)
+	assert_true(f.status.get("k_skip_turn", false), "the second stuns")
+	var hc := _armed(s, "reaper", "hand_cannon", Vector2i(0, 1))
+	var g := _foe(s, Vector2i(2, 1))
+	Weapons.after_hit(s, hc, g, 3, true)
+	assert_true(g.status.get("k_skip_turn", false), "a crit ends its turn")

@@ -419,6 +419,9 @@ static func modify_incoming(s: GameState, target: Unit, amount: int, source: Uni
 	if awake(target, "hollow_bones"):
 		amount += 1
 	amount = Grafts.cap_hit(s, target, amount, source)
+	if target.status.get("k_medshield", false):
+		target.status.erase("k_medshield")
+		amount = 1
 	if awake(target, "chitin_plates") and amount >= 2 and target.status.get("k_chitin_turn", -1) != s.turn:
 		target.status["k_chitin_turn"] = s.turn
 		var stopped := amount - 1

@@ -182,7 +182,7 @@ static func _gun_block(card: Control, kind: String, inner: float, full: bool, gu
 		top.add_child(Styles.mono("+%d%% crit" % gun.crit, 11, Styles.DIM))
 	var tr := str(gun.get("trait", ""))
 	if tr != "":
-		top.add_child(Styles.caps({"pin": "pins", "snap": "snap shots", "spread": "spread"}.get(tr, tr), 10, Styles.DIM))
+		top.add_child(Styles.caps({"pin": "pins", "snap": "snap shots", "spread": "spread", "quarters": "close quarters", "heavy": "heavy rounds", "pierce": "pierce", "skirmish": "skirmisher", "tranq": "tranquiliser", "doorkick": "door kicker", "recoil": "recoil"}.get(tr, tr), 10, Styles.DIM))
 	v.add_child(top)
 	v.add_child(RangeStrip.new(gun, inner))
 	if full and gun_id == "":

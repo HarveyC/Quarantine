@@ -271,6 +271,7 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 	if target.defense != 0:
 		breakdown.append(["Defense", -target.defense])
 	Weapons.range_terms(attacker, from.distance_to(target.pos), breakdown)
+	Weapons.odds_terms(s, attacker, target, from, cover, breakdown)
 	if attacker.team == Types.Team.PLAYER and has_status(s, target, "tagged"):
 		breakdown.append(["Marked", TAG_BONUS])
 	if has_status(s, attacker, "suppressed"):
@@ -554,10 +555,18 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 		Types.SHOOT:
 			# Soldiers spend one action per shot; enemies still fire once and end their turn.
 			u.actions_left = 0 if u.team == Types.Team.ENEMY else maxi(0, u.actions_left - 1)
+			if u.team == Types.Team.PLAYER and not action.has("cell") and Weapons.skirmish_free(s, u):
+				u.actions_left += 1
+				s.emit({"type": "perk", "unit": u.id, "perk": "skirmish"})
 			if action.has("cell"):
 				fire_at_barrel(s, u, action.cell, false)
 			else:
-				fire(s, u, s.get_unit(action.target), false)
+				var tgt := s.get_unit(action.target)
+				fire(s, u, tgt, false)
+				if Weapons.has_trait(u, "spray") and tgt.is_alive() and u.is_alive() and Ammo.can_fire(u):
+					u.status["spray_second"] = true
+					fire(s, u, tgt, false)
+					u.status.erase("spray_second")
 		Types.OVERWATCH:
 			u.overwatch = true
 			u.status["ow_until"] = phase_index(s) + 2
@@ -592,6 +601,7 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		"crit": r.crit, "damage": dmg, "chance": odds.hit, "reaction": reaction, "ammo": Ammo.rounds(u)})
 	if dmg > 0:
 		Rules.deal_damage(s, t, dmg, u)
+		Weapons.after_hit(s, u, t, dmg, r.crit)
 	elif not (r.hit or r.graze):
 		Weapons.after_miss(s, u, t)
 	GearFx.after_shot(s, u, t, r.hit or r.graze, reaction, dmg)
