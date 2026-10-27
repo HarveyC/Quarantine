@@ -5,6 +5,7 @@ extends RefCounted
 
 const Styles := preload("res://ui/styles.gd")
 const Tips := preload("res://ui/tips/tips.gd")
+const Widgets := preload("res://ui/widgets.gd")
 const TermText := preload("res://ui/tips/term_text.gd")
 
 const PANEL := Color(0.05, 0.07, 0.11, 0.92)
@@ -86,6 +87,22 @@ static func caps(text: String, size := 15, color := TEXT) -> Label:
 
 static func mono(text: String, size := 14, color := TEXT) -> Label:
 	return label(text, size, color, "mono")
+
+
+## A gun's magazine: one round pip per round and the count, hoverable as Ammo.
+static func mag_row(rounds: int, round_h := 14.0) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var pips := Widgets.AmmoPips.new(round_h)
+	pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pips.set_values(rounds, rounds)
+	row.add_child(pips)
+	row.add_child(mono("%d" % rounds, 13, DIM))
+	for n in row.get_children():
+		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	Tips.term(row, "ammo")
+	return row
 
 
 static func wrap(l: Label, width := 0) -> Label:

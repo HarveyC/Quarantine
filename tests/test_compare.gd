@@ -206,3 +206,14 @@ func _texts(n: Node) -> Array:
 		out.append((c as Label).text)
 	return out
 
+
+
+func test_gun_swap_shows_magazine_change() -> void:
+	var run := _run()
+	var r := _trooper(run)
+	var d := GearCompare.compare(run, r, {"kind": "gun", "id": "anti_materiel"})
+	var row := _row(d, "mag")
+	assert_true(not row.is_empty(), "magazine row shows for a gun swap")
+	assert_eq(row.to, Weapons.mag_for("anti_materiel", r.kind) + (row.from - Weapons.mag_for(Loadout.gun_id(r), r.kind)), "magazine follows the gun")
+	assert_eq(Weapons.mag_for("sidearm", "trooper"), Weapons.STARTER_MAG, "starter sidearm is short")
+	assert_eq(Weapons.mag_for("lmg"), int(Weapons.TABLE.lmg.mag), "plain gun reads its table row")
