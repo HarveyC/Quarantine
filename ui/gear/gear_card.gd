@@ -278,7 +278,7 @@ func _build_cache(v: VBoxContainer) -> void:
 ## soldier deploys at on a tier bar.
 func _build_order(v: VBoxContainer) -> void:
 	var inf := int(card.get("infection", 0))
-	var risk := UI.caps("+%d Infection" % inf if inf > 0 else "Deploys clean", 13, UI.TEAL if inf > 0 else UI.GOOD)
+	var risk := Tips.term(UI.caps("+%d Infection" % inf, 13, UI.TEAL if inf > 0 else UI.DIM), "infection")
 	_row(v, UI.label("ORDER", 12, UI.FAINT, "mono"), risk)
 	v.add_child(UI.wrap(UI.caps(str(card.get("name", "")), 34), W - 40))
 	v.add_child(UI.text(str(card.get("desc", "")), 15, UI.COPY, W - 40))

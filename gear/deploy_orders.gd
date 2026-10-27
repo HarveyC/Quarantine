@@ -11,17 +11,17 @@ extends RefCounted
 ## One safe order (clean) and one risky order (starts infected) in every offer, then the rest.
 const ORDERS := {
 	"standard_issue": {"name": "Standard issue", "risk": false, "infection": 0,
-		"desc": "An Uncommon item that fits the class."},
+		"desc": "An Uncommon item."},
 	"quartermaster": {"name": "Quartermaster", "risk": false, "infection": 0,
-		"desc": "Two Common items in different slots, one that fits the class."},
+		"desc": "Two Common items."},
 	"surplus_crate": {"name": "Surplus crate", "risk": false, "infection": 0,
-		"desc": "An Uncommon item of any tag, not tied to the class."},
+		"desc": "An Uncommon item."},
 	"bloom_cache": {"name": "Bloom-touched cache", "risk": true, "infection": 20,
-		"desc": "A Rare item that fits the class, pulled from an infected depot."},
+		"desc": "A Rare item."},
 	"early_graft": {"name": "Early graft", "risk": true, "infection": 25,
-		"desc": "An Exposed mutation, awake from the first fight."},
+		"desc": "An awake mutation."},
 	"prototype_trial": {"name": "Prototype trial", "risk": true, "infection": 35,
-		"desc": "A field Prototype, no tag requirement. The test rig leaks."},
+		"desc": "A Prototype."},
 }
 
 
