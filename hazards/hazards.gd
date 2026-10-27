@@ -44,7 +44,9 @@ static func add(s: GameState, cells: Array, kind: String, turns: int, source_id:
 					continue
 			elif not KINDS[kind].replaces.has(cur.kind):
 				continue
-		s.hazards[c] = {"kind": kind, "turns": turns, "source": source_id, "spare": spare_team}
+		var src := s.get_unit(source_id) if source_id >= 0 else null
+		s.hazards[c] = {"kind": kind, "turns": turns, "source": source_id, "spare": spare_team,
+			"source_team": src.team if src != null else -1}
 		changed.append(c)
 	if not changed.is_empty():
 		s.emit({"type": "hazard", "kind": kind, "cells": changed, "turns": turns, "source": source_id, "spare": spare_team})
