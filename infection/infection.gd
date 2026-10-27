@@ -72,6 +72,10 @@ static func add(s: GameState, u: Unit, amount: int) -> void:
 		return
 	if amount != 0:
 		amount = GearFx.infection_gain(s, u, Kit.infection_change(s, u, amount))
+		if amount > 0 and int(u.status.get("k_ward", 0)) > 0:
+			var blocked := mini(amount, int(u.status.k_ward))
+			u.status["k_ward"] = int(u.status.k_ward) - blocked
+			amount -= blocked
 		if amount == 0:
 			return
 	var before := tier(u.infection)

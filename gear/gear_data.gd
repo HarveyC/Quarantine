@@ -301,14 +301,14 @@ const PROTOTYPES := {
 
 ## Pocket consumables, used up. Charges stack per pocket.
 const CONSUMABLES := {
-	"medkit": {"name": "Medkit", "price": 12, "desc": "Heal 4 HP"},
+	"medkit": {"name": "Medkit", "price": 12, "desc": "Heal 4 HP and clear Burning, Suppressed and stun. At full HP it gives a one-hit shield instead."},
 	"flashbang": {"name": "Flashbang", "price": 15, "desc": "Stuns enemies in radius 1: they lose their next turn"},
 	"smoke_grenade": {"name": "Smoke grenade", "price": 15, "desc": "A 3x3 smoke cloud for 2 turns: +20 defense inside, and you can't be spotted in it"},
-	"recon_drone": {"name": "Recon drone", "price": 15, "desc": "Reveals a 6-tile radius for the fight"},
-	"suppressant_shot": {"name": "Suppressant shot", "price": 20, "desc": "-15 Infection"},
+	"recon_drone": {"name": "Recon drone", "price": 15, "desc": "Reveals a 6-tile radius for the fight and Marks every enemy in it."},
+	"suppressant_shot": {"name": "Suppressant shot", "price": 20, "desc": "-15 Infection, and blocks the next 3 Infection you would gain."},
 	"frag_grenade": {"name": "Frag grenade", "price": 20, "desc": "3 damage in radius 1. Strips half cover, cracks walls and roofs, brings down scaffolds"},
 	"demo_charge": {"name": "Demo charge", "price": 20, "desc": "Place on a tile or wall next to you: blows a doorway through a wall, 3 damage around it"},
-	"antiviral_dose": {"name": "Antiviral dose", "price": 28, "desc": "-35 Infection from an ally within reach"},
+	"antiviral_dose": {"name": "Antiviral dose", "price": 28, "desc": "-35 Infection from an ally within reach. The Infection removed bursts as spores, hurting enemies near them."},
 	"breather_mask": {"name": "Breather mask", "price": 25, "desc": "You and allies within 2 tiles gain no Infection for 2 turns"},
 	"stim": {"name": "Stim", "price": 25, "desc": "+1 action this turn, +5 Infection"},
 	"containment_foam": {"name": "Containment foam", "price": 30, "desc": "Restrains a Lapsed or Turned soldier within 4 tiles for 2 turns without killing them"},

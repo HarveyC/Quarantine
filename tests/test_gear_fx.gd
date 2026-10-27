@@ -404,3 +404,41 @@ func test_flashbang_stuns_and_gives_concealment_away() -> void:
 	assert_eq(types.count("stunned"), 2, "a stunned event per enemy")
 	assert_true(types.find("ability") < types.find("stunned"), "the throw plays before the stuns")
 	assert_true(not Concealment.active(s), "a flashbang gives the squad away")
+
+
+func test_consumables_do_more_than_a_number() -> void:
+	var s := _state()
+	var u := _add(s, "medic", Types.Team.PLAYER, Vector2i(2, 2))
+	var ally := _add(s, "trooper", Types.Team.PLAYER, Vector2i(3, 2))
+	var e := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 3))
+	ally.hp = 2
+	ally.status["burning"] = 2
+	ally.status["suppressed"] = 5
+	_gear(u, [], ["medkit"])
+	u.actions_left = 4
+	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:medkit", "target": ally.id}), "medkit")
+	assert_true(not ally.status.has("burning") and not ally.status.has("suppressed"), "medkit clears Burning and Suppressed")
+	ally.hp = ally.max_hp
+	u.actions_left = 4
+	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:medkit", "target": ally.id}), "medkit at full HP")
+	assert_true(ally.status.get("k_medshield", false), "a full-HP medkit shields the next hit")
+	ally.infection = 40
+	u.actions_left = 4
+	_gear(u, [], ["suppressant_shot"])
+	u.actions_left = 4
+	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:suppressant_shot", "target": ally.id}), "suppressant")
+	assert_eq(ally.infection, 25, "-15 Infection")
+	Infection.add(s, ally, 10)
+	assert_eq(ally.infection, 32, "the next 3 points are blocked")
+	ally.infection = 60
+	var hp := e.hp
+	u.actions_left = 4
+	_gear(u, [], ["antiviral_dose"])
+	u.actions_left = 4
+	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:antiviral_dose", "target": ally.id}), "antiviral")
+	assert_true(e.hp < hp, "the removed Infection bursts into spores that hurt nearby enemies")
+	u.actions_left = 4
+	_gear(u, [], ["recon_drone"])
+	u.actions_left = 4
+	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:recon_drone", "cell": e.pos}), "drone")
+	assert_true(GearFx.is_marked(s, e), "the drone Marks what it reveals")

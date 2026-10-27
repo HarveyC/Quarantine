@@ -287,6 +287,56 @@ static func _build() -> Dictionary:
 		"art": "",
 		"stats": [],
 		"see": ["suppress"]}
+	t["close_quarters"] = {"name": "Close quarters", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "A kill at close range gives the round back.",
+		"art": "",
+		"stats": [],
+		"see": ["ammo"]}
+	t["breach"] = {"name": "Breach", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "Shots at close range ignore the target's {cover}.",
+		"art": "",
+		"stats": [],
+		"see": ["cover"]}
+	t["heavy_rounds"] = {"name": "Heavy rounds", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "A hit shoves the target back a tile.",
+		"art": "",
+		"stats": [],
+		"see": []}
+	t["pierce"] = {"name": "Pierce", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "The round carries on and hits the next enemy in line for half damage.",
+		"art": "",
+		"stats": [],
+		"see": []}
+	t["skirmisher"] = {"name": "Skirmisher", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "After a long move the first shot each turn costs no {actions|action}.",
+		"art": "",
+		"stats": [],
+		"see": ["actions"]}
+	t["barbs"] = {"name": "Barbs", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "Each hit leaves a barb. A barbed enemy that moves takes 1 damage per barb, then works them loose.",
+		"art": "",
+		"stats": [],
+		"see": []}
+	t["tranquiliser"] = {"name": "Tranquiliser", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "A second hit on the same target stuns it.",
+		"art": "",
+		"stats": [],
+		"see": []}
+	t["door_kicker"] = {"name": "Door kicker", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "Slugs ignore half {cover}.",
+		"art": "",
+		"stats": [],
+		"see": ["cover"]}
+	t["spray"] = {"name": "Spray", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "One {actions|action} fires twice. The second shot has lower aim.",
+		"art": "",
+		"stats": [],
+		"see": ["actions"]}
+	t["recoil"] = {"name": "Recoil", "kind": "gun trait", "icon": "weapon", "tone": "amber",
+		"line": "A critical hit ends the target's turn.",
+		"art": "",
+		"stats": [],
+		"see": []}
 	t["cooldown"] = {"name": "Cooldown", "kind": "limit", "icon": "clock", "tone": "text",
 		"line": "After a use, the turns to wait before it can be used again.",
 		"art": "",

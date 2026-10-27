@@ -25,6 +25,12 @@ const MAX_ABILITY_TRIES := 8    # candidate cells/targets validated per ability 
 ## Spend `u.actions_left` by calling Rules.apply(s, action) until done.
 ## Never applies an action that Rules.validate rejected, and always terminates.
 static func take_turn(s: GameState, u: Unit) -> void:
+	var start := u.pos
+	_take_turn(s, u)
+	Weapons.barbs_tick(s, u, start)
+
+
+static func _take_turn(s: GameState, u: Unit) -> void:
 	if not _can_act(s, u):
 		return
 	if GearFx.is_restrained(s, u):

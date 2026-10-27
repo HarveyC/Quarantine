@@ -759,6 +759,9 @@ static func mutation_cost(s: GameState, u: Unit, cost: int) -> int:
 # --- Gadgets and pocket items as abilities ---------------------------------------------
 
 ## Thrown pocket items: a Servo arm graft throws them further.
+const WARD_POINTS := 3
+const SPORE_DIV := 8
+const SPORE_RADIUS := 2
 const THROWN := ["frag_grenade", "flashbang", "smoke_grenade"]
 
 
@@ -848,9 +851,6 @@ static func _target_error(s: GameState, u: Unit, id: String, t: Unit) -> String:
 	if _cheb(u.pos, t.pos) > 1:
 		return "Too far"
 	match id:
-		"item:medkit":
-			if t.hp >= t.max_hp:
-				return "Already at full health"
 		"item:suppressant_shot", "gear:med_injector":
 			if t.infection <= 0:
 				return "Not infected"
@@ -987,12 +987,25 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			var before := t.infection
 			Infection.add(s, t, -amount)
 			on_purge(s, u, t, before - t.infection)
+			if key == "suppressant_shot":
+				t.status["k_ward"] = WARD_POINTS
+				ev["ward"] = WARD_POINTS
+			elif key == "antiviral_dose":
+				var burst := (before - t.infection) / SPORE_DIV
+				for o in s.living():
+					if u.is_enemy_of(o) and _cheb(o.pos, t.pos) <= SPORE_RADIUS and burst > 0:
+						Rules.deal_damage(s, o, burst, u)
 			return
 		"medkit":
 			var healed := mini(4, t.max_hp - t.hp)
 			t.hp += healed
 			ev["heal"] = healed
 			ev["hp"] = t.hp
+			if healed == 0:
+				t.status["k_medshield"] = true
+				ev["shield"] = true
+			for st in ["burning", "suppressed", "k_skip_turn", "rooted", "wound"]:
+				t.status.erase(st)
 		"adrenal_pump":
 			s.emit(ev)
 			Infection.add(s, u, 15)
@@ -1055,6 +1068,9 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 		"recon_drone":
 			s.emit(ev)
 			Vision.add_reveal(s, cell, Vision.DRONE_RADIUS)
+			for o in s.living():
+				if u.is_enemy_of(o) and o.pos.distance_to(cell) <= Vision.DRONE_RADIUS:
+					_mark(s, o, 2, u)
 			return
 		"smoke_grenade":
 			# A smoke cloud on the tiles: whoever stands in it is harder to hit and can't be

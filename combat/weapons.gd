@@ -32,10 +32,11 @@ const TABLE := {
 		"crit": 15, "close_label": "Too close to scope",
 		"desc": "No range penalty out to sight range, +15% crit. -10 aim at 2 tiles or less."},
 	"pdw": {"rarity": "rare", "name": "PDW", "mag": 8, "close": 4.0, "close_aim": 20, "falloff": 7.0, "falloff_aim": 5,
-		"desc": "+20 aim within 4 tiles; falls off fast past 7."},
+		"trait": "quarters",
+		"desc": "+20 aim within 4 tiles; falls off fast past 7. Close quarters: a kill within 4 tiles gives the round back."},
 	"shotgun": {"rarity": "rare", "name": "Combat shotgun", "mag": 4, "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 8,
-		"graze": 20, "trait": "spread",
-		"desc": "+25 aim within 3 tiles, steep falloff past 5. Spread: wider graze band."},
+		"graze": 20, "trait": "spread", "also": "breach",
+		"desc": "+25 aim within 3 tiles, steep falloff past 5. Spread: wider graze band. Breach: shots within 2 tiles ignore the target's cover."},
 	"lmg": {"rarity": "rare", "name": "Light machine gun", "mag": 10, "close": 3.0, "close_aim": 5, "falloff": 11.0, "falloff_aim": 2,
 		"trait": "pin",
 		"desc": "Pinning fire: a miss still suppresses the target (-30 aim on its next shot)."},
@@ -49,27 +50,29 @@ const TABLE := {
 	# Alternate guns.
 	"battle_rifle": {"name": "Battle rifle", "mag": 5, "classes": ["trooper", "marksman"], "rarity": "uncommon", "tag": "Suppress",
 		"look": "rifle", "close": 3.0, "close_aim": 10, "falloff": 12.0, "falloff_aim": 2, "aim": -5, "dmg": 1,
-		"desc": "Heavier rounds: +1 damage, -5 aim. Holds its accuracy out to 12 tiles."},
+		"trait": "heavy",
+		"desc": "+1 damage, -5 aim, holds its accuracy out to 12 tiles. Heavy rounds: hits shove the target back a tile."},
 	"burst_carbine": {"name": "Burst carbine", "mag": 6, "classes": ["trooper", "vector"], "rarity": "rare", "tag": "Overwatch",
 		"look": "carbine", "close": 4.0, "close_aim": 15, "falloff": 8.0, "falloff_aim": 4, "crit": 5,
 		"trait": "snap", "reaction": 5,
 		"desc": "Snap shots: overwatch reaction shots take only -5 aim. +15 aim within 4 tiles."},
 	"anti_materiel": {"name": "Anti-materiel rifle", "mag": 3, "classes": ["marksman"], "rarity": "rare", "tag": "Mark",
 		"look": "dmr", "close": 3.0, "close_aim": -20, "falloff": 16.0, "falloff_aim": 3, "crit": 20, "dmg": 2,
-		"mobility": -1, "close_label": "Too close to scope",
-		"desc": "+2 damage, +20% crit, no range penalty to 16 tiles. -20 aim at 3 tiles or less, -1 movement."},
+		"mobility": -1, "close_label": "Too close to scope", "trait": "pierce",
+		"desc": "+2 damage, +20% crit, no range penalty to 16 tiles. -20 aim at 3 tiles or less, -1 movement. Pierce: the round carries on and hits the next enemy in line for half damage."},
 	"scout_carbine": {"name": "Scout carbine", "mag": 6, "classes": ["marksman", "medic"], "rarity": "uncommon", "tag": "Close",
-		"look": "pdw", "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3, "crit": 10, "mobility": 1,
-		"desc": "Light and quick: +1 movement, +10% crit, +10 aim within 3 tiles."},
+		"look": "pdw", "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3, "crit": 10, "trait": "skirmish",
+		"desc": "+10% crit, +10 aim within 3 tiles. Skirmisher: after a move of 3 or more tiles, your first shot this turn costs no action."},
 	"flechette_smg": {"name": "Flechette SMG", "mag": 8, "classes": ["medic", "vector", "breacher"], "rarity": "uncommon", "tag": "Close",
-		"look": "pdw", "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 6, "graze": 20, "trait": "spread",
-		"desc": "+25 aim within 3 tiles, falls off fast past 5. Spread: wider graze band."},
+		"look": "pdw", "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 6, "graze": 20, "trait": "spread", "also": "barbs",
+		"desc": "+25 aim within 3 tiles, falls off fast past 5. Spread: wider graze band. Barbs: a hit leaves a barb, and a barbed enemy that moves takes 1 damage per barb."},
 	"dart_rifle": {"name": "Dart rifle", "mag": 5, "classes": ["medic"], "rarity": "rare", "tag": "Purge",
 		"look": "dmr", "close": 2.0, "close_aim": 0, "falloff": 12.0, "falloff_aim": 2, "aim": 10,
-		"desc": "Steady: +10 aim, and it holds that out to 12 tiles."},
+		"trait": "tranq",
+		"desc": "+10 aim, holds that out to 12 tiles. Tranquiliser: a second hit on the same target stuns it."},
 	"slug_gun": {"name": "Slug shotgun", "mag": 4, "classes": ["breacher"], "rarity": "uncommon", "tag": "Mark",
-		"look": "shotgun", "close": 3.0, "close_aim": 15, "falloff": 8.0, "falloff_aim": 4, "crit": 10,
-		"desc": "Single slugs: +15 aim within 3 tiles, +10% crit, reaches out to 8 tiles."},
+		"look": "shotgun", "close": 3.0, "close_aim": 15, "falloff": 8.0, "falloff_aim": 4, "crit": 10, "trait": "doorkick",
+		"desc": "+15 aim within 3 tiles, +10% crit, reaches out to 8 tiles. Door kicker: slugs ignore half cover."},
 	"auto_shotgun": {"name": "Auto shotgun", "mag": 5, "classes": ["breacher", "hazmat"], "rarity": "rare", "tag": "Suppress",
 		"look": "shotgun", "close": 3.0, "close_aim": 20, "falloff": 5.0, "falloff_aim": 8, "trait": "pin",
 		"desc": "+20 aim within 3 tiles, steep falloff past 5. Pinning fire: a miss still suppresses the target."},
@@ -85,15 +88,16 @@ const TABLE := {
 		"desc": "+1 damage, +10% crit, -5 aim. Snap shots: overwatch reaction shots take no aim penalty."},
 	# Melee classes' alternates are all one-handed, so they ride in the hand the sidearm did.
 	"machine_pistol": {"name": "Machine pistol", "mag": 8, "classes": ["reaper"], "rarity": "uncommon", "tag": "Close",
-		"look": "sidearm", "close": 3.0, "close_aim": 20, "falloff": 5.0, "falloff_aim": 6, "graze": 20, "trait": "spread",
-		"desc": "Sprays up close: +20 aim within 3 tiles, falls off fast past 5. Spread: wider graze band."},
+		"look": "sidearm", "close": 3.0, "close_aim": 20, "falloff": 5.0, "falloff_aim": 6, "graze": 20, "trait": "spread", "also": "spray",
+		"desc": "+20 aim within 3 tiles, falls off fast past 5. Spread: wider graze band. Spray: one action fires twice, the second shot at -20 aim."},
 	"bloom_pistol": {"name": "Bloom pistol", "mag": 5, "classes": ["reaper"], "rarity": "rare", "tag": "Strain",
 		"look": "sidearm", "close": 3.0, "close_aim": 10, "falloff": 7.0, "falloff_aim": 4, "dmg": 1, "aim": -5,
 		"trait": "snap", "reaction": 0,
 		"desc": "+1 damage, -5 aim. Snap shots: overwatch reaction shots take no aim penalty."},
 	"hand_cannon": {"name": "Hand cannon", "mag": 4, "classes": ["reaper", "warden"], "rarity": "rare", "tag": "Mark",
 		"look": "revolver", "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "dmg": 1, "crit": 15, "aim": -5,
-		"desc": "+1 damage, +15% crit, -5 aim. Falls off past 6."},
+		"trait": "recoil",
+		"desc": "+1 damage, +15% crit, -5 aim, falls off past 6. Recoil: a crit ends the target's turn."},
 	"stun_pistol": {"name": "Stun pistol", "mag": 6, "classes": ["warden"], "rarity": "uncommon", "tag": "Suppress",
 		"look": "sidearm", "close": 3.0, "close_aim": 10, "falloff": 6.0, "falloff_aim": 4, "dmg": -1, "trait": "pin",
 		"desc": "-1 damage. Pinning fire: a miss still suppresses the target."},
@@ -230,7 +234,8 @@ static func mag_for(id: String, kind: String = "") -> int:
 
 
 static func has_trait(u: Unit, t: String) -> bool:
-	return of(u).get("trait", "") == t
+	var g := of(u)
+	return g.get("trait", "") == t or g.get("also", "") == t
 
 
 ## Appends the weapon's range term (if any) for a shot over `dist` tiles to `breakdown`.
@@ -261,3 +266,78 @@ static func after_miss(s: GameState, u: Unit, t: Unit) -> void:
 	if has_trait(u, "pin") and t.is_alive():
 		t.status["suppressed"] = Combat.phase_index(s) + 2
 		s.emit({"type": "pinned", "unit": u.id, "target": t.id})
+
+
+# ---------------------------------------------------------------- traits
+
+const BREACH_RANGE := 2.0
+const SPRAY_PENALTY := 20
+const BARB_MAX := 3
+const SKIRMISH_STEPS := 3
+
+
+## Odds terms from the gun's trait: Breach and Door kicker take cover away, Spray's second shot is wilder.
+static func odds_terms(s: GameState, u: Unit, t: Unit, from: Vector2i, cover: int, breakdown: Array) -> void:
+	if cover != Types.Cover.NONE and has_trait(u, "breach") and from.distance_to(t.pos) <= BREACH_RANGE:
+		breakdown.append(["Breach", Combat.COVER_FULL if cover == Types.Cover.FULL else Combat.COVER_HALF])
+	elif cover == Types.Cover.HALF and has_trait(u, "doorkick"):
+		breakdown.append(["Door kicker", Combat.COVER_HALF])
+	if u.status.get("spray_second", false):
+		breakdown.append(["Spray", -SPRAY_PENALTY])
+
+
+## A shot from `u` hit `t` for `dmg` (after the damage landed): Pierce, Heavy rounds, Barbs, Tranquiliser,
+## Recoil and Close quarters.
+static func after_hit(s: GameState, u: Unit, t: Unit, dmg: int, crit: bool) -> void:
+	if dmg <= 0 or u.status.get("w_busy", false):
+		return
+	var dir := Vector2i(signi(t.pos.x - u.pos.x), signi(t.pos.y - u.pos.y))
+	if has_trait(u, "pierce") and dir != Vector2i.ZERO:
+		var behind: Unit = s.unit_at(t.pos + dir)
+		if behind != null and behind.is_alive() and u.is_enemy_of(behind):
+			u.status["w_busy"] = true
+			s.emit({"type": "perk", "unit": u.id, "perk": "pierce", "target": behind.id})
+			Rules.deal_damage(s, behind, maxi(1, dmg / 2), u)
+			u.status.erase("w_busy")
+	if not t.is_alive():
+		if has_trait(u, "quarters") and u.pos.distance_to(t.pos) <= float(of(u).close) and Ammo.give(u, 1) > 0:
+			s.emit({"type": "gear", "unit": u.id, "item": "rounds_back", "ammo": Ammo.rounds(u), "rounds": 1})
+		return
+	if has_trait(u, "heavy") and dir != Vector2i.ZERO:
+		var before := t.pos
+		EnemyAbilities.knockback(s, t, dir, 1)
+		if t.pos != before:
+			s.emit({"type": "perk", "unit": u.id, "perk": "heavy", "target": t.id})
+	if has_trait(u, "barbs"):
+		t.status["k_barbs"] = mini(BARB_MAX, int(t.status.get("k_barbs", 0)) + 1)
+	if has_trait(u, "tranq"):
+		if t.status.get("k_tranq", false):
+			t.status.erase("k_tranq")
+			t.status["k_skip_turn"] = true
+			t.actions_left = 0
+			s.emit({"type": "perk", "unit": u.id, "perk": "tranq", "target": t.id})
+		else:
+			t.status["k_tranq"] = true
+	if has_trait(u, "recoil") and crit:
+		t.status["k_skip_turn"] = true
+		t.actions_left = 0
+		s.emit({"type": "perk", "unit": u.id, "perk": "recoil", "target": t.id})
+
+
+## Skirmisher: after a move of SKIRMISH_STEPS or more, the first shot each turn costs no action.
+static func skirmish_free(s: GameState, u: Unit) -> bool:
+	if not has_trait(u, "skirmish") or int(u.status.get("gear_moved_turn", -1)) != s.turn \
+			or int(u.status.get("gear_move_len", 0)) < SKIRMISH_STEPS or int(u.status.get("w_skirmish_turn", -1)) == s.turn:
+		return false
+	u.status["w_skirmish_turn"] = s.turn
+	return true
+
+
+## Barbs: a barbed enemy that moved this turn takes a point per barb, then works them loose.
+static func barbs_tick(s: GameState, u: Unit, start: Vector2i) -> void:
+	var n := int(u.status.get("k_barbs", 0))
+	if n <= 0 or not u.is_alive() or u.pos == start:
+		return
+	u.status.erase("k_barbs")
+	s.emit({"type": "perk", "unit": u.id, "perk": "barbs"})
+	Rules.deal_damage(s, u, n, null)
