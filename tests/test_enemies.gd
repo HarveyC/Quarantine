@@ -731,12 +731,8 @@ func test_brood_mother_burrows_and_surfaces_with_a_sac() -> void:
 	bm.status.erase("tether")
 	Rules.deal_damage(s, bm, 999, t)
 	assert_eq(int(bm.status.boss_phase), 2, "phase 2")
-	bm.cooldowns.clear()
+	assert_true(bm.status.has("burrowed") and bm.status.has("emerge_cell"), "breaking free dives at once, even on the squad's turn")
 	s.turn = 4
-	assert_true(BroodMother.will_burrow(s, bm, true), "intent shows the dive coming")
-	assert_eq(EnemyIntent._intent(s, bm).label, "BURROWING", "intent word")
-	_enemy_turn(s, bm)
-	assert_true(bm.status.has("emerge_cell"), "dives and marks where she comes up")
 	assert_true(EnemyIntent.dangers(s).any(func(d): return d.kind == "erupt"), "the eruption shows as danger")
 	s.turn = 5
 	_enemy_turn(s, bm)

@@ -71,6 +71,7 @@ static func on_damaged(s: GameState, u: Unit) -> void:
 	if phase == 1:
 		s.emit({"type": "boss_phase", "unit": u.id, "phase": 2, "boss": u.kind,
 			"text": "The Brood Mother tears free and burrows!"})
+		_dive_now(s, u)
 		return
 	u.status.erase("tether")
 	for o in s.living(Types.Team.ENEMY):
@@ -80,6 +81,20 @@ static func on_damaged(s: GameState, u: Unit) -> void:
 			Encounter.spawn(s, "broodling", at, u)
 	s.emit({"type": "boss_phase", "unit": u.id, "phase": 3, "boss": u.kind,
 		"text": "The Brood Mother goes berserk!"})
+
+
+## Breaking free dives her at once, whoever's turn it is, so the text, the voice and the picture
+## agree. She erupts on her next turn.
+static func _dive_now(s: GameState, u: Unit) -> void:
+	var hostiles := EnemyAI._hostiles(s, u)
+	if hostiles.is_empty() or u.status.has("burrowed"):
+		return
+	var t := burrow_target(s, u, hostiles)
+	if t == null:
+		hostiles.sort_custom(func(a: Unit, b: Unit) -> bool: return u.pos.distance_to(a.pos) < u.pos.distance_to(b.pos))
+		t = hostiles[0]
+	EnemyAbilities._burrow(s, u, t)
+	u.cooldowns["burrow_cd"] = BURROW_COOLDOWN
 
 
 # --- her turn --------------------------------------------------------------------------------
@@ -97,7 +112,7 @@ static func take_turn(s: GameState, u: Unit) -> void:
 		return
 	var moved := false
 	for step in 4:
-		if u.actions_left <= 0 or not u.is_alive() or s.phase == Types.Phase.ENDED:
+		if u.actions_left <= 0 or not u.is_alive() or s.phase == Types.Phase.ENDED or u.status.has("burrowed"):
 			return
 		var hostiles := EnemyAI._hostiles(s, u)
 		if hostiles.is_empty():
