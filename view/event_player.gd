@@ -544,6 +544,8 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 	var shoved: bool = ev.get("knockback", false)
 	if ev.get("tunnel", false):
 		return _tunnel_beat(ev, uv, cells, pts, seen)
+	if ev.get("leap", false) and not uv.is_soldier:
+		return _leap_move_beat(ev, uv, cells, pts)
 	if shoved:
 		uv.hit_react(pts[0] - (pts[1] - pts[0]), 1.4)
 	uv.set_moving(not shoved)
@@ -1280,7 +1282,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 ## Ability ids with a beat of their own below; the rest go to ItemBeats (gadgets, pocket items,
 ## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
-	"burrow", "erupt", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull",
+	"burrow", "erupt", "leap", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
 	"hook", "reel", "satchel", "mend",
 	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
@@ -1327,6 +1329,8 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return _burrow_beat(ev)
 		"erupt":
 			return _erupt_beat(ev)
+		"leap":
+			return _leap_beat(ev)
 		"bloom_claw":
 			return _melee_beat(ev, {"sound": "claw", "title": "BLOOM CLAW", "fx": "claw"})
 		"lunge", "riposte":
@@ -1417,6 +1421,42 @@ func _burrow_beat(ev: Dictionary) -> Dictionary:
 		uv.set_sink(1.0)
 	view.camera_rig.shake(0.5)
 	return {"dur": 0.9, "update": update, "finish": finish}
+
+
+## A Leaper or berserk Brood Mother springs into the air and comes down in an arc (the landing is
+## its own beat right after).
+func _leap_move_beat(ev: Dictionary, uv: UnitView, cells: Array[Vector2i], pts: Array[Vector3]) -> Dictionary:
+	var last: Vector2i = ev.path[ev.path.size() - 1]
+	var span := pts[0].distance_to(pts[pts.size() - 1])
+	var lift := clampf(span * 0.5, 1.2, 3.2)
+	view.fx.puff(pts[0] + Vector3(0, 0.2, 0), DIRT, 1.2, 0.8, 0.4)
+	_sfx("step3", -2.0, 0.1)
+	uv.face_towards(pts[pts.size() - 1])
+	var update := func(t: float) -> void:
+		uv.position = pts[0].lerp(pts[pts.size() - 1], t) + Vector3(0, sin(PI * t) * lift, 0)
+		if enemy_phase:
+			view.camera_rig.focus(uv.position)
+	var finish := func() -> void:
+		uv.set_cell(last)
+	return {"dur": 0.6, "update": update, "finish": finish}
+
+
+## The landing: a crash that shakes the 3x3, dust and rubble from every tile the impact reaches.
+func _leap_beat(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	uv.visible = true
+	_focus(uv)
+	var fx = view.fx
+	for c in ev.get("cells", []):
+		fx.burst(Board.cell_to_world(c, 0.1), Vector3.UP, DIRT, 6, 3.5, false, 0.07)
+	fx.puff(uv.position + Vector3(0, 0.2, 0), DIRT, 1.6, 0.9, 0.4)
+	fx.crumble(uv.position, 1.0, Color("5d5a52"))
+	fx.floating_text(_head(uv), "POUNCES!", Palette.DANGER, 52)
+	view.camera_rig.shake(1.1)
+	_sfx("collapse", -3.0)
+	return {"dur": 0.7}
 
 
 ## The eruption: the ground cracks open on the marked tiles, the body bursts up out of it and the
