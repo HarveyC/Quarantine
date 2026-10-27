@@ -197,7 +197,7 @@ func _build() -> void:
 	var sp2 := Control.new()
 	sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	st_head.add_child(sp2)
-	st_head.add_child(UI.label("Drag gear between a soldier and the stash. Anyone in the squad can take from it.", 13, UI.FAINT))
+	st_head.add_child(UI.label("Click a stash item to equip it, or drag gear between a soldier and the stash. Anyone in the squad can take from it.", 13, UI.FAINT))
 	st.add_child(st_head)
 	_stash_row = HBoxContainer.new()
 	_stash_row.add_theme_constant_override("separation", 12)
@@ -677,27 +677,35 @@ func _build_stash(r: Dictionary) -> void:
 			v.add_child(tags)
 			t.tooltip_text = "%s (Mk %s)\n%s" % [GearData.item_name(it.id), "II" if it.mk >= 2 else "I", GearData.desc(it.id, it.mk)]
 			# The stash is shared: viewing a teammate's soldier you can still pick from it. A click
-			# jumps to one of your own soldiers with the item in hand (a drag can't, the screen
-			# would rebuild under it).
+			# equips straight onto the soldier on screen (the old item swaps into the stash); from a
+			# teammate's view it jumps to one of your own soldiers with the item held. A drag also works,
+			# on your own soldiers only (switching would rebuild the screen under it).
 			var mine := _editable_soldiers()
 			if editable or not mine.is_empty():
 				var idx := i
+				var normal := UI.box(UI.HELD if held else UI.PANEL_SOFT, UI.AMBER if held else UI.BORDER, 2 if held else 1, 0, 10)
+				var lit := UI.box(UI.HELD, UI.AMBER, 2, 0, 10)
 				if editable:
 					t.drag_data = {"from": "stash", "index": i, "id": it.id}
 					t.drag_label = GearData.item_name(it.id)
 				t.clicked = func() -> void:
-					var switched := not _can_edit(run.get_soldier(_sid))
-					if switched:
-						_sid = mine[0].id
-					_held = -1 if _held == idx else idx
-					_set_preview(st[idx].id if _held == idx else "")
 					UI.play(self, "ui_click")
-					if switched:
-						_refresh()
+					if editable:
+						_equip_from_stash(idx)
+						return
+					_sid = mine[0].id
+					_held = idx
+					_preview_id = st[idx].id
+					_refresh()
 				t.hovered = func(on: bool) -> void:
+					t.add_theme_stylebox_override("panel", lit if on else normal)
 					if _held == -1:
 						_set_preview(it.id if on else "")
 				t.drag_state = func(on: bool, d) -> void: _set_preview(it.id if on else "")
+				var who: Dictionary = r if editable else run.get_soldier(mine[0].id)
+				var card := {"kind": "gear", "id": it.id}
+				Tips.compare(t, func() -> Dictionary: return GearCompare.compare(run, who, card), UI.player_color(who.owner),
+					"Click to equip on %s." % UI.short_name(who))
 		else:
 			t.add_theme_stylebox_override("panel", UI.box(Color(0, 0, 0, 0), UI.BORDER, 1, 0, 10))
 			t.modulate.a = 0.5

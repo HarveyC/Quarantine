@@ -2,6 +2,7 @@ extends TestCase
 ## Gear screens: build out of the tree on a seeded run, refresh, and send legal actions.
 
 const Demo := preload("res://ui/gear/gear_demo.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 
 class FakeSession:
@@ -83,9 +84,36 @@ func test_client_takes_from_stash_while_viewing_teammate() -> void:
 	tile.clicked.call()
 	assert_eq(scr._sid, mine[0].id, "jumped to the client's own soldier")
 	assert_eq(scr._held, idx, "item held")
-	scr._equip_from_stash(idx)
+	var slot_tile = scr._slots.get_children().filter(func(c): return c.can_drop.call({"from": "stash", "id": "concussion_launcher", "index": idx}))[0]
+	slot_tile.clicked.call()
 	assert_eq(s.sent.back().player, 1, "action sent as the client")
 	assert_eq(Loadout.item_at(run.get_soldier(mine[0].id), "gadget").id, "concussion_launcher", "equipped")
+	scr.free()
+
+
+func _release_click(tile: Control) -> void:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = false
+	tile._gui_input(ev)
+
+
+## Opened from the reward screen (the rank-up path), a plain click on a stash item equips it.
+func test_stash_click_equips_through_the_reward_overlay() -> void:
+	var run := Demo.make_run("reward")
+	var s := _session(run)
+	var scr: Control = GearRun.reward_screen().new()
+	scr.setup(run, s)
+	scr.open_loadout()
+	var ov: Control = scr._overlay
+	assert_true(is_instance_valid(ov), "overlay open")
+	var r := run.get_soldier(ov._sid)
+	var idx := Loadout.stash(run).find_custom(func(it): return it.id == "concussion_launcher")
+	var tile: Control = ov._stash_row.get_child(idx)
+	assert_true(tile.has_meta(Tips.META), "compare card attached")
+	_release_click(tile)
+	assert_eq(Loadout.item_at(run.get_soldier(r.id), "gadget").id, "concussion_launcher", "equipped by one click")
+	assert_eq(s.sent.back().type, "gear_stash_take", "sent as a stash take")
 	scr.free()
 
 
