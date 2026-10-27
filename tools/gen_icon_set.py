@@ -19,8 +19,8 @@ VOCAB = {
     "event": "a radio mast sending a signal", "depot": "a stack of supply crates", "hospital": "a field medical tent with a lantern",
     "survivors": "a small group of three huddled people silhouettes", "boss": "a horned monstrous skull", "unknown": "a closed door with a keyhole and a question mark-like curl, no letters",
     # action wheel
-    "shoot": "a rifle crosshair scope reticle", "overwatch": "a vigilant open eye over a rifle sight", "reload": "a rifle magazine sliding in with a curved arrow",
-    "hunker": "a soldier crouched behind a low wall", "tag": "a targeting marker pin with radiating ticks", "suppress": "three bullets streaming through a lane of fire",
+    "shoot": "a rifle crosshair scope reticle", "overwatch": "a single simple open eye, almond shape with a round iris and pupil, nothing else, symmetrical", "reload": "a rifle magazine sliding in with a curved arrow",
+    "hunker": "a soldier crouched behind a low wall", "tag": "a targeting marker pin with radiating ticks", "suppress": "a fan-shaped cone of five bullets spreading outward from one point, bullet tips pointing away, simple and symmetrical",
     "breach": "a door blown inward with a burst of fragments", "grenade": "a frag grenade with pin", "charge": "a demolition charge brick with a wire and timer",
     "smoke": "a smoke grenade venting a cloud", "flash": "a flashbang grenade with a bright starburst", "drone": "a small quadcopter recon drone",
     "medic": "a medical cross over a syringe", "purge": "a vial pouring clean drops onto a spore", "incinerate": "a flamethrower nozzle with a flame",
