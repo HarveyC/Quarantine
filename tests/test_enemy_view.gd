@@ -272,3 +272,16 @@ func test_the_source_three_phases_play_through_the_view() -> void:
 	assert_true(seen.get("strike:collapse", 0) >= 1 and seen.get("level_changed:", 0) >= 1, "the floor falls")
 	assert_true(_no_bare_labels(v), "every Source ability has a beat of its own")
 	v.free()
+
+
+func test_parting_blow_warning_card_has_width() -> void:
+	var s := make_state(["runner"])
+	var v: MissionView = MAIN.instantiate()
+	v.start(s)
+	v.hud.show_move_warning(["Runner: 70% for 2 to 4"], true)
+	var card: Control = v.hud._move_warning
+	assert_true(card != null, "warning card shown")
+	assert_true(card.get_combined_minimum_size().x >= 300.0, "card is wide enough to read, not a sliver")
+	v.hud.hide_move_warning()
+	assert_true(v.hud._move_warning == null, "warning card cleared")
+	v.free()
