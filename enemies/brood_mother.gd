@@ -10,7 +10,7 @@ extends RefCounted
 ## Encounter, EnemyBehaviours and FightBuilder call in here. OWNER: enemies workstream.
 
 ## Boss HP as a share of her 40, by squad size (FightBuilder, instead of SQUAD_BOSS_HEALTH).
-const HEALTH := {1: 0.3, 2: 0.75, 3: 1.6, 4: 2.8}
+const HEALTH := {1: 0.42, 2: 1.15, 3: 1.6, 4: 2.8}
 const SACS := {1: 1, 2: 2, 3: 3, 4: 4}              # sacs she starts with
 const SURFACE_SACS := {1: 0, 2: 1, 3: 1, 4: 2}      # sacs she keeps alive while burrowing
 const RELAY := 3               # turns before she re-lays a sac once every sac is dead (phase 1)
