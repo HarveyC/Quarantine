@@ -64,6 +64,7 @@ var _toast: Label
 var _banner: Label
 var _tooltip: Control
 var _tooltip_uv: UnitView
+var _move_warning: Control
 var _toast_t := 0.0
 var _banner_t := 0.0
 ## The Bloom creeping in from the screen's right edge, further as the squad's Infection climbs.
@@ -520,6 +521,30 @@ func _unit_terms(box: VBoxContainer, uv: UnitView, u: Unit, sel: Unit) -> void:
 func _on_tips_expanded(_on: bool) -> void:
 	if _tooltip != null and _tooltip_uv != null and is_instance_valid(_tooltip_uv):
 		show_tooltip(_tooltip_uv)
+
+
+## Warning card for a move that provokes {parting_blow|Parting blows}: `lines` name each swinger.
+func show_move_warning(lines: Array, pinned: bool) -> void:
+	hide_move_warning()
+	var f := W.Frame.new(Vector4(12, 9, 12, 10))
+	var box := Styles.vbox(4)
+	f.add_child(box)
+	box.add_child(Tips.text("Leaving melee reach: {parting_blow|Parting blow}", 15, Styles.DANGER))
+	for l in lines:
+		box.add_child(Tips.text(str(l), 13))
+	box.add_child(Tips.text("Click again to move anyway." if pinned else "Click to pick this tile, click again to move anyway.", 13, Styles.DIM))
+	_move_warning = f
+	add_child(f)
+	if is_inside_tree():
+		f.reset_size()
+		f.position = Vector2((size.x - f.size.x) * 0.5, 96.0)
+
+
+func hide_move_warning() -> void:
+	if _move_warning != null:
+		remove_child(_move_warning)
+		_move_warning.queue_free()
+		_move_warning = null
 
 
 func hide_tooltip() -> void:

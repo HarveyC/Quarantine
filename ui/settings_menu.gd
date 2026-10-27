@@ -187,6 +187,7 @@ func _gameplay() -> void:
 	_option("Game speed", "gameplay", "game_speed", [[1.0, "Normal"], [1.5, "Fast (1.5×)"], [2.0, "Faster (2×)"], [3.0, "Fastest (3×)"]],
 		"How fast moves, shots and enemy turns play out. Shot cameras still play, a little faster.")
 	_toggle("Shot cameras", "gameplay", "shot_cams", "Over-the-shoulder camera for epic shots: kills, crits, boss hits, long shots (C in a fight).")
+	_toggle("Confirm moves", "gameplay", "confirm_move", "The first click on a tile shows the path and what the move risks, a second click on the same tile moves. Right click or Esc cancels.")
 	_section("Camera")
 	_toggle("Edge scrolling", "gameplay", "edge_pan", "Pan when the mouse touches the screen edge.")
 	_slider("Camera pan speed", "gameplay", "camera_speed", 0.25, 3.0, 0.25, "%d%%", 100.0)
