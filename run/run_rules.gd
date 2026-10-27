@@ -18,10 +18,9 @@ const START_INTEL := 1
 const START_RESERVE := 1           # recruits per player, +1 for each 2 soldiers past the first (reserve_for)
 const RESERVE_CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
 const HEAL_AFTER_FIGHT := 0.35
-const BOSS_OUTBREAK_DROP := 3
-## How a fight moves Outbreak (fight_outbreak): a met bonus objective, a won nest and a won Purge
-## each push it back; every soldier who Turns spreads it.
-const BONUS_OUTBREAK_DROP := 1
+const BOSS_OUTBREAK_DROP := 2
+## How a fight moves Outbreak (fight_outbreak): a won nest and a won Purge each
+## push it back; every soldier who Turns spreads it.
 const NEST_OUTBREAK_DROP := 1
 const PURGE_OUTBREAK_DROP := 1
 const TURNED_OUTBREAK := 2
@@ -399,7 +398,7 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 			r.sit_out -= 1
 	run.emit({"type": "fight_end", "result": outcome.result, "kind": kind})
 	var won: bool = outcome.result == Types.Result.VICTORY and not run.squad().is_empty()
-	for change in fight_outbreak(kind, objective, won, bool(outcome.get("bonus", false)), lost[RunSoldier.TURNED]):
+	for change in fight_outbreak(kind, objective, won, lost[RunSoldier.TURNED]):
 		add_outbreak(run, change[0], change[1])
 	MetaProgress.on_fight_end(run, kind, outcome.result == Types.Result.VICTORY and not run.squad().is_empty(),
 		bool(outcome.get("bonus", false)), lost[RunSoldier.DEAD], lost[RunSoldier.TURNED])
@@ -505,14 +504,12 @@ static func random_class(run: RunState) -> String:
 
 ## Outbreak changes a fight causes, as [[amount, reason]], for the run and the fight debrief.
 ## Boss kills are separate (BOSS_OUTBREAK_DROP, after the rewards check).
-static func fight_outbreak(kind: String, objective: String, won: bool, bonus: bool, turned: int) -> Array:
+static func fight_outbreak(kind: String, objective: String, won: bool, turned: int) -> Array:
 	var out: Array = []
 	if turned > 0:
 		out.append([TURNED_OUTBREAK * turned, "soldier Turned" if turned == 1 else "soldiers Turned"])
 	if not won:
 		return out
-	if bonus:
-		out.append([-BONUS_OUTBREAK_DROP, "bonus objective"])
 	if kind == RunMap.NEST:
 		out.append([-NEST_OUTBREAK_DROP, "nest cleared"])
 	if objective == "purge":
