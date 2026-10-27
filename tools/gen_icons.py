@@ -8,8 +8,15 @@ Each icon is a single object on a plain dark background, saved as OUT_DIR/name.p
 import base64, json, os, sys, urllib.request
 
 MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
-STYLE = ("Game icon, one centred object, bold readable silhouette, painted illustration with a dark "
-         "industrial sci-fi look, flat dark charcoal background, no text, no border, no frame. Subject: ")
+COMMON = ("one centred object filling most of the frame, bold readable silhouette, perfectly flat solid "
+          "very dark navy background (#0a0e18) edge to edge, no vignette, no circle, no frame, no border, "
+          "no text, no letters, no symbols. Never use cyan or teal; accents are warm amber only. Subject: ")
+STYLES = {
+    "painted": "Game icon, painted illustration, dark industrial sci-fi, muted steel with amber accents, " + COMMON,
+    "flat": "Game icon, flat vector emblem, 3 flat tones, thick clean shapes, no gradients, steel grey with amber highlight, " + COMMON,
+    "glow": "Game icon, minimal glowing line art, single amber stroke weight, soft amber bloom glow, no fills, " + COMMON,
+}
+STYLE = STYLES[os.environ.get("ICON_STYLE", "painted")]
 
 
 def generate(prompt: str) -> bytes:
