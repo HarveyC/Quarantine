@@ -60,6 +60,7 @@ var _address_row: HBoxContainer
 var _lobby_hint: Label
 var _solo_btn: Button
 var _start_btn: Button
+var _ready_btn: Button
 var _start_run_btn: Button
 var _continue_btn: Button
 var _continue_sub: Label
@@ -332,6 +333,14 @@ func _build_lobby(body: Control) -> void:
 		else:
 			leave_requested.emit())
 	bar.add_child(_leave_btn)
+	_ready_btn = Styles.icon_button("Ready", "check", "primary", 20, 54)
+	_ready_btn.custom_minimum_size.x = 260
+	_ready_btn.pressed.connect(func() -> void:
+		if _net != null:
+			Feel.sound("pick")
+			_net.set_lobby_ready(not _net.is_ready(_net.my_player)))
+	Tips.term(_ready_btn, "lobby_ready")
+	bar.add_child(_ready_btn)
 	_start_btn = Styles.icon_button("Quick mission", "quick", "secondary", 18, 54)
 	_start_btn.tooltip_text = "A single fight, no run."
 	_start_btn.pressed.connect(func() -> void:
@@ -424,7 +433,7 @@ func show_lobby(net: NetSession) -> void:
 		_address_row.add_child(copy)
 		_lobby_hint.text = "Everyone picks how many soldiers they command. The whole squad is %d at most, and fights scale to its size." % MatchConfig.MAX_SQUAD
 	else:
-		_lobby_hint.text = "Pick your squad. The host starts the run."
+		_lobby_hint.text = "Pick your squad, then Ready up. The host starts the run."
 	_invite_btn.visible = net.via_steam()
 	_invite_btn.disabled = net.steam_lobby() == 0
 	if net.via_steam():
@@ -436,6 +445,15 @@ func show_lobby(net: NetSession) -> void:
 	_start_btn.visible = net.is_host
 	_start_run_btn.visible = net.is_host
 	_start_run_btn.text = "Start run" + _severity_tag()
+	var waiting := net.waiting_on()
+	_start_btn.disabled = waiting > 0
+	_start_run_btn.disabled = waiting > 0
+	var wait_tip := "Waiting for %d %s to Ready up." % [waiting, "player" if waiting == 1 else "players"] if waiting > 0 else ""
+	_start_btn.tooltip_text = wait_tip if waiting > 0 else "A single fight, no run."
+	_start_run_btn.tooltip_text = wait_tip
+	_ready_btn.visible = not net.is_host
+	var mine := net.is_ready(net.my_player)
+	_ready_btn.text = "Ready" if not mine else "Not ready"
 	_lobby_continue.visible = net.is_host and RunSave.exists()
 
 
@@ -479,7 +497,12 @@ func _show_local(first := false) -> void:
 		_lobby_hint.text = "Click a player to set up their squad. You share %d soldiers at most." % MatchConfig.MAX_SQUAD
 	_invite_btn.visible = false
 	_start_btn.visible = true
+	_start_btn.disabled = false
+	_start_btn.tooltip_text = "A single fight, no run."
 	_start_run_btn.visible = true
+	_start_run_btn.disabled = false
+	_start_run_btn.tooltip_text = ""
+	_ready_btn.visible = false
 	_start_run_btn.text = "Start run" + _severity_tag()
 	_lobby_continue.visible = false
 

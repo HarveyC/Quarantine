@@ -364,10 +364,14 @@ func _on_lobby_changed() -> void:
 		menu.show_lobby(net)
 	elif view != null:
 		view.hud.refresh()
-	if net.is_host and not net.in_match and _autostart > 0 and net.lobby.size() >= _autostart and not _autostart_armed:
+	if not net.is_host and not net.in_match and net.my_player >= 0 \
+			and OS.get_cmdline_user_args().has("--autoplay") and not net.is_ready(net.my_player):
+		net.set_lobby_ready(true)   # headless bots ready up as soon as they are in
+	if net.is_host and not net.in_match and _autostart > 0 and net.lobby.size() >= _autostart and net.all_ready() and not _autostart_armed:
 		# Short grace period so late or duplicate connections land before the squad is split.
 		_autostart_armed = true
 		get_tree().create_timer(2.0).timeout.connect(func() -> void:
+			_autostart_armed = false
 			if not net.in_match:
 				if _autostart_run:
 					net.start_run()

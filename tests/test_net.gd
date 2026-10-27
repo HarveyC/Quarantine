@@ -77,3 +77,31 @@ func test_lobby_squad_picks_share_four_soldiers() -> void:
 	assert_eq(run.soldiers_of(0).size(), 3, "the run follows the lobby")
 	assert_eq(run.soldiers_of(1).size(), 1, "for every player")
 	n.free()
+
+
+func test_host_waits_for_every_player_to_ready_up() -> void:
+	var n := _host()
+	assert_true(n.all_ready(), "a lone host is always ready")
+	n.handle_hello(2, "Ana", "a")
+	n.handle_hello(3, "Ben", "b")
+	assert_eq(n.waiting_on(), 2, "both clients still to ready")
+	n.start_run()
+	assert_true(n.run == null, "the run does not start")
+	n.handle_ready(2, true)
+	assert_true(n.is_ready(1), "Ana is ready")
+	assert_true(not n.all_ready(), "Ben is not")
+	n.handle_ready(3, true)
+	assert_true(n.all_ready(), "everyone is ready")
+	n.free()
+
+
+func test_changing_squad_or_reconnecting_clears_ready() -> void:
+	var n := _host()
+	n.handle_hello(2, "Ana", "a")
+	n.handle_ready(2, true)
+	n.handle_pick(2, ["marksman"])
+	assert_true(not n.is_ready(1), "a new pick takes Ready back")
+	n.handle_ready(2, true)
+	n.handle_hello(5, "Ana", "a")
+	assert_true(not n.is_ready(1), "a reconnect starts not ready")
+	n.free()

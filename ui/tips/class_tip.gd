@@ -103,7 +103,11 @@ static func build(card: Control, box: VBoxContainer, kind: String, locked: bool,
 	box.add_child(StatRow.new("Damage", int(dmg[0]), int(dmg[1]), DMG_SEGS, Styles.TEXT, "%d-%d" % [dmg[0], dmg[1]]))
 	box.add_child(_rule())
 
-	box.add_child(_gun_block(card, kind, inner, full))
+	if Weapons.starts_on_sidearm(kind):
+		box.add_child(_gun_block(card, kind, inner, full, Weapons.START_GUN, "Starts with"))
+		box.add_child(_gun_block(card, kind, inner, full, "", "Class gun, found in a run"))
+	else:
+		box.add_child(_gun_block(card, kind, inner, full))
 	box.add_child(_rule())
 
 	for id in u.abilities:
@@ -155,17 +159,19 @@ static func _locked_row(card: Control, kind: String, inner: float) -> Control:
 	return p
 
 
-static func _gun_block(card: Control, kind: String, inner: float, full: bool) -> Control:
-	var id := Weapons.id_for(kind)
+static func _gun_block(card: Control, kind: String, inner: float, full: bool, gun_id := "", caption := "") -> Control:
+	var id := gun_id if gun_id != "" else Weapons.id_for(kind)
 	var gun := Weapons.get_gun(id)
 	var v := Styles.vbox(5)
+	if caption != "":
+		v.add_child(Styles.caps(caption, 10, Styles.MUTED, false))
 	var top := Styles.hbox(8)
 	var ic := W.Icon.new("weapon", Styles.TEXT, 18, 1.8)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(ic)
 	top.add_child(Styles.caps(str(gun.get("name", id)), 13, Styles.TEXT))
 	top.add_child(Styles.spacer())
-	var mag := Weapons.mag_for(id)
+	var mag := Weapons.mag_for(id, kind)
 	var mag_pips := W.AmmoPips.new(10.0)
 	mag_pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mag_pips.set_values(mag, mag)
@@ -179,7 +185,7 @@ static func _gun_block(card: Control, kind: String, inner: float, full: bool) ->
 		top.add_child(Styles.caps({"pin": "pins", "snap": "snap shots", "spread": "spread"}.get(tr, tr), 10, Styles.DIM))
 	v.add_child(top)
 	v.add_child(RangeStrip.new(gun, inner))
-	if full:
+	if full and gun_id == "":
 		v.add_child(card.rich(str(gun.get("desc", "")), inner, 12, Styles.DIM))
 		var alts := 0
 		for g in Weapons.TABLE.values():
