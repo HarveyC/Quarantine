@@ -17,7 +17,7 @@ const HEAD := Vector3(0, 2.0, 0)
 const HEAD_ENEMY := Vector3(0, 1.6, 0)   # infected models are shorter
 ## Timed tags from gear and abilities (UnitView.tags): icon and colour on the plate.
 const TAG_ICONS := {"stunned": ["stun", Color("9fd0ff")], "suppressed": ["suppress", Styles.AMBER],
-	"marked": ["tag", Styles.DANGER], "contained": ["cure", Styles.TEAL], "restrained": ["lock", Color("e4ece9")],
+	"marked": ["tag", Color("ff5c86")], "contained": ["cure", Styles.TEAL], "restrained": ["lock", Color("e4ece9")],
 	"pinned": ["pinned", Styles.DANGER]}
 
 var view: MissionView
@@ -147,7 +147,11 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 	for k in TAG_ICONS:
 		# A Lurker pin has no set length, so it comes from the state rather than a timed tag.
 		if uv.tags.has(k) or (k == "pinned" and not uv.dead and held != null and held.status.has("pinned_by")):
-			row.add_child(W.Icon.new(TAG_ICONS[k][0], TAG_ICONS[k][1], 14.0, 2.0))
+			var big: bool = k == "marked"
+			var ic := W.Icon.new(TAG_ICONS[k][0], TAG_ICONS[k][1], 20.0 if big else 14.0, 2.5 if big else 2.0)
+			if big:
+				Tips.term(ic, "mark")
+			row.add_child(ic)
 	var hp := W.HpPips.new(Vector2(7, 4))
 	var lose := 0
 	if targeted and shooter != null:
