@@ -733,6 +733,8 @@ func test_brood_mother_burrows_and_surfaces_with_a_sac() -> void:
 	assert_eq(int(bm.status.boss_phase), 2, "phase 2")
 	assert_true(bm.status.has("burrowed") and bm.status.has("emerge_cell"), "breaking free dives at once, even on the squad's turn")
 	s.turn = 4
+	_enemy_turn(s, bm)
+	assert_true(bm.status.has("burrowed"), "still digging through her first enemy phase")
 	assert_true(EnemyIntent.dangers(s).any(func(d): return d.kind == "erupt"), "the eruption shows as danger")
 	s.turn = 5
 	_enemy_turn(s, bm)
