@@ -759,7 +759,7 @@ static func _build() -> Dictionary:
 	t["hp_multiplier"] = {"name": "HP multiplier", "kind": "meter", "icon": "health", "tone": "hp",
 		"line": "Big monsters have too much HP for a pip each, so one pip stands for several HP.",
 		"art": "hp_pips",
-		"more": ["A part-filled pip is part of its HP.", "Soldiers and small enemies draw one pip per HP.", "The pink hatching is the HP the shot you are aiming could take."],
+		"more": ["A part-filled pip is part of its HP.", "The bigger the multiplier, the deeper the pip colour.", "Soldiers and small enemies draw one pip per HP.", "The pink hatching is the HP the shot you are aiming could take."],
 		"see": ["healing"], "scan": false}
 	# --- Field hospital treatments and grafts -----------------------------------------------
 	t["patch_up"] = {"name": "Patch up", "kind": "treatment", "icon": "patch", "tone": "hp",

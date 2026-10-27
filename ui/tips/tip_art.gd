@@ -5,10 +5,11 @@ extends Control
 
 const Styles := preload("res://ui/styles.gd")
 const Icons := preload("res://ui/icons.gd")
+const W := preload("res://ui/widgets.gd")
 
 const HEIGHTS := {"tiers": 58, "cover": 66, "high_ground": 72, "flank": 74, "hit_roll": 44,
 	"damage": 50, "overwatch": 62, "lapse": 46, "turning": 40, "set": 30, "outbreak": 52,
-	"severity": 40, "hazards": 50, "rank": 42, "intel": 46, "healing": 30, "hp_pips": 36, "magazine": 44, "tile": 44, "climb": 58}
+	"severity": 40, "hazards": 50, "rank": 42, "intel": 46, "healing": 30, "hp_pips": 62, "magazine": 44, "tile": 44, "climb": 58}
 
 var kind := ""
 var ctx := {}
@@ -429,18 +430,27 @@ func _healing() -> void:
 	_num(Vector2(max_hp * 17 + 6, 17), "+%d%%" % roundi(RunRules.HEAL_AFTER_FIGHT * 100), 12, Styles.HP, HORIZONTAL_ALIGNMENT_LEFT, 60)
 
 
-## Three pips of a big monster's bar: full, half, empty, with what one pip is worth (ctx.per).
+## What a pip of a big monster's bar means (ctx.per HP, ctx.color the bar's colour): full, half
+## and empty, then the multipliers from x1 up, each a deeper shade of the same colour.
 func _hp_pips() -> void:
 	var per := int(ctx.get("per", 5))
+	var col: Color = ctx.get("color", Styles.HP)
 	var w := 34.0
 	for i in 3:
 		var r := Rect2(i * (w + 8), 6, w, 10)
 		draw_rect(r, Styles.HP_OFF)
 		if i == 0:
-			draw_rect(r, Styles.HP)
+			draw_rect(r, W.HpPips.tier_color(col, W.HpPips.tier_of(per)))
 		elif i == 1:
-			draw_rect(Rect2(r.position, Vector2(w * 0.5, 10)), Styles.HP)
+			draw_rect(Rect2(r.position, Vector2(w * 0.5, 10)), W.HpPips.tier_color(col, W.HpPips.tier_of(per)))
 	_num(Vector2(0, 30), "1 pip = %d HP" % per, 11, Styles.TEXT, HORIZONTAL_ALIGNMENT_LEFT, 120)
+	var x := 0.0
+	for v in [1, 2, 5, 10]:
+		var tier := W.HpPips.tier_of(v)
+		var r := Rect2(x, 40, 22, 8)
+		draw_rect(r, W.HpPips.tier_color(col, tier))
+		_num(Vector2(x, 59), "x%d" % v, 10, Styles.TEXT if v == per else Styles.MUTED, HORIZONTAL_ALIGNMENT_LEFT, 40)
+		x += 52.0
 
 
 ## A magazine of rounds, some spent, then the same magazine full again after a Reload.
