@@ -423,6 +423,45 @@ func test_hospital_purge_costs_supplies() -> void:
 	assert_eq(run.outbreak, 1, "+1 Outbreak")
 
 
+## Training again and again drains the class's perk pool; Train is then refused, no pick is left
+## waiting without cards, and a stray bonus pick pays Supplies, so a run can never softlock.
+func test_training_never_outruns_the_perk_pool() -> void:
+	var run := _run()
+	var rec := run.get_soldier(1)
+	var pool := Progression.perk_pool(rec).size()
+	var trained := 0
+	for i in pool + 3:
+		NodeRules.enter(run, "hospital")
+		if not _act(run, "node_treat", 0, {"soldier": 1, "treatment": "train"}):
+			break
+		trained += 1
+		assert_eq(Progression.pending_picks(rec), 1, "one pick waits with cards")
+		var pick := {"type": "prog_perk_pick", "player": 0, "sid": 1, "perk": Progression.perk_offer(run, rec)[0]}
+		assert_eq(Progression.validate(run, pick), "", "pick is legal")
+		Progression.apply(run, pick)
+	assert_eq(trained, pool, "trained once per perk, then refused")
+	assert_eq(Progression.pending_picks(rec), 0, "nothing waiting")
+	assert_true(not Progression.has_pending(run), "reward phase is not held")
+	NodeRules.enter(run, "hospital")
+	assert_true(FieldHospital.blocker(run, run.node_state, rec, "train") != "", "Train refused")
+	var before := run.supplies
+	Progression.grant_perk_pick(run, rec)
+	assert_eq(run.supplies, before + Progression.NO_PERK_SUPPLIES, "event pick pays Supplies")
+	assert_eq(Progression.pending_picks(rec), 0, "still nothing waiting")
+
+
+## A waiting perk pick can always be skipped, so its screen can always be closed.
+func test_a_perk_pick_can_be_skipped() -> void:
+	var run := _run()
+	var rec := run.get_soldier(1)
+	Progression.grant_perk_pick(run, rec)
+	var skip := {"type": "prog_skip_pick", "player": 0, "sid": 1}
+	assert_eq(Progression.validate(run, skip), "", "skip is legal")
+	Progression.apply(run, skip)
+	assert_eq(Progression.pending_picks(rec), 0, "pick gone")
+	assert_true(Progression.validate(run, skip) != "", "nothing left to skip")
+
+
 func test_survivors_claim_and_default() -> void:
 	var run := _run()
 	var ns := NodeRules.enter(run, "survivors")

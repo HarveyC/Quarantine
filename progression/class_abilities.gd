@@ -23,7 +23,7 @@ const ABILITIES := {
 	"bash": {"name": "Shield Bash", "targeting": "unit", "cost": 1, "cooldown": 1,
 		"desc": "Hit an adjacent enemy for 3-5, knock it back a tile and stun it (it loses its next turn). +2 damage on Turned soldiers. 1 action."},
 	"guard": {"name": "Brace", "targeting": "none", "cost": -1, "cooldown": 0,
-		"desc": "Until your next turn, Bash the first enemy that steps next to you, which stops it in its tracks. Ends turn."},
+		"desc": "Until your next turn, Bash the first enemy that steps next to you. Ends turn."},
 	"shield_charge": {"name": "Shield Charge", "targeting": "unit", "cost": -1, "cooldown": 3,
 		"desc": "Move up to 3 tiles to a visible enemy and Bash it. Ends turn."},
 	"talk_down": {"name": "Talk Down", "targeting": "unit", "cost": 1, "cooldown": 0, "any": true,

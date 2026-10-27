@@ -300,6 +300,11 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 	if b.disabled:
 		fg = Color(fg, 0.35)
 	b.tooltip_text = label + ("\n" + str(a.desc) if not mutation and str(a.get("desc", "")) != "" else "")
+	var cooling := int(a.get("cooldown", 0))
+	if cooling > 0:
+		b.tooltip_text += "\nCooling down: ready in %d turn%s." % [cooling, "" if cooling == 1 else "s"]
+	elif b.disabled and str(a.get("reason", "")) != "" and not mutation:
+		b.tooltip_text += "\n" + str(a.reason)
 	var key: String = a.key
 	var term := "mutation" if mutation else ("hit_chance" if key == "shoot" else Glossary.find(label))
 	if term != "":
@@ -333,6 +338,14 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 			Styles.AMBER_LIGHT if active else Color("141c2a"), Styles.AMBER_DEEP if active else (Color(Styles.TEAL, 0.6) if mutation else Styles.BORDER_STRONG))
 		kc.position = Vector2(-4, -2)
 		b.add_child(kc)
+	if cooling > 0:
+		# Turns until it is ready again, large on the dimmed orb so a used ability never looks live.
+		var cdl := Styles.bold(str(cooling), 22, Styles.AMBER)
+		cdl.add_theme_constant_override("outline_size", 6)
+		cdl.add_theme_color_override("font_outline_color", Color(Styles.GROUND, 0.9))
+		cdl.position = Vector2(px - cdl.get_combined_minimum_size().x - 6, px - cdl.get_combined_minimum_size().y - 4)
+		cdl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(cdl)
 	if cost != "":
 		# The Infection cost as teal numbers on the orb's top-right, outlined to read on it.
 		var c := W.chip(cost, Styles.TEAL, true, 11)

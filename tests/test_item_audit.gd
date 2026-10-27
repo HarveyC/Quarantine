@@ -267,7 +267,13 @@ func test_every_active_item_and_ability_works_and_shows() -> void:
 		assert_eq(why, "", "%s is usable" % id)
 		if why == "":
 			var from := s.log.size()
+			var declared := _declared_cooldown(u, id)
 			assert_true(Rules.apply(s, action), "%s applied" % id)
+			if declared > 0:
+				assert_eq(int(u.cooldowns.get(id, 0)), declared, "%s goes on cooldown" % id)
+				for a in Combat.available_abilities(s, u):
+					if a.id == id:
+						assert_true(not a.ready and int(a.cooldown) == declared, "%s is listed as cooling down" % id)
 			var err: String = (cs.check as Callable).call(x)
 			assert_eq(err, "", "%s has its effect" % id)
 			var events := s.log.slice(from)
@@ -279,6 +285,17 @@ func test_every_active_item_and_ability_works_and_shows() -> void:
 			assert_true(not v.player.sfx_log.is_empty(), "%s makes a sound" % id)
 		v.free()
 	GearTags.set_progression(false)
+
+
+## The cooldown an ability's definition promises, read before it is used (a spent item stops listing).
+func _declared_cooldown(u: Unit, id: String) -> int:
+	if GearFx.owns(id):
+		return int(GearFx._def(u, id).get("cooldown", 0))
+	if ClassAbilities.ABILITIES.has(id):
+		return int(ClassAbilities.ABILITIES[id].cooldown)
+	if Combat.ABILITIES.has(id):
+		return int(Combat.ABILITIES[id].cooldown)
+	return 0
 
 
 func test_every_gadget_and_pocket_item_has_a_look() -> void:

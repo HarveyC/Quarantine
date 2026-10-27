@@ -603,15 +603,26 @@ func _autoplay_advance(u: Unit) -> Dictionary:
 				goals = lost.map(func(c: Unit) -> Vector2i: return c.pos)
 	if goals.is_empty():
 		return {}
+	# Walk the real way round walls and through doorways: head for the goal nearest by path, and take
+	# the cell in range that is closest to it by path (straight-line distance dead-ends against a wall).
+	var from_here := state.grid.reachable(u.pos, 1000)
 	var goal: Vector2i = goals[0]
+	var best_d := 1 << 30
 	for g in goals:
-		if u.pos.distance_squared_to(g) < u.pos.distance_squared_to(goal):
+		var d: int = from_here.get(g, 1 << 29)
+		if d < best_d:
+			best_d = d
 			goal = g
+	var to_goal := state.grid.reachable(goal, 1000)
+	var here: int = to_goal.get(u.pos, 1 << 29)
 	var best := u.pos
+	var best_path := here
 	for c in Rules.move_range(state, u):
-		if c.distance_squared_to(goal) < best.distance_squared_to(goal):
+		var d: int = to_goal.get(c, 1 << 29)
+		if d < best_path:
+			best_path = d
 			best = c
-	if best == u.pos or best.distance_to(goal) < 1.5:
+	if best == u.pos or best == goal:
 		return {}
 	var move := {"type": Types.MOVE, "unit": u.id, "to": best}
 	return move if Rules.validate(state, move) == "" else {}

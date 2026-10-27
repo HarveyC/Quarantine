@@ -1223,7 +1223,9 @@ func _beat_gear(ev: Dictionary) -> Dictionary:
 			return {}
 		var marked := item == "mark"
 		tv.set_tag("marked" if marked else "suppressed", phase_now() + (3 if marked else 2))
-		if tv.visible:
+		if marked:
+			show_marked(tv)
+		elif tv.visible:
 			view.fx.floating_text(_head(tv) + Vector3(0, 0.3, 0), "MARKED" if marked else "SUPPRESSED", Palette.DANGER if marked else Palette.AMBER, 36)
 		return {"dur": 0.15}
 	var proc: Dictionary = GEAR_PROCS.get(item, {})
@@ -1239,6 +1241,12 @@ func _beat_gear(ev: Dictionary) -> Dictionary:
 	if tv != null and tv != uv:
 		view.fx.tracer(uv.aim_point(), tv.aim_point(), col, 0.35)
 	var cap: bool = proc.get("cap", false)
+	var src := _uv(ev, "from") if ev.has("from") else null
+	if src != null and src != on:
+		# The Mark moves from one enemy to the next: a pink line between them.
+		view.fx.tracer(src.aim_point(), on.aim_point(), Color("ff5c86"), 0.8)
+		on.set_tag("marked", phase_now() + 3)
+		show_marked(on)
 	view.fx.floating_text(_head(on) + Vector3(0, 0.2, 0), text, col, 44 if cap else 34, 1.6 if cap else 1.3)
 	view.fx.pulse(on.position, col, 0.9 if cap else 0.5)
 	if cap:
@@ -1250,6 +1258,18 @@ func _beat_gear(ev: Dictionary) -> Dictionary:
 	elif not GEAR_PROCS.has(item) or item in ["restrained", "bloodletting", "guard_set"]:
 		_sfx("ui_confirm", -6.0)
 	return {"dur": 0.6 if cap else 0.4}
+
+
+## A Mark lands on `tv`: a pink pulse, a flash and a short ping so it can't be missed.
+func show_marked(tv: UnitView) -> void:
+	if tv == null or not tv.visible:
+		return
+	var col := Color("ff5c86")
+	view.fx.floating_text(_head(tv) + Vector3(0, 0.3, 0), "MARKED", col, 40, 1.4)
+	view.fx.pulse(tv.position, col, 0.9)
+	view.fx.flash_light(tv.position + Vector3(0, 1.0, 0), col, 3.0, 0.5)
+	tv.flash(col)
+	_sfx("radio", -4.0)
 
 
 ## Set Burning (Incendiary rounds, Ember plating, Firestarter, Phosphor rounds...).

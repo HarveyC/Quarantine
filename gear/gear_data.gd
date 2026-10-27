@@ -282,7 +282,7 @@ const PROTOTYPES := {
 	"breach_and_clear": {"name": "Breach and clear", "tags": ["Close", "Suppress"], "slot": "ammo",
 		"desc": "Enemies you Suppress within 3 tiles lose their cover bonus"},
 	"hold_position": {"name": "Hold position", "tags": ["Guard", "Suppress"], "slot": "armor",
-		"desc": "Suppress costs 1 action instead of ending your turn, so you can Suppress and then hunker"},
+		"desc": "Suppress costs 1 action instead of ending your turn"},
 	"feral_grip": {"name": "Feral grip", "tags": ["Close", "Strain"], "slot": "armor",
 		"desc": "Every hit within 3 tiles, mutation attacks included, heals you 1 HP"},
 	"bloodletting": {"name": "Bloodletting", "tags": ["Strain", "Purge"], "slot": "gadget",

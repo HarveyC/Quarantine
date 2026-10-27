@@ -355,7 +355,7 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 			best.status["tagged"] = t.status.tagged
 			if t.status.get("warrant", false):
 				best.status["warrant"] = true
-			s.emit({"type": "gear", "unit": u.id, "item": "mark_set", "target": best.id})
+			s.emit({"type": "gear", "unit": u.id, "item": "mark_set", "target": best.id, "from": t.id})
 	if is_burning(s, t):
 		_burn_set_spread(s, t)
 	if has(u, "purge_canister") and u.infection > 0:
