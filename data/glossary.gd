@@ -832,7 +832,6 @@ static func _build() -> Dictionary:
 		RunMap.EVENT: ["Event", "event", "text", "A choice with a price, decided together.", []],
 		RunMap.DEPOT: ["Depot", "depot", Color("c9a24a"), "A shop: spend {supplies} on gear, pockets and Serum.", []],
 		RunMap.HOSPITAL: ["Field hospital", "hospital", "hp", "One treatment per soldier: patch up, {purge} or train.", [["+1", "{outbreak} if used"]]],
-		RunMap.ARMORY: ["Weapons cache", "armory", Color("c9a24a"), "Every soldier takes a gun. Anyone still on the sidearm gets their class gun.", []],
 		RunMap.SURVIVORS: ["Survivors", "survivors", "hp", "People to bring home: a recruit for the {reserve}.", [["+%d" % RunRules.BONUS_SUPPLIES, "{supplies}"], ["1", "recruit"]]],
 		RunMap.UNKNOWN: ["Hidden node", "unknown", "dim", "Usually an event. Spend {intel} to see it first.", [["1", "{intel} to reveal"]]],
 	}

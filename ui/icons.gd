@@ -252,10 +252,6 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 			line.call([[12, 9], [12, 17]])
 			line.call([[8, 13], [16, 13]])
 			line.call([[9, 6], [9, 3], [15, 3], [15, 6]])
-		"armory":
-			line.call([[3, 14], [15, 14], [15, 10], [20, 10], [20, 14], [21, 14], [21, 17], [3, 17], [3, 14]])
-			line.call([[7, 17], [8, 22], [11, 22], [11, 17]])
-			line.call([[3, 14], [3, 10], [9, 10], [9, 14]])
 		"survivors":
 			circle.call(8.5, 7.5, 3)
 			arc.call(8.5, 20, 6, PI, TAU)
