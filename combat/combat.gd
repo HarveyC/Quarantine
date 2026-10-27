@@ -266,7 +266,7 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 	elif cover != Types.Cover.NONE:
 		var cv := COVER_FULL if cover == Types.Cover.FULL else COVER_HALF
 		breakdown.append(["Full cover" if cover == Types.Cover.FULL else "Half cover", -cv])
-		if is_hunkered(s, target):
+		if is_hunkered(s, target) or Kit.hunker_shared(s, target):
 			breakdown.append(["Hunkered", -cv])
 	if target.defense != 0:
 		breakdown.append(["Defense", -target.defense])

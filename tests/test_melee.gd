@@ -243,7 +243,12 @@ func test_unbreakable_and_last_wall() -> void:
 	var e := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 2))
 	var hp := w.hp
 	Rules.deal_damage(s, w, 3, e)
-	assert_eq(w.hp, hp - 2, "adjacent hit -1")
+	assert_eq(w.hp, hp - 3, "no flat cut now")
+	e.max_hp = 30
+	e.hp = 30
+	Rules.deal_damage(s, w, 1, e)
+	Rules.deal_damage(s, w, 1, e)
+	assert_true(e.hp < 30 and e.status.get("k_skip_turn", false), "third hit: shockwave hurts and stuns the attacker")
 	Rules.deal_damage(s, w, 50, e)
 	assert_eq(w.hp, 1, "Last Wall holds at 1")
 

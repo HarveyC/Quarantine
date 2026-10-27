@@ -77,7 +77,7 @@ func test_apply_record_hp_perks_and_abilities() -> void:
 	var tp := Progression.new_record("trooper")
 	tp.perks = ["hold_the_line"]
 	Progression.apply_record(t, tp)
-	assert_eq(t.max_hp, UnitData.SOLDIERS.trooper.max_hp + 2, "Hold the Line +2 HP")
+	assert_eq(t.max_hp, UnitData.SOLDIERS.trooper.max_hp, "Hold the Line gives no flat HP")
 
 
 func test_perk_offer_rares_from_rank_4_and_run_pick() -> void:
@@ -218,11 +218,12 @@ func test_long_watch_and_deadeye() -> void:
 	var foe := _enemy(s, "spitter", Vector2i(6, 3))
 	var mk := _soldier(s, 0)
 	_give(mk, ["long_watch", "deadeye"])
-	var odds := Combat.hit_chance(s, mk, foe, mk.pos, true)
-	assert_eq(_term(odds, "Long Watch"), 15, "cancels reaction penalty")
 	var base: int = Combat.hit_chance(s, mk, foe).crit
 	foe.status["tagged"] = Combat.phase_index(s) + 2
-	assert_eq(Combat.hit_chance(s, mk, foe).crit, base + 20, "Deadeye +20 crit on Tagged")
+	assert_eq(Combat.hit_chance(s, mk, foe).crit, 100, "Deadeye always crits a Marked enemy in the open")
+	mk.overwatch = true
+	assert_true(Kit.keep_overwatch(s, mk, foe), "Long Watch keeps the watch up")
+	assert_true(not Kit.keep_overwatch(s, mk, foe), "once per enemy phase")
 
 
 func test_last_stand_once() -> void:
@@ -258,9 +259,14 @@ func test_medic_containment_and_stim_perks() -> void:
 	assert_eq(tr.infection, 35, "Containment -5 at team phase start")
 	_give(md, ["transfusion", "triage_cover"])
 	tr.hp = 1
+	var spit := _enemy(s, "spitter", Vector2i(5, 4))
+	spit.max_hp = 40
+	spit.hp = 40
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": md.id, "ability": "stim", "target": tr.id}), "stim")
-	assert_eq(tr.hp, 1 + 3 + 3, "heal 3 + 1 per 5 removed")
-	assert_true(_term(Combat.hit_chance(s, _enemy(s, "spitter", Vector2i(5, 4)), tr), "Triage Cover") < 0, "triage defense")
+	assert_eq(tr.hp, 1 + 3, "the heal itself")
+	assert_true(spit.hp < 40, "Transfusion: the removed Infection hits an enemy")
+	var far := _enemy(s, "spitter", Vector2i(7, 3))
+	assert_true(_term(Combat.hit_chance(s, far, tr), "Triage Cover") < -50, "Triage Cover hides the patient from range")
 
 
 func test_purge_ability_from_perk() -> void:
@@ -590,43 +596,65 @@ func test_every_perk_and_mutation_has_a_card_face() -> void:
 func test_content_pack_perks_damage() -> void:
 	var s := _state(["marksman", "hazmat", "vector"])
 	var foe := _enemy(s, "brute", Vector2i(8, 0))
+	foe.max_hp = 60
+	foe.hp = 60
 	var mk := _soldier(s, 0)
-	_give(mk, ["headhunter"])
-	assert_eq(Kit.shot_damage(s, mk, foe, 3), 3, "Headhunter needs a Tag")
+	_give(mk, ["executioner"])
 	foe.status["tagged"] = Combat.phase_index(s) + 2
-	assert_eq(Kit.shot_damage(s, mk, foe, 3), 4, "Headhunter +1 vs Tagged")
+	Kit.after_shot(s, mk, foe, {}, true)
+	assert_true(foe.hp == 60, "Executioner leaves a healthy enemy alone")
+	foe.hp = 20
+	Kit.after_shot(s, mk, foe, {}, true)
+	assert_true(not foe.is_alive(), "Executioner kills a Marked enemy at half HP")
 	var hz := _soldier(s, 1)
-	_give(hz, ["scorcher"])
-	foe.status["burning"] = 2
-	assert_eq(Kit.shot_damage(s, hz, foe, 3), 4, "Scorcher +1 vs Burning")
+	_give(hz, ["fuel_line"])
+	var burner := _enemy(s, "brute", Vector2i(8, 2))
+	burner.max_hp = 60
+	burner.hp = 60
+	burner.status["burning"] = 2
+	Kit.after_shot(s, hz, burner, {}, true)
+	assert_eq(int(burner.status.burning), 2 + Kit.FUEL_LINE_TURNS, "Fuel Line lengthens the fire")
 	var vc := _soldier(s, 2)
-	_give(vc, ["carrier_wave"])
-	vc.infection = 10
-	assert_eq(Kit.shot_damage(s, vc, foe, 3), 3, "Carrier Wave needs Mutating")
-	vc.infection = 55
-	assert_eq(Kit.shot_damage(s, vc, foe, 3), 4, "Carrier Wave +1 at Mutating")
+	_give(vc, ["contagion"])
+	var a := _enemy(s, "runner", Vector2i(8, 3))
+	var b := _enemy(s, "runner", Vector2i(9, 3))
+	a.max_hp = 30
+	a.hp = 30
+	b.max_hp = 30
+	b.hp = 30
+	vc.status["k_shot_dmg"] = 4
+	Kit.after_shot(s, vc, a, {}, true)
+	assert_eq(b.hp, 28, "Contagion hurts the Infected next to the target for half")
 
 
 func test_content_pack_perks_defense() -> void:
 	var s := _state(["trooper", "vector", "medic"])
 	var foe := _enemy(s, "spitter", Vector2i(8, 0))
+	foe.max_hp = 50
+	foe.hp = 50
 	var tr := _soldier(s, 0)
 	_give(tr, ["battle_hardened"])
-	var hp := tr.hp
+	tr.max_hp = 10
+	tr.hp = 10
 	Rules.deal_damage(s, tr, 3, foe)
-	assert_eq(tr.hp, hp - 2, "first hit -1")
+	assert_true(not tr.status.get("k_free_shot", false), "healthy: nothing yet")
 	Rules.deal_damage(s, tr, 3, foe)
-	assert_eq(tr.hp, hp - 5, "only the first")
+	assert_true(tr.status.get("k_free_shot", false), "under half HP: the next shot is free")
 	var vc := _soldier(s, 1)
 	_give(vc, ["spore_veil"])
 	vc.infection = 30
-	assert_eq(_term(Combat.hit_chance(s, foe, vc), "Spore Veil"), -10, "Spore Veil at Exposed")
+	var near := _enemy(s, "runner", vc.pos + Vector2i(0, 1))
+	near.max_hp = 20
+	near.hp = 20
+	Kit.on_enemy_phase_start(s)
+	assert_eq(near.hp, 20 - Kit.SPORE_VEIL_DAMAGE, "Spore Veil stings the enemy beside it")
+	assert_true(Combat.has_status(s, near, "suppressed"), "and suppresses it")
 	var md := _soldier(s, 2)
 	_give(md, ["steady_hands", "field_surgeon"])
-	tr.hp = 1
+	tr.status["burning"] = 2
 	Kit.after_stim(s, md, tr, 0)
-	assert_eq(tr.hp, 3, "Field Surgeon heals 2")
-	assert_eq(_term(Combat.hit_chance(s, foe, md), "Steady Hands"), -15, "Steady Hands after a Stim")
+	assert_true(not tr.status.has("burning"), "Field Surgeon puts the fire out")
+	assert_eq(Kit.ability_cost(md, "stim", 1), 0, "Steady Hands: the next Stim is free")
 
 
 func test_high_perch_needs_height() -> void:
@@ -634,9 +662,27 @@ func test_high_perch_needs_height() -> void:
 	var foe := _enemy(s, "spitter", Vector2i(6, 0))
 	var mk := _soldier(s, 0)
 	_give(mk, ["high_perch"])
-	assert_eq(_term(Combat.hit_chance(s, mk, foe), "High Perch"), 0, "level ground")
+	assert_eq(Kit.cover_against(s, mk, foe, Types.Cover.FULL, mk.pos), Types.Cover.FULL, "level ground: cover holds")
 	s.grid.set_level(mk.pos, 1)
-	assert_eq(_term(Combat.hit_chance(s, mk, foe), "High Perch"), 10, "shooting down")
+	assert_eq(Kit.cover_against(s, mk, foe, Types.Cover.FULL, mk.pos), Types.Cover.NONE, "shooting down ignores cover")
+
+
+func test_hold_the_line_covers_neighbours_and_symbiote_grants_actions() -> void:
+	var s := _state(["trooper", "medic", "vector"])
+	var tr := _soldier(s, 0)
+	var md := _soldier(s, 1)
+	var vc := _soldier(s, 2)
+	_give(tr, ["hold_the_line"])
+	md.pos = tr.pos + Vector2i(1, 0)
+	assert_true(not Kit.hunker_shared(s, md), "not while the holder stands")
+	tr.hunkered = true
+	assert_true(Kit.hunker_shared(s, md), "hunkered holder covers the neighbour")
+	_give(vc, ["symbiote"])
+	var actions := vc.actions_left
+	Infection.add(s, vc, 30)
+	assert_eq(vc.actions_left, actions + 1, "Symbiote: first Exposed tier grants an action")
+	Infection.add(s, vc, 1)
+	assert_eq(vc.actions_left, actions + 1, "but only once per tier")
 
 
 func test_new_perks_in_every_pool() -> void:

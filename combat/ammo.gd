@@ -111,6 +111,18 @@ static func reload_error(s: GameState, u: Unit) -> String:
 	return ""
 
 
+## A reload a perk gives for nothing (Walking Fire, Field Surgeon): refills the magazine and runs
+## every reload hook, costing no action.
+static func free_reload(s: GameState, u: Unit, why: String) -> void:
+	if not tracked(u) or rounds(u) >= mag_size(u):
+		return
+	var had := int(u.status["ammo"])
+	refill(u)
+	s.emit({"type": "reload", "unit": u.id, "ammo": int(u.status["ammo"]), "mag": mag_size(u), "had": had, "free": true, "why": why})
+	GearFx.after_reload(s, u, had)
+	Kit.after_reload(s, u, had)
+
+
 static func apply_reload(s: GameState, u: Unit) -> void:
 	var free := reload_is_free(s, u)
 	if free and not Kit.free_reload(u):

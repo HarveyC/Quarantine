@@ -84,6 +84,7 @@ static func add(s: GameState, u: Unit, amount: int) -> void:
 	if after != before:
 		_apply_passives(u, after)
 		Kit.refresh_stats(s, u)
+		Kit.on_tier(s, u, before, after)
 	if after == Tier.TURNED and not Kit.prevent_turn(s, u):
 		_turn(s, u)
 

@@ -140,14 +140,14 @@ func test_a_lapsed_soldier_never_runs_dry() -> void:
 	assert_true(Ammo.can_fire(u), "AI soldiers are unlimited")
 
 
-func test_bandolier_adds_rounds() -> void:
+func test_walking_fire_reloads_when_you_set_overwatch() -> void:
 	var s := _state()
 	var u := _soldier(s)
-	var base := Ammo.mag_size(u)
-	var t := _soldier(s, "trooper", Vector2i(3, 3))
-	t.status["perks"] = ["bandolier"]
-	Ammo.setup(t)
-	assert_eq(Ammo.rounds(t), base + Ammo.BANDOLIER, "Bandolier")
+	u.status["perks"] = ["walking_fire"]
+	u.status["ammo"] = 1
+	_foe(s)
+	assert_true(Rules.apply(s, {"type": Types.OVERWATCH, "unit": u.id}), "overwatch")
+	assert_eq(Ammo.rounds(u), Ammo.mag_size(u), "the gun is full again, for no action")
 
 
 func test_speed_loader_makes_the_first_reload_each_turn_free() -> void:
@@ -186,15 +186,15 @@ func test_scavenger_rounds_give_one_back_on_a_kill() -> void:
 	assert_eq(Ammo.rounds(u), before, "spent one, got one back")
 
 
-func test_fresh_mag_perk_gives_aim_on_the_turn_you_reload() -> void:
+func test_fresh_mag_perk_marks_and_guarantees_the_next_shot() -> void:
 	var s := _state()
 	var u := _soldier(s, "marksman")
 	u.status["perks"] = ["fresh_mag"]
 	var foe := _foe(s)
 	u.status["ammo"] = 1
-	var plain := int(Combat.hit_chance(s, u, foe).hit)
 	assert_true(_reload(s, u), "reload")
-	assert_eq(int(Combat.hit_chance(s, u, foe).hit), mini(100, plain + Kit.FRESH_MAG_AIM), "+15 aim")
+	assert_true(Combat.has_status(s, foe, "tagged"), "the reload Marks the nearest enemy")
+	assert_eq(int(Combat.hit_chance(s, u, foe).hit), 100, "and the next shot can't miss")
 
 
 func test_bone_magazine_wakes_with_infection_and_costs_it_per_reload() -> void:

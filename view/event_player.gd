@@ -1071,6 +1071,10 @@ func _beat_perk(ev: Dictionary) -> Dictionary:
 	var col := Palette.TEAL if perk == "bloodlust" else Palette.AMBER
 	view.fx.floating_text(_head(uv) + Vector3(0, 0.25, 0), perk.capitalize().to_upper() + ("  +1 ACTION" if perk == "bloodlust" else ""), col, 40)
 	uv.flash(col)
+	var tv := _uv(ev, "target") if ev.has("target") else null
+	if tv != null and tv != uv:
+		view.fx.tracer(uv.aim_point(), tv.aim_point(), col, 0.35)
+		view.fx.pulse(tv.position, col, 0.5)
 	if perk == "bloodlust":
 		view.fx.flash_light(uv.aim_point(), Palette.TEAL, 2.5, 0.35, 3.0)
 		view.fx.burst(uv.aim_point(), Vector3.UP, Palette.TEAL, 10, 1.6, true, 0.025)

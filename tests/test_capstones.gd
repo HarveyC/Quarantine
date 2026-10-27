@@ -326,9 +326,9 @@ func test_renames_merges_and_retags() -> void:
 	assert_eq(PerkData.PERKS.purge.name, "Flush", "Medic perk Purge is Flush")
 	assert_eq(ClassAbilities.ABILITIES.purge.name, "Flush", "and so is its ability")
 	assert_true(not PerkData.PERKS.has("door_kicker"), "Door Kicker folded into Kick In")
-	assert_eq(PerkData.PERKS.kick_in.mobility, 1, "Kick In carries the +1 move")
-	assert_eq(PerkData.PERKS.thick_blood.tag, "Strain", "Thick Blood counts")
-	assert_eq(PerkData.PERKS.heavy_plating.tag, "Guard", "Heavy Plating counts")
+	assert_true(not PerkData.PERKS.kick_in.has("mobility"), "Kick In is no longer a flat move bonus")
+	assert_eq(PerkData.PERKS.open_veins.tag, "Strain", "Open Veins counts")
+	assert_eq(PerkData.PERKS.flashover.tag, "Burn", "Flashover counts")
 	assert_eq(GraftData.get_def("lattice_sight").tag, "Overwatch", "Lattice sight is Overwatch")
 	assert_true(PerkData.PERKS.has("shaped_charge"), "Shaped Charge is a Breacher perk")
 	assert_true(MetaUnlocks.PACKS.gear_2.content.has("crossfire") and MetaUnlocks.PACKS.gear_2.content.has("quarantine_field"),
