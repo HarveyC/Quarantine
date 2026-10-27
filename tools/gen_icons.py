@@ -45,7 +45,7 @@ def to_mask(png: bytes, size=256) -> "Image.Image":
     h = int(max(bb[2] - bb[0], bb[3] - bb[1]) * 0.56) + 4
     lum = lum.crop((cx - h, cy - h, cx + h, cy + h)).resize((size, size), Image.LANCZOS)
     out = Image.new("RGBA", lum.size, (255, 255, 255, 0))
-    out.putalpha(lum)
+    out.putalpha(lum.point(lambda p: max(0, min(255, int((p - 34) * 1.25)))))
     return out
 
 
