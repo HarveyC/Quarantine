@@ -297,7 +297,10 @@ func test_run_state_kit_rewards_and_doctrine_vote() -> void:
 	GearRun.on_fight_won(run, "boss")
 	var v: Dictionary = GearRun.doctrine_vote(run)
 	assert_eq(v.options.size(), 3, "three Doctrines")
+	var seen: Array = []
+	run.event.connect(func(ev: Dictionary) -> void: seen.append(ev))
 	RunRules.apply(run, {"type": "gear_doctrine", "player": 1, "doctrine": v.options[1]})
+	assert_eq(seen.size(), 1, "a Doctrine vote tells the reward screen to redraw")
 	assert_true(GearRun.has_pending(run), "waits for everyone")
 	RunRules.apply(run, {"type": "gear_doctrine", "player": 0, "doctrine": v.options[0]})
 	assert_eq(run.modifiers.doctrines, [v.options[0]], "host breaks the split")
