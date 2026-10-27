@@ -498,6 +498,9 @@ static func validate(run: RunState, action: Dictionary) -> String:
 				return "No perk pick waiting"
 			if not perk_offer(run, r).has(str(action.get("perk", ""))):
 				return "Not on offer"
+		"prog_skip_pick":
+			if pending_picks(r) <= 0:
+				return "No perk pick waiting"
 		"prog_graft":
 			if p.get("offers", []).is_empty():
 				return "No mutation offer waiting"
@@ -536,6 +539,11 @@ static func apply(run: RunState, action: Dictionary) -> void:
 			else:
 				p.bonus_picks = int(p.bonus_picks) - 1
 			run.emit({"type": "perk_pick", "sid": r.id, "perk": action.perk})
+		"prog_skip_pick":
+			if int(p.get("bonus_picks", 0)) > 0:
+				p.bonus_picks = int(p.bonus_picks) - 1
+			else:
+				p.picks = int(p.picks) - 1
 		"prog_graft":
 			p.offers.pop_front()
 			var id: String = action.mutation
