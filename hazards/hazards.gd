@@ -22,6 +22,8 @@ const KINDS := {
 	"smoke": {"name": "Smoke", "damage": 0, "infection": 0, "ignores": [Types.Team.PLAYER, Types.Team.ENEMY], "replaces": [], "avoid": 0.0},
 }
 const PERMANENT := -1
+## Spores a soldier lays (Vent, Overgrowth) cut enemies; map and Source spores still spare them.
+const SOLDIER_SPORE_DAMAGE := 2
 
 
 ## Puts `kind` on every walkable cell in `cells` for `turns` rounds (PERMANENT = until removed).
@@ -42,7 +44,9 @@ static func add(s: GameState, cells: Array, kind: String, turns: int, source_id:
 					continue
 			elif not KINDS[kind].replaces.has(cur.kind):
 				continue
-		s.hazards[c] = {"kind": kind, "turns": turns, "source": source_id, "spare": spare_team}
+		var src := s.get_unit(source_id) if source_id >= 0 else null
+		s.hazards[c] = {"kind": kind, "turns": turns, "source": source_id, "spare": spare_team,
+			"source_team": src.team if src != null else -1}
 		changed.append(c)
 	if not changed.is_empty():
 		s.emit({"type": "hazard", "kind": kind, "cells": changed, "turns": turns, "source": source_id, "spare": spare_team})
@@ -100,7 +104,15 @@ static func affects(u: Unit, kind: String) -> bool:
 
 
 static func _affects_here(u: Unit, h: Dictionary) -> bool:
-	return h.get("spare", -1) != u.team and affects(u, h.kind)
+	if h.get("spare", -1) == u.team:
+		return false
+	return affects(u, h.kind) or _soldier_spores(h, u)
+
+
+## True for a spore cloud laid by a soldier standing on an enemy: it damages instead of infecting.
+static func _soldier_spores(h: Dictionary, u: Unit) -> bool:
+	return h.kind == "spore" and u.team == Types.Team.ENEMY and h.get("spare", -1) != Types.Team.ENEMY \
+		and h.get("source_team", -1) == Types.Team.PLAYER
 
 
 static func _takes_infection(u: Unit) -> bool:
@@ -158,11 +170,14 @@ static func _hit(s: GameState, u: Unit, cell: Vector2i) -> void:
 		return
 	var k: Dictionary = KINDS[h.kind]
 	var infection: int = k.infection if _takes_infection(u) else 0
+	var damage: int = k.damage
+	if _soldier_spores(h, u):
+		damage = SOLDIER_SPORE_DAMAGE
 	if h.kind == "spore" and Kit.awake(u, "spore_sense"):
 		infection *= 2   # Spore Sense drawback
 	if h.kind == "spore":
 		infection = Grafts.filtered(s, u, infection)   # Plated ribs
-	var hit := GearFx.hazard_hit(s, u, h, k.damage, infection)  # coats, masks, Scorched earth
+	var hit := GearFx.hazard_hit(s, u, h, damage, infection)  # coats, masks, Scorched earth
 	if hit == Vector2i.ZERO:
 		return
 	infection = hit.y

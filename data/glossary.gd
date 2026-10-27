@@ -550,7 +550,7 @@ static func _build() -> Dictionary:
 		"line": "Teal dots and floating pods. Crossing or standing in them adds {infection}.",
 		"art": "tile", "art_ctx": {"overlay": "spore"},
 		"stats": [["+%d" % Hazards.KINDS.spore.infection, "Infection"], ["0", "damage"]],
-		"more": ["The Infected walk through them unharmed.", "Fire burns them away."],
+		"more": ["The Infected walk through them unharmed, unless a soldier laid them: those cut for 2.", "Fire burns them away."],
 		"see": ["infection", "hazards", "hazard_fire"],
 		"aliases": ["Spore", "Spore cloud", "Spore tiles"]}
 	t["hazard_acid"] = {"name": "Acid", "kind": "hazard", "icon": "danger", "tone": TileOverlays.ACID,

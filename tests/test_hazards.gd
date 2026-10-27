@@ -65,6 +65,18 @@ func test_standing_in_spores_infects_soldiers_at_end_of_turn_not_enemies() -> vo
 	assert_true(Hazards.avoid_cost(s, sol, sol.pos) > 0.0, "soldiers do")
 
 
+func test_soldier_laid_spores_cut_enemies() -> void:
+	var t := _setup()
+	var s: GameState = t.s
+	var sol: Unit = t.sol
+	var foe: Unit = t.foe
+	Hazards.add(s, [foe.pos], "spore", 3, sol.id)
+	var fhp := foe.hp
+	Hazards.on_enemy_phase_end(s)
+	assert_eq(foe.hp, fhp - Hazards.SOLDIER_SPORE_DAMAGE, "soldier spores cut the Infected")
+	assert_true(Hazards.avoid_cost(s, foe, foe.pos) > 0.0, "and the Infected avoid them")
+
+
 func test_spare_team_fire_spares_the_squad() -> void:
 	var t := _setup()
 	var s: GameState = t.s
