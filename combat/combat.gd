@@ -477,7 +477,7 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
 			GearFx.on_suppress(s, u, t)
 		"tag":
-			t.status["tagged"] = phase_index(s) + (2 if s.phase != Types.Phase.ENEMY else 3) + Grafts.tag_bonus(s, u)
+			t.status["tagged"] = phase_index(s) + (2 if s.phase != Types.Phase.ENEMY else 3)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
 			GearFx.on_marked(s, u, t)
 		"stim":
@@ -579,6 +579,7 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 	if not Ammo.can_fire(u):
 		return   # an extra shot (Return Fire, Crossfire, a Suppress set shot) with an empty gun
+	Ammo.bone_shot(s, u)
 	Ammo.spend(u)
 	var odds := hit_chance(s, u, t, u.pos, reaction)
 	var r := resolve_roll(s.rng.randi_range(1, 100), odds)
@@ -602,6 +603,7 @@ static func fire(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 static func fire_at_barrel(s: GameState, u: Unit, c: Vector2i, reaction: bool) -> void:
 	if not Ammo.can_fire(u):
 		return
+	Ammo.bone_shot(s, u)
 	Ammo.spend(u)
 	var odds := barrel_chance(s, u, c, u.pos, reaction)
 	var hit := s.rng.randi_range(1, 100) <= int(odds.hit)

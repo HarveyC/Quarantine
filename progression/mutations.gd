@@ -221,8 +221,7 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 					allies.append(a)
 			s.emit(ev.merged({"units": allies.map(func(x: Unit) -> int: return x.id)}))
 			for a in allies:
-				a.status["k_rally_turn"] = s.turn
-				Kit.refresh_stats(s, a)
+				a.actions_left += 1
 				Infection.add(s, a, RALLY_GAIN)
 		"rampage":
 			_rampage(s, u, action.cell, ev)

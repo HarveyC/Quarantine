@@ -419,7 +419,7 @@ static func strike(s: GameState, u: Unit, t: Unit, kind: String, extra: Dictiona
 	var dmg := 0
 	if r.hit or r.graze:
 		var roll_range := MAUL_DAMAGE if bash else (GraftData.CLAW_DAMAGE if kind == "bloom_claw" else BLADE_DAMAGE)
-		var base := s.rng.randi_range(roll_range.x, roll_range.y) + Grafts.melee_bonus(s, u)
+		var base := s.rng.randi_range(roll_range.x, roll_range.y)
 		if bash and t.status.get("turned", false):
 			base += QUARANTINE_DAMAGE
 		elif not bash:
@@ -433,6 +433,7 @@ static func strike(s: GameState, u: Unit, t: Unit, kind: String, extra: Dictiona
 		return 0
 	Rules.deal_damage(s, t, dmg, u)
 	Kit.after_melee(s, u, t, dmg)
+	Grafts.after_strike(s, u, t)
 	if bash:
 		_after_bash(s, u, t)
 	elif t.is_alive():

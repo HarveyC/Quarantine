@@ -21,7 +21,8 @@ const STEADY_AIM := 10
 const LURE_AIM := 15
 const LURE_RADIUS := 6.0
 const DEADEYE_CRIT := 100   # Deadeye: a Marked enemy in the open is always a crit
-const CHITIN_ARMOR := 2
+const CLOT_HEAL := 3
+const BONES_FAR := 5
 const WILLING_HOST_FLOOR := 25
 const SPORE_VEIL_DAMAGE := 2
 const UNBREAKABLE_STACKS := 3
@@ -96,8 +97,6 @@ static func mag_bonus(u: Unit) -> int:
 	var n := 0
 	if has_perk(u, "belt_fed"):
 		n += Ammo.BELT_FED
-	if awake(u, "bone_magazine"):
-		n += Ammo.BONE_MAG
 	return n
 
 
@@ -113,13 +112,7 @@ static func after_reload(s: GameState, u: Unit, _had: int) -> void:
 		for o in GearLinks._nearest_visible(s, u, 1, 99):
 			GearFx._mark(s, o, 2, u)
 			s.emit({"type": "perk", "unit": u.id, "perk": "fresh_mag", "target": o.id})
-	if awake(u, "bone_magazine"):
-		Infection.add(s, u, Ammo.BONE_MAG_INFECTION)
-
-
-## Rounds a kill gives back (Bone Magazine).
-static func kill_rounds(u: Unit) -> int:
-	return 1 if awake(u, "bone_magazine") else 0
+	pass
 
 
 # ---------------------------------------------------------------- stats
@@ -129,13 +122,8 @@ static func kill_rounds(u: Unit) -> int:
 static func refresh_stats(s: GameState, u: Unit) -> void:
 	var want := {"mobility": 0, "aim": 0}
 	if is_soldier(u):
-		if awake(u, "hollow_bones"):
-			want.mobility += 2
 		if awake(u, "chitin_plates"):
 			want.mobility -= 1
-		if s != null and u.status.get("k_rally_turn", -1) == s.turn:
-			want.mobility += 1
-			want.aim += 10
 	if s != null and u.status.has("k_pinned") and Combat.has_status(s, u, "k_pinned"):
 		want.mobility -= 2
 	Grafts.stat_mods(s, u, want)
@@ -177,8 +165,8 @@ static func on_team_phase_start(s: GameState) -> void:
 			for a in s.living(Types.Team.PLAYER):
 				if a != u and is_soldier(a) and cheb(a.pos, u.pos) == 1 and a.infection > 0:
 					Infection.add(s, a, -medic_cure(a, 5))
-		if awake(u, "clotting_blood"):
-			_heal(s, u, 1, "clotting_blood")
+		if awake(u, "clotting_blood") and u.hp * 2 <= u.max_hp:
+			_heal(s, u, CLOT_HEAL, "clotting_blood")
 		if awake(u, "regenerator"):
 			_heal(s, u, 3, "regenerator")
 			Infection.add(s, u, 2)
@@ -386,6 +374,9 @@ static func after_shot(s: GameState, u: Unit, t: Unit, odds: Dictionary, hit: bo
 	if is_soldier(u) and odds.get("flanked", false) and u.is_enemy_of(t):
 		u.status["k_flanked_turn"] = s.turn
 	u.status.erase("k_fresh_shot")
+	_bones_surface(u)
+	if hit and is_soldier(u) and u.is_enemy_of(t):
+		Grafts.after_shot(s, u, t)
 	if hit and t.is_alive() and is_soldier(u) and u.is_enemy_of(t):
 		_perk_hits(s, u, t, odds)
 	if hit and t.is_alive() and has_perk(t, "return_fire") and s.phase == Types.Phase.ENEMY and u.is_alive() \
@@ -427,8 +418,16 @@ static func modify_incoming(s: GameState, target: Unit, amount: int, source: Uni
 		amount = maxi(1, amount - 1)
 	if awake(target, "hollow_bones"):
 		amount += 1
-	if awake(target, "chitin_plates"):
-		amount = maxi(1, amount - CHITIN_ARMOR)
+	amount = Grafts.cap_hit(s, target, amount, source)
+	if awake(target, "chitin_plates") and amount >= 2 and target.status.get("k_chitin_turn", -1) != s.turn:
+		target.status["k_chitin_turn"] = s.turn
+		var stopped := amount - 1
+		amount = 1
+		s.emit({"type": "perk", "unit": target.id, "perk": "chitin_plates", "target": source.id if source != null else -1})
+		if source != null and source.is_alive() and not source.status.get("k_chitin_busy", false):
+			source.status["k_chitin_busy"] = true
+			Rules.deal_damage(s, source, stopped, target)
+			source.status.erase("k_chitin_busy")
 	var partner := bond_partner(s, target, "shared_blood")
 	if partner != null and amount >= 2 and not target.status.get("k_splitting", false):
 		var half := amount / 2
@@ -820,3 +819,16 @@ static func can_be_spotted(_s: GameState, watcher: Unit, h: Unit) -> bool:
 static func target_bias(s: GameState, _u: Unit, t: Unit) -> float:
 	var bias := 20.0 if t.status.get("k_lure_until", -1) > Combat.phase_index(s) else 0.0
 	return bias + (Signatures.PROVOKE_BIAS if Signatures.provoking(s, t) else 0.0)
+
+
+## Hollow Bones: a move of BONES_FAR tiles or more leaves the soldier unseen until they shoot.
+static func on_move(_s: GameState, u: Unit, steps: int) -> void:
+	if awake(u, "hollow_bones") and steps >= BONES_FAR and not u.status.get("hidden", false):
+		u.status["hidden"] = true
+		u.status["k_bones_hidden"] = true
+
+
+static func _bones_surface(u: Unit) -> void:
+	if u.status.get("k_bones_hidden", false):
+		u.status.erase("k_bones_hidden")
+		u.status.erase("hidden")
