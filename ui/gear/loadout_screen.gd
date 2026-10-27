@@ -371,9 +371,13 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 	if editable and it != null:
 		t.drag_data = {"from": "slot", "slot": slot, "soldier": sid, "id": it.id}
 		t.drag_label = GearData.item_name(it.id)
+		t.drag_sub = GearData.SLOT_NAMES[slot]
 	t.can_drop = func(d) -> bool:
 		return editable and d is Dictionary and d.get("from") == "stash" and GearData.slot_of(d.id) == slot
 	t.dropped = func(d) -> void: _equip_from_stash(int(d.index))
+	t.drop_hover = func(d, on: bool) -> void:
+		if on and d is Dictionary and d.get("from") == "stash":
+			_show_toast(_swap_text(r, str(d.id)))
 	t.clicked = func() -> void:
 		if editable and _held >= 0 and GearData.slot_of(Loadout.stash(run)[_held].id) == slot:
 			_equip_from_stash(_held)
@@ -693,6 +697,7 @@ func _build_stash(r: Dictionary) -> void:
 				if editable:
 					t.drag_data = {"from": "stash", "index": i, "id": it.id}
 					t.drag_label = GearData.item_name(it.id)
+					t.drag_sub = GearData.SLOT_NAMES[GearData.slot_of(it.id)]
 				t.clicked = func() -> void:
 					UI.play(self, "ui_click")
 					if editable:
@@ -722,6 +727,9 @@ func _build_stash(r: Dictionary) -> void:
 		t.can_drop = func(d) -> bool:
 			return editable and d is Dictionary and d.get("from") == "slot" and st.size() < GearData.STASH_SIZE
 		t.dropped = func(d) -> void: _unequip(str(d.slot))
+		t.drop_hover = func(d, on: bool) -> void:
+			if on and d is Dictionary and d.get("from") == "slot":
+				_show_toast("%s goes to the stash." % GearData.item_name(str(d.id)))
 		_stash_row.add_child(t)
 
 
@@ -742,6 +750,17 @@ func _submit(a: Dictionary) -> void:
 		return
 	UI.play(self, "ui_confirm")
 	session.submit_run(a)
+
+
+## What dropping stash item `id` on `r` does, for the toast while you hover a slot.
+func _swap_text(r: Dictionary, id: String) -> String:
+	var pv := Loadout.preview_equip(r, id)
+	match pv.mode:
+		"replace":
+			return "%s replaces %s, which goes to the stash." % [GearData.item_name(id), GearData.item_name(pv.old.id)]
+		"upgrade":
+			return "%s upgrades to Mk II." % GearData.item_name(id)
+	return "Equip %s on %s." % [GearData.item_name(id), UI.short_name(r)]
 
 
 func _equip_from_stash(index: int) -> void:
@@ -798,18 +817,33 @@ class DropTile:
 
 	var drag_data: Variant = null
 	var drag_label := ""
+	var drag_sub := ""
 	var can_drop: Callable
 	var dropped: Callable
 	var clicked: Callable
 	var hovered: Callable
 	var drag_state: Callable
+	var drop_hover: Callable   # (data, on): what dropping here would do, while something is dragged over it
+
+	var _saved_box: StyleBox
+	var _had_box := false
+	var _marked := false
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		if drag_data != null or clicked.is_valid():
 			mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		mouse_entered.connect(func() -> void: if hovered.is_valid(): hovered.call(true))
-		mouse_exited.connect(func() -> void: if hovered.is_valid(): hovered.call(false))
+		mouse_entered.connect(func() -> void:
+			if hovered.is_valid():
+				hovered.call(true)
+			_drag_hover(true))
+		mouse_exited.connect(func() -> void:
+			if hovered.is_valid():
+				hovered.call(false)
+			_drag_hover(false))
+		# Tiles rebuilt mid-drag (the tag strip previews while you carry) pick the drag up here.
+		if is_inside_tree() and get_viewport().gui_is_dragging():
+			_mark_drag(get_viewport().gui_get_drag_data())
 
 	func _gui_input(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed and clicked.is_valid():
@@ -818,21 +852,73 @@ class DropTile:
 	func _get_drag_data(_at: Vector2) -> Variant:
 		if drag_data == null:
 			return null
+		# The card follows the cursor, tilted and lifted.
 		var p := PanelContainer.new()
 		p.add_theme_stylebox_override("panel", UIS.box(UIS.HELD, UIS.AMBER, 2, 0, 10))
-		p.add_child(UIS.caps(drag_label, 18))
-		p.rotation_degrees = -3
-		set_drag_preview(p)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 2)
+		if drag_sub != "":
+			v.add_child(UIS.label(drag_sub.to_upper(), 11, UIS.AMBER, "mono"))
+		v.add_child(UIS.caps(drag_label, 20))
+		p.add_child(v)
+		p.custom_minimum_size = Vector2(190, 0)
+		p.rotation_degrees = -4
+		p.pivot_offset = Vector2(20, 20)
+		var holder := Control.new()
+		holder.add_child(p)
+		p.position = Vector2(-60, -24)
+		set_drag_preview(holder)
 		modulate.a = 0.4
 		if drag_state.is_valid():
 			drag_state.call(true, drag_data)
 		return drag_data
 
 	func _notification(what: int) -> void:
-		if what == NOTIFICATION_DRAG_END:
+		if what == NOTIFICATION_DRAG_BEGIN:
+			_mark_drag(get_viewport().gui_get_drag_data())
+		elif what == NOTIFICATION_DRAG_END:
+			_unmark_drag()
 			modulate.a = 1.0
 			if drag_data != null and drag_state.is_valid() and is_inside_tree():
 				drag_state.call(false, drag_data)
+
+	## While something is dragged: the tile it came from is dimmed, tiles it can land on are
+	## framed amber, and tiles that can't take it fade back.
+	func _mark_drag(data: Variant) -> void:
+		if _marked or data == null:
+			return
+		if drag_data != null and drag_data == data:
+			modulate.a = 0.4
+			return
+		if not can_drop.is_valid():
+			return
+		_marked = true
+		if can_drop.call(data):
+			_had_box = has_theme_stylebox_override("panel")
+			_saved_box = get_theme_stylebox("panel")
+			add_theme_stylebox_override("panel", UIS.box(Color(UIS.AMBER, 0.10), UIS.AMBER, 2, 0, 10))
+		else:
+			modulate.a = 0.45
+
+	func _unmark_drag() -> void:
+		if not _marked:
+			return
+		_marked = false
+		modulate.a = 1.0
+		if _saved_box != null:
+			if _had_box:
+				add_theme_stylebox_override("panel", _saved_box)
+			else:
+				remove_theme_stylebox_override("panel")
+			_saved_box = null
+
+	func _drag_hover(on: bool) -> void:
+		if not is_inside_tree() or not get_viewport().gui_is_dragging() or not _marked or _saved_box == null:
+			return
+		var data = get_viewport().gui_get_drag_data()
+		add_theme_stylebox_override("panel", UIS.box(UIS.HELD if on else Color(UIS.AMBER, 0.10), UIS.AMBER, 3 if on else 2, 0, 10))
+		if drop_hover.is_valid():
+			drop_hover.call(data, on)
 
 	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
 		return can_drop.is_valid() and can_drop.call(data)
