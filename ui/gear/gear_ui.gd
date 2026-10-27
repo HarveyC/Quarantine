@@ -89,6 +89,36 @@ static func mono(text: String, size := 14, color := TEXT) -> Label:
 	return label(text, size, color, "mono")
 
 
+## A soldier's current HP pips and Infection bar on one line, each hoverable (Healing, Infection).
+## Mouse filters are left PASS so it still works inside a clickable tab.
+static func vitals(r: Dictionary) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var hp := HBoxContainer.new()
+	hp.add_theme_constant_override("separation", 5)
+	hp.add_child(Widgets.Icon.new("health", Styles.HP, 13, 1.7))
+	var pips := Widgets.HpPips.new(Vector2(7, 5), 2.0)
+	var hp_now := int(r.get("hp", 0))
+	var hp_max := int(r.get("max_hp", 1))
+	pips.set_values(hp_max, hp_now, 0, Styles.DANGER if hp_now * 3 <= hp_max else Styles.HP)
+	pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hp.add_child(pips)
+	Tips.term(hp, "healing")
+	row.add_child(hp)
+	var inf := int(r.get("infection", 0))
+	var ih := HBoxContainer.new()
+	ih.add_theme_constant_override("separation", 5)
+	ih.add_child(Widgets.Icon.new("infection", Styles.TEAL, 13, 1.7))
+	var bar := Widgets.InfBar.new(5.0)
+	bar.custom_minimum_size.x = 54
+	bar.set_value(inf)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ih.add_child(bar)
+	Tips.term(ih, "infection", {"value": inf})
+	row.add_child(ih)
+	return row
+
+
 ## A gun's magazine: one round pip per round and the count, hoverable as Ammo.
 static func mag_row(rounds: int, round_h := 14.0) -> HBoxContainer:
 	var row := HBoxContainer.new()
