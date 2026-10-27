@@ -10,6 +10,7 @@ signal pressed
 const Tips := preload("res://ui/tips/tips.gd")
 const UI := preload("res://ui/gear/gear_ui.gd")
 const GraftFigure := preload("res://ui/graft_figure.gd")
+const IconArt := preload("res://ui/icon_art.gd")
 const W := 330
 const H := 470
 
@@ -53,6 +54,7 @@ func setup(c: Dictionary, rec: Dictionary, index: int) -> void:
 	else:
 		art = Art.new()
 		art.kind = _art_kind()
+		art.texture = IconArt.item(str(c.get("id", "")))
 		art.color = _art_color()
 	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	art.custom_minimum_size = Vector2(0, 70)
@@ -403,6 +405,7 @@ class Art:
 
 	var kind := "weapon"
 	var color := Color.WHITE
+	var texture: Texture2D  # generated art for this item; null keeps the line glyph
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -412,6 +415,10 @@ class Art:
 		var c := size / 2
 		var s := minf(size.y * 0.36, 60.0)
 		var w := 2.0
+		if texture != null:
+			var side := minf(size.y, 150.0)
+			draw_texture_rect(texture, Rect2(c - Vector2(side, side) * 0.5, Vector2(side, side)), false, color)
+			return
 		match kind:
 			"weapon":
 				draw_arc(c, s, 0, TAU, 48, color, w, true)

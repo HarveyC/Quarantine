@@ -33,6 +33,22 @@ def generate(prompt: str) -> bytes:
     raise RuntimeError("no image in response")
 
 
+def to_mask(png: bytes, size=256) -> "Image.Image":
+    """Dark-ground glow art -> white RGBA whose alpha is the glow, so the UI can tint it."""
+    from PIL import Image, ImageChops
+    import io
+    im = Image.open(io.BytesIO(png)).convert("RGB")
+    bg = im.getpixel((6, 6))
+    lum = ImageChops.subtract(im, Image.new("RGB", im.size, bg)).convert("L").point(lambda p: min(255, int(p * 2.2)))
+    bb = lum.point(lambda p: 255 if p > 30 else 0).getbbox() or (0, 0) + im.size
+    cx, cy = (bb[0] + bb[2]) // 2, (bb[1] + bb[3]) // 2
+    h = int(max(bb[2] - bb[0], bb[3] - bb[1]) * 0.56) + 4
+    lum = lum.crop((cx - h, cy - h, cx + h, cy + h)).resize((size, size), Image.LANCZOS)
+    out = Image.new("RGBA", lum.size, (255, 255, 255, 0))
+    out.putalpha(lum)
+    return out
+
+
 if __name__ == "__main__":
     out, rest = sys.argv[1], sys.argv[2:]
     os.makedirs(out, exist_ok=True)
