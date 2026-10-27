@@ -276,6 +276,7 @@ func _update_hover(force: bool) -> void:
 	if c == hover_cell and not force:
 		return
 	hover_cell = c
+	view.hud.hide_move_warning()
 	view.board.set_hover(c, c != NO_CELL and can_act())
 	view.board.clear_path()
 	var u := selected_unit()
@@ -287,6 +288,8 @@ func _update_hover(force: bool) -> void:
 			_show_blast(c)
 		elif mode == Mode.TARGET_UNIT:
 			_show_landing(u, c)
+		elif mode == Mode.MOVE and move_target != NO_CELL:
+			_show_move_preview(u, move_target)
 	elif mode == Mode.MOVE and u != null and can_act() and move_target != NO_CELL:
 		_show_move_preview(u, move_target)
 	_show_sight()
@@ -308,16 +311,36 @@ func _show_move_preview(u: Unit, c: Vector2i) -> void:
 	var path := view.state.grid.find_path(u.pos, c, view.state.occupied(u.id), false, Grafts.climbs(u))
 	view.board.show_path(path, spotted_step(path))
 	view.board.show_cover(c, view.state.grid.cover_sides(c))
-	# Enemies that would land a Parting blow along this path glow red.
-	var swingers: Array = []
+	# Whoever would land a Parting blow along this path glows red and is named on a warning card.
+	var swingers := blow_swingers(u, c)
+	if not swingers.is_empty():
+		var cells: Array = []
+		for w in swingers:
+			cells.append(w.pos)
+		view.board.mark_cells(cells, Color(Palette.DANGER, 0.35))
+		view.hud.show_move_warning(blow_lines(u, swingers), move_target == c)
+
+
+## Fighters that get a free Parting blow if `u` walks to `c`, each counted once.
+func blow_swingers(u: Unit, c: Vector2i) -> Array[Unit]:
+	var out: Array[Unit] = []
+	var path := view.state.grid.find_path(u.pos, c, view.state.occupied(u.id), false, Grafts.climbs(u))
 	var prev := u.pos
 	for step in path:
 		for w in PartingBlow.provoked(view.state, u, prev, step):
-			if not swingers.has(w.pos):
-				swingers.append(w.pos)
+			if not out.has(w):
+				out.append(w)
 		prev = step
-	if not swingers.is_empty():
-		view.board.mark_cells(swingers, Color(Palette.DANGER, 0.35))
+	return out
+
+
+## One line per swinger: "Brute swings: 70% for 3 to 5".
+func blow_lines(u: Unit, swingers: Array[Unit]) -> Array:
+	var out: Array = []
+	for w in swingers:
+		var odds: int = int(Combat.melee_chance(view.state, w, u).get("hit", 0))
+		out.append("%s: %d%% for %d to %d" % [w.display_name, odds, w.damage.x, w.damage.y])
+	return out
 
 
 ## Two-click moves: the first click pins a destination (path and cover stay shown), the second
@@ -327,7 +350,7 @@ func confirm_moves() -> bool:
 
 
 func _click_move(u: Unit, c: Vector2i) -> void:
-	if not confirm_moves() or move_target == c:
+	if move_target == c or (not confirm_moves() and blow_swingers(u, c).is_empty()):
 		move_target = NO_CELL
 		submit({"type": Types.MOVE, "unit": u.id, "to": c})
 		return
