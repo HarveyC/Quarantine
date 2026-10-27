@@ -112,7 +112,7 @@ func test_shoot_a_barrel_chains_and_burns() -> void:
 	assert_true(Combat.shot_barrels(s, sol).has(Vector2i(8, 1)), "the barrel is a Shoot target")
 	assert_eq(Rules.validate(s, {"type": Types.SHOOT, "unit": sol.id, "cell": Vector2i(2, 2)}), "No barrel there", "only barrels")
 	assert_true(Rules.apply(s, {"type": Types.SHOOT, "unit": sol.id, "cell": Vector2i(8, 1)}), "shot")
-	assert_eq(sol.actions_left, 0, "ends the turn")
+	assert_eq(sol.actions_left, 1, "a shot costs one action")
 	var shot: Array = _events(s, "barrel_shot")
 	assert_true(shot.size() == 1 and shot[0].hit, "one barrel shot, a hit")
 	assert_true(not s.grid.is_volatile(Vector2i(8, 1)) and not s.grid.is_volatile(Vector2i(9, 1)), "both barrels went")
