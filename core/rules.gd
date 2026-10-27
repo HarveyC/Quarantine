@@ -259,7 +259,7 @@ static func run_enemy_phase(s: GameState) -> void:
 
 ## Cells `u` can move to with one move action.
 static func move_range(s: GameState, u: Unit) -> Dictionary:
-	return s.grid.reachable(u.pos, u.mobility, s.occupied(u.id), false, Grafts.climbs(u))
+	return s.grid.reachable(u.pos, 0 if GearTricks.is_rooted(s, u) else u.mobility, s.occupied(u.id), false, Grafts.climbs(u))
 
 
 static func _validate_move(s: GameState, u: Unit, to: Vector2i, careful := false) -> String:
@@ -286,7 +286,7 @@ static func _do_move(s: GameState, u: Unit, to: Vector2i, careful := false) -> v
 static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 	var path := s.grid.find_path(u.pos, to, s.occupied(u.id), false, Grafts.climbs(u))
 	u.hunkered = false
-	GearFx.on_move(s, u)
+	GearFx.on_move(s, u, path.size())
 	var segment: Array[Vector2i] = []
 	var walked: Array[Vector2i] = []
 	var from := u.pos

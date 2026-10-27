@@ -80,7 +80,7 @@ const CONSUMABLE_USE := {
 	"containment_foam": {"targeting": "unit", "cost": 1},
 }
 ## Rangefinder: extra overwatch range per Mk.
-const RANGEFINDER_RANGE := [2, 3]
+const RANGEFINDER_RANGE := 40   # Long line: as far as the soldier can see
 
 
 static func is_pending(id: String) -> bool:
@@ -119,6 +119,18 @@ static func in_smoke(s: GameState, u: Unit) -> bool:
 	return Hazards.at(s, u.pos).get("kind", "") == "smoke"
 
 
+## Mark set: the second hit each turn on one Marked enemy deals double.
+static func _mark_set_double(s: GameState, u: Unit, t: Unit, dmg: int) -> void:
+	var rec: Dictionary = u.status.get("mark_hits", {})
+	if int(rec.get("turn", -1)) == s.turn and int(rec.get("target", -1)) == t.id:
+		if not rec.get("done", false) and t.is_alive():
+			rec["done"] = true
+			s.emit({"type": "gear", "unit": u.id, "item": "mark_double", "target": t.id, "damage": dmg})
+			Rules.deal_damage(s, t, dmg, u)
+	else:
+		u.status["mark_hits"] = {"turn": s.turn, "target": t.id, "done": false}
+
+
 static func is_marked(s: GameState, u: Unit) -> bool:
 	return Combat.has_status(s, u, "tagged")
 
@@ -132,8 +144,7 @@ static func smart_link_shot(s: GameState, u: Unit, t: Unit) -> bool:
 
 ## Extra tiles of overwatch range (Rangefinder), added to the watcher's sight radius.
 static func overwatch_range_bonus(u: Unit) -> int:
-	var m := mk(u, "rangefinder")
-	return RANGEFINDER_RANGE[clampi(m, 1, 2) - 1] if m > 0 else 0
+	return RANGEFINDER_RANGE if has(u, "rangefinder") else 0
 
 
 ## Rough awake-mutation count until Progression reports it: one per Infection tier reached.
@@ -157,32 +168,23 @@ static func _cheb(a: Vector2i, b: Vector2i) -> int:
 ## Appends gear terms to a hit-chance breakdown ([label, value] pairs).
 static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction: bool, cover: int, breakdown: Array) -> void:
 	if a.status.has("gear"):
+		GearTricks.odds(s, a, t, reaction, cover, breakdown)
 		if reaction:
-			if has(a, "bipod") and a.status.get("gear_moved_turn", -1) != s.turn:
-				breakdown.append(["Bipod", 10 if mk(a, "bipod") < 2 else 15])
-			if has_set(a, "Overwatch"):
-				breakdown.append(["Overwatch set", 10])
 			if has(a, "rangefinder") and cover == Types.Cover.FULL:
-				breakdown.append(["Rangefinder", Combat.COVER_FULL - Combat.COVER_HALF])
+				breakdown.append(["Long line", Combat.COVER_FULL - (0 if mk(a, "rangefinder") >= 2 else Combat.COVER_HALF)])
+			elif has(a, "rangefinder") and cover == Types.Cover.HALF and mk(a, "rangefinder") >= 2:
+				breakdown.append(["Long line", Combat.COVER_HALF])
 			if has(a, "killbox") and is_marked(s, t):
 				breakdown.append(["Killbox", 100])
 		if Combat.has_status(s, t, "suppressed"):
-			if has_set(a, "Suppress"):
-				breakdown.append(["Suppress set", 15])
 			if has(a, "breach_and_clear") and _dist(from, t.pos) <= CLOSE and cover != Types.Cover.NONE:
 				breakdown.append(["Breach and clear", Combat.COVER_FULL if cover == Types.Cover.FULL else Combat.COVER_HALF])
 		if mk(a, "smart_link") >= 2 and not Combat.can_see(s, from, t.pos) and smart_link_shot(s, a, t):
 			breakdown.append(["Smart-link", 10])
 		if mk(a, "suppressor") >= 2 and not t.status.get("alerted", true):
 			breakdown.append(["Suppressor", 10])
-		if has(a, "spotter_scope") and is_marked(s, t):
-			breakdown.append(["Spotter scope", 15 if mk(a, "spotter_scope") < 2 else 20])
-		if reaction and has(a, "match_rounds"):
-			breakdown.append(["Match rounds", 5 if mk(a, "match_rounds") < 2 else 10])
 		if mk(a, "speed_loader") >= 2 and a.status.get("gear_fresh_turn", -1) == s.turn:
 			breakdown.append(["Speed loader", Ammo.FRESH_AIM])
-		if has(a, "bayonet") and _dist(from, t.pos) <= CLOSE:
-			breakdown.append(["Bayonet", 10 if mk(a, "bayonet") < 2 else 15])
 	if a.team == Types.Team.PLAYER and t.status.get("warrant", false) and is_marked(s, t):
 		breakdown.append(["Warrant", WARRANT_AIM])
 	if reaction and a.team == Types.Team.PLAYER and is_marked(s, t):
@@ -207,12 +209,6 @@ static func odds_terms(s: GameState, a: Unit, t: Unit, from: Vector2i, reaction:
 	if in_smoke(s, t):
 		breakdown.append(["Smoke", -SMOKE_DEFENSE])
 	if t.status.has("gear"):
-		if has(t, "ghillie_cloak") and t.overwatch:
-			breakdown.append(["Ghillie cloak", -(10 if mk(t, "ghillie_cloak") < 2 else 15)])
-		if has(t, "mycelial_weave"):
-			var weave := 5 * awake_mutations(t) + (5 if mk(t, "mycelial_weave") >= 2 else 0)
-			if weave > 0:
-				breakdown.append(["Mycelial weave", -weave])
 		if has(t, "cauterizer") and Hazards.at(s, t.pos).get("kind", "") == "fire":
 			breakdown.append(["Cauterizer", -10])
 	if t.team == Types.Team.PLAYER:
@@ -237,20 +233,8 @@ static func shot_damage(s: GameState, u: Unit, t: Unit, dmg: int, reaction: bool
 	if not u.status.has("gear") or dmg <= 0:
 		return dmg
 	var close := _dist(u.pos, t.pos) <= CLOSE
-	if close and has(u, "slug_rounds"):
-		dmg += mk(u, "slug_rounds")
-	if reaction and has(u, "expanding_rounds"):
-		dmg += 1 + mk(u, "expanding_rounds")
-	if has_set(u, "Mark") and is_marked(s, t):
-		dmg += 1
-	if has_set(u, "Strain") and Infection.tier(u.infection) >= Infection.Tier.EXPOSED:
-		dmg += 1
 	if has(u, "spore_rounds"):
 		dmg += awake_mutations(u) + (1 if mk(u, "spore_rounds") >= 2 else 0)
-	if has(u, "pilot_light") and is_burning(s, t):
-		dmg += mk(u, "pilot_light")
-	if has(u, "hollow_points") and Combat.has_status(s, t, "suppressed"):
-		dmg += mk(u, "hollow_points")
 	return dmg
 
 
@@ -260,6 +244,9 @@ static func after_shot(s: GameState, u: Unit, t: Unit, hit: bool, reaction: bool
 		return
 	var close := _dist(u.pos, t.pos) <= CLOSE
 	GearLinks.after_shot(s, u, t, hit, reaction, dmg)
+	GearTricks.after_shot(s, u, t, hit, reaction, dmg)
+	if hit and dmg > 0 and has_set(u, "Mark") and is_marked(s, t):
+		_mark_set_double(s, u, t, dmg)
 	if has(u, "spore_rounds"):
 		Infection.add(s, u, 2)
 	if hit and Kit.awake(u, "kindled_spores"):
@@ -316,8 +303,8 @@ static func _kindle(s: GameState, u: Unit, t: Unit) -> void:
 
 
 ## Rounds Extended mag adds to the magazine.
-static func mag_bonus(u: Unit) -> int:
-	return Ammo.EXTENDED_MAG[clampi(mk(u, "extended_mag"), 1, 2) - 1] if has(u, "extended_mag") else 0
+static func mag_bonus(_u: Unit) -> int:
+	return 0
 
 
 ## Speed loader: the first Reload each turn costs no action.
@@ -327,6 +314,7 @@ static func free_reload(u: Unit) -> bool:
 
 static func after_reload(s: GameState, u: Unit, _had: int) -> void:
 	GearLinks.on_reload(s, u)
+	GearTricks.on_reload(s, u)
 	if mk(u, "speed_loader") >= 2:
 		u.status["gear_fresh_turn"] = s.turn
 
@@ -339,6 +327,7 @@ static func kill_rounds(u: Unit) -> int:
 static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 	Ammo.on_kill(s, u)
 	GearLinks.on_kill(s, u, t)
+	GearTricks.on_kill(s, u, t)
 	var was_marked := t.status.has("tagged") and int(t.status.tagged) > Combat.phase_index(s)
 	GearLinks.on_kill_signature(s, u, t, was_marked)
 	if reaction and has_set(u, "Overwatch"):
@@ -409,15 +398,13 @@ static func _suppress(s: GameState, u: Unit, t: Unit, extra: int = 0) -> void:
 	t.status["suppressed_by"] = u.id
 	t.status.erase("suppress_shot_used")
 	t.overwatch = false
-	var bonus := extra
-	if has(u, "compensator"):
-		bonus += 10 if mk(u, "compensator") < 2 else 15
-	if bonus > 0:
-		t.status["suppress_extra"] = bonus
+	if extra > 0:
+		t.status["suppress_extra"] = extra
 	else:
 		t.status.erase("suppress_extra")
 	if has(u, "pinpoint"):
 		_mark(s, t, 3, u)
+	GearTricks.recoil_lock(s, u, t)
 	s.emit({"type": "gear", "unit": u.id, "item": "suppress", "target": t.id})
 	GearLinks.on_suppressed(s, u, t)
 
@@ -523,8 +510,7 @@ static func on_suppress(s: GameState, u: Unit, t: Unit) -> void:
 	t.status.erase("suppress_shot_used")
 	if not u.status.has("gear"):
 		return
-	if has(u, "compensator"):
-		t.status["suppress_extra"] = 10 if mk(u, "compensator") < 2 else 15
+	GearTricks.recoil_lock(s, u, t)
 	if has(u, "pinpoint"):
 		_mark(s, t, 3, u)
 	GearLinks.on_suppressed(s, u, t)
@@ -542,6 +528,7 @@ static func on_suppress(s: GameState, u: Unit, t: Unit) -> void:
 # --- Damage taken (Rules.deal_damage) and Infection (Infection.on_damaged) --------------
 
 static func damage_taken(s: GameState, target: Unit, amount: int, source: Unit) -> int:
+	amount = GearTricks.damage_taken(s, target, amount, source)
 	if amount > 0 and source != null and source.is_alive() and source.is_enemy_of(target) and has(target, "ember_plating"):
 		ignite(s, target, source, mk(target, "ember_plating"))
 	if amount > 0 and source != null and source.is_enemy_of(target) and target.status.has("gear"):
@@ -591,6 +578,7 @@ static func bite_infection(s: GameState, target: Unit, gain: int) -> int:
 # --- Turn flow (Rules) -----------------------------------------------------------------
 
 static func on_team_phase_start(s: GameState) -> void:
+	GearTricks.on_team_phase_start(s)
 	var wildfire: Array = []   # [burning unit, the Wildfire soldier whose fire it is]
 	for u in s.living():
 		if is_burning(s, u):
@@ -621,11 +609,6 @@ static func on_team_phase_start(s: GameState) -> void:
 				_burn_set_spread(s, u)
 	_wildfire_spread(s, wildfire)
 	for u in s.living(Types.Team.PLAYER):
-		var want := 1 if has_set(u, "Close") else 0
-		var have := int(u.status.get("gear_set_mobility", 0))
-		if want != have:
-			u.mobility += want - have
-			u.status["gear_set_mobility"] = want
 		var fire := 0
 		if has(u, "flame_coat") and Hazards.at(s, u.pos).get("kind", "") == "fire":
 			fire = mk(u, "flame_coat")
@@ -635,8 +618,9 @@ static func on_team_phase_start(s: GameState) -> void:
 			u.status["gear_fire_mobility"] = fire
 
 
-static func on_move(s: GameState, u: Unit) -> void:
+static func on_move(s: GameState, u: Unit, steps := 0) -> void:
 	u.status["gear_moved_turn"] = s.turn
+	u.status["gear_move_len"] = steps
 
 
 ## Containment foam: a restrained unit sits out its turn (EnemyAI.take_turn checks this).

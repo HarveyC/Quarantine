@@ -47,14 +47,25 @@ func _term(odds: Dictionary, label: String) -> int:
 	return 0
 
 
-func test_slug_rounds_add_close_damage() -> void:
+func test_knock_rounds_shove_and_stun_against_a_wall() -> void:
 	var s := _state()
 	var u := _add(s, "breacher", Types.Team.PLAYER, Vector2i(2, 2))
 	var t := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 2))
 	var far := _add(s, "runner", Types.Team.ENEMY, Vector2i(10, 2))
 	_gear(u, [["slug_rounds", 2]])
-	assert_eq(GearFx.shot_damage(s, u, t, 4, false), 6, "Mk II +2 within 3")
-	assert_eq(GearFx.shot_damage(s, u, far, 4, false), 4, "no bonus at range")
+	GearFx.after_shot(s, u, far, true, false, 4)
+	assert_eq(far.pos, Vector2i(10, 2), "no knock at range")
+	GearFx.after_shot(s, u, t, true, false, 4)
+	assert_eq(t.pos, Vector2i(5, 2), "close hit shoves the target a tile")
+	var blocker := _add(s, "runner", Types.Team.ENEMY, Vector2i(6, 2))
+	var hp := t.hp
+	var bhp := blocker.hp
+	t.pos = Vector2i(3, 2)
+	GearFx.after_shot(s, u, t, true, false, 4)
+	t.pos = Vector2i(5, 2)
+	GearFx.after_shot(s, u, t, true, false, 4)
+	assert_true(t.hp <= hp - 3 and blocker.hp <= bhp - 3, "knocked into a unit: both take 3")
+	assert_true(t.status.get("k_skip_turn", false), "and the target is stunned")
 
 
 func test_tracer_rounds_mark_and_shock_rounds_suppress() -> void:
@@ -79,7 +90,11 @@ func test_mark_set_bonus_and_jump() -> void:
 	_gear(u, ["laser_sight", "tracer_rounds", "flare_launcher"])
 	assert_true(GearFx.has_set(u, "Mark"), "Mark set on")
 	t.status["tagged"] = Combat.phase_index(s) + 2
-	assert_eq(GearFx.shot_damage(s, u, t, 4, false), 5, "+1 vs Marked")
+	t.max_hp = 40
+	t.hp = 40
+	GearFx.after_shot(s, u, t, true, false, 4)
+	GearFx.after_shot(s, u, t, true, false, 4)
+	assert_eq(t.hp, 40 - 4, "the second hit each turn on a Marked enemy deals double")
 	t.hp = 0
 	GearFx.on_kill(s, u, t, false)
 	assert_true(Combat.has_status(s, next, "tagged"), "Mark jumped")
@@ -91,13 +106,19 @@ func test_overwatch_terms() -> void:
 	var t := _add(s, "runner", Types.Team.ENEMY, Vector2i(8, 2))
 	_gear(u, ["bipod", "expanding_rounds", "rangefinder"])  # rangefinder replaces bipod
 	assert_eq(GearFx.mk(u, "bipod"), 0, "bipod replaced")
+	assert_true(GearFx.overwatch_range_bonus(u) >= 20, "Long line sees as far as the soldier can see")
 	_gear(u, ["bipod", "expanding_rounds"])
-	var odds := Combat.hit_chance(s, u, t, u.pos, true)
-	assert_eq(_term(odds, "Bipod"), 10, "bipod on reaction")
-	assert_eq(_term(Combat.hit_chance(s, u, t, u.pos, false), "Bipod"), 0, "not on a normal shot")
-	u.status["gear_moved_turn"] = s.turn
-	assert_eq(_term(Combat.hit_chance(s, u, t, u.pos, true), "Bipod"), 0, "not after moving")
-	assert_eq(GearFx.shot_damage(s, u, t, 3, true), 5, "expanding +2 on reaction")
+	t.max_hp = 40
+	t.hp = 40
+	var rounds := Ammo.rounds(u)
+	GearFx.after_shot(s, u, t, true, false, 3)
+	assert_eq(Ammo.rounds(u), rounds, "Dug in only fires on overwatch")
+	GearFx.after_shot(s, u, t, true, true, 3)
+	assert_eq(Ammo.rounds(u), rounds - 1, "Dug in: an enemy in the open takes a second overwatch shot")
+	assert_true(t.status.has("wound"), "Wounding rounds leave a wound")
+	var hp := t.hp
+	GearFx.on_team_phase_start(s)
+	assert_eq(t.hp, hp - 3, "the wound opens for the same damage when the next turn starts")
 
 
 func test_armor_reduces_damage_to_one_minimum() -> void:
@@ -107,7 +128,7 @@ func test_armor_reduces_damage_to_one_minimum() -> void:
 	_gear(u, [["plated_rig", 2]])
 	var hp := u.hp
 	Rules.deal_damage(s, u, 3, e)
-	assert_eq(u.hp, hp - 1, "3 - 2 armor")
+	assert_eq(u.hp, hp - 1, "a third of 3, standing still")
 	Rules.deal_damage(s, u, 1, e)
 	assert_eq(u.hp, hp - 2, "never below 1")
 
@@ -127,11 +148,6 @@ func test_close_set_adds_mobility_and_refunds_on_kill() -> void:
 	var t := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 2))
 	_add(s, "runner", Types.Team.ENEMY, Vector2i(10, 5))
 	_gear(u, ["light_harness", "slug_rounds", "choke"])
-	var mob := u.mobility
-	GearFx.on_team_phase_start(s)
-	assert_eq(u.mobility, mob + 1, "Close set +1 move")
-	GearFx.on_team_phase_start(s)
-	assert_eq(u.mobility, mob + 1, "not stacked")
 	u.actions_left = 0
 	t.hp = 0
 	GearFx.on_kill(s, u, t, false)

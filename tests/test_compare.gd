@@ -40,32 +40,32 @@ func _row(d: Dictionary, key: String) -> Dictionary:
 func test_replace_names_the_old_item_and_where_it_goes() -> void:
 	var run := _run()
 	var r := _trooper(run)
-	Loadout.equip(run, r, "ballistic_plate")
+	Loadout.equip(run, r, "kevlar_vest")
 	var before := r.duplicate(true)
-	var d := GearCompare.compare(run, r, {"kind": "gear", "id": "light_harness"})
+	var d := GearCompare.compare(run, r, {"kind": "gear", "id": "exo_frame"})
 	assert_eq(r, before, "compare leaves the record alone")
 	assert_eq(d.swaps.size(), 1, "one swap")
 	var s: Dictionary = d.swaps[0]
 	assert_eq(s.mode, "replace", "replaces the armor")
-	assert_eq(s.old.id, "ballistic_plate", "names the plate")
+	assert_eq(s.old.id, "kevlar_vest", "names the vest")
 	assert_eq(s.fate, "stash", "plate goes to the stash")
 	assert_eq(d.stash, [Loadout.stash(run).size(), Loadout.stash(run).size() + 1], "stash count moves")
 	var mob := _row(d, "mobility")
 	var dfn := _row(d, "defense")
 	assert_eq(mob.to - mob.from, 1, "+1 move")
 	assert_true(mob.better, "more move is better")
-	assert_eq(dfn.from - dfn.to, 5, "-5 defense")
-	assert_true(not dfn.better, "less defense is worse")
-	assert_eq(d.tags, GearTags.preview(r, "light_harness"), "tag rows match the card's preview")
+	assert_eq(dfn.to - dfn.from, 5, "+5 defense")
+	assert_true(dfn.better, "more defense is better")
+	assert_eq(d.tags, GearTags.preview(r, "exo_frame"), "tag rows match the card's preview")
 
 
 func test_full_stash_scraps_the_old_item() -> void:
 	var run := _run()
 	var r := _trooper(run)
-	Loadout.equip(run, r, "ballistic_plate")
+	Loadout.equip(run, r, "kevlar_vest")
 	while not Loadout.stash_full(run):
 		Loadout.stash_add(run, "bipod")
-	var d := GearCompare.compare(run, r, {"kind": "gear", "id": "light_harness"})
+	var d := GearCompare.compare(run, r, {"kind": "gear", "id": "exo_frame"})
 	assert_eq(d.swaps[0].fate, "scrap", "no room: scrapped")
 	assert_eq(d.supplies, Loadout.SCRAP_SUPPLIES, "for the scrap Supplies")
 
@@ -73,12 +73,12 @@ func test_full_stash_scraps_the_old_item() -> void:
 func test_duplicate_shows_the_mk2_upgrade() -> void:
 	var run := _run()
 	var r := _trooper(run)
-	Loadout.equip(run, r, "laser_sight")
-	var d := GearCompare.compare(run, r, {"kind": "gear", "id": "laser_sight"})
+	Loadout.equip(run, r, "exo_frame")
+	var d := GearCompare.compare(run, r, {"kind": "gear", "id": "exo_frame"})
 	assert_eq(d.swaps[0].fate, "upgrade", "merges into Mk II")
 	assert_eq(d.swaps[0].new.mk, 2, "offered side is Mk II")
-	var aim := _row(d, "aim")
-	assert_eq(aim.to - aim.from, 5, "+15 vs +10 aim")
+	var mob := _row(d, "mobility")
+	assert_eq(mob.to - mob.from, 1, "+2 vs +1 move")
 
 
 func test_gun_keeps_the_old_one_as_a_spare() -> void:

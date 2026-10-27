@@ -557,11 +557,6 @@ static func apply_to_unit(u: Unit, record) -> void:
 	u.mobility = maxi(1, u.mobility + total.get("mobility", 0))
 	u.max_hp += total.get("max_hp", 0)
 	u.hp = clampi(u.hp + total.get("max_hp", 0), 1, u.max_hp)
-	if g.has("armor") and g.armor.id == "bio_mesh":
-		# Infection is applied after gear, so count awake mutations from the record's value.
-		var extra := clampi(Infection.tier(int(record.get("infection", u.infection))), 0, 3) * int(g.armor.mk)
-		u.max_hp += extra
-		u.hp += extra
 	var docs: Array = record.get("doctrines", [])
 	if not docs.is_empty():
 		u.status["doctrines"] = docs.duplicate()

@@ -331,14 +331,30 @@ func _probes() -> Dictionary:
 		x.foe.hp = 0
 		GearFx.on_kill(x.s, x.u, x.foe, false)
 		return _expect(GearFx.is_burning(x.s, x.near), "neighbour not set Burning")
+	p["laser_sight"] = func(x):
+		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
+		return _expect(Combat.has_status(x.s, x.foe, "tagged"), "first shot didn't Mark")
+	p["light_harness"] = func(x):
+		x.u.status["gear_move_len"] = 5
+		x.u.actions_left = 1
+		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
+		return _expect(x.u.actions_left == 2, "no refunded action")
+	p["kevlar_vest"] = func(x): return _expect(GearFx.damage_taken(x.s, x.u, 4, x.foe) == 1, "first hit not cut")
+	p["ballistic_plate"] = func(x):
+		GearFx.damage_taken(x.s, x.u, 4, x.near)
+		return _expect(x.near.hp < x.near.max_hp, "adjacent enemy untouched")
 	p["pilot_light"] = func(x):
 		x.foe.status["burning"] = 2
-		return _expect(GearFx.shot_damage(x.s, x.u, x.foe, 3, false) == 4, "no bonus damage")
+		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
+		return _expect(Hazards.cells_of(x.s, "fire").size() > 0, "no fire behind the target")
 	p["ember_plating"] = func(x):
 		GearFx.damage_taken(x.s, x.u, 2, x.foe)
 		return _expect(GearFx.is_burning(x.s, x.foe), "attacker not Burning")
 	p["extended_mag"] = func(x):
-		return _expect(Ammo.mag_size(x.u) == int(Weapons.TABLE.rifle.mag) + 2 and Ammo.rounds(x.u) == Ammo.mag_size(x.u), "magazine not bigger")
+		x.foe.status["suppressed"] = Combat.phase_index(x.s) + 2
+		var before := Ammo.rounds(x.u)
+		GearFx.after_reload(x.s, x.u, 0)
+		return _expect(Ammo.rounds(x.u) == before - 1, "no free shot at the Suppressed enemy")
 	p["speed_loader"] = func(x):
 		x.u.status["ammo"] = 1
 		Rules.apply(x.s, {"type": Types.RELOAD, "unit": x.u.id})
@@ -444,11 +460,12 @@ func _probes() -> Dictionary:
 		return _expect(GearFx.smart_link_shot(x.s, x.u, x.foe), "no smart-link shot")
 	p["spotter_scope"] = func(x):
 		x.foe.status["tagged"] = Combat.phase_index(x.s) + 2
-		return _expect(_term(Combat.hit_chance(x.s, x.u, x.foe), "Spotter scope") == 15, "no aim term")
+		return _expect(_term(Combat.hit_chance(x.s, x.u, x.foe), "Dead reckoning") == 100, "a Marked enemy can still be missed")
 	p["compensator"] = func(x):
+		x.near.pos = x.foe.pos + Vector2i(1, 0)
 		x.u.abilities.append("suppress")
 		Rules.apply(x.s, {"type": Types.ABILITY, "unit": x.u.id, "ability": "suppress", "target": x.foe.id})
-		return _expect(int(x.foe.status.get("suppress_extra", 0)) == 10, "no extra penalty")
+		return _expect(Combat.has_status(x.s, x.near, "suppressed"), "the neighbour wasn't pinned")
 	p["shock_rounds"] = func(x):
 		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
 		return _expect(Combat.has_status(x.s, x.foe, "suppressed"), "not Suppressed")
@@ -458,33 +475,52 @@ func _probes() -> Dictionary:
 		return _expect(Combat.has_status(x.s, x.near, "suppressed"), "cone missed the neighbour")
 	p["hollow_points"] = func(x):
 		x.foe.status["suppressed"] = Combat.phase_index(x.s) + 2
-		return _expect(GearFx.shot_damage(x.s, x.u, x.foe, 3, false) == 4, "no bonus damage")
-	p["bipod"] = func(x): return _expect(_term(Combat.hit_chance(x.s, x.u, x.foe, x.u.pos, true), "Bipod") == 10, "no aim term")
+		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
+		return _expect(GearTricks.is_rooted(x.s, x.foe), "target not rooted")
+	p["bipod"] = func(x):
+		var before := Ammo.rounds(x.u)
+		GearFx.after_shot(x.s, x.u, x.foe, true, true, 3)
+		return _expect(Ammo.rounds(x.u) == before - 1, "no second overwatch shot")
 	p["motion_tracker"] = func(x):
 		x.s.phase = Types.Phase.ENEMY
 		x.foe.pos = x.u.pos + Vector2i(6, 0)
 		Vision.on_step(x.s, x.foe)
 		return _expect((x.s.vision.get("blips", {}) as Dictionary).has(x.foe.id), "no blip")
-	p["rangefinder"] = func(x): return _expect(GearFx.overwatch_range_bonus(x.u) == 2, "no range")
-	p["expanding_rounds"] = func(x): return _expect(GearFx.shot_damage(x.s, x.u, x.foe, 3, true) == 5, "no bonus damage")
+	p["rangefinder"] = func(x): return _expect(GearFx.overwatch_range_bonus(x.u) >= 20, "no range")
+	p["expanding_rounds"] = func(x):
+		GearFx.after_shot(x.s, x.u, x.foe, true, true, 3)
+		var hp: int = x.foe.hp
+		GearFx.on_team_phase_start(x.s)
+		return _expect(x.foe.status.get("wound") == null and x.foe.hp == hp - 3, "the wound didn't open")
 	p["ghillie_cloak"] = func(x):
-		x.u.overwatch = true
-		return _expect(_term(Combat.hit_chance(x.s, x.foe, x.u), "Ghillie cloak") == -10, "no defense")
-	p["match_rounds"] = func(x): return _expect(_term(Combat.hit_chance(x.s, x.u, x.foe, x.u.pos, true), "Match rounds") == 5, "no aim term")
-	p["slug_rounds"] = func(x): return _expect(GearFx.shot_damage(x.s, x.u, x.near, 3, false) == 4, "no bonus damage")
+		x.foe.status["alerted"] = false
+		return _expect(_term(Combat.hit_chance(x.s, x.u, x.foe, x.u.pos, true), "Still life") == 100, "no sure shot at the unaware")
+	p["match_rounds"] = func(x):
+		var hp: int = x.foe.hp
+		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
+		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
+		return _expect(x.foe.hp == hp - 3, "the second hit didn't repeat")
+	p["slug_rounds"] = func(x):
+		var at: Vector2i = x.near.pos
+		GearFx.after_shot(x.s, x.u, x.near, true, false, 3)
+		return _expect(x.near.pos != at or x.near.hp < x.near.max_hp, "target not shoved")
 	p["choke"] = func(x):
 		x.foe.pos = x.u.pos + Vector2i(2, 0)
 		x.near.pos = x.foe.pos + Vector2i(1, 0)
 		GearFx.after_shot(x.s, x.u, x.foe, true, false, 4)
 		return _expect(x.near.hp < x.near.max_hp, "neighbour untouched")
 	p["exo_frame"] = func(x): return _expect(Loadout.pocket_count(x.rec) == GearData.POCKETS + 1, "no 3rd pocket")
-	p["bayonet"] = func(x): return _expect(_term(Combat.hit_chance(x.s, x.u, x.near), "Bayonet") == 10, "no aim term")
+	p["bayonet"] = func(x):
+		x.foe.pos = Vector2i(5, 4)
+		x.near.hp = 0
+		GearFx.on_kill(x.s, x.u, x.near, false)
+		return _expect(x.foe.hp < x.foe.max_hp, "no stab at the adjacent enemy")
 	p["bio_mesh"] = func(x):
-		var u2 := _add(x.s, "trooper", Types.Team.PLAYER, Vector2i(1, 1))
-		var hp := u2.max_hp
-		x.rec["infection"] = 30
-		GearRun.apply_to_unit(u2, x.rec)
-		return _expect(u2.max_hp == hp + Infection.tier(30), "no max HP per awake mutation")
+		x.u.infection = 30
+		x.u.hp = x.u.max_hp - 5
+		var hp: int = x.u.hp
+		GearFx.on_team_phase_start(x.s)
+		return _expect(x.u.hp > hp, "no heal per awake mutation")
 	p["spore_rounds"] = func(x):
 		GearFx.after_shot(x.s, x.u, x.foe, false, false)
 		return _expect(x.u.infection == 2, "no self Infection")
@@ -492,8 +528,8 @@ func _probes() -> Dictionary:
 		var left := GearFx.mutation_cost(x.s, x.u, 10)
 		return _expect(left == 0 and x.u.hp == x.u.max_hp - 2, "cost not paid in HP")
 	p["mycelial_weave"] = func(x):
-		x.u.infection = 30
-		return _expect(_term(Combat.hit_chance(x.s, x.foe, x.u), "Mycelial weave") < 0, "no defense")
+		GearFx.damage_taken(x.s, x.u, 2, x.foe)
+		return _expect(Hazards.at(x.s, x.foe.pos).get("kind", "") == "acid", "no acid on the attacker")
 	p["leech_rounds"] = func(x):
 		x.u.infection = 30
 		x.u.hp = 3
@@ -510,7 +546,7 @@ func _probes() -> Dictionary:
 		x.foe.hp = 0
 		GearFx.on_kill(x.s, x.u, x.foe, false)
 		return _expect(x.u.infection == 15, "no Infection removed")
-	p["plated_rig"] = func(x): return _expect(GearFx.damage_taken(x.s, x.u, 3, x.foe) == 2, "armor didn't soak")
+	p["plated_rig"] = func(x): return _expect(GearFx.damage_taken(x.s, x.u, 4, x.foe) == 2, "a hit wasn't halved")
 	p["riot_shield"] = func(x):
 		var own := _term(Combat.hit_chance(x.s, x.foe, x.u), "Riot shield") == -Combat.COVER_HALF
 		var shared := _term(Combat.hit_chance(x.s, x.foe, x.ally), "Shield cover") == -Combat.COVER_HALF
@@ -596,7 +632,7 @@ func _passive_ctx(id: String) -> Dictionary:
 ## Items that are only flat stats: the stats land on the unit.
 func _stat_ok(id: String) -> String:
 	var st := GearData.stats(id, 1)
-	if st.is_empty() and id != "bio_mesh":
+	if st.is_empty():
 		return ""
 	var base := _add(_state(), "trooper", Types.Team.PLAYER, U_AT)
 	base.max_hp = 10
@@ -660,10 +696,13 @@ func test_set_bonuses_do_what_they_say() -> void:
 	set_on.call("Burn")
 	GearFx.ignite(s, u, x.foe, 1)
 	assert_eq(int(x.foe.status.burning), 2, "Burn set: +1 turn")
-	# Mark: +1 damage on Marked.
+	# Mark: the second hit each turn on a Marked enemy deals double.
 	set_on.call("Mark")
 	x.foe.status["tagged"] = Combat.phase_index(s) + 2
-	assert_eq(GearFx.shot_damage(s, u, x.foe, 3, false), 4, "Mark set: +1 damage")
+	var fhp: int = x.foe.hp
+	GearFx.after_shot(s, u, x.foe, true, false, 2)
+	GearFx.after_shot(s, u, x.foe, true, false, 2)
+	assert_eq(x.foe.hp, fhp - 2, "Mark set: second hit doubles")
 	# Suppress: a Suppressed enemy that moves draws a free shot.
 	set_on.call("Suppress")
 	GearFx._suppress(s, u, x.foe)
@@ -672,13 +711,10 @@ func test_set_bonuses_do_what_they_say() -> void:
 	Combat.resolve_reactions(s, x.foe, [u] as Array[Unit])
 	assert_true(_logged(s, "gear", "item", "suppress_set"), "Suppress set: took the shot")
 	assert_true(not GearFx.suppress_shot_ready(s, u, x.foe, x.foe.pos), "only once per Suppress")
-	# Overwatch: +10 overwatch aim.
-	set_on.call("Overwatch")
-	assert_eq(_term(Combat.hit_chance(s, u, x.foe, u.pos, true), "Overwatch set"), 10, "Overwatch set")
-	# Strain: +1 damage while Exposed, mutations cost 5 less.
+	# Overwatch: a kill on overwatch keeps the watch up (covered in test_gear_fx).
+	# Strain: mutations cost 5 less.
 	set_on.call("Strain")
 	u.infection = 30
-	assert_eq(GearFx.shot_damage(s, u, x.foe, 3, false), 4, "Strain set: +1 damage")
 	assert_eq(Mutations.use_cost(u, "adrenal_surge"), maxi(5, MutationData.base_use_cost("adrenal_surge") - 5), "Strain set: cheaper mutations")
 	# Purge: purged allies heal 1, and no Infection for you that turn.
 	set_on.call("Purge")
@@ -704,12 +740,7 @@ func test_set_bonuses_do_what_they_say() -> void:
 		x.foe.status[pair[1]] = pair[2]
 		assert_eq(GearFx.survival_cut(s, u, x.foe), 1, "%s set: statused enemy hits for 1 less" % pair[0])
 		x.foe.status.erase(pair[1])
-	# Close: +1 movement, kill within 3 refunds a move (covered in test_gear_fx).
-	s.phase = Types.Phase.TEAM
-	set_on.call("Close")
-	var mob := u.mobility
-	GearFx.on_team_phase_start(s)
-	assert_eq(u.mobility, mob + 1, "Close set: +1 movement")
+	# Close: a kill within 3 refunds a move (covered in test_gear_fx).
 	GearTags.set_progression(false)
 
 
