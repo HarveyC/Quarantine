@@ -44,7 +44,7 @@ var rubble := {}
 var edges := {}
 var edge_wear := {}
 ## Ground cells under a building roof (set of Vector2i). The roof is not a level: nobody climbs it.
-## It hides the interior from above, so a building's outer walls reach past every viewer (edge_top),
+## It hides the interior from above, so a building's outer walls reach past every viewer (sight_top),
 ## and the view draws it and cuts it away when a soldier is inside.
 var roofed := {}
 
@@ -354,12 +354,17 @@ func edge_blocks_los(c: Vector2i, d: Vector2i) -> bool:
 	return e == EDGE_WALL or e == EDGE_CLOSED
 
 
-## Height an edge wall reaches: one storey above the higher of its two floors, and past any viewer
-## where it is the outer wall of a roofed building (nobody sees in over a roof).
+## Height an edge wall reaches: one storey above the higher of its two floors.
 func edge_top(c: Vector2i, d: Vector2i) -> int:
+	return maxi(level(c), level(c + d)) + 1
+
+
+## Height an edge wall hides things to, for sight: edge_top, but past any viewer where it is the
+## outer wall of a roofed building (nobody sees in over a roof).
+func sight_top(c: Vector2i, d: Vector2i) -> int:
 	if not roofed.is_empty() and roofed.has(c) != roofed.has(c + d):
 		return ROOF_TOP
-	return maxi(level(c), level(c + d)) + 1
+	return edge_top(c, d)
 
 
 ## Cover the border between `c` and `c + d` gives to a unit at `c`.

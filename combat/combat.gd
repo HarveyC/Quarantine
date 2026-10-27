@@ -172,7 +172,7 @@ static func _blocks(g: Grid, c: Vector2i, top: int) -> bool:
 
 
 static func _edge_blocks(g: Grid, c: Vector2i, d: Vector2i, top: int) -> bool:
-	return g.edge_blocks_los(c, d) and (top < 0 or g.edge_top(c, d) > top)
+	return g.edge_blocks_los(c, d) and (top < 0 or g.sight_top(c, d) > top)
 
 
 ## Open cells a unit at `c` can lean out to: beside each orthogonally adjacent wall or edge wall.

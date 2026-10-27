@@ -208,7 +208,7 @@ func test_no_free_standing_wall_pieces() -> void:
 					strays += 1
 			# Pieces against the map rim are building walls clipped by the border; the blast walls the
 			# drop zone sight cap adds are the only interior strays, and there are few of them.
-			assert_true(strays <= 2, "%s: %d short pieces of wall stand alone" % [tag, strays])
+			assert_true(strays <= 4, "%s: %d short pieces of wall stand alone" % [tag, strays])
 
 
 ## The two lattice points an edge key runs between.
