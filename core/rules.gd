@@ -340,6 +340,7 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 	if not segment.is_empty():
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": segment})
 	Grafts.after_move(s, u, origin)
+	GearTricks.after_move(s, u)
 	Hazards.on_move(s, u, path)
 
 
