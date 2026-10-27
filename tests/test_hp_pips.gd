@@ -46,3 +46,18 @@ func test_group_gap_after_five() -> void:
 	assert_true(p._pip_x(5) - p._pip_x(4) > step, "wider gap between pip 5 and 6")
 	assert_eq(p._pip_x(10), p._pip_x(0), "pip 11 starts the next row")
 	p.free()
+
+
+func test_deeper_pips_per_multiplier_tier() -> void:
+	assert_eq(W.HpPips.tier_of(1), 0, "one pip per HP is tier 0")
+	assert_eq(W.HpPips.tier_of(2), 1, "x2 is tier 1")
+	assert_eq(W.HpPips.tier_of(5), 2, "x5 is tier 2")
+	assert_eq(W.HpPips.tier_of(10), 3, "x10 is tier 3")
+	assert_eq(W.HpPips.tier_color(Styles.DANGER, 0), Styles.DANGER, "x1 keeps the team colour as is")
+	var prev := Styles.DANGER
+	for tier in [1, 2, 3, 4]:
+		var c := W.HpPips.tier_color(Styles.DANGER, tier)
+		assert_true(c.v < prev.v, "tier %d is deeper than the one before" % tier)
+		assert_true(absf(c.h - Styles.DANGER.h) < 0.01, "tier %d keeps the hue" % tier)
+		prev = c
+	assert_true(W.HpPips.tier_color(Styles.HP, 5).v > 0.35, "the deepest tier is still readable on dark ground")

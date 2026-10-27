@@ -101,6 +101,18 @@ class HpPips extends Control:
 	static func rows_for(max_hp: int) -> int:
 		return maxi(1, ceili(pips_for(max_hp) / float(PER_ROW)))
 
+	## 0 for one pip per HP, then 1 for x2, 2 for x5, 3 for x10 ... Deeper tiers draw deeper pips.
+	static func tier_of(pip_value: int) -> int:
+		return 0 if pip_value <= 1 else STEPS.find(pip_value) + 1
+
+	## `col` made deeper for a multiplier tier: same hue, richer and darker, so the team colour
+	## (soldier green, enemy pink) still reads and a x10 bar looks denser than a x2 one.
+	static func tier_color(col: Color, tier: int) -> Color:
+		if tier <= 0:
+			return col
+		var t := mini(tier, 5)
+		return Color.from_hsv(col.h, minf(1.0, col.s * (1.0 + 0.1 * t) + 0.04 * t), col.v * (1.0 - 0.1 * t), col.a)
+
 	func _group_gap() -> float:
 		return gap + maxf(2.0, seg.x * 0.4)
 
@@ -131,7 +143,7 @@ class HpPips extends Control:
 		var rows := rows_for(max_hp)
 		custom_minimum_size = Vector2(_pip_x(cols - 1) + seg.x + _mult_width(), maxf(rows * seg.y + (rows - 1) * row_gap, float(mult_px) + 2.0 if per > 1 else 0.0))
 		if per > 1:
-			set_meta(TIP_META, {"terms": [TIP_KEY], "ctx": {"per": per}})
+			set_meta(TIP_META, {"terms": [TIP_KEY], "ctx": {"per": per, "color": col}})
 			mouse_filter = Control.MOUSE_FILTER_PASS
 		else:
 			remove_meta(TIP_META)
@@ -152,6 +164,8 @@ class HpPips extends Control:
 		var grid_h := rows * seg.y + (rows - 1) * row_gap
 		var y0 := (size.y - grid_h) * 0.5
 		var kept := hp - lose
+		var tier := tier_of(per)
+		var body := tier_color(color, tier)
 		for i in n:
 			var r := Rect2(_pip_x(i), y0 + int(i / PER_ROW) * (seg.y + row_gap), seg.x, seg.y)
 			var lo := i * per
@@ -168,7 +182,7 @@ class HpPips extends Control:
 					while x < r.position.x + r.size.x * f1 - 0.5:
 						draw_line(Vector2(x, r.end.y), Vector2(minf(x + seg.y, r.position.x + r.size.x * f1), r.position.y), Color(Styles.DANGER, 0.95), 1.0)
 						x += 3.0
-			_span(r, lo, hi, lo, kept, color)
+			_span(r, lo, hi, lo, kept, body)
 		var t := _mult_text()
 		if t != "":
 			var cols := mini(n, PER_ROW)
