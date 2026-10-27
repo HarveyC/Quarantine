@@ -253,15 +253,15 @@ func test_apply_to_unit_stamps_stats_and_tags() -> void:
 	var r: Dictionary = run.soldiers[0]
 	Loadout.equip(run, r, "laser_sight")
 	Loadout.equip(run, r, "laser_sight")
-	Loadout.equip(run, r, "kevlar_vest")
+	Loadout.equip(run, r, "exo_frame")
 	var u := UnitData.make("trooper", Types.Team.PLAYER)
-	var aim := u.aim
-	var hp := u.max_hp
+	var mob := u.mobility
+	var def := u.defense
 	GearRun.apply_to_unit(u, r)
-	assert_eq(u.aim, aim + 15, "Mk II laser sight")
-	assert_eq(u.max_hp, hp + 2, "vest")
+	assert_eq(u.mobility, mob + 1, "exo frame move")
+	assert_eq(u.defense, def + 5, "exo frame defense")
 	assert_eq(u.hp, u.max_hp, "full HP")
-	assert_eq(u.status.gear_tags, {"Mark": 1, "Guard": 1}, "tags stamped")
+	assert_eq(u.status.gear_tags, {"Mark": 1, "Close": 1}, "tags stamped")
 	assert_eq(GearTags.unit_counts(u).get("Mark"), 1, "live count")
 	var v := Unit.from_dict(u.to_dict())
 	assert_eq(v.status.gear, u.status.gear, "survives snapshot")
@@ -334,14 +334,14 @@ func test_max_hp_gear_moves_record_hp() -> void:
 	var r: Dictionary = run.soldiers[2]
 	r["max_hp"] = 6
 	r["hp"] = 5
-	Loadout.equip(run, r, "kevlar_vest")
-	assert_eq([r.max_hp, r.hp], [8, 7], "+2 max and current")
-	Loadout.equip(run, r, "kevlar_vest")
-	assert_eq([r.max_hp, r.hp], [9, 8], "Mk II adds one more")
+	Loadout.equip(run, r, "filter_mask")
+	assert_eq([r.max_hp, r.hp], [6, 5], "Mk I has no HP")
+	Loadout.equip(run, r, "filter_mask")
+	assert_eq([r.max_hp, r.hp], [7, 6], "Mk II adds one max and current")
 	Loadout.unequip(run, r, "armor")
 	assert_eq([r.max_hp, r.hp], [6, 5], "taking it off removes it")
 	r.hp = 1
-	Loadout.equip(run, r, "kevlar_vest", 2)
+	Loadout.equip(run, r, "filter_mask", 2)
 	Loadout.unequip(run, r, "armor")
 	assert_eq(r.hp, 1, "never drops below 1")
 

@@ -48,15 +48,22 @@ func _term(odds: Dictionary, label: String) -> int:
 func test_damage_items() -> void:
 	var s := _state()
 	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
-	var t := _add(s, "runner", Types.Team.ENEMY, Vector2i(8, 2))
+	var t := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 2))
+	t.max_hp = 40
+	t.hp = 40
 	_gear(u, [["pilot_light", 2]])
-	assert_eq(GearFx.shot_damage(s, u, t, 3, false), 3, "no bonus on a target that isn't Burning")
+	GearFx.after_shot(s, u, t, true, false, 3)
+	assert_eq(Hazards.cells_of(s, "fire").size(), 0, "no Wick on a target that isn't Burning")
 	t.status["burning"] = 2
-	assert_eq(GearFx.shot_damage(s, u, t, 3, false), 5, "Pilot light Mk II +2 vs Burning")
-	t.status.erase("burning")
+	GearFx.after_shot(s, u, t, true, false, 3)
+	assert_eq(Hazards.cells_of(s, "fire").size(), 4, "Wick Mk II lights 4 tiles behind a Burning target")
 	_gear(u, ["hollow_points"])
+	GearFx.after_shot(s, u, t, true, false, 3)
+	assert_true(not GearTricks.is_rooted(s, t), "Pin shot needs a Suppressed target")
 	t.status["suppressed"] = Combat.phase_index(s) + 2
-	assert_eq(GearFx.shot_damage(s, u, t, 3, false), 4, "Hollow points +1 vs Suppressed")
+	GearFx.after_shot(s, u, t, true, false, 3)
+	assert_true(GearTricks.is_rooted(s, t), "Pin shot roots a Suppressed target")
+	assert_eq(Rules.move_range(s, t).size(), 1, "a rooted enemy can only stay put")
 
 
 func test_aim_items() -> void:
@@ -64,15 +71,21 @@ func test_aim_items() -> void:
 	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(2, 2))
 	var near := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 2))
 	var far := _add(s, "runner", Types.Team.ENEMY, Vector2i(10, 2))
+	far.max_hp = 40
+	far.hp = 40
 	_gear(u, ["spotter_scope", "match_rounds"])
-	assert_eq(_term(Combat.hit_chance(s, u, far, u.pos, false), "Spotter scope"), 0, "not unless Marked")
+	assert_eq(_term(Combat.hit_chance(s, u, far, u.pos, false), "Dead reckoning"), 0, "not unless Marked")
 	far.status["tagged"] = Combat.phase_index(s) + 2
-	assert_eq(_term(Combat.hit_chance(s, u, far, u.pos, false), "Spotter scope"), 15, "+15 vs Marked")
-	assert_eq(_term(Combat.hit_chance(s, u, far, u.pos, true), "Match rounds"), 5, "match rounds on overwatch")
-	assert_eq(_term(Combat.hit_chance(s, u, far, u.pos, false), "Match rounds"), 0, "the flat +5 is a stat, not a term")
-	_gear(u, [["bayonet", 2]])
-	assert_eq(_term(Combat.hit_chance(s, u, near, u.pos, false), "Bayonet"), 15, "bayonet Mk II up close")
-	assert_eq(_term(Combat.hit_chance(s, u, far, u.pos, false), "Bayonet"), 0, "not at range")
+	assert_eq(_term(Combat.hit_chance(s, u, far, u.pos, false), "Dead reckoning"), 100, "a Marked enemy can't be missed")
+	GearFx.after_shot(s, u, far, true, false, 3)
+	assert_true(Combat.has_status(s, near, "tagged") == false, "the second Mark only reaches enemies within 3 tiles")
+	var friend := _add(s, "runner", Types.Team.ENEMY, Vector2i(11, 3))
+	GearFx.after_shot(s, u, far, true, false, 3)
+	assert_true(Combat.has_status(s, friend, "tagged"), "Dead reckoning Marks the nearest other enemy")
+	var first := far.hp
+	GearFx.after_shot(s, u, far, true, false, 4)
+	GearFx.after_shot(s, u, far, true, false, 4)
+	assert_eq(far.hp, first - 3 - 3, "Tight group repeats the first hit's damage on later hits")
 
 
 func test_defense_items() -> void:
@@ -81,17 +94,21 @@ func test_defense_items() -> void:
 	var ally := _add(s, "medic", Types.Team.PLAYER, Vector2i(3, 2))
 	var e := _add(s, "spitter", Types.Team.ENEMY, Vector2i(8, 2))
 	_gear(u, ["ghillie_cloak"])
-	assert_eq(_term(Combat.hit_chance(s, e, u, e.pos, false), "Ghillie cloak"), 0, "only on overwatch")
-	u.overwatch = true
-	assert_eq(_term(Combat.hit_chance(s, e, u, e.pos, false), "Ghillie cloak"), -10, "+10 defense on overwatch")
+	e.status["alerted"] = false
+	assert_eq(_term(Combat.hit_chance(s, u, e, u.pos, false), "Still life"), 0, "only on overwatch shots")
+	assert_eq(_term(Combat.hit_chance(s, u, e, u.pos, true), "Still life"), 100, "an unaware enemy can't dodge an overwatch shot")
+	GearFx.after_shot(s, u, e, true, true, 3)
+	assert_true(Combat.has_status(s, e, "tagged"), "and gets Marked")
+	e.status["alerted"] = true
 	_gear(u, ["overlook"])
+	u.overwatch = true
 	assert_eq(_term(Combat.hit_chance(s, e, ally, e.pos, false), "Overlook"), -10, "adjacent ally covered by Overlook")
 	u.overwatch = false
 	assert_eq(_term(Combat.hit_chance(s, e, ally, e.pos, false), "Overlook"), 0, "not off overwatch")
-	u.infection = 60
 	_gear(u, [["mycelial_weave", 2]])
-	var weave := -_term(Combat.hit_chance(s, e, u, e.pos, false), "Mycelial weave")
-	assert_eq(weave, 5 * GearFx.awake_mutations(u) + 5, "5 per awake mutation, +5 at Mk II")
+	Rules.deal_damage(s, u, 2, e)
+	assert_eq(Hazards.at(s, e.pos).get("kind", ""), "acid", "Acid blister on the attacker's tile")
+	assert_eq(Hazards.at(s, e.pos + Vector2i(1, 0)).get("kind", ""), "acid", "and around it at Mk II")
 
 
 func test_ember_plating_ignites_attackers() -> void:

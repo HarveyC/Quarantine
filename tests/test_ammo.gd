@@ -140,12 +140,10 @@ func test_a_lapsed_soldier_never_runs_dry() -> void:
 	assert_true(Ammo.can_fire(u), "AI soldiers are unlimited")
 
 
-func test_extended_mag_and_bandolier_add_rounds() -> void:
+func test_bandolier_adds_rounds() -> void:
 	var s := _state()
 	var u := _soldier(s)
 	var base := Ammo.mag_size(u)
-	_geared(u, ["extended_mag"])
-	assert_eq(Ammo.rounds(u), base + 2, "Extended mag Mk I")
 	var t := _soldier(s, "trooper", Vector2i(3, 3))
 	t.status["perks"] = ["bandolier"]
 	Ammo.setup(t)
