@@ -11,6 +11,7 @@ extends Control
 const UI := preload("res://ui/gear/gear_ui.gd")
 const GearCard := preload("res://ui/gear/gear_card.gd")
 const W := preload("res://ui/widgets.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 const Feel := preload("res://ui/ui_feel.gd")
 const CompareView := preload("res://ui/gear/compare_view.gd")
 const LoadoutScreen := preload("res://ui/gear/loadout_screen.gd")
@@ -246,6 +247,8 @@ func _build_tabs() -> void:
 		name_row.add_child(UI.caps(UI.short_name(r), 17))
 		name_row.add_child(UI.caps(UI.class_name_of(r), 13, UI.FAINT))
 		col.add_child(name_row)
+		var vitals := UI.vitals(r)
+		col.add_child(vitals)
 		var status := ""
 		var scol := UI.DIM
 		if _pending(r):
@@ -273,7 +276,15 @@ func _build_tabs() -> void:
 		for n in h.find_children("*", "Control", true, false):
 			n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hoverable(vitals)
 		_tabs.add_child(tab)
+
+
+## Re-enables hover on the tip-carrying parts of a tab whose children were set to ignore the mouse.
+func _hoverable(vitals: Control) -> void:
+	for n in vitals.get_children():
+		if n.has_meta(Tips.META):
+			n.mouse_filter = Control.MOUSE_FILTER_PASS
 
 
 func _build_squad() -> void:

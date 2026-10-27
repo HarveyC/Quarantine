@@ -275,6 +275,8 @@ func _build_squad_bar() -> void:
 		nr.add_child(UI.caps(UI.short_name(r), 18))
 		nr.add_child(UI.caps(UI.class_name_of(r), 13, UI.FAINT))
 		col.add_child(nr)
+		var vitals := UI.vitals(r)
+		col.add_child(vitals)
 		var tags := HBoxContainer.new()
 		tags.add_theme_constant_override("separation", 4)
 		var counts := GearTags.counts(r)
@@ -296,6 +298,9 @@ func _build_squad_bar() -> void:
 				_refresh())
 		for n in p.find_children("*", "Control", true, false):
 			n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for n in vitals.get_children():
+			if n.has_meta(Tips.META):
+				n.mouse_filter = Control.MOUSE_FILTER_PASS
 		_squad_bar.add_child(p)
 
 
