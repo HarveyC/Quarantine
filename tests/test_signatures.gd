@@ -53,14 +53,38 @@ func test_every_class_has_one_signature_with_tags_and_a_cooldown() -> void:
 			assert_true(GearData.TAG_INFO.has(tag), "%s is a real tag" % tag)
 
 
-func test_rank_two_unlocks_the_signature() -> void:
+func test_signature_unlocks_at_rank_three() -> void:
+	assert_eq(Signatures.UNLOCK_RANK, 3, "after the third fight")
 	for kind in ["trooper", "vector"]:
 		var u1 := UnitData.make(kind, Types.Team.PLAYER)
-		Progression.apply_record(u1, {"kind": kind, "rank": 1, "perks": []})
-		assert_true(not u1.abilities.has(Signatures.for_class(kind)), "%s has no signature at Rank 1" % kind)
+		Progression.apply_record(u1, {"kind": kind, "rank": Signatures.UNLOCK_RANK - 1, "perks": []})
+		assert_true(not u1.abilities.has(Signatures.for_class(kind)), "%s has no signature one rank early" % kind)
 		var u2 := UnitData.make(kind, Types.Team.PLAYER)
-		Progression.apply_record(u2, {"kind": kind, "rank": 2, "perks": []})
-		assert_true(u2.abilities.has(Signatures.for_class(kind)), "%s gets it at Rank 2" % kind)
+		Progression.apply_record(u2, {"kind": kind, "rank": Signatures.UNLOCK_RANK, "perks": []})
+		assert_true(u2.abilities.has(Signatures.for_class(kind)), "%s gets it at Rank 3" % kind)
+		assert_true(u2.status.get("sig_new", false), "and it is flagged as new")
+
+
+func test_new_flag_clears_once_the_signature_is_used() -> void:
+	var s := _state()
+	var t := _soldier(s, "trooper", Vector2i(3, 2))
+	t.status["sig_new"] = true
+	var entry := ClassAbilities.available(s, t).filter(func(e): return e.id == "lockdown")
+	assert_true(not entry.is_empty() and entry[0].get("new", false), "new before first use")
+	_use(s, t, "lockdown")
+	var after := ClassAbilities.available(s, t).filter(func(e): return e.id == "lockdown")
+	assert_true(after.is_empty() or not after[0].get("new", false), "not new after use")
+	var prog := {"kind": "trooper", "rank": 3, "perks": []}
+	Progression.after_fight(prog, t, 99)
+	assert_true(prog.get("sig_used", false), "the run record remembers it was used")
+
+
+func test_intro_shows_once_at_the_unlock_rank() -> void:
+	var rec := {"kind": "medic", "prog": {"rank": Signatures.UNLOCK_RANK}}
+	assert_eq(Signatures.intro_for(rec), "quarantine_field", "shown at the unlock rank")
+	rec.prog["sig_seen"] = true
+	assert_eq(Signatures.intro_for(rec), "", "not shown again")
+	assert_eq(Signatures.intro_for({"kind": "medic", "prog": {"rank": 2}}), "", "not before")
 
 
 func test_deadeye_never_misses_and_marks() -> void:

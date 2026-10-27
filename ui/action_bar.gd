@@ -285,6 +285,13 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 	b.add_theme_stylebox_override("pressed", Styles.glow_box(Color(Styles.AMBER, 0.25), Styles.AMBER, Color(Styles.AMBER, 0.5), 14, Styles.PILL))
 	b.add_theme_stylebox_override("disabled", Styles.panel_box(Color(0.04, 0.055, 0.09, 0.55), Styles.BORDER_SOFT, Styles.PILL))
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var fresh: bool = a.get("new", false) and not mutation
+	if fresh and not active:
+		line = Styles.AMBER
+		glow = Color(Styles.AMBER, 0.6)
+		var lit := Styles.glow_box(fill, line, glow, 18, Styles.PILL)
+		lit.set_border_width_all(2)
+		b.add_theme_stylebox_override("normal", lit)
 	if active:
 		fg = Styles.AMBER_DARK
 		var on := Styles.glow_box(Styles.AMBER, Styles.AMBER_LIGHT, Color(Styles.AMBER, 0.6), 20, Styles.PILL)
@@ -315,6 +322,12 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 	l.set_meta("spill_ok", true)
 	l.set_meta("caption", true)
 	b.add_child(l)
+	if fresh:
+		var nl := Styles.caps("New", 11, Styles.AMBER_LIGHT)
+		nl.add_theme_constant_override("outline_size", 5)
+		nl.add_theme_color_override("font_outline_color", Color(Styles.GROUND, 0.9))
+		nl.position = Vector2(px - nl.get_combined_minimum_size().x + 2, -6)
+		b.add_child(nl)
 	if str(a.get("hotkey", "")) != "":
 		var kc := W.keycap(a.hotkey, 9, Styles.AMBER_DARK if active else Styles.TEXT,
 			Styles.AMBER_LIGHT if active else Color("141c2a"), Styles.AMBER_DEEP if active else (Color(Styles.TEAL, 0.6) if mutation else Styles.BORDER_STRONG))

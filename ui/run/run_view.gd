@@ -325,7 +325,7 @@ func refresh() -> void:
 	var stage := RunRules.outbreak_stage(run.outbreak)
 	_outbreak.text = "OUTBREAK %d · %s" % [run.outbreak, RunRules.OUTBREAK_NAMES[stage].to_upper()]
 	_outbreak.set_meta("full_text", _outbreak.text)
-	_outbreak_tier.text = "+1 each node · -%d clean wins · -%d per boss" % [RunRules.BONUS_OUTBREAK_DROP, RunRules.BOSS_OUTBREAK_DROP]
+	_outbreak_tier.text = "+1 each node · -%d per boss" % RunRules.BOSS_OUTBREAK_DROP
 	_outbreak_bar.value = run.outbreak
 	_outbreak_bar.queue_redraw()
 	Tips.term(_outbreak_bar.get_parent(), "outbreak", {"value": run.outbreak})
@@ -800,19 +800,20 @@ func _story_chip(icon: String, text: String) -> Control:
 	return h
 
 
-## Three acts of five rows as pips, lit up to where the run ended.
+## Three acts as pips, one per row, lit up to where the run ended.
 func _progress_track() -> Control:
 	var row := Styles.hbox(18)
 	for a in 3:
 		var col := Styles.vbox(8)
 		col.add_child(Styles.caps("Act %s · %s" % [ROMAN[a], BIOME_NAMES[a]], 13, Styles.TEXT if a + 1 <= run.act else Styles.MUTED))
 		var pips := W.Pips.new(Vector2(44, 8))
+		var rows := RunState.rows_for(a + 1)
 		var reached := 0
 		if a + 1 < run.act:
-			reached = 5
+			reached = rows
 		elif a + 1 == run.act:
 			reached = run.row
-		pips.set_values(5, mini(reached, 5), 0, Styles.AMBER if run.result != Types.Result.VICTORY else Styles.HP)
+		pips.set_values(rows, mini(reached, rows), 0, Styles.AMBER if run.result != Types.Result.VICTORY else Styles.HP)
 		col.add_child(pips)
 		row.add_child(col)
 	return row

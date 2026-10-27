@@ -10,20 +10,22 @@ signal event(ev: Dictionary)
 enum Phase { MAP, NODE, FIGHT, REWARD, ENDED }
 
 const ACTS := 3
-## Rows in Act 1 (Skirmish, two rolled rows, Field hospital, boss). Acts 2 and 3 have LONG_ROWS: one more
-## rolled row at EXTRA_ROW, which adds no Outbreak point (see RunRules.enter_node).
+## Rows per act: a Skirmish, rolled rows, the Field hospital, the boss. The base act has two rolled
+## rows (rows 2-3); every rolled row from EXTRA_ROW on is an added one and adds no Outbreak point
+## (see RunRules.enter_node), so a longer act does not raise the Outbreak pace.
 const BASE_ROWS := 5
-const LONG_ROWS := 6
+const ACT1_ROWS := 6
+const LONG_ROWS := 7
 const EXTRA_ROW := 4
 
 
 static func rows_for(act: int) -> int:
-	return BASE_ROWS if act <= 1 else LONG_ROWS
+	return ACT1_ROWS if act <= 1 else LONG_ROWS
 
 
-## The added rolled row of a long act.
+## An added rolled row: after row 3, before the Field hospital row.
 static func is_extra_row(act: int, row: int) -> bool:
-	return rows_for(act) > BASE_ROWS and row == EXTRA_ROW
+	return row >= EXTRA_ROW and row <= rows_for(act) - 2
 
 
 var seed := 0

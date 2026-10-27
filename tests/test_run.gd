@@ -15,7 +15,7 @@ func test_map_shape_and_fixed_rows() -> void:
 		assert_true(_nodes_in_row(map, 1).size() in [2, 3], "2-3 start nodes")
 		assert_true(_nodes_in_row(map, 1).all(func(n): return n.type == RunMap.SKIRMISH), "row 1 skirmish")
 		var rows := RunState.rows_for(act)
-		assert_eq(rows, 5 if act == 1 else 6, "Act 1 has five rows, later acts six")
+		assert_eq(rows, 6 if act == 1 else 7, "Act 1 has six rows, later acts seven")
 		assert_true(_nodes_in_row(map, rows - 1).all(func(n): return n.type == RunMap.HOSPITAL), "hospital before the boss")
 		assert_eq(_nodes_in_row(map, rows).size(), 1, "one boss")
 		assert_eq(_nodes_in_row(map, rows + 1).size(), 0, "no rows past the boss")
@@ -422,21 +422,46 @@ func test_fights_move_outbreak() -> void:
 		for c in changes:
 			n += int(c[0])
 		return n
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "extract", true, false, 0)), 0, "plain win")
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "extract", true, true, 0)), -1, "bonus objective")
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", true, true, 0)), -3, "bonus, nest and Purge")
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", false, false, 1)), 2, "a loss only counts the Turned")
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "", true, false, 2)), 4, "+2 per Turned soldier")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "extract", true, 0)), 0, "plain win")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", true, 0)), -2, "nest and Purge")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", false, 1)), 2, "a loss only counts the Turned")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "", true, 2)), 4, "+2 per Turned soldier")
 	var run := RunRules.new_run(1, 11)
 	RunRules.start_run(run)
 	_rewards(run)
 	_vote_first(run)
 	var before := run.outbreak
 	var fight: Dictionary = run.fight_config.fight
-	var expect: int = before + sum.call(RunRules.fight_outbreak(fight.node, fight.objective, true, true, 0))
+	var expect: int = before + sum.call(RunRules.fight_outbreak(fight.node, fight.objective, true, 0))
 	_win_fight(run, true)
-	assert_eq(run.outbreak, maxi(0, expect), "a clean win pushes Outbreak back")
-	assert_true(run.log.any(func(e): return e.type == "outbreak" and e.reason == "bonus objective"), "logged with its cause")
+	assert_eq(run.outbreak, maxi(0, expect), "a skirmish win leaves Outbreak alone")
+
+
+## Outbreak climbs across a run even when every bonus objective is met (it used to net out near 0).
+func test_outbreak_climbs_through_the_run() -> void:
+	var run := RunRules.new_run(2, 2024)
+	RunRules.start_run(run)
+	_rewards(run)
+	var at_boss := []
+	var guard := 0
+	while run.phase != RunState.Phase.ENDED and guard < 100:
+		guard += 1
+		match run.phase:
+			RunState.Phase.MAP: _vote_first(run)
+			RunState.Phase.NODE:
+				for a in NodeRules.autoplay_actions(run):
+					RunRules.apply(run, a)
+			RunState.Phase.REWARD: _rewards(run)
+			RunState.Phase.FIGHT:
+				var boss: bool = run.fight_config.fight.node == RunMap.BOSS
+				if boss:
+					at_boss.append(run.outbreak)
+				_win_fight(run, true)
+			_: break
+	assert_eq(at_boss.size(), 3, "three bosses")
+	assert_true(at_boss[0] >= 3, "Act 1 boss meets Spreading (%d)" % at_boss[0])
+	assert_true(at_boss[1] >= 6, "Act 2 reaches Rampant (%s)" % [at_boss])
+	assert_true(at_boss[2] >= 6, "Act 3 stays Rampant or worse (%s)" % [at_boss])
 
 
 func test_added_row_adds_no_outbreak_point() -> void:
@@ -451,11 +476,14 @@ func test_added_row_adds_no_outbreak_point() -> void:
 	var before := run.outbreak
 	RunRules.enter_node(run, extra.id)
 	assert_eq(run.outbreak, before, "the added row adds none")
-	run.act = 1
-	assert_true(not RunState.is_extra_row(1, RunState.EXTRA_ROW), "Act 1 has no added row")
+	assert_true(RunState.is_extra_row(2, 5), "Act 2 adds rows 4 and 5")
+	assert_true(not RunState.is_extra_row(2, 6), "the hospital row counts")
+	assert_true(not RunState.is_extra_row(1, 3), "row 3 is a base row")
+	assert_true(RunState.is_extra_row(1, 4), "Act 1 adds row 4")
+	assert_true(not RunState.is_extra_row(1, 5), "Act 1 row 5 is the hospital")
 
 
-func test_bridge_keeps_a_six_row_map_connected() -> void:
+func test_bridge_keeps_a_seven_row_map_connected() -> void:
 	for seed in 30:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = seed + 900
@@ -466,7 +494,7 @@ func test_bridge_keeps_a_six_row_map_connected() -> void:
 		for n in map:
 			ids[n.id] = true
 		for n in map:
-			if n.row < 6:
+			if n.row < 7:
 				assert_true(not n.links.is_empty(), "every node leads on")
 			for id in n.links:
 				assert_true(ids.has(id), "no link to a removed node")

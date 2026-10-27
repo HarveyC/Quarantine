@@ -28,7 +28,8 @@ static var _labels := {}   # lower-case exact labels -> key (find() only)
 static var _link_color: Variant = null   # set by bbcode() for the links it writes
 
 ## Abilities whose own icon Icons draws; the rest show the generic one.
-const ABILITY_ICONS := ["incinerate", "siphon", "lunge", "bash", "shield_charge", "bloom_claw", "breach", "runner_leap"]
+const ABILITY_ICONS := ["incinerate", "siphon", "lunge", "bash", "shield_charge", "bloom_claw", "breach", "runner_leap",
+	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
 ## Short names an ability goes by in text ("Bash the first enemy...").
 const ABILITY_ALIASES := {"bash": ["Bash", "Bashes"], "talk_down": ["Talked down", "Talking down"], "incinerate": ["Incinerates"]}
 
@@ -700,9 +701,9 @@ static func _build() -> Dictionary:
 	t["outbreak"] = {"name": "Outbreak", "kind": "run meter", "icon": "outbreak", "tone": "teal",
 		"line": "How far the Bloom has spread. Higher stages make every fight harder.",
 		"art": "outbreak",
-		"stats": [["+1", "per node"], ["-%d" % RunRules.BONUS_OUTBREAK_DROP, "bonus objective"], ["-%d" % RunRules.BOSS_OUTBREAK_DROP, "per boss"]],
+		"stats": [["+1", "per node"], ["-%d" % RunRules.BOSS_OUTBREAK_DROP, "per boss"]],
 		"more": ["Winning a nest or a Purge takes off %d more." % RunRules.NEST_OUTBREAK_DROP,
-			"Each soldier who Turns adds %d. Healing or purging at the field hospital adds 1. The added row in Acts 2 and 3 adds none." % RunRules.TURNED_OUTBREAK,
+			"Each soldier who Turns adds %d. Healing or purging at the field hospital adds 1. The extra rows past row 3 add none." % RunRules.TURNED_OUTBREAK,
 			"Every point makes regular fights a little harder. From Critical, risky event choices go wrong more often.",
 			"{severity} can start it higher."],
 		"see": ["severity", "infection"],
@@ -832,7 +833,6 @@ static func _build() -> Dictionary:
 		RunMap.EVENT: ["Event", "event", "text", "A choice with a price, decided together.", []],
 		RunMap.DEPOT: ["Depot", "depot", Color("c9a24a"), "A shop: spend {supplies} on gear, pockets and Serum.", []],
 		RunMap.HOSPITAL: ["Field hospital", "hospital", "hp", "One treatment per soldier: patch up, {purge} or train.", [["+1", "{outbreak} if used"]]],
-		RunMap.ARMORY: ["Weapons cache", "armory", Color("c9a24a"), "Every soldier takes a gun. Anyone still on the sidearm gets their class gun.", []],
 		RunMap.SURVIVORS: ["Survivors", "survivors", "hp", "People to bring home: a recruit for the {reserve}.", [["+%d" % RunRules.BONUS_SUPPLIES, "{supplies}"], ["1", "recruit"]]],
 		RunMap.UNKNOWN: ["Hidden node", "unknown", "dim", "Usually an event. Spend {intel} to see it first.", [["1", "{intel} to reveal"]]],
 	}

@@ -27,6 +27,7 @@ const STATS := [
 	["defense", "Defense", "cover_half", "cover"],
 	["mobility", "Move", "move", "tile_move"],
 	["range", "Range", "shoot", ""],
+	["mag", "Magazine", "reload", "ammo"],
 	["infection", "Infection", "infection", "infection"],
 ]
 ## Stats where a lower number is the better one.
@@ -78,7 +79,7 @@ static func stats(record: Dictionary) -> Dictionary:
 	var gun := Weapons.get_gun(Loadout.gun_id(record))
 	return {
 		"max_hp": u.max_hp, "aim": u.aim, "damage": u.damage, "crit": int(gun.get("crit", 0)),
-		"defense": u.defense, "mobility": u.mobility, "range": int(gun.get("falloff", 0)),
+		"defense": u.defense, "mobility": u.mobility, "range": int(gun.get("falloff", 0)), "mag": Ammo.mag_size(u),
 		"infection": u.infection,
 	}
 

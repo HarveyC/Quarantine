@@ -1,6 +1,6 @@
 class_name Signatures
 extends RefCounted
-## Rank 2 signature abilities: one cooldown ability per class, unlocked when a soldier reaches Rank 2.
+## Rank 3 signature abilities (after the third fight): one cooldown ability per class, unlocked when a soldier reaches Rank 3.
 ## Each carries a gear tag (TAGS) so tag gear, mutations and the capstones build on it. Definitions
 ## live in ClassAbilities.ABILITIES (so the glossary, cards and hotkeys see them); the rules are here.
 ## OWNER: progression.
@@ -16,7 +16,7 @@ const TAGS := {
 	"bring_down": ["Close"], "flashover": ["Burn"], "vent": ["Strain"],
 	"death_sweep": ["Close", "Guard"], "provoke": ["Guard"],
 }
-const UNLOCK_RANK := 2
+const UNLOCK_RANK := 3
 
 const DEADEYE_BONUS := 3
 const BRING_DOWN_RANGE := 5
@@ -99,6 +99,7 @@ static func burning_targets(s: GameState, u: Unit) -> Array[Unit]:
 # ---------------------------------------------------------------- rules
 
 static func apply(s: GameState, u: Unit, id: String, t: Unit) -> void:
+	u.status["k_sig_used"] = true   # Progression.after_fight records it, which ends the NEW highlight
 	match id:
 		"lockdown":
 			u.overwatch = true
@@ -274,3 +275,12 @@ static func field_aim_penalty(s: GameState, attacker: Unit) -> int:
 
 static func provoking(s: GameState, t: Unit) -> bool:
 	return _active(s, t, "k_provoke")
+
+
+## The ability card shown on the rank-up screen the first time `r` can pick at the unlock rank.
+static func intro_for(r: Dictionary) -> String:
+	var id := for_class(str(r.get("kind", "")))
+	var p: Dictionary = r.get("prog", {})
+	if id == "" or int(p.get("rank", 1)) < UNLOCK_RANK or p.get("sig_seen", false):
+		return ""
+	return id
