@@ -21,7 +21,7 @@ const MUTATIONS := {
 		"desc": "See infected enemies through walls within 6 tiles; teammates see them as ghost outlines.",
 		"drawback": "Spore zones give you double Infection."},
 	"adrenal_surge": {"name": "Adrenal Surge", "slot": "exposed", "active": true, "tag": "Strain", "targeting": "none", "actions": 0,
-		"desc": "Gain a third action this turn. A shot still ends your turn, so move first.", "drawback": "Next turn you have only 1 action."},
+		"desc": "Gain a third action this turn: move, shoot and shoot again.", "drawback": "Next turn you have only 1 action."},
 	"barbed_hide": {"name": "Barbed Hide", "slot": "exposed", "active": false, "tag": "Close",
 		"desc": "Melee attackers take 2 damage.", "drawback": "Allies next to you at the end of your turn gain 2 Infection."},
 	"hollow_bones": {"name": "Hollow Bones", "slot": "exposed", "active": false, "tag": "Close",

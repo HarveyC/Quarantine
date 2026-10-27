@@ -443,7 +443,7 @@ static func _build() -> Dictionary:
 		"line": "Fill the magazine again. It costs %d action, so you can still shoot afterwards." % Ammo.RELOAD_COST,
 		"art": "magazine",
 		"stats": [["%d" % Ammo.RELOAD_COST, "action"], ["full", "magazine"]],
-		"more": ["A shot ends your turn, so Reload before it: move, reload, shoot is all of a turn.",
+		"more": ["A shot costs 1 action, so move, reload, shoot fills a turn.",
 			"Nothing to reload when the magazine is full.",
 			"Some gear and perks make it free or give a bonus for it."],
 		"see": ["ammo", "actions"],
@@ -606,7 +606,7 @@ static func _build() -> Dictionary:
 		"line": "Each soldier gets %d actions in a squad phase, in any order." % Types.ACTIONS_PER_TURN,
 		"art": "",
 		"stats": [["%d" % Types.ACTIONS_PER_TURN, "per turn"]],
-		"more": ["Moving costs 1. Big moves like Suppress or Breach end the turn.", "Press Ready when done; enemies move once everyone is ready."],
+		"more": ["Moving, shooting and Reload cost 1 each, so you can shoot twice or move and shoot in either order. Overwatch, Hunker and big moves like Suppress or Breach end the turn.", "Press Ready when done; enemies move once everyone is ready."],
 		"see": ["overwatch", "hunker"],
 		"aliases": ["Action", "Action points"]}
 	t["line_of_sight"] = {"name": "Line of sight", "kind": "rule", "icon": "reveal", "tone": "text",

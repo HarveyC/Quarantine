@@ -552,7 +552,8 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 	_sweep(s)
 	match action.type:
 		Types.SHOOT:
-			u.actions_left = 0
+			# Soldiers spend one action per shot; enemies still fire once and end their turn.
+			u.actions_left = 0 if u.team == Types.Team.ENEMY else maxi(0, u.actions_left - 1)
 			if action.has("cell"):
 				fire_at_barrel(s, u, action.cell, false)
 			else:
