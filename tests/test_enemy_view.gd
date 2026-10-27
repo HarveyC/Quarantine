@@ -122,6 +122,54 @@ func test_brood_mother_phase_2_plays_burrow_trail_and_eruption() -> void:
 	v.free()
 
 
+## Berserk Brood Mother: crouches (telegraph), springs in an arc and lands with her own beat.
+func test_berserk_brood_mother_leap_plays_through_the_view() -> void:
+	var v := _view_for_fight({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 4, "squad": 2, "players": 2})
+	_drain(v)
+	var s: GameState = v.state
+	var bm: Unit = s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "brood_mother")[0]
+	for o in s.living(Types.Team.ENEMY):
+		if o != bm:
+			Encounter.kill(s, o)
+	bm.status.erase("tether")
+	bm.status.boss_phase = 3
+	bm.mobility = BroodMother.MOBILITY[3]
+	var high: Unit = s.living(Types.Team.PLAYER)[0]
+	var others := s.living(Types.Team.PLAYER)
+	for u in others:
+		u.max_hp = 99
+		u.hp = 99
+	var perch: Vector2i = EnemyAbilities.landing_cells(s, bm)[0]
+	for c in EnemyAbilities.landing_cells(s, bm):
+		if s.grid.is_walkable(c) and s.unit_at(c) == null:
+			perch = c
+			break
+	for d in Grid.DIRS8:
+		var c: Vector2i = perch + d
+		if s.grid.is_walkable(c) and s.unit_at(c) == null and EnemyAI._cheb(bm.pos, c) <= EnemyAbilities.LEAP_RANGE:
+			high.pos = c
+			break
+	s.grid.set_level(high.pos, 1)
+	v.view_for(high.id).set_cell(high.pos)
+	var seen := {"arc": false, "landed": false}
+	v.player.beat_finished.connect(func(ev: Dictionary) -> void:
+		if int(ev.get("unit", -1)) != bm.id:
+			return
+		if ev.get("type") == "move" and ev.get("leap", false):
+			seen.arc = true
+		if ev.get("type") == "ability" and ev.get("ability") == "leap":
+			seen.landed = true)
+	for turn in 6:
+		if s.phase == Types.Phase.ENDED or seen.landed:
+			break
+		for p in s.players:
+			Rules.set_ready(s, p, true)
+		_drain(v)
+	assert_true(seen.arc and seen.landed, "she springs and lands")
+	assert_true(not v.player.generic_log.any(func(x): return str(x).contains("leap")), "no bare-label fallback beat")
+	v.free()
+
+
 # --- the Act 2 and 3 bosses through the real view --------------------------------------------
 
 ## Ability ids and strike kinds the view finished a beat for, while `turns` rounds play out.

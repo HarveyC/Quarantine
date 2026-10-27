@@ -760,6 +760,39 @@ func test_brood_mother_berserk_bursts_her_sacs() -> void:
 	assert_true(not bm.status.has("tether"), "a sac can't shield her any more")
 
 
+func test_berserk_brood_mother_leaps_at_a_soldier_on_high_ground() -> void:
+	var s := _boss_state("brood_mother")
+	var bm := _boss(s, "brood_mother")
+	for o in s.living(Types.Team.ENEMY):
+		if o != bm:
+			Encounter.kill(s, o)
+	bm.status.boss_phase = 3
+	bm.status.erase("tether")
+	bm.mobility = BroodMother.MOBILITY[3]
+	bm.pos = Vector2i(7, 6)
+	var ps := s.living(Types.Team.PLAYER)
+	for i in ps.size():
+		ps[i].pos = Vector2i(0 + i, 13)   # far from her
+		ps[i].hp = 99
+		ps[i].max_hp = 99
+	var high := ps[0]
+	high.pos = Vector2i(7, 10)
+	s.grid.set_level(high.pos, 1)
+	s.turn = 5
+	_enemy_turn(s, bm)
+	assert_true(bm.status.has("leap_cell"), "crouches to leap at the raised soldier")
+	var landing: Vector2i = bm.status.leap_cell
+	assert_true(EnemyAI._cheb(landing, high.pos) <= 1, "lands beside them")
+	assert_eq(EnemyIntent._intent(s, bm).label, "LEAPING", "intent shows the leap")
+	var hp := high.hp
+	s.turn = 6
+	_enemy_turn(s, bm)
+	assert_eq(bm.pos, landing, "she lands on the marked cell")
+	assert_true(high.hp < hp, "the impact reaches the raised soldier")
+	assert_true(not bm.status.has("leap_cell"), "the mark is spent")
+	assert_eq(int(bm.cooldowns.leap_cd), BroodMother.LEAP_COOLDOWN, "and she waits before the next")
+
+
 func test_colonel_hale_airstrike_and_mutation() -> void:
 	var s := _boss_state("colonel_hale")
 	var h := _boss(s, "colonel_hale")
