@@ -9,12 +9,12 @@ const DEPOT_GOLD := Color("d9b46a")
 
 const ICON := {
 	RunMap.SKIRMISH: "skirmish", RunMap.AMBUSH: "ambush", RunMap.NEST: "nest", RunMap.EVENT: "event",
-	RunMap.DEPOT: "depot", RunMap.HOSPITAL: "hospital", RunMap.SURVIVORS: "survivors", RunMap.ARMORY: "armory",
+	RunMap.DEPOT: "depot", RunMap.HOSPITAL: "hospital", RunMap.SURVIVORS: "survivors",
 	RunMap.BOSS: "boss", RunMap.UNKNOWN: "unknown",
 }
 const SHORT := {
 	RunMap.SKIRMISH: "Skirmish", RunMap.AMBUSH: "Ambush", RunMap.NEST: "Nest", RunMap.EVENT: "Event",
-	RunMap.DEPOT: "Depot", RunMap.HOSPITAL: "Hospital", RunMap.SURVIVORS: "Survivors", RunMap.ARMORY: "Cache",
+	RunMap.DEPOT: "Depot", RunMap.HOSPITAL: "Hospital", RunMap.SURVIVORS: "Survivors",
 	RunMap.BOSS: "Boss", RunMap.UNKNOWN: "Unknown",
 }
 const OBJECTIVE_NAMES := {"skirmish": "Clear", "extract": "Extract", "hold": "Hold", "rescue": "Rescue", "purge": "Purge", "boss": "Boss",
@@ -33,7 +33,7 @@ const OBJECTIVE_TEXT := {
 }
 ## Legend order, as shown under the map.
 const LEGEND: Array[String] = [RunMap.SKIRMISH, RunMap.NEST, RunMap.EVENT, RunMap.DEPOT, RunMap.HOSPITAL,
-	RunMap.ARMORY, RunMap.SURVIVORS, RunMap.UNKNOWN, RunMap.BOSS]
+	RunMap.SURVIVORS, RunMap.UNKNOWN, RunMap.BOSS]
 
 
 static func icon(type: String) -> String:
@@ -45,7 +45,6 @@ static func color(type: String) -> Color:
 		RunMap.NEST, RunMap.BOSS, RunMap.AMBUSH: return NEST_RED
 		RunMap.DEPOT: return DEPOT_GOLD
 		RunMap.HOSPITAL: return Styles.HP
-		RunMap.ARMORY: return DEPOT_GOLD
 	return Styles.TEXT
 
 
@@ -104,10 +103,6 @@ static func card(run: RunState, n: Dictionary) -> Dictionary:
 			c.tag_color = Styles.HP
 			c.body = "One treatment per soldier: patch up, purge Infection, or train."
 			c.rows.append(["Outbreak", "+1 more if anyone heals or purges", Styles.TEAL])
-		RunMap.ARMORY:
-			c.tag = "Guns"
-			c.tag_color = DEPOT_GOLD
-			c.body = "Every soldier takes a gun. Anyone still on the sidearm gets their class gun."
 		RunMap.SURVIVORS:
 			c.tag = "Recruit"
 			c.body = "Survivors to bring home: a new soldier for someone's reserve."

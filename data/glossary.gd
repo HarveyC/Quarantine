@@ -702,7 +702,7 @@ static func _build() -> Dictionary:
 		"art": "outbreak",
 		"stats": [["+1", "per node"], ["-%d" % RunRules.BONUS_OUTBREAK_DROP, "bonus objective"], ["-%d" % RunRules.BOSS_OUTBREAK_DROP, "per boss"]],
 		"more": ["Winning a nest or a Purge takes off %d more." % RunRules.NEST_OUTBREAK_DROP,
-			"Each soldier who Turns adds %d. Healing or purging at the field hospital adds 1. The added row in Acts 2 and 3 adds none." % RunRules.TURNED_OUTBREAK,
+			"Each soldier who Turns adds %d. Healing or purging at the field hospital adds 1. The extra rows past row 3 add none." % RunRules.TURNED_OUTBREAK,
 			"Every point makes regular fights a little harder. From Critical, risky event choices go wrong more often.",
 			"{severity} can start it higher."],
 		"see": ["severity", "infection"],
@@ -832,7 +832,6 @@ static func _build() -> Dictionary:
 		RunMap.EVENT: ["Event", "event", "text", "A choice with a price, decided together.", []],
 		RunMap.DEPOT: ["Depot", "depot", Color("c9a24a"), "A shop: spend {supplies} on gear, pockets and Serum.", []],
 		RunMap.HOSPITAL: ["Field hospital", "hospital", "hp", "One treatment per soldier: patch up, {purge} or train.", [["+1", "{outbreak} if used"]]],
-		RunMap.ARMORY: ["Weapons cache", "armory", Color("c9a24a"), "Every soldier takes a gun. Anyone still on the sidearm gets their class gun.", []],
 		RunMap.SURVIVORS: ["Survivors", "survivors", "hp", "People to bring home: a recruit for the {reserve}.", [["+%d" % RunRules.BONUS_SUPPLIES, "{supplies}"], ["1", "recruit"]]],
 		RunMap.UNKNOWN: ["Hidden node", "unknown", "dim", "Usually an event. Spend {intel} to see it first.", [["1", "{intel} to reveal"]]],
 	}

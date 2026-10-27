@@ -24,7 +24,7 @@ const SKIP_SUPPLIES := 10
 const CACHE_SUPPLIES := 25
 ## Odds (percent) per fight won that a reward offer carries the soldier's class gun while they are
 ## still on the sidearm; the third offer always does.
-const PRIMARY_CHANCE := [35, 70, 100]
+const PRIMARY_CHANCE := [50, 85, 100]
 const CARD_WEIGHTS := {"gear": 37, "gun": 8, "perk": 15, "mutation": 15, "consumable": 15, "cache": 10}
 const ACTION_TYPES: Array[String] = ["gear_pick", "gear_doctrine", "gear_stash_take", "gear_unequip", "gear_gun"]
 ## Odds (percent) that a gun card from act 2 on is Rare rather than Uncommon.

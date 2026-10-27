@@ -106,7 +106,7 @@ class NodeDot extends Control:
 				if type == RunMap.UNKNOWN:
 					border = Color(Styles.DIM, 0.4)
 					icon_col = Color(Styles.DIM, 0.6)
-				if infested or type == RunMap.HOSPITAL or type == RunMap.DEPOT or type == RunMap.ARMORY:
+				if infested or type == RunMap.HOSPITAL or type == RunMap.DEPOT:
 					border = Color(col, 0.55)
 					icon_col = col.darkened(0.05)
 		if type == RunMap.BOSS and look != Look.PASSED:
