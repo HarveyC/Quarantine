@@ -117,6 +117,40 @@ func test_stash_click_equips_through_the_reward_overlay() -> void:
 	scr.free()
 
 
+## Dragging shows itself: the source dims, slots that take the item are framed, the rest fade,
+## and everything is restored when the drag ends.
+func test_dragging_marks_sources_and_drop_targets() -> void:
+	var run := Demo.make_run("loadout")
+	run.phase = RunState.Phase.MAP
+	var s := _session(run)
+	var scr: Control = GearRun.loadout_screen().new()
+	scr.setup(run, s)
+	var idx := Loadout.stash(run).find_custom(func(it): return it.id == "concussion_launcher")
+	var src: Control = scr._stash_row.get_child(idx)
+	var data = src._get_drag_data(Vector2.ZERO)
+	assert_true(data is Dictionary, "stash item can be dragged")
+	assert_true(src.modulate.a < 1.0, "source tile dims")
+	var valid := 0
+	var faded := 0
+	for t in scr._slots.get_children():
+		t._mark_drag(data)
+		if t.can_drop.call(data):
+			valid += 1
+			assert_true(t.has_theme_stylebox_override("panel"), "matching slot framed")
+		else:
+			faded += 1
+			assert_true(t.modulate.a < 1.0, "other slots fade")
+	assert_eq(valid, 1, "one slot takes a gadget")
+	assert_true(faded > 0, "the rest fade")
+	for t in scr._slots.get_children():
+		t._unmark_drag()
+		assert_eq(t.modulate.a, 1.0, "restored")
+	var slot: Control = scr._slots.get_children().filter(func(t): return t.can_drop.call(data))[0]
+	slot._drop_data(Vector2.ZERO, data)
+	assert_eq(Loadout.item_at(run.get_soldier(scr._sid), "gadget").id, "concussion_launcher", "dropped and equipped")
+	scr.free()
+
+
 func test_loadout_screen_equips_from_stash_and_unequips() -> void:
 	var run := Demo.make_run("loadout")
 	run.phase = RunState.Phase.MAP
