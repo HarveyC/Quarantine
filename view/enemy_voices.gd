@@ -9,7 +9,7 @@ const ALIAS := {"hive_node": "", "egg_sac": "", "spore_nest": "", "source_root":
 ## Barks per beat type, with a volume (dB) and a chance.
 const CUES := {
 	"alerted": [0.0, 1.0], "spawned": [-3.0, 0.7], "revealed": [0.0, 1.0], "telegraph": [-2.0, 1.0],
-	"boss_phase": [3.0, 1.0], "shot": [-4.0, 0.5], "ability": [-1.0, 0.8], "move": [-8.0, 0.12],
+	"boss_phase": [3.0, 1.0], "shot": [-5.0, 0.25], "ability": [-1.0, 0.8], "move": [-12.0, 0.025],
 }
 ## Below this gap (seconds) a new bark is dropped, so a swarm doesn't turn into noise.
 const MIN_GAP := 0.3

@@ -547,7 +547,7 @@ func _tick_barks(delta: float) -> void:
 	_bark_in -= delta
 	if _bark_in > 0.0:
 		return
-	_bark_in = _rng.randf_range(7.0, 15.0)
+	_bark_in = _rng.randf_range(14.0, 28.0)
 	if _voices == null or _view == null or not is_instance_valid(_view) or _ended:
 		return
 	var player: Node = _view.get("player")
@@ -558,7 +558,7 @@ func _tick_barks(delta: float) -> void:
 		if is_instance_valid(uv) and not uv.dead and not uv.is_soldier and uv.visible:
 			seen.append(uv)
 	if not seen.is_empty():
-		_voices.bark(seen[_rng.randi() % seen.size()], -9.0)
+		_voices.bark(seen[_rng.randi() % seen.size()], -12.0)
 
 
 ## Plays a music stinger over everything (one at a time).
