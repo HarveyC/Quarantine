@@ -30,6 +30,7 @@ var cell_targets: Array = []       # cells the pending cell ability can pick, wh
 var target_idx := 0
 var hover_cell := NO_CELL
 var _reach: Dictionary = {}
+var move_target := NO_CELL         # tile picked by the first click, awaiting a second click to confirm
 
 
 func _ready() -> void:
@@ -152,6 +153,8 @@ func _set_mode(m: Mode) -> void:
 		targets.clear()
 	if m == Mode.MOVE:
 		pending = {}
+	else:
+		move_target = NO_CELL
 	if m != Mode.TARGET_UNIT:
 		unit_targets = []
 	if m != Mode.TARGET_CELL:
@@ -214,6 +217,8 @@ func refresh() -> void:
 	var u := selected_unit()
 	if u == null:
 		selected_id = -1
+	if mode != Mode.MOVE or u == null or u.actions_left <= 0 or not Rules.move_range(view.state, u).has(move_target):
+		move_target = NO_CELL
 	for uv in view.unit_views.values():
 		uv.set_selected(uv.unit_id == selected_id)
 		uv.set_targeted(false)
@@ -276,14 +281,14 @@ func _update_hover(force: bool) -> void:
 	var u := selected_unit()
 	if u != null and can_act() and c != NO_CELL:
 		if mode == Mode.MOVE and _reach.has(c):
-			var path := view.state.grid.find_path(u.pos, c, view.state.occupied(u.id), false, Grafts.climbs(u))
-			view.board.show_path(path, spotted_step(path))
-			view.board.show_cover(c, view.state.grid.cover_sides(c))
+			_show_move_preview(u, c)
 		elif mode == Mode.TARGET_CELL:
 			view.board.mark_cells([c] + cell_targets + _item_area(c), Color(Palette.AMBER, 0.22), "aim")
 			_show_blast(c)
 		elif mode == Mode.TARGET_UNIT:
 			_show_landing(u, c)
+	elif mode == Mode.MOVE and u != null and can_act() and move_target != NO_CELL:
+		_show_move_preview(u, move_target)
 	_show_sight()
 	if mode == Mode.MOVE and view.board != null:
 		# Hovering a fuel barrel the soldier could shoot previews its blast (click to aim).
@@ -299,6 +304,38 @@ func _update_hover(force: bool) -> void:
 
 
 ## Area items (smoke, flashbang, flare, concussion): the square they cover around the aimed tile.
+func _show_move_preview(u: Unit, c: Vector2i) -> void:
+	var path := view.state.grid.find_path(u.pos, c, view.state.occupied(u.id), false, Grafts.climbs(u))
+	view.board.show_path(path, spotted_step(path))
+	view.board.show_cover(c, view.state.grid.cover_sides(c))
+	# Enemies that would land a Parting blow along this path glow red.
+	var swingers: Array = []
+	var prev := u.pos
+	for step in path:
+		for w in PartingBlow.provoked(view.state, u, prev, step):
+			if not swingers.has(w.pos):
+				swingers.append(w.pos)
+		prev = step
+	if not swingers.is_empty():
+		view.board.mark_cells(swingers, Color(Palette.DANGER, 0.35))
+
+
+## Two-click moves: the first click pins a destination (path and cover stay shown), the second
+## click on the same tile moves. Off in Settings > Gameplay, a click then moves at once.
+func confirm_moves() -> bool:
+	return bool(GameSettings.get_value("gameplay", "confirm_move"))
+
+
+func _click_move(u: Unit, c: Vector2i) -> void:
+	if not confirm_moves() or move_target == c:
+		move_target = NO_CELL
+		submit({"type": Types.MOVE, "unit": u.id, "to": c})
+		return
+	move_target = c
+	_ui_sound("ui_click")
+	refresh()
+
+
 func _item_area(c: Vector2i) -> Array:
 	var r := 0
 	match str(pending.get("ability", "")):
@@ -547,6 +584,9 @@ func cancel() -> void:
 	_ui_sound("ui_hover")
 	if mode != Mode.MOVE:
 		_set_mode(Mode.MOVE)
+	elif move_target != NO_CELL:
+		move_target = NO_CELL
+		refresh()
 	else:
 		deselect()
 
@@ -561,7 +601,7 @@ func click_cell(c: Vector2i) -> void:
 			if uv != null and controllable().any(func(x: Unit) -> bool: return x.id == uv.unit_id):
 				select(uv.unit_id)
 			elif u != null and _reach.has(c):
-				submit({"type": Types.MOVE, "unit": u.id, "to": c})
+				_click_move(u, c)
 			elif u != null and u.actions_left > 0 and (uv != null or view.state.grid.is_volatile(c)):
 				# Clicking an enemy or a fuel barrel in sight aims at it.
 				var picked: Variant = uv.unit_id if uv != null else c
@@ -622,6 +662,8 @@ func _action_input(e: InputEvent) -> void:
 	elif e.is_action_pressed("confirm"):
 		if mode == Mode.SHOOT:
 			confirm_shot()
+		elif mode == Mode.MOVE and move_target != NO_CELL and selected_unit() != null:
+			_click_move(selected_unit(), move_target)
 	elif e.is_action_pressed("ready"):
 		# Ready fires while aiming, otherwise it's the READY button's shortcut.
 		if mode == Mode.SHOOT:

@@ -95,7 +95,7 @@ const PAD_NAMES := {
 const DEFAULTS := {
 	"graphics": {"window_mode": "windowed", "resolution": "1600x900", "vsync": true, "fps_cap": 0,
 		"quality": "high", "render_scale": 1.0, "show_fps": false},
-	"gameplay": {"game_speed": 1.0, "shot_cams": true, "edge_pan": true, "camera_speed": 1.0},
+	"gameplay": {"game_speed": 1.0, "shot_cams": true, "confirm_move": true, "edge_pan": true, "camera_speed": 1.0},
 	"accessibility": {"colorblind": "off", "colorblind_strength": 1.0, "ui_scale": 1.0, "text_scale": 1.0,
 		"screen_shake": 1.0},
 }

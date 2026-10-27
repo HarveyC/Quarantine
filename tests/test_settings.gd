@@ -143,6 +143,12 @@ func test_accessibility_scales_text_and_shake() -> void:
 	_restore()
 
 
+func test_confirm_move_defaults_on() -> void:
+	_fresh()
+	assert_true(bool(GameSettings.get_value("gameplay", "confirm_move")), "two-click moves are the default")
+	_restore()
+
+
 func test_settings_screen_builds_every_tab() -> void:
 	_fresh()
 	var menu: Control = SettingsMenu.new()
