@@ -33,6 +33,7 @@ const LOTS := {
 }
 ## Each biome has one signature lot that always shows up at least twice.
 const SIGNATURE := {"wall": "tents", "port": "containers", "bore": "rockmass"}
+const ROOF_CHANCE := 0.55            # share of intact buildings that get a roof
 const SHUT_DOOR_CHANCE := 0.5
 const WINDOW_CHANCE := 0.3
 
@@ -45,6 +46,7 @@ class Ctx:
 	var indoor := {}                      # cells inside a building's rooms
 	var places: Array = []                # {"kind": String, "cells": Array[Vector2i]} places an enemy pod or objective may use
 	var reserved := {}
+	var roofed := {}                      # cells under a building roof
 	var pod_cells: Array[Vector2i] = []
 	var deploy: Array[Vector2i] = []
 	var landing := Rect2i()
@@ -99,6 +101,7 @@ static func build(biome: String, objective: String, rng: RandomNumberGenerator) 
 		return {}
 	if not _place_objective(c, objective, pods, markers):
 		return {}
+	c.g.roofed = c.roofed
 	return {"grid": c.g, "deploy": c.deploy, "pods": pods, "markers": markers, "reserved": c.reserved}
 
 
@@ -338,6 +341,10 @@ static func _building(c: Ctx, r: Rect2i, lot: Rect2i, opts: Dictionary) -> Array
 					_set_edge(c, key, WINDOW)
 	if bool(opts.get("ruin", false)):
 		_breach(c, r, sides)
+	if not bool(opts.get("ruin", false)) and rng.randf() < float(opts.get("roof", ROOF_CHANCE)):
+		for cell in _cells(r):
+			if c.g.tile(cell) != Types.Tile.WALL:
+				c.roofed[cell] = true
 	for room in rooms:
 		for cell in _cells(room):
 			c.indoor[cell] = true

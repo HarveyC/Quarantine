@@ -104,6 +104,19 @@ func test_explosions_breach_edge_walls() -> void:
 	assert_eq(s.grid.edge(Vector2i(2, 3), Vector2i(0, 1)), Grid.EDGE_DOOR, "doorways stay")
 
 
+func test_a_roof_hides_the_interior_from_above() -> void:
+	var g := _grid()
+	assert_true(Combat.line_clear(g, Vector2i(0, 2), Vector2i(2, 2), 1), "no roof: a rooftop sees over the wall")
+	g.roofed[Vector2i(1, 2)] = true
+	g.roofed[Vector2i(2, 2)] = true
+	assert_true(not Combat.line_clear(g, Vector2i(0, 2), Vector2i(2, 2), 2), "a roof stops even the highest viewer")
+	assert_true(Combat.line_clear(g, Vector2i(2, 4), Vector2i(2, 2), 2), "a doorway still lets you see in")
+	assert_true(Combat.line_clear(g, Vector2i(1, 2), Vector2i(2, 2), 2), "inside the roofed building nothing changes")
+	assert_eq(Grid.from_dict(g.to_dict()).roofed, g.roofed, "roofs survive snapshots")
+	var plain := _grid()
+	assert_true(plain.fingerprint() != g.fingerprint(), "roofs are in the checksum")
+
+
 func test_edges_survive_snapshots() -> void:
 	var s := _state()
 	Destruction.hit(s, {Vector2i(0, 1): 1})
@@ -129,6 +142,18 @@ func test_generated_maps_have_buildings() -> void:
 					assert_true(g.in_bounds(c), "%s seed %d: edge %s inside the map" % [biome, seed, k])
 		assert_true(with_rooms >= 15, "%s: most maps have buildings (%d/20)" % [biome, with_rooms])
 		assert_true(doors >= 20, "%s: buildings have doors (%d)" % [biome, doors])
+
+
+func test_generated_buildings_get_roofs() -> void:
+	for biome in ["wall", "port", "bore"]:
+		var roofed := 0
+		for seed in range(1, 11):
+			var g := MapGen.generate({"biome": biome, "objective": "skirmish", "seed": seed})
+			for c in g.roofed:
+				assert_true(g.tile(c) != Types.Tile.WALL and g.level(c) == 0, "%s seed %d: a roof covers open ground at %s" % [biome, seed, c])
+			if not g.roofed.is_empty():
+				roofed += 1
+		assert_true(roofed >= 7, "%s: most maps have a roofed building (%d/10)" % [biome, roofed])
 
 
 func test_parcel_transforms_carry_edges() -> void:

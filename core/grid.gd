@@ -43,8 +43,13 @@ var rubble := {}
 ## `edge_wear` counts hits on a cracked edge wall, keyed the same way (see Destruction).
 var edges := {}
 var edge_wear := {}
+## Ground cells under a building roof (set of Vector2i). The roof is not a level: nobody climbs it.
+## It hides the interior from above, so a building's outer walls reach past every viewer (sight_top),
+## and the view draws it and cuts it away when a soldier is inside.
+var roofed := {}
 
 const MAX_LEVEL := 2
+const ROOF_TOP := 9
 ## Edge kinds. WALL: blocks movement and sight, full cover. WINDOW: a wall with a window, half cover,
 ## see-through, climbing through costs VAULT_COST extra. LOW: a low wall or railing, same rules as
 ## WINDOW. DOOR: an open doorway, no cover, nothing blocked (the view draws a frame).
@@ -186,7 +191,7 @@ func to_dict() -> Dictionary:
 		"biome": biome, "markers": markers.duplicate(true), "objective": objective,
 		"levels": levels.duplicate(), "ladders": ladders.keys(), "stairs": stairs.keys(), "fragile": fragile.keys(),
 		"wear": wear.duplicate(), "volatile": volatile.keys(), "hard": hard.keys(), "rubble": rubble.duplicate(),
-		"edges": edges.duplicate(), "edge_wear": edge_wear.duplicate()}
+		"edges": edges.duplicate(), "edge_wear": edge_wear.duplicate(), "roofed": roofed.keys()}
 
 
 static func from_dict(d: Dictionary) -> Grid:
@@ -214,13 +219,15 @@ static func from_dict(d: Dictionary) -> Grid:
 	g.rubble = d.get("rubble", {}).duplicate()
 	g.edges = d.get("edges", {}).duplicate()
 	g.edge_wear = d.get("edge_wear", {}).duplicate()
+	for c in d.get("roofed", []):
+		g.roofed[c] = true
 	return g
 
 
 ## Order-independent fingerprint of the terrain (tiles, heights, damage), for online checksums.
 func fingerprint() -> int:
 	var parts := [tiles.hex_encode(), levels.hex_encode()]
-	for group in [ladders, stairs, fragile, volatile]:
+	for group in [ladders, stairs, fragile, volatile, roofed]:
 		var keys: Array = group.keys()
 		keys.sort()
 		parts.append(str(keys))
@@ -350,6 +357,14 @@ func edge_blocks_los(c: Vector2i, d: Vector2i) -> bool:
 ## Height an edge wall reaches: one storey above the higher of its two floors.
 func edge_top(c: Vector2i, d: Vector2i) -> int:
 	return maxi(level(c), level(c + d)) + 1
+
+
+## Height an edge wall hides things to, for sight: edge_top, but past any viewer where it is the
+## outer wall of a roofed building (nobody sees in over a roof).
+func sight_top(c: Vector2i, d: Vector2i) -> int:
+	if not roofed.is_empty() and roofed.has(c) != roofed.has(c + d):
+		return ROOF_TOP
+	return edge_top(c, d)
 
 
 ## Cover the border between `c` and `c + d` gives to a unit at `c`.
