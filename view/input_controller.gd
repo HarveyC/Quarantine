@@ -426,6 +426,10 @@ func actions() -> Array[Dictionary]:
 		"desc": "%s: %s" % [gun.name, gun.desc]})
 	out.append({"key": "overwatch", "label": "Overwatch", "targeting": "none", "type": Types.OVERWATCH, "enabled": has_ap})
 	out.append({"key": "hunker", "label": "Hunker", "targeting": "none", "type": Types.HUNKER, "enabled": has_ap})
+	if PartingBlow.enabled and PartingBlow.threatened(view.state, u):
+		out.append({"key": "disengage", "label": "Disengage", "targeting": "cell", "type": Types.MOVE, "careful": true,
+			"enabled": has_ap, "cells": PartingBlow.careful_cells(view.state, u),
+			"desc": "Move up to %d tiles without a Parting blow." % PartingBlow.CAREFUL_RANGE})
 	if Ammo.tracked(u):
 		var dry := Ammo.reload_error(view.state, u)
 		out.append({"key": "reload", "label": "Reload", "targeting": "none", "type": Types.RELOAD, "enabled": has_ap and dry == "",
@@ -496,6 +500,8 @@ func _template(u: Unit, a: Dictionary) -> Dictionary:
 		act.ability = a.id
 	elif a.type == Types.MUTATION:
 		act.mutation = a.id
+	elif a.type == Types.MOVE:
+		act.careful = true
 	return act
 
 
@@ -580,7 +586,12 @@ func click_cell(c: Vector2i) -> void:
 				submit(act)
 		Mode.TARGET_CELL:
 			var act := pending.duplicate()
-			act.cell = c
+			if act.get("type") == Types.MOVE:
+				if not cell_targets.has(c):
+					return
+				act.to = c
+			else:
+				act.cell = c
 			submit(act)
 
 

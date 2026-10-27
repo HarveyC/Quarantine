@@ -365,7 +365,17 @@ static func _best_move(s: GameState, u: Unit, hostiles: Array[Unit], shot_here: 
 			best_cell = c
 	if best_cell == u.pos or (best < here + 0.4 and not must):
 		return {}
-	return {"type": Types.MOVE, "unit": u.id, "to": best_cell}
+	var a := {"type": Types.MOVE, "unit": u.id, "to": best_cell}
+	if _in_melee_reach(s, u) and Kit.cheb(u.pos, best_cell) <= PartingBlow.CAREFUL_RANGE:
+		a["careful"] = true
+	return a
+
+
+static func _in_melee_reach(s: GameState, u: Unit) -> bool:
+	for h in _hostiles(s, u):
+		if PartingBlow.can_swing(s, h) and s.grid.melee_reach(h.pos, u.pos):
+			return true
+	return false
 
 
 ## Cells something lands on next enemy phase, with the damage: strike telegraphs (airstrikes,
