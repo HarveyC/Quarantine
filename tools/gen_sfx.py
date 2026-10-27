@@ -422,11 +422,13 @@ def enemy_spit():
 
 
 def claw():
-    n = noise(0.45)
-    whoosh = bandpass(n, 400, np.linspace(800, 4000, len(n))) * np.sin(np.linspace(0, np.pi, len(n))) ** 2 * 0.7
-    slash = highpass(noise(0.45), 2500) * env(len(n), 0.001, 0.05)
-    slash = np.concatenate([np.zeros(int(0.22 * SR)), slash])[:len(n)]
-    return reverb(mix(whoosh, slash * 1.2), 0.25, 0.2)
+    # Claws through flesh: a heavy low swish, a dull wet rip and a body thump, nothing zingy.
+    n = int(0.55 * SR)
+    swish = lowpass(bandpass(noise(0.55), 150, np.linspace(500, 1400, n)), 1600) * np.sin(np.linspace(0, np.pi, n)) ** 2 * 1.2
+    rip = _grains(0.55, 7, 0.18, 0.2, 250, 1100, 0.04, 0.8)
+    thump = sine(np.linspace(130, 55, n), 0.55) * env(n, 0.002, 0.07) * 0.9
+    thump = np.concatenate([np.zeros(int(0.2 * SR)), thump])[:n]
+    return reverb(lowpass(mix(swish, rip, thump), 2500), 0.2, 0.2)
 
 
 def blade():
@@ -461,8 +463,8 @@ def bash():
 def tracer_whiz():
     d = 0.5
     n = noise(d)
-    f = np.linspace(5000, 900, len(n))
-    w = bandpass(n, f * 0.6, f) * np.sin(np.linspace(0, np.pi, len(n))) ** 3
+    f = np.linspace(3000, 700, len(n))
+    w = bandpass(n, f * 0.5, f) * np.sin(np.linspace(0, np.pi, len(n))) ** 3
     return w
 
 
@@ -805,11 +807,14 @@ def impact_human():
 
 
 def ricochet():
-    d = 0.7
-    hit = highpass(noise(d), 2500) * env(int(d * SR), 0.0005, 0.01)
-    f = np.linspace(3200, 1400, int(d * SR)) * (1 + 0.04 * np.sin(2 * np.pi * 30 * t(d)))
-    ping = sine(f, d) * env(int(d * SR), 0.01, 0.18) * 0.5
-    return reverb(hit + ping, 0.3, 0.3)
+    # A round skipping off stone: a sharp crack and a falling, noisy whine, no clean tone.
+    d = 0.6
+    nn = int(d * SR)
+    hit = highpass(noise(d), 1800) * env(nn, 0.0005, 0.012)
+    f = np.linspace(1500, 600, nn)
+    whine = bandpass(noise(d), f * 0.7, f * 1.3) * env(nn, 0.01, 0.16) * 1.6
+    knock = sine(np.linspace(260, 110, nn), d) * env(nn, 0.001, 0.04) * 0.5
+    return reverb(hit + whine + knock, 0.3, 0.3)
 
 
 def concrete_hit():
@@ -835,7 +840,16 @@ def screech(base, dur, rough=0.6, rise=1.3):
 
 
 def alert():
-    return screech(620, 0.55, 0.7, 1.5)
+    # Contact: a low threat hit, no pitched squeal. A sub thump, a dissonant low growl and a
+    # dark rush of air that swells then cuts, all kept under 1 kHz.
+    d = 0.7
+    n = int(d * SR)
+    x = t(d)
+    thump = sine(np.linspace(95, 42, n), d) * env(n, 0.002, 0.14) * 1.4
+    growl = (sine(88, d) + sine(93.5, d) + 0.6 * sine(132, d)) * env(n, 0.03, 0.3) * 0.45
+    growl = lowpass(distort(growl, 2.5), 1100) * (1 + 0.25 * np.sin(2 * np.pi * 14 * x))
+    rush = lowpass(bandpass(noise(d), 150, 1100), 1100) * np.sin(np.linspace(0, np.pi, n)) ** 1.5 * 0.9
+    return reverb(lowpass(thump + growl + rush, 1800), 0.35, 0.3)
 
 
 def room(x, decay=0.12, mix_=0.25, bright=3000):
@@ -1038,8 +1052,8 @@ def ui_deny():
 def radio_beep():
     d = 0.35
     static = bandpass(noise(0.08), 1000, 4000) * 0.4
-    beep = sine(1250, 0.12) * 0.6
-    return mix(static, np.concatenate([np.zeros(int(0.08 * SR)), beep, np.zeros(int(0.03 * SR)), sine(1250, 0.06) * 0.6]))
+    beep = lowpass(sine(780, 0.12), 1500) * 0.5
+    return mix(static, np.concatenate([np.zeros(int(0.08 * SR)), beep, np.zeros(int(0.03 * SR)), lowpass(sine(780, 0.06), 1500) * 0.5]))
 
 
 def _blip(freq, dur, decay, glide=0.0):
