@@ -477,6 +477,8 @@ static func apply(run, action: Dictionary) -> bool:
 	if action.type == "gear_doctrine":
 		var v := doctrine_vote(run)
 		v.votes[int(action.get("player", 0))] = action.doctrine
+		if run is RunState:
+			run.emit({"type": "gear", "action": "gear_doctrine", "player": int(action.get("player", -1)), "doctrine": str(action.doctrine)})
 		if _voters(run).all(func(p): return v.votes.has(p)) or int(action.get("player", 0)) == -1:
 			_resolve_doctrine_vote(run)
 		return true
