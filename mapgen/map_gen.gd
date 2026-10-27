@@ -485,6 +485,10 @@ static func _finish(g: Grid, objective: String, deploy: Array[Vector2i], pods: A
 		markers.hive.append(_farthest_open(g, dist, reserved))
 	markers.reinforce.assign(_reinforce_cells(g, objective, dist, markers))
 	g.markers = markers
+	# A roof only covers open ground (sealed or raised cells lose it).
+	for c in g.roofed.keys():
+		if g.tile(c) == Types.Tile.WALL or g.level(c) > 0:
+			g.roofed.erase(c)
 	return g
 
 
