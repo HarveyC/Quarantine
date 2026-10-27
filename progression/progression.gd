@@ -134,9 +134,21 @@ static func on_recruit_deployed(new_prog: Dictionary, lost_prog: Dictionary) -> 
 	new_prog.picks = rank - 1
 
 
-static func pending_picks(record: Dictionary) -> int:
+## Perk points the soldier has banked, whether or not there is a perk left to spend them on.
+static func raw_picks(record: Dictionary) -> int:
 	var p := _prog(record)
 	return int(p.get("picks", 0)) + int(p.get("bonus_picks", 0))
+
+
+## Picks that can actually be made now: never more than the perks still in the soldier's pool,
+## so a drained pool can't leave a pick screen with no cards.
+static func pending_picks(record: Dictionary) -> int:
+	return mini(raw_picks(record), perk_pool(record).size())
+
+
+## True if another banked point would have a perk to buy (Train is refused when not).
+static func can_take_pick(record: Dictionary) -> bool:
+	return perk_pool(record).size() > raw_picks(record)
 
 
 ## True while any active soldier has a perk pick or mutation offer waiting (holds the REWARD phase).
@@ -147,7 +159,14 @@ static func has_pending(run: RunState) -> bool:
 	return false
 
 
-static func grant_perk_pick(_run: RunState, record: Dictionary) -> void:
+const NO_PERK_SUPPLIES := 20
+
+
+## A bonus pick; with no perk left to buy, it pays Supplies instead.
+static func grant_perk_pick(run: RunState, record: Dictionary) -> void:
+	if not can_take_pick(record):
+		RunRules.add_supplies(run, NO_PERK_SUPPLIES, "no perks left")
+		return
 	var p := _prog(record)
 	p.bonus_picks = int(p.get("bonus_picks", 0)) + 1
 
@@ -463,7 +482,7 @@ static func _unlock(run: RunState, kind: String) -> void:
 # ---------------------------------------------------------------- run actions
 
 ## prog_perk_pick {sid, perk}, prog_graft {sid, mutation, partner?} (from a queued offer),
-## prog_skip_offer {sid}, prog_serum {sid} (full cure for 4 of the player's Serum samples).
+## prog_skip_offer {sid}, prog_skip_pick {sid}, prog_serum {sid} (full cure for 4 of the player's Serum samples).
 static func validate(run: RunState, action: Dictionary) -> String:
 	var r := run.get_soldier(int(action.get("sid", -1)))
 	if r.is_empty() or r.get("status", "") != RunSoldier.ACTIVE:
