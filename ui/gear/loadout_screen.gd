@@ -381,7 +381,7 @@ func _gun_tile(r: Dictionary, id: String) -> Control:
 	var g := Weapons.get_gun(id)
 	var carried := Loadout.gun_id(r) == id
 	var t := DropTile.new()
-	t.custom_minimum_size = Vector2(0, 96)
+	t.custom_minimum_size = Vector2(0, 112)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.add_theme_stylebox_override("panel", UI.box(UI.HELD if carried else UI.PANEL_SOFT, UI.AMBER if carried else UI.BORDER, 2 if carried else 1, 0, 10))
 	var v := VBoxContainer.new()
@@ -399,7 +399,9 @@ func _gun_tile(r: Dictionary, id: String) -> Control:
 		var tags := HBoxContainer.new()
 		tags.add_child(UI.tag_chip(g.tag))
 		v.add_child(tags)
-	t.tooltip_text = "%s\n%s" % [g.name, g.desc]
+	var rounds := Weapons.mag_for(id, str(r.kind))
+	v.add_child(UI.mag_row(rounds, 11.0))
+	t.tooltip_text = "%s\nMagazine: %d rounds\n%s" % [g.name, rounds, g.desc]
 	if g.get("tag", "") != "":
 		_tag_terms(t, r, [g.tag])
 	for n in v.find_children("*", "Control", true, false):

@@ -228,24 +228,6 @@ const EVENTS := {
 			},
 		},
 	},
-	"weapons_cache": {   # Entered from the Weapons cache map node, never drawn as a random event.
-		"title": "Weapons cache",
-		"acts": [1, 2, 3],
-		"weight": {1: 0, 2: 0, 3: 0},
-		"text": "A Cordon armory, shuttered in the first hour and never reopened. The racks are still dressed. Everything has been waiting for someone to sign for it.",
-		"start": "open",
-		"steps": {
-			"open": {
-				"kind": "vote",
-				"prompt": "Break the shutter?",
-				"options": [
-					{"id": "open", "label": "Open the cache", "desc": "Every soldier takes a gun: their class gun if they are still on the sidearm, else a new one",
-						"effects": [{"op": "gun", "rarity": "uncommon", "who": "all"}],
-						"outcome": "The shutter screams up on its rails. Everyone signs for something."},
-				],
-			},
-		},
-	},
 	"arms_locker": {
 		"title": "Cordon arms locker",
 		"acts": [1, 2, 3],

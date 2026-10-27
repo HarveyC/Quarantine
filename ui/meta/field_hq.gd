@@ -444,7 +444,7 @@ class RunTrack extends Control:
 	var won := false
 
 	func _init() -> void:
-		custom_minimum_size = Vector2((RunState.BASE_ROWS + 2 * RunState.LONG_ROWS) * 11 + 2 * 8, 14)
+		custom_minimum_size = Vector2((RunState.ACT1_ROWS + 2 * RunState.LONG_ROWS) * 11 + 2 * 8, 14)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:

@@ -103,6 +103,7 @@ static func apply_record(u: Unit, prog: Dictionary) -> void:
 	var sig := Signatures.for_class(u.kind)
 	if sig != "" and int(prog.get("rank", 1)) >= Signatures.UNLOCK_RANK and not u.abilities.has(sig):
 		u.abilities.append(sig)
+		u.status["sig_new"] = not prog.get("sig_used", false)
 	Infection.sync_passives(u)
 	Kit.refresh_stats(null, u)
 
@@ -117,6 +118,8 @@ static func after_fight(prog: Dictionary, u: Unit, fight_number: int) -> bool:
 	elif int(prog.get("inoculated", 0)) > 0:
 		prog.inoculated = int(prog.inoculated) - 1
 	prog.bedding = false   # a fresh Machine part has bedded in
+	if u.status.get("k_sig_used", false):
+		prog.sig_used = true
 	if RANK_FIGHTS.has(fight_number) and int(prog.get("rank", 1)) < MAX_RANK:
 		prog.rank = int(prog.get("rank", 1)) + 1
 		prog.picks = int(prog.get("picks", 0)) + 1
@@ -506,6 +509,8 @@ static func apply(run: RunState, action: Dictionary) -> void:
 	var p := _prog(r)
 	match action.type:
 		"prog_perk_pick":
+			if Signatures.intro_for(r) != "":
+				p.sig_seen = true
 			take_perk(r, action.perk)
 			if int(p.get("picks", 0)) > 0:
 				p.picks = int(p.picks) - 1

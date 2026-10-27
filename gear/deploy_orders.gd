@@ -5,7 +5,7 @@ extends RefCounted
 ## others trade starting Infection for power (a Rare, a Prototype, an awake mutation).
 ##
 ## An order card is {"kind": "order", "id", "name", "desc", "infection", "contents": [cards]}.
-## Contents are ordinary reward cards (gear, gun, mutation) that GearRun grants one by one;
+## Contents are ordinary reward cards (gear, mutation) that GearRun grants one by one;
 ## `infection` is the floor the soldier deploys at.
 
 ## One safe order (clean) and one risky order (starts infected) in every offer, then the rest.
@@ -14,8 +14,8 @@ const ORDERS := {
 		"desc": "An Uncommon item that fits the class."},
 	"quartermaster": {"name": "Quartermaster", "risk": false, "infection": 0,
 		"desc": "Two Common items in different slots, one that fits the class."},
-	"requisition": {"name": "Requisition", "risk": false, "infection": 0,
-		"desc": "An alternate gun for the class, carried from the first fight."},
+	"surplus_crate": {"name": "Surplus crate", "risk": false, "infection": 0,
+		"desc": "An Uncommon item of any tag, not tied to the class."},
 	"bloom_cache": {"name": "Bloom-touched cache", "risk": true, "infection": 20,
 		"desc": "A Rare item that fits the class, pulled from an infected depot."},
 	"early_graft": {"name": "Early graft", "risk": true, "infection": 25,
@@ -30,7 +30,7 @@ static func is_risky(id: String) -> bool:
 
 
 ## `choices` order cards for one soldier: a clean one first, a risky one second, then any.
-## Orders that can't be filled for this soldier (no gun left, no mutation hook) are left out.
+## Orders that can't be filled for this soldier (no mutation hook) are left out.
 static func roll(rng: RandomNumberGenerator, record, choices: int) -> Array:
 	var safe: Array = ORDERS.keys().filter(func(k): return not is_risky(k))
 	var risky: Array = ORDERS.keys().filter(func(k): return is_risky(k))
@@ -68,10 +68,8 @@ static func build(rng: RandomNumberGenerator, record, id: String) -> Dictionary:
 			contents = _items(rng, ["common", "common"], lanes)
 		"bloom_cache":
 			contents = _items(rng, ["rare"], lanes)
-		"requisition":
-			var gun := GearRun.gun_card(rng, record, "uncommon") if Loadout.has_primary(record) else GearRun.primary_card(record)
-			if not gun.is_empty():
-				contents = [gun]
+		"surplus_crate":
+			contents = _items(rng, ["uncommon"], [])
 		"early_graft":
 			var prog = GearTags.progression()
 			if GearTags.provides(prog, "mutation_card"):

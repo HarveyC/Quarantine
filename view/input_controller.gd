@@ -434,7 +434,7 @@ func actions() -> Array[Dictionary]:
 	for a in Combat.available_abilities(view.state, u):
 		out.append({"key": "ability:%s" % a.id, "label": str(a.get("name", a.id)), "targeting": str(a.get("targeting", "none")),
 			"type": Types.ABILITY, "id": a.id, "enabled": has_ap and a.get("ready", true), "desc": str(a.get("desc", "")),
-			"targets": a.get("targets", []), "reach": int(a.get("reach", a.get("range", 0)))})
+			"targets": a.get("targets", []), "reach": int(a.get("reach", a.get("range", 0))), "new": a.get("new", false)})
 	for m in Infection.available_mutations(view.state, u):
 		var lbl := str(m.get("name", m.id))
 		if m.has("cost"):
