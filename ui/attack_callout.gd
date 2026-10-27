@@ -38,6 +38,7 @@ var _t_name: Label
 var _icon: W.Icon
 var _arrow: Control
 var _chance: Label
+var _gun: Label
 var _pips: W.HpPips
 var _dmg: Label
 var _word: Label
@@ -82,6 +83,9 @@ func build() -> void:
 	_chance.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Tips.term(_chance, "hit_chance")
 	mid.add_child(_chance)
+	_gun = Styles.caps("", 11, Styles.DIM)
+	_gun.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mid.add_child(_gun)
 	row.add_child(mid)
 
 	var t_box := _unit_box()
@@ -141,6 +145,9 @@ func begin(a: Dictionary, t: Dictionary, icon: String, chance: int, reaction := 
 	_icon.set_icon("overwatch" if reaction else icon, Styles.DANGER if hostile else Styles.AMBER)
 	Tips.off(_icon)
 	_chance.text = "%d%%" % chance if chance > 0 else ""
+	var shooting := icon == "shoot" or reaction
+	_gun.text = str(a.get("gun", "")).to_upper() if shooting else ""
+	_gun.visible = _gun.text != ""
 	_t_hp = int(t.get("hp", 0))
 	_t_max = maxi(int(t.get("max_hp", _t_hp)), 1)
 	_lost = 0
@@ -235,7 +242,7 @@ func shown() -> bool:
 ## What it shows, for tests: {attacker, target, word, damage, statuses, chance}.
 func summary() -> Dictionary:
 	return {"attacker": attacker_id, "target": target_id, "word": _word.text, "damage": _lost,
-		"statuses": _keys.duplicate(), "chance": _chance.text, "icon": _icon.id}
+		"statuses": _keys.duplicate(), "chance": _chance.text, "gun": _gun.text, "icon": _icon.id}
 
 
 ## How opaque it is now (the HUD fades the action bar under it).

@@ -5,6 +5,7 @@ extends TestCase
 const MAIN := preload("res://scenes/main.tscn")
 const ShotCamera := preload("res://view/shot_camera.gd")
 const Board := preload("res://view/board.gd")
+const Weapons := preload("res://combat/weapons.gd")
 
 
 func _pos(g: Grid, c: Vector2i) -> Vector3:
@@ -231,6 +232,18 @@ func test_enemy_attack_callout_follows_the_attack() -> void:
 	v.player.flush()
 	assert_eq(c.summary().word, "CRIT", "no callout for a routine squad shot")
 	v.player.cinematics = true
+	# A soldier's shot in the enemy phase (overwatch) names the gun; an enemy's shot does not.
+	v.player.enemy_phase = true
+	v.player.enqueue({"type": "shot", "unit": soldier.id, "target": enemy.id, "hit": true, "graze": false,
+		"crit": false, "damage": 2, "chance": 60, "reaction": true})
+	v.player.advance(0.05)
+	assert_eq(c.summary().gun, Weapons.gun_name(Weapons.id_of(soldier)).to_upper(), "the gun fired is named")
+	v.player.flush()
+	v.player.enqueue({"type": "shot", "unit": enemy.id, "target": soldier.id, "hit": true, "graze": false,
+		"crit": false, "damage": 2, "chance": 60, "reaction": false})
+	v.player.advance(0.05)
+	assert_eq(c.summary().gun, "", "an enemy's attack names no gun")
+	v.player.flush()
 	v.free()
 
 

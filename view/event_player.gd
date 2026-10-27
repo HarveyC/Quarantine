@@ -312,7 +312,7 @@ func _callout_unit(uv: UnitView) -> Dictionary:
 	var squad := uv.is_soldier and not uv.turned
 	var seen := uv.visible or squad
 	return {"id": uv.unit_id, "kind": uv.kind if seen else "unknown", "name": uv.display_name if seen else "",
-		"soldier": squad, "boss": _is_boss(uv), "hp": uv.hp, "max_hp": uv.max_hp, "infection": uv.infection,
+		"soldier": squad, "gun": Weapons.gun_name(uv.weapon) if squad and uv.weapon != "" else "", "boss": _is_boss(uv), "hp": uv.hp, "max_hp": uv.max_hp, "infection": uv.infection,
 		"color": Styles.player_color(uv.owner_player) if squad else Styles.DANGER}
 
 
