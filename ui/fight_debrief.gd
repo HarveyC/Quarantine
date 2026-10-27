@@ -86,7 +86,7 @@ static func summarize(s: GameState) -> Dictionary:
 	var outbreak: Array = []
 	if s.encounter.has("node"):
 		outbreak = RunRules.fight_outbreak(str(s.encounter.node), str(s.encounter.get("objective", "")),
-			s.result == Types.Result.VICTORY, bonus, turned)
+			s.result == Types.Result.VICTORY, turned)
 	return {"result": s.result, "turns": s.turn, "objective": Objectives.kind(s), "cause": Objectives.loss_cause(s),
 		"bonus": bonus, "kills": kills, "infection": infection, "soldiers": soldiers, "outbreak": outbreak}
 

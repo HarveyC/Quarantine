@@ -144,7 +144,7 @@ static func push_back(run: RunState, n: Dictionary) -> String:
 		return "-%d after the fight" % Severity.boss_outbreak_drop(run, RunRules.BOSS_OUTBREAK_DROP)
 	if not type in [RunMap.SKIRMISH, RunMap.AMBUSH, RunMap.NEST]:
 		return ""
-	var parts: Array[String] = ["-%d for the bonus objective" % RunRules.BONUS_OUTBREAK_DROP]
+	var parts: Array[String] = []
 	if type == RunMap.NEST:
 		parts.append("-%d when the nest falls" % RunRules.NEST_OUTBREAK_DROP)
 	if n.objective == "purge":

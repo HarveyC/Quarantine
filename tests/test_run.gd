@@ -422,21 +422,46 @@ func test_fights_move_outbreak() -> void:
 		for c in changes:
 			n += int(c[0])
 		return n
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "extract", true, false, 0)), 0, "plain win")
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "extract", true, true, 0)), -1, "bonus objective")
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", true, true, 0)), -3, "bonus, nest and Purge")
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", false, false, 1)), 2, "a loss only counts the Turned")
-	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "", true, false, 2)), 4, "+2 per Turned soldier")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "extract", true, 0)), 0, "plain win")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", true, 0)), -2, "nest and Purge")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.NEST, "purge", false, 1)), 2, "a loss only counts the Turned")
+	assert_eq(sum.call(RunRules.fight_outbreak(RunMap.SKIRMISH, "", true, 2)), 4, "+2 per Turned soldier")
 	var run := RunRules.new_run(1, 11)
 	RunRules.start_run(run)
 	_rewards(run)
 	_vote_first(run)
 	var before := run.outbreak
 	var fight: Dictionary = run.fight_config.fight
-	var expect: int = before + sum.call(RunRules.fight_outbreak(fight.node, fight.objective, true, true, 0))
+	var expect: int = before + sum.call(RunRules.fight_outbreak(fight.node, fight.objective, true, 0))
 	_win_fight(run, true)
-	assert_eq(run.outbreak, maxi(0, expect), "a clean win pushes Outbreak back")
-	assert_true(run.log.any(func(e): return e.type == "outbreak" and e.reason == "bonus objective"), "logged with its cause")
+	assert_eq(run.outbreak, maxi(0, expect), "a skirmish win leaves Outbreak alone")
+
+
+## Outbreak climbs across a run even when every bonus objective is met (it used to net out near 0).
+func test_outbreak_climbs_through_the_run() -> void:
+	var run := RunRules.new_run(2, 2024)
+	RunRules.start_run(run)
+	_rewards(run)
+	var at_boss := []
+	var guard := 0
+	while run.phase != RunState.Phase.ENDED and guard < 100:
+		guard += 1
+		match run.phase:
+			RunState.Phase.MAP: _vote_first(run)
+			RunState.Phase.NODE:
+				for a in NodeRules.autoplay_actions(run):
+					RunRules.apply(run, a)
+			RunState.Phase.REWARD: _rewards(run)
+			RunState.Phase.FIGHT:
+				var boss: bool = run.fight_config.fight.node == RunMap.BOSS
+				if boss:
+					at_boss.append(run.outbreak)
+				_win_fight(run, true)
+			_: break
+	assert_eq(at_boss.size(), 3, "three bosses")
+	assert_true(at_boss[0] >= 3, "Act 1 boss meets Spreading (%d)" % at_boss[0])
+	assert_true(at_boss[1] >= 6, "Act 2 reaches Rampant (%s)" % [at_boss])
+	assert_true(at_boss[2] >= 6, "Act 3 stays Rampant or worse (%s)" % [at_boss])
 
 
 func test_added_row_adds_no_outbreak_point() -> void:
