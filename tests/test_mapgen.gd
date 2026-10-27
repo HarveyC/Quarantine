@@ -12,6 +12,11 @@ func _spec(objective: String, seed: int, biome := "wall") -> Dictionary:
 	return {"biome": biome, "objective": objective, "seed": seed}
 
 
+## The stamped-parcel layout, kept for the plots and the parcel files.
+func _plots(objective: String, seed: int, biome := "wall") -> Dictionary:
+	return {"biome": biome, "objective": objective, "seed": seed, "layout": "plots"}
+
+
 func test_same_spec_same_map() -> void:
 	for o in OBJECTIVES:
 		var a := MapGen.generate(_spec(o, 42))
@@ -111,7 +116,7 @@ func test_lane_plots_give_three_routes_and_height() -> void:
 	var lanes := 0
 	var raised := 0.0
 	for seed in range(1, 41):
-		var g := MapGen.generate(_spec("skirmish", seed, "wall"))
+		var g := MapGen.generate(_plots("skirmish", seed, "wall"))
 		if MapGen.last_plot.begins_with(MapGen.LANE_PLOT_PREFIX):
 			lanes += 1
 			raised += (g.levels.size() - g.levels.count(0)) / float(g.levels.size())
@@ -138,7 +143,7 @@ func test_streets_between_parcels_stay_open() -> void:
 		var street := 0
 		var open := 0
 		for seed in range(1, 11):
-			var g := MapGen.generate(_spec("skirmish", seed, biome))
+			var g := MapGen.generate(_plots("skirmish", seed, biome))
 			for y in g.height:
 				for x in g.width:
 					if x % step < MapGen.PARCEL and y % step < MapGen.PARCEL:
@@ -147,6 +152,70 @@ func test_streets_between_parcels_stay_open() -> void:
 					if g.tile(Vector2i(x, y)) == Types.Tile.FLOOR:
 						open += 1
 		assert_true(open >= street * 0.75, "%s: streets mostly open (%d/%d)" % [biome, open, street])
+
+
+func test_fights_are_built_from_places() -> void:
+	for biome in BIOMES:
+		for o in OBJECTIVES:
+			if o == "boss":
+				continue
+			for seed in range(1, 7):
+				MapGen.generate(_spec(o, seed, biome))
+				assert_eq(MapGen.last_plot, "district", "%s %s seed %d is a district layout" % [biome, o, seed])
+
+
+## Every wall stands in a building, yard or camp: edges joined at their ends (walls, windows, doorways,
+## fences) form pieces of at least four edges, so nothing stands alone.
+func test_no_free_standing_wall_pieces() -> void:
+	for biome in BIOMES:
+		for seed in range(1, 9):
+			var g := MapGen.generate(_spec("skirmish", seed, biome))
+			var tag := "%s seed %d" % [biome, seed]
+			var walls: Array[Vector3i] = []
+			for k in g.edges:
+				walls.append(k)
+			var at_point := {}
+			for i in walls.size():
+				for p in _edge_ends(walls[i]):
+					if not at_point.has(p):
+						at_point[p] = []
+					at_point[p].append(i)
+			var seen := {}
+			var doors := 0
+			var strays := 0
+			for k in g.edges:
+				if g.edges[k] == Grid.EDGE_DOOR or g.edges[k] == Grid.EDGE_CLOSED:
+					doors += 1
+			assert_true(doors >= 4, tag + " has doors (%d)" % doors)
+			for i in walls.size():
+				if seen.has(i):
+					continue
+				var size := 0
+				var touches_rim := false
+				var frontier := [i]
+				seen[i] = true
+				while not frontier.is_empty():
+					var j: int = frontier.pop_back()
+					size += 1
+					for p in _edge_ends(walls[j]):
+						if p.x <= 0 or p.y <= 0 or p.x >= g.width or p.y >= g.height:
+							touches_rim = true
+						for n in at_point[p]:
+							if not seen.has(n):
+								seen[n] = true
+								frontier.append(n)
+				if size < 4 and not touches_rim:
+					strays += 1
+			# Pieces against the map rim are building walls clipped by the border; the blast walls the
+			# drop zone sight cap adds are the only interior strays, and there are few of them.
+			assert_true(strays <= 2, "%s: %d short pieces of wall stand alone" % [tag, strays])
+
+
+## The two lattice points an edge key runs between.
+func _edge_ends(k: Vector3i) -> Array[Vector2i]:
+	if k.z == 0:
+		return [Vector2i(k.x + 1, k.y), Vector2i(k.x + 1, k.y + 1)]
+	return [Vector2i(k.x, k.y + 1), Vector2i(k.x + 1, k.y + 1)]
 
 
 func test_unknown_biome_and_objective_fall_back_to_act_1_skirmish() -> void:
