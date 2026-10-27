@@ -1329,6 +1329,8 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return _burrow_beat(ev)
 		"erupt":
 			return _erupt_beat(ev)
+		"leap":
+			return _leap_beat(ev)
 		"bloom_claw":
 			return _melee_beat(ev, {"sound": "claw", "title": "BLOOM CLAW", "fx": "claw"})
 		"lunge", "riposte":

@@ -139,15 +139,18 @@ func test_berserk_brood_mother_leap_plays_through_the_view() -> void:
 	for u in others:
 		u.max_hp = 99
 		u.hp = 99
-	var perch: Vector2i = EnemyAbilities.landing_cells(s, bm)[0]
-	for c in EnemyAbilities.landing_cells(s, bm):
-		if s.grid.is_walkable(c) and s.unit_at(c) == null:
-			perch = c
-			break
-	for d in Grid.DIRS8:
-		var c: Vector2i = perch + d
-		if s.grid.is_walkable(c) and s.unit_at(c) == null and EnemyAI._cheb(bm.pos, c) <= EnemyAbilities.LEAP_RANGE:
-			high.pos = c
+	for r in range(4, 1, -1):
+		var found := false
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				var c: Vector2i = bm.pos + Vector2i(dx, dy)
+				if maxi(absi(dx), absi(dy)) == r and s.grid.in_bounds(c) and s.grid.is_walkable(c) and s.unit_at(c) == null:
+					high.pos = c
+					found = true
+					break
+			if found:
+				break
+		if found:
 			break
 	s.grid.set_level(high.pos, 1)
 	v.view_for(high.id).set_cell(high.pos)
