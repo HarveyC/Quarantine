@@ -37,6 +37,7 @@ func _init() -> void:
 	objective_override = str(args.get("objective", ""))
 	boss_hp = float(args.get("bosshp", 1.0))
 	build_level = str(args.get("build", "none"))
+	PartingBlow.enabled = not args.has("nopb")
 	SquadBot.skip_signatures = args.has("nosig")
 	SquadBot.skip_gear = args.has("nogear")
 	SquadBot.skip_purge = args.has("nopurge")

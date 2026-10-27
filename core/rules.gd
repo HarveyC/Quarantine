@@ -104,7 +104,7 @@ static func validate(s: GameState, action: Dictionary) -> String:
 	if kit_err != "":
 		return kit_err
 	match action.get("type"):
-		Types.MOVE: return _validate_move(s, u, action.get("to", u.pos))
+		Types.MOVE: return _validate_move(s, u, action.get("to", u.pos), action.get("careful", false))
 		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.RELOAD, Types.ABILITY: return Combat.validate(s, u, action)
 		Types.MUTATION: return Infection.validate_mutation(s, u, action)
 	return "Unknown action"
@@ -131,7 +131,7 @@ static func apply(s: GameState, action: Dictionary) -> bool:
 		return true
 	Kit.before_action(s, u, action)
 	match action.type:
-		Types.MOVE: _do_move(s, u, action.to)
+		Types.MOVE: _do_move(s, u, action.to, action.get("careful", false))
 		Types.SHOOT, Types.OVERWATCH, Types.HUNKER, Types.RELOAD, Types.ABILITY: Combat.apply(s, u, action)
 		Types.MUTATION: Infection.apply_mutation(s, u, action)
 	Concealment.after_action(s, u, action)
@@ -262,17 +262,22 @@ static func move_range(s: GameState, u: Unit) -> Dictionary:
 	return s.grid.reachable(u.pos, u.mobility, s.occupied(u.id), false, Grafts.climbs(u))
 
 
-static func _validate_move(s: GameState, u: Unit, to: Vector2i) -> String:
+static func _validate_move(s: GameState, u: Unit, to: Vector2i, careful := false) -> String:
 	if to == u.pos:
 		return "Already there"
 	if not move_range(s, u).has(to):
 		return "Out of range"
+	if careful and Kit.cheb(u.pos, to) > PartingBlow.CAREFUL_RANGE:
+		return "Too far to disengage"
 	return ""
 
 
-static func _do_move(s: GameState, u: Unit, to: Vector2i) -> void:
+static func _do_move(s: GameState, u: Unit, to: Vector2i, careful := false) -> void:
 	u.actions_left -= 1
+	if careful:
+		u.status["careful"] = true
 	move_along(s, u, to)
+	u.status.erase("careful")
 
 
 ## Moves step by step so overwatch can interrupt. Emits one "move" event per uninterrupted segment.
@@ -287,6 +292,15 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 	var from := u.pos
 	var prev := u.pos
 	for c in path:
+		var swingers := PartingBlow.provoked(s, u, prev, c)
+		if not swingers.is_empty():
+			if not segment.is_empty():
+				s.emit({"type": "move", "unit": u.id, "from": from, "path": segment.duplicate()})
+				from = prev
+				segment.clear()
+			PartingBlow.resolve(s, u, swingers)
+			if not u.is_alive() or s.phase == Types.Phase.ENDED:
+				return
 		if s.grid.edge(prev, c - prev) == Grid.EDGE_CLOSED:
 			# Opening a door ends the walk so far, so the view shows the door swing before the next step.
 			if not segment.is_empty():

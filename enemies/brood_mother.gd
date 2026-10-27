@@ -5,17 +5,19 @@ extends RefCounted
 ##     sac is dead she re-lays one after RELAY turns.
 ##   2 Burrowing (67-33%): dives and erupts next to the soldier on the highest ground (3x3, smashes
 ##     cover, collapses roofs), surfaces with a fresh sac that shields her, stays up two turns.
-##   3 Berserk (33-0%): her sacs burst into Broodlings, the shield is gone, she rushes and claws.
+##   3 Berserk (33-0%): her sacs burst into Broodlings, the shield is gone, she rushes and claws,
+##     and marks a leap (like the Leaper's) at soldiers on high ground she can't claw.
 ## Encounter, EnemyBehaviours and FightBuilder call in here. OWNER: enemies workstream.
 
 ## Boss HP as a share of her 40, by squad size (FightBuilder, instead of SQUAD_BOSS_HEALTH).
-const HEALTH := {1: 0.3, 2: 0.75, 3: 1.6, 4: 2.8}
+const HEALTH := {1: 0.42, 2: 1.15, 3: 1.6, 4: 2.8}
 const SACS := {1: 1, 2: 2, 3: 3, 4: 4}              # sacs she starts with
 const SURFACE_SACS := {1: 0, 2: 1, 3: 1, 4: 2}      # sacs she keeps alive while burrowing
 const RELAY := 3               # turns before she re-lays a sac once every sac is dead (phase 1)
 const SAC_RUNNER_EVERY := {1: 8, 2: 6, 3: 5, 4: 4}   # turns between a sac's Runners
 const SURFACED_TURNS := 3      # her turns above ground (the eruption turn included) before she dives again
 const BURROW_COOLDOWN := 2
+const LEAP_COOLDOWN := 2       # phase 3: turns between leaps at raised soldiers
 const MOBILITY := {2: 4, 3: 5}
 const OFFSETS: Array[Vector2i] = [Vector2i(-2, 0), Vector2i(2, 0), Vector2i(0, -2), Vector2i(0, 2)]
 
@@ -71,6 +73,7 @@ static func on_damaged(s: GameState, u: Unit) -> void:
 	if phase == 1:
 		s.emit({"type": "boss_phase", "unit": u.id, "phase": 2, "boss": u.kind,
 			"text": "The Brood Mother tears free and burrows!"})
+		_dive_now(s, u)
 		return
 	u.status.erase("tether")
 	for o in s.living(Types.Team.ENEMY):
@@ -82,11 +85,30 @@ static func on_damaged(s: GameState, u: Unit) -> void:
 		"text": "The Brood Mother goes berserk!"})
 
 
+## Breaking free dives her at once, whoever's turn it is, so the text, the voice and the picture
+## agree. She erupts on her next turn.
+static func _dive_now(s: GameState, u: Unit) -> void:
+	var hostiles := EnemyAI._hostiles(s, u)
+	if hostiles.is_empty() or u.status.has("burrowed"):
+		return
+	var t := burrow_target(s, u, hostiles)
+	if t == null:
+		hostiles.sort_custom(func(a: Unit, b: Unit) -> bool: return u.pos.distance_to(a.pos) < u.pos.distance_to(b.pos))
+		t = hostiles[0]
+	EnemyAbilities._burrow(s, u, t)
+	if s.phase != Types.Phase.ENEMY:
+		u.status["dig_wait"] = 1   # still digging through her first enemy phase, so the squad gets a full turn to react
+	u.cooldowns["burrow_cd"] = BURROW_COOLDOWN
+
+
 # --- her turn --------------------------------------------------------------------------------
 
 static func take_turn(s: GameState, u: Unit) -> void:
 	var phase := int(u.status.get("boss_phase", 1))
 	if u.status.has("emerge_cell"):
+		if int(u.status.get("dig_wait", 0)) > 0:
+			u.status["dig_wait"] = 0
+			return
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "erupt"})
 		if not u.is_alive() or s.phase == Types.Phase.ENDED:
 			return
@@ -95,9 +117,12 @@ static func take_turn(s: GameState, u: Unit) -> void:
 			var sac := lay_sac(s, u, u.pos + Vector2i(0, 1), s.turn + 2)
 			s.emit({"type": "spawned", "unit": sac.id, "kind": sac.kind, "cell": sac.pos, "from": u.id})
 		return
+	if phase == 3 and u.status.has("leap_cell"):
+		_leap(s, u)
+		return
 	var moved := false
 	for step in 4:
-		if u.actions_left <= 0 or not u.is_alive() or s.phase == Types.Phase.ENDED:
+		if u.actions_left <= 0 or not u.is_alive() or s.phase == Types.Phase.ENDED or u.status.has("burrowed"):
 			return
 		var hostiles := EnemyAI._hostiles(s, u)
 		if hostiles.is_empty():
@@ -133,6 +158,8 @@ static func take_turn(s: GameState, u: Unit) -> void:
 					continue
 				return
 			_:
+				if _mark_leap(s, u, hostiles):
+					return
 				if _claw_adjacent(s, u, hostiles):
 					return
 				if u.actions_left >= 2 and _act(s, EnemyBehaviours.rush(s, u, hostiles, "claw")):
@@ -164,6 +191,46 @@ static func burrow_target(s: GameState, u: Unit, hostiles: Array[Unit]) -> Unit:
 			best = score
 			target = h
 	return target
+
+
+## Phase 3: nobody in claw reach but a soldier is perched above her, so she crouches and marks a
+## landing next to them. The leap itself comes at the start of her next turn.
+static func _mark_leap(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:
+	if int(u.cooldowns.get("leap_cd", 0)) > 0 or u.status.has("leap_cell"):
+		return false
+	var mine := EnemyTerrain.level(s, u.pos)
+	var raised := hostiles.filter(func(h: Unit) -> bool: return EnemyTerrain.level(s, h.pos) > mine)
+	if raised.is_empty() or hostiles.any(func(h: Unit) -> bool: return s.grid.melee_reach(u.pos, h.pos)):
+		return false
+	var best := Vector2i(-1, -1)
+	var best_score := -INF
+	for c in EnemyAbilities.landing_cells(s, u):
+		var score := 0.0
+		for h in raised:
+			if s.grid.touching(c, h.pos):
+				score += 3.0 + EnemyTerrain.level(s, h.pos) * 2.0
+		score -= EnemyAI._dist(u.pos, c) * 0.1
+		if score > best_score:
+			best_score = score
+			best = c
+	if best == Vector2i(-1, -1) or best_score < 3.0:
+		return false
+	u.status["leap_cell"] = best
+	u.actions_left = 0
+	s.emit({"type": "telegraph", "unit": u.id, "kind": "leap",
+		"cells": EnemyAbilities.square(s.grid, best, 1), "turn": s.turn + 1})
+	return true
+
+
+## Lands on the marked cell (the impact reaches every level), then claws whoever is in reach.
+static func _leap(s: GameState, u: Unit) -> void:
+	_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "leap"})
+	u.cooldowns["leap_cd"] = LEAP_COOLDOWN
+	if not u.is_alive() or s.phase == Types.Phase.ENDED:
+		return
+	u.actions_left = 1
+	_claw_adjacent(s, u, EnemyAI._hostiles(s, u))
+	u.actions_left = 0
 
 
 static func _acid_rain(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:

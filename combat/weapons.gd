@@ -222,6 +222,13 @@ static func mag_of(u: Unit) -> int:
 	return int(of(u).get("mag", Ammo.DEFAULT_MAG))
 
 
+## Rounds in a full magazine of gun `id` in the hands of class `kind`, before gear and perks.
+static func mag_for(id: String, kind: String = "") -> int:
+	if id == START_GUN and kind != "" and starts_on_sidearm(kind):
+		return STARTER_MAG
+	return int(get_gun(id).get("mag", Ammo.DEFAULT_MAG))
+
+
 static func has_trait(u: Unit, t: String) -> bool:
 	return of(u).get("trait", "") == t
 
