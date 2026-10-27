@@ -49,7 +49,8 @@ static func blocker(run, ns: Dictionary, rec, treatment: String) -> String:
 			if run.supplies < PURGE_PRICE:
 				return "Not enough Supplies"
 		"train":
-			pass
+			if RunHooks.has("Progression", "can_take_pick") and not RunHooks.call_static("Progression", "can_take_pick", [rec], true):
+				return "no perks left"
 		"cure":
 			if rec.infection <= Grafts.record_floor(rec) and RunAccess.mutations_of(rec).is_empty():
 				return "already clean"

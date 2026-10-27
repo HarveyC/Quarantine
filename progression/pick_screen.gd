@@ -324,6 +324,10 @@ func _cards(p: int, r: Dictionary) -> Control:
 			card.mouse_entered.connect(func(): _preview(perk))
 			card.mouse_exited.connect(func(): _preview({}))
 			row.add_child(card)
+		var pass_up := Styles.icon_button("Skip", "close", "ghost", 19, 54)
+		pass_up.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pass_up.pressed.connect(func(): _submit({"type": "prog_skip_pick", "player": p, "sid": r.id}))
+		row.add_child(pass_up)
 	else:
 		var offer: Dictionary = r.prog.offers[0]
 		var inf := int(r.get("infection", 0))
