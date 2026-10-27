@@ -526,13 +526,16 @@ func _on_tips_expanded(_on: bool) -> void:
 ## Warning card for a move that provokes {parting_blow|Parting blows}: `lines` name each swinger.
 func show_move_warning(lines: Array, pinned: bool) -> void:
 	hide_move_warning()
+	const W_CARD := 300.0
 	var f := W.Frame.new(Vector4(12, 9, 12, 10))
+	f.custom_minimum_size = Vector2(W_CARD + 24.0, 0)
+	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var box := Styles.vbox(4)
 	f.add_child(box)
-	box.add_child(Tips.text("Leaving melee reach: {parting_blow|Parting blow}", 15, Styles.DANGER))
+	box.add_child(Tips.text("Leaving melee reach: {parting_blow|Parting blow}", 15, Styles.DANGER, W_CARD))
 	for l in lines:
-		box.add_child(Tips.text(str(l), 13))
-	box.add_child(Tips.text("Click again to move anyway." if pinned else "Click to pick this tile, click again to move anyway.", 13, Styles.DIM))
+		box.add_child(Tips.text(str(l), 13, Styles.TEXT, W_CARD))
+	box.add_child(Tips.text("Click again to move anyway." if pinned else "Click to pick this tile, click again to move anyway.", 13, Styles.DIM, W_CARD))
 	_move_warning = f
 	add_child(f)
 	if is_inside_tree():
