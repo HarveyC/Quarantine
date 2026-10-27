@@ -1,11 +1,10 @@
 ## What to test in this build
 
-**Beating the Source.** The Source fight is easier (its health at four soldiers is down from 1.3x to 1.0x) and Infection can now be fought with builds and consumables.
-- **Infection wards:** a Guard-set soldier covers themselves and adjacent allies, a Purge-set soldier themselves and allies within 2 tiles. Each ward cuts a quarter of the Infection they would take, and the two multiply.
-- **New consumables:** Antiviral dose (removes 35 Infection from an ally) and Breather mask (you and allies within 2 tiles gain no Infection for 2 turns). Look for them in rewards and shops.
+**No more flat stats.** Nearly every item, perk, mutation and graft that used to be "+1 to something" now does something you can see. Try a build and watch for the triggers.
+- **Gear:** Painter Marks on the first shot of a turn and ignores cover, Slipstream refunds a shot after a long move, Trauma plate cuts the first hit to 1, Knock rounds shove targets, Wick lights the line behind a burning enemy, Dead reckoning spreads Mark. Set bonuses lost their flat lines.
+- **Perks:** Juggernaut stuns on a flanked shot, Walking Fire reloads on Overwatch, Fresh Mag Marks on Reload, Spore Veil stings adjacent enemies, Flashover explodes a burning kill, Symbiote banks when Infection tiers up. Six perks were renamed.
+- **Mutations and grafts:** Hollow Bones hides you after a long run, Bone Magazine fires empty for Infection, Chitin Plates throws the first hit back, Rally Musk gives allies a free action. Targeting optic spreads Mark, Servo arm makes the first gadget free, Plated ribs cap a hit at 3, Hydraulic legs drop onto enemies.
+- **Guns:** ten alternate guns each have a trait (Pierce, Breach, Barbs, Tranquiliser, Recoil, Spray and more). Hover the trait on the gun card.
+- **Consumables:** Medkit clears Burning and stun, Suppressant shot blocks the next Infection, Recon drone Marks what it reveals, Antiviral dose bursts into spores.
 
-**Link items (from v0.21.0).** 18 gear pieces whose effects feed each other, so mixing tags compounds: Mark that spreads and echoes between enemies, fire that Marks, Suppress that ignites, overwatch that fires at anything Marked, reloads that Mark, burn or ready you, kills that cut your signature cooldown.
-
-**Reactions with no gear needed.** Overwatch aims better at Marked enemies, Suppressed enemies take extra damage up close, a Burning enemy in smoke sets the tiles around it alight.
-
-**Survival on set bonuses.** Burn, Mark and Suppress sets cut damage from enemies carrying that status, Strain cuts Infected damage, Close and Overwatch kills heal 1 HP. Resonance gives a small aim bonus for committing to one tag.
+**Also in this build.** Marked enemies are far easier to spot (floor ring, reticle, link lines). The Brood Mother throws rocks when she erupts. The autoplay bot walks real paths.
