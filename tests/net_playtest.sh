@@ -83,6 +83,9 @@ wait_peers
 check "drop and reconnect mid-match" "$LOG/h4.txt" "$LOG/c4.txt"
 grep -q "cutting off player 2" "$LOG/h4.txt" || { echo "FAIL [drop and reconnect mid-match]: the host never cut the client off"; fail=1; }
 grep -q "reconnected at action" "$LOG/c4.txt" || { echo "FAIL [drop and reconnect mid-match]: the client did not reconnect"; grep "\[net\]" "$LOG/c4.txt" | tail -5; fail=1; }
+grep -q "\[notice\] Client disconnected" "$LOG/h4.txt" || { echo "FAIL [drop and reconnect mid-match]: the host showed no disconnect message"; fail=1; }
+grep -q "\[notice\] Client rejoined" "$LOG/h4.txt" || { echo "FAIL [drop and reconnect mid-match]: the host showed no rejoin message"; fail=1; }
+grep -q "\[notice\] Connection lost. Reconnecting" "$LOG/c4.txt" || { echo "FAIL [drop and reconnect mid-match]: the client showed no reconnecting message"; fail=1; }
 
 # Scenario 5
 PORT5=$((PORT + 4))
