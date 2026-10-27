@@ -1,6 +1,6 @@
 class_name RunMap
 extends RefCounted
-## Node map generation for one act (design doc, "Run map and events"): 5 rows in Act 1 and 6 in Acts 2-3
+## Node map generation for one act (design doc, "Run map and events"): 6 rows in Act 1 and 7 in Acts 2-3
 ## (RunState.rows_for). Row 1 Skirmish, the rows up to the last two rolled, then the Field hospital and the boss. Links never cross. Pure function of the
 ## run rng, so every peer that generates from the same seed gets the same map.
 ##

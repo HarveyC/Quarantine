@@ -702,7 +702,7 @@ static func _build() -> Dictionary:
 		"art": "outbreak",
 		"stats": [["+1", "per node"], ["-%d" % RunRules.BONUS_OUTBREAK_DROP, "bonus objective"], ["-%d" % RunRules.BOSS_OUTBREAK_DROP, "per boss"]],
 		"more": ["Winning a nest or a Purge takes off %d more." % RunRules.NEST_OUTBREAK_DROP,
-			"Each soldier who Turns adds %d. Healing or purging at the field hospital adds 1. The added row in Acts 2 and 3 adds none." % RunRules.TURNED_OUTBREAK,
+			"Each soldier who Turns adds %d. Healing or purging at the field hospital adds 1. The extra rows past row 3 add none." % RunRules.TURNED_OUTBREAK,
 			"Every point makes regular fights a little harder. From Critical, risky event choices go wrong more often.",
 			"{severity} can start it higher."],
 		"see": ["severity", "infection"],

@@ -15,7 +15,7 @@ func test_map_shape_and_fixed_rows() -> void:
 		assert_true(_nodes_in_row(map, 1).size() in [2, 3], "2-3 start nodes")
 		assert_true(_nodes_in_row(map, 1).all(func(n): return n.type == RunMap.SKIRMISH), "row 1 skirmish")
 		var rows := RunState.rows_for(act)
-		assert_eq(rows, 5 if act == 1 else 6, "Act 1 has five rows, later acts six")
+		assert_eq(rows, 6 if act == 1 else 7, "Act 1 has six rows, later acts seven")
 		assert_true(_nodes_in_row(map, rows - 1).all(func(n): return n.type == RunMap.HOSPITAL), "hospital before the boss")
 		assert_eq(_nodes_in_row(map, rows).size(), 1, "one boss")
 		assert_eq(_nodes_in_row(map, rows + 1).size(), 0, "no rows past the boss")
@@ -451,11 +451,14 @@ func test_added_row_adds_no_outbreak_point() -> void:
 	var before := run.outbreak
 	RunRules.enter_node(run, extra.id)
 	assert_eq(run.outbreak, before, "the added row adds none")
-	run.act = 1
-	assert_true(not RunState.is_extra_row(1, RunState.EXTRA_ROW), "Act 1 has no added row")
+	assert_true(RunState.is_extra_row(2, 5), "Act 2 adds rows 4 and 5")
+	assert_true(not RunState.is_extra_row(2, 6), "the hospital row counts")
+	assert_true(not RunState.is_extra_row(1, 3), "row 3 is a base row")
+	assert_true(RunState.is_extra_row(1, 4), "Act 1 adds row 4")
+	assert_true(not RunState.is_extra_row(1, 5), "Act 1 row 5 is the hospital")
 
 
-func test_bridge_keeps_a_six_row_map_connected() -> void:
+func test_bridge_keeps_a_seven_row_map_connected() -> void:
 	for seed in 30:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = seed + 900
@@ -466,7 +469,7 @@ func test_bridge_keeps_a_six_row_map_connected() -> void:
 		for n in map:
 			ids[n.id] = true
 		for n in map:
-			if n.row < 6:
+			if n.row < 7:
 				assert_true(not n.links.is_empty(), "every node leads on")
 			for id in n.links:
 				assert_true(ids.has(id), "no link to a removed node")
