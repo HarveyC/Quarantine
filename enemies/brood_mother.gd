@@ -96,6 +96,8 @@ static func _dive_now(s: GameState, u: Unit) -> void:
 		hostiles.sort_custom(func(a: Unit, b: Unit) -> bool: return u.pos.distance_to(a.pos) < u.pos.distance_to(b.pos))
 		t = hostiles[0]
 	EnemyAbilities._burrow(s, u, t)
+	if s.phase != Types.Phase.ENEMY:
+		u.status["dig_wait"] = 1   # still digging through her first enemy phase, so the squad gets a full turn to react
 	u.cooldowns["burrow_cd"] = BURROW_COOLDOWN
 
 
@@ -104,6 +106,9 @@ static func _dive_now(s: GameState, u: Unit) -> void:
 static func take_turn(s: GameState, u: Unit) -> void:
 	var phase := int(u.status.get("boss_phase", 1))
 	if u.status.has("emerge_cell"):
+		if int(u.status.get("dig_wait", 0)) > 0:
+			u.status["dig_wait"] = 0
+			return
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "erupt"})
 		if not u.is_alive() or s.phase == Types.Phase.ENDED:
 			return
