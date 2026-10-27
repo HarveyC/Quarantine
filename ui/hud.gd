@@ -330,6 +330,11 @@ func refresh() -> void:
 	if view.input != null:
 		action_bar.refresh(view)
 		_refresh_targeting()
+	if view.player == null or not view.player.is_busy():
+		for uv in view.unit_views.values():
+			var mu := view.state.get_unit(uv.unit_id)
+			if mu != null and mu.team == Types.Team.ENEMY:
+				uv.sync_mark(mu.is_alive() and Combat.has_status(view.state, mu, "tagged"), view.player.phase_now() + 1 if view.player != null else 1)
 	nameplates.refresh()
 	var worst := 0
 	for u in s.living(Types.Team.PLAYER):

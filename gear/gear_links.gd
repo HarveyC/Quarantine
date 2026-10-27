@@ -46,7 +46,7 @@ static func on_marked(s: GameState, u: Unit, t: Unit, was: bool) -> void:
 		for o in _foes_near(s, u, t.pos, r, t):
 			if not GearFx.is_marked(s, o):
 				_tag(s, o, maxi(1, int(t.status.get("tagged", 0)) - Combat.phase_index(s)))
-				s.emit({"type": "gear", "unit": u.id, "item": "chain_link", "target": o.id})
+				s.emit({"type": "gear", "unit": u.id, "item": "chain_link", "target": o.id, "from": t.id})
 	if not was:
 		for w in s.living(Types.Team.PLAYER):
 			if not _has(w, "hair_trigger") or not w.is_enemy_of(t) or not t.is_alive():

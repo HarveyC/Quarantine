@@ -95,6 +95,10 @@ var _select_ring: MeshInstance3D
 var _target_ring: MeshInstance3D
 var _guard_ring: MeshInstance3D
 var _cloak_ring: Node3D
+var _mark_ring: MeshInstance3D   # Marked: a wide pink ring on the floor
+var _mark_pip: Node3D            # Marked: a pink reticle floating over the head
+var _mark_mat: StandardMaterial3D
+const MARK_COLOR := Color("ff5c86")
 var _drawn := false      # melee classes: sidearm out (aiming) instead of the melee weapon
 ## False when the HUD draws its own nameplates, which hides the floating 3D labels.
 static var world_labels := true
@@ -266,6 +270,30 @@ func _build_rings() -> void:
 	_guard_ring.scale.y = 0.2
 	_guard_ring.visible = false
 	add_child(_guard_ring)
+	_mark_mat = Palette.emissive(MARK_COLOR, 2.4)
+	_mark_ring = Palette.ring(0.56, 0.64, _mark_mat)
+	_mark_ring.position.y = 0.06
+	_mark_ring.scale.y = 0.2
+	_mark_ring.visible = false
+	add_child(_mark_ring)
+	# Over the head: a point-down diamond inside a thin ring, so a Marked unit reads from far away.
+	_mark_pip = Node3D.new()
+	_mark_pip.visible = false
+	var tip := CylinderMesh.new()
+	tip.top_radius = 0.2
+	tip.bottom_radius = 0.0
+	tip.height = 0.3
+	tip.radial_segments = 4
+	var tip_mi := MeshInstance3D.new()
+	tip_mi.mesh = tip
+	tip_mi.material_override = _mark_mat
+	tip_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_mark_pip.add_child(tip_mi)
+	var halo := Palette.ring(0.27, 0.3, _mark_mat)
+	halo.position.y = 0.32
+	halo.rotation.x = PI / 2.0
+	_mark_pip.add_child(halo)
+	add_child(_mark_pip)
 	# Concealed: twelve cold-blue dashes around the feet, the squad-wide "unseen" read.
 	_cloak_ring = Node3D.new()
 	_cloak_ring.position.y = 0.03
@@ -405,6 +433,26 @@ func set_concealed(on: bool) -> void:
 func set_tag(key: String, until: int) -> void:
 	tags[key] = maxi(until, int(tags.get(key, -1)))
 	_refresh_status()
+	_refresh_mark()
+
+
+func is_marked() -> bool:
+	return tags.has("marked") and not dead
+
+
+## Idle sync with the rules state: Marks that landed without a beat of their own (tracer
+## rounds, flares, perks) still show. Ones that ran out are dropped by expire_tags.
+func sync_mark(on: bool, until: int) -> void:
+	if on and not tags.has("marked"):
+		set_tag("marked", until)
+
+
+func _refresh_mark() -> void:
+	var on := is_marked() and _overlays_on
+	_mark_ring.visible = on
+	_mark_pip.visible = on
+	if on:
+		_mark_pip.position.y = maxf(_aim_local.y * 2.0, 1.2) + 0.55
 
 
 ## Drops tags that ended by phase `now`.
@@ -416,6 +464,7 @@ func expire_tags(now: int) -> void:
 			gone = true
 	if gone:
 		_refresh_status()
+		_refresh_mark()
 
 
 func set_selected(on: bool) -> void:
@@ -432,6 +481,7 @@ func set_overlays_visible(on: bool) -> void:
 	for n in [_hp_sprite, _class_label, _status_label]:
 		n.visible = on and not dead and world_labels
 	_guard_ring.visible = on and guard and not dead
+	_refresh_mark()
 	_cloak_ring.visible = on and concealed and is_soldier and not dead
 	if not on:
 		_select_ring.visible = false
@@ -557,6 +607,12 @@ func tick(delta: float) -> void:
 	if _yaw != _yaw_target and not dead:
 		_yaw = rotate_toward(_yaw, _yaw_target, delta * TURN_SPEED)
 		_body.rotation.y = _yaw
+	if _mark_ring.visible:
+		var beat := 0.5 + 0.5 * sin(_time * 5.0)
+		_mark_mat.emission_energy_multiplier = 1.8 + beat * 2.2
+		_mark_ring.scale = Vector3(1.0 + beat * 0.08, 0.2, 1.0 + beat * 0.08)
+		_mark_pip.rotation.y = _time * 2.0
+		_mark_pip.scale = Vector3.ONE * (1.0 + beat * 0.12)
 	if _flash > 0.0:
 		_flash = maxf(0.0, _flash - delta * 3.0)
 		_apply_flash()
@@ -776,7 +832,7 @@ func start_death(from_world: Vector3, heavy := false) -> void:
 	else:
 		_death_land = 0.32
 		_death_shove = 0.0
-	for n in [_hp_sprite, _class_label, _status_label, _infection_ring, _select_ring, _target_ring, _guard_ring, _cloak_ring]:
+	for n in [_hp_sprite, _class_label, _status_label, _infection_ring, _select_ring, _target_ring, _guard_ring, _cloak_ring, _mark_ring, _mark_pip]:
 		n.visible = false
 
 

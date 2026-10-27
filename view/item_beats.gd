@@ -321,8 +321,8 @@ static func _soldier(ep: Node, ev: Dictionary, look: Dictionary) -> Dictionary:
 			if tv != null:
 				fx.tracer(uv.muzzle_world(), tv.aim_point(), col, 0.9)
 				fx.pulse(tv.position, col)
-				tv.flash(col)
-				fx.floating_text(ep._head(tv) + Vector3(0, 0.35, 0), "MARKED", col, 40, 1.4)
+				tv.set_tag("marked", ep.phase_now() + 3)
+				ep.show_marked(tv)
 			return {"dur": 0.7}
 		"leap":
 			# Runner legs: dust where it took off, a burst of spores where it lands.
