@@ -92,7 +92,7 @@ static func is_pending(id: String) -> bool:
 static func mk(u: Unit, id: String) -> int:
 	var g: Dictionary = u.status.get("gear", {})
 	for slot in g:
-		if g[slot].id == id:
+		if g[slot].id == id and not u.status.get("stolen", []).has(id):   # a Cutter has it
 			return int(g[slot].mk)
 	return 0
 

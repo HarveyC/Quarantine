@@ -77,6 +77,16 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			return {"icon": "claw", "label": "BURROW", "target": -1}
 		"hooker":
 			return {"icon": "hook", "label": "HOOK", "target": _best_visible(s, u)}
+		"torchman":
+			if int(u.cooldowns.get("firebomb", 0)) <= 1:
+				return {"icon": "satchel", "label": "FIREBOMB", "target": _nearest(u, hostiles)}
+			return {"icon": "hide", "label": "RETREATING", "target": -1}
+		"cutter":
+			if u.status.has("loot"):
+				return {"icon": "hide", "label": "FLEEING", "target": -1}
+			return {"icon": "claw", "label": "SNATCH", "target": _most_exposed(s, u, hostiles)}
+		"fence":
+			return {"icon": "hide", "label": "LEAVING" if s.turn >= EnemyRoster.FENCE_LEAVES_TURN else "HOLDING LOOT", "target": -1}
 		"sapper":
 			if int(u.cooldowns.get("satchel", 0)) <= 1:
 				return {"icon": "satchel", "label": "SATCHEL", "target": _nearest(u, hostiles)}

@@ -49,6 +49,8 @@ const DEFS := {
 		"desc": "Yanks the soldier on the hooked line toward the Hooker. A pull off high ground takes fall damage."},
 	"satchel": {"name": "Satchel", "targeting": "cell", "cost": 1, "cooldown": 2,
 		"desc": "Throws a satchel onto a 3x3 that goes off next enemy phase: 3 damage to everyone in it and it cracks cover. Killing the Sapper does not stop it."},
+	"firebomb": {"name": "Firebomb", "targeting": "cell", "cost": 1, "cooldown": 2,
+		"desc": "Lobs a firebomb onto a 3x3 that goes off next enemy phase: 2 damage to everyone in it, then the ground burns for 2 rounds. The Infected walk through the fire unharmed."},
 	"mend": {"name": "Mend", "targeting": "unit", "cost": 1, "cooldown": 1,
 		"desc": "Threads to a wounded Infected within 6 tiles in line of sight and heals it 3. Cut the thread by killing the Weaver or breaking line of sight."},
 	"pull": {"name": "Pull", "targeting": "none", "cost": 1, "cooldown": 0, "phases": [2, 3],
@@ -196,7 +198,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			"hurl":
 				if u.pos.distance_to(cell) > HURL_RANGE or _cheb(u.pos, cell) <= 1:
 					return "Out of range"
-			"satchel":
+			"satchel", "firebomb":
 				if _cheb(u.pos, cell) > EnemyRoster.SATCHEL_RANGE or not Combat.can_see(s, u.pos, cell):
 					return "Out of range"
 			"drift":
@@ -274,6 +276,12 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
 			Encounter.add_telegraph(s, {"kind": "satchel", "cells": cells, "turn": s.turn + 1,
 				"damage": EnemyRoster.SATCHEL_DAMAGE, "source": u.id, "smash": true, "unit": u.id})
+		"firebomb":
+			var fcells := square(s.grid, action.cell, 1)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": fcells})
+			Encounter.add_telegraph(s, {"kind": "firebomb", "cells": fcells, "turn": s.turn + 1,
+				"damage": EnemyRoster.FIREBOMB_DAMAGE, "source": u.id, "smash": false, "unit": u.id,
+				"fire": EnemyRoster.FIREBOMB_FIRE_TURNS})
 		"burrow": _burrow(s, u, s.get_unit(action.target))
 		"erupt": _erupt(s, u)
 		"charge": _charge(s, u)

@@ -10,7 +10,7 @@ const SUPPORT_MIN := 6.0
 const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
-	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver",
+	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence",
 	"brood_mother", "colonel_hale", "the_source"]
 
 
@@ -88,6 +88,9 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"carapace": return rush(s, u, hostiles, "slam")
 		"stalker": return _stalker(s, u, hostiles)
 		"weaver": return _weaver(s, u, hostiles)
+		"cutter": return Scavengers.cutter(s, u, hostiles)
+		"torchman": return _sapper(s, u, hostiles, "firebomb")
+		"fence": return Scavengers.fence(s, u, hostiles)
 	return {}
 
 
@@ -529,11 +532,11 @@ static func _hook_perch(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Unit
 
 ## Sapper: throws a satchel on the squad's cover, then runs. Walks to a cell with a clear throw when
 ## it has none, and keeps out of reach while the satchel is on cooldown.
-static func _sapper(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
-	if int(u.cooldowns.get("satchel", 0)) <= 0:
+static func _sapper(s: GameState, u: Unit, hostiles: Array[Unit], ability := "satchel") -> Dictionary:
+	if int(u.cooldowns.get(ability, 0)) <= 0:
 		var throw := _best_satchel(s, u, u.pos, hostiles)
 		if not throw.is_empty():
-			return EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "satchel", "cell": throw.cell})
+			return EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": ability, "cell": throw.cell})
 		if u.actions_left >= 2:
 			var reach := Rules.move_range(s, u)
 			var best_cell := u.pos

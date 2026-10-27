@@ -407,6 +407,8 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			Rules.deal_damage(s, u, int(t.damage), src if src != null and src.is_alive() else null)
 		if int(t.get("spores", 0)) > 0 and s.phase != Types.Phase.ENDED:
 			add_spores(s, t.cells, int(t.spores), src)
+		if int(t.get("fire", 0)) > 0 and s.phase != Types.Phase.ENDED:
+			Hazards.add(s, t.cells, "fire", int(t.fire), int(t.get("source", -1)), Types.Team.ENEMY)
 		if t.get("smash", false) and s.phase != Types.Phase.ENDED:
 			var hits := {}
 			for c in t.cells:
@@ -638,6 +640,7 @@ static func on_died(s: GameState, u: Unit) -> void:
 	if u.team == Types.Team.ENEMY and EnemyRoster.has_affix(u, "splitting"):
 		for i in 2:
 			spawn(s, "runner", u.pos, u)
+	Scavengers.on_died(s, u)
 	if u.kind in ["bloater", "broodling"] and not u.status.get("burst", false):
 		EnemyAbilities.burst(s, u)
 	if u.team == Types.Team.ENEMY and EnemyRoster.has_affix(u, "volatile") and s.phase != Types.Phase.ENDED:

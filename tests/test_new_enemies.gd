@@ -49,7 +49,8 @@ func test_new_kinds_are_in_the_pools_of_their_acts() -> void:
 
 
 func test_every_act_meets_a_new_enemy_often_enough() -> void:
-	var new_kinds := {1: ["hooker"], 2: ["hooker", "sapper", "carapace"], 3: ["hooker", "sapper", "carapace", "stalker", "weaver"]}
+	var new_kinds := {1: ["hooker", "cutter", "torchman"], 2: ["hooker", "sapper", "carapace", "cutter", "torchman", "fence"],
+		3: ["hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence"]}
 	for act in [1, 2, 3]:
 		var seen := 0
 		for seed in range(1, 80):

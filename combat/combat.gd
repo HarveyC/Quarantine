@@ -518,6 +518,8 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			if dmg > 0:
 				Rules.deal_damage(s, t, dmg, u)
 				Kit.after_melee(s, u, t, dmg)
+				if u.kind == "cutter":
+					Scavengers.snatch(s, u, t)
 			Kit.after_claw(s, u, t)
 	Kit.after_ability(s, u, id, t)
 
