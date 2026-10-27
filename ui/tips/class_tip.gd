@@ -165,6 +165,13 @@ static func _gun_block(card: Control, kind: String, inner: float, full: bool) ->
 	top.add_child(ic)
 	top.add_child(Styles.caps(str(gun.get("name", id)), 13, Styles.TEXT))
 	top.add_child(Styles.spacer())
+	var mag := Weapons.mag_for(id)
+	var mag_pips := W.AmmoPips.new(10.0)
+	mag_pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	mag_pips.set_values(mag, mag)
+	mag_pips.mouse_filter = Control.MOUSE_FILTER_PASS
+	Tips.term(mag_pips, "ammo")
+	top.add_child(mag_pips)
 	if int(gun.get("crit", 0)) > 0:
 		top.add_child(Styles.mono("+%d%% crit" % gun.crit, 11, Styles.DIM))
 	var tr := str(gun.get("trait", ""))

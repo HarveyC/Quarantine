@@ -190,6 +190,7 @@ func _build_gun(v: VBoxContainer) -> void:
 	if g.has("tag"):
 		tags.add_child(UI.tag_chip(g.tag))
 	v.add_child(tags)
+	v.add_child(UI.mag_row(Weapons.mag_for(card.id, str(record.get("kind", "")))))
 	v.add_child(UI.text(g.desc, 15, UI.COPY, W - 40))
 	_art_at = v.get_child_count()
 	for p in GearTags.preview_gun(record, card.id):
