@@ -53,6 +53,7 @@ func test_host_benches_a_dropped_player_and_checks_run_actions() -> void:
 	n.my_player = 0
 	n.lobby = {1: {"name": "Host", "player": 0, "cid": "h"}}
 	n.handle_hello(2, "Ana", "a")
+	n.handle_ready(2, true)
 	n.start_run()
 	assert_true(n.in_match and n.run != null, "run started")
 	RunAutoplay.settle(n.run, func(a: Dictionary) -> void: RunRules.apply(n.run, a))

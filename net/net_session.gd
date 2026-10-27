@@ -505,12 +505,62 @@ func handle_pick(id: int, kinds: Array) -> void:
 		if not (k is String) or not ok.has(k):
 			return
 	lobby[id]["squad"] = kinds.slice(0, room_for(lobby[id].player))
+	lobby[id]["ready"] = false   # changing the squad takes the Ready back
+	_broadcast_lobby()
+
+
+## Whether the lobby player `player` has marked themselves Ready. The host is always ready: they
+## are the one who starts.
+func is_ready(player: int) -> bool:
+	for v in lobby.values():
+		if v.player == player:
+			return v.get("ready", false) or v.player == host_player()
+	return false
+
+
+## The host's player number (the lobby entry of peer 1).
+func host_player() -> int:
+	return lobby[1].player if lobby.has(1) else 0
+
+
+## Every connected player is Ready (a lone host always is).
+func all_ready() -> bool:
+	for v in lobby.values():
+		if not is_ready(v.player):
+			return false
+	return true
+
+
+## How many connected players still have to Ready up.
+func waiting_on() -> int:
+	return lobby.values().filter(func(v: Dictionary) -> bool: return not is_ready(v.player)).size()
+
+
+## Marks this player Ready (or not) in the lobby.
+func set_lobby_ready(on: bool) -> void:
+	if is_host:
+		handle_ready(1, on)
+	elif _live():
+		_ready_up.rpc_id(1, on)
+
+
+@rpc("any_peer", "reliable")
+func _ready_up(on: bool) -> void:
+	if is_host:
+		handle_ready(multiplayer.get_remote_sender_id(), on)
+
+
+## Host: a lobby peer toggled Ready. Ignored mid-match.
+func handle_ready(id: int, on: bool) -> void:
+	if in_match or not lobby.has(id):
+		return
+	lobby[id]["ready"] = on
 	_broadcast_lobby()
 
 
 ## Host: begin (or restart) the mission with everyone currently connected.
 func start_match() -> void:
-	if not is_host:
+	if not is_host or not all_ready():
 		return
 	absent.clear()
 	# Re-number players 0..n-1 in join order so the squad split has no gaps.
@@ -518,6 +568,7 @@ func start_match() -> void:
 	ids.sort()
 	for i in ids.size():
 		lobby[ids[i]].player = i
+		lobby[ids[i]]["ready"] = false
 	_broadcast_lobby()
 	var config := MatchConfig.make(lobby.size(), 0, squad_picks())
 	if _live():
@@ -528,13 +579,14 @@ func start_match() -> void:
 ## Host: begin a roguelike run with everyone connected, or continue `resume`. The host builds the
 ## run from a seed and sends the whole RunState once; after that only run actions travel.
 func start_run() -> void:
-	if not is_host:
+	if not is_host or not all_ready():
 		return
 	absent.clear()
 	var ids := lobby.keys()
 	ids.sort()
 	for i in ids.size():
 		lobby[ids[i]].player = i
+		lobby[ids[i]]["ready"] = false
 	_broadcast_lobby()
 	if resume != null:
 		run = resume

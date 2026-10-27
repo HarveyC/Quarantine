@@ -799,6 +799,13 @@ static func _build() -> Dictionary:
 		"more": ["One part is offered per soldier per visit.", "Hazmat pays %d." % GraftData.HAZMAT_REFIT_PRICE, "The move penalty wears off after one fight while it beds in."],
 		"see": ["graft", "amputate", "supplies"],
 		"aliases": ["Refits", "Refitted"]}
+	t["lobby_ready"] = {"name": "Ready up", "kind": "status", "icon": "check", "tone": Color("#e8a33d"),
+		"line": "Tell the host your squad is set. The host can start the run once every player is ready.",
+		"art": "",
+		"stats": [],
+		"more": ["Changing your squad takes your Ready back.", "The host is always ready."],
+		"see": [],
+		"aliases": []}
 	t["bedding_in"] = {"name": "Beds in", "kind": "status", "icon": "refit", "tone": Color("#b9c6cf"),
 		"line": "A fresh Machine part is still settling: {mobility|move} is down for the next fight only.",
 		"art": "",
