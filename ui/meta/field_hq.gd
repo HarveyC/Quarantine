@@ -65,13 +65,10 @@ func _ready() -> void:
 		b.pressed.connect(show_tab.bind(id))
 		tabs.add_child(b)
 		_tab_buttons[id] = b
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	root.add_child(scroll)
 	_body = Styles.vbox(14)
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_body)
+	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(_body)
 	show_tab(tab)
 
 

@@ -15,7 +15,7 @@ var run: RunState
 var session
 var _dirty := false
 var _body: VBoxContainer
-var _scroll: ScrollContainer
+var _fit: W.FitBox
 ## The squad column beside the choices, on screens that call with_squad() (else null).
 var squad_panel: SquadPanel
 ## The loadout opened over this screen (L or the header button), or null.
@@ -37,12 +37,12 @@ func setup(r: RunState, s) -> void:
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 56 if side in ["left", "right"] else 34)
 	add_child(margin)
-	_scroll = ScrollContainer.new()
-	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margin.add_child(_scroll)
+	# Menus never scroll: a screen with more content than room zooms out to fit instead.
+	_fit = W.FitBox.new()
+	margin.add_child(_fit)
 	_body = NodeUi.vbox(22)
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scroll.add_child(_body)
+	_fit.add_child(_body)
 	run.event.connect(_on_run_event)
 	rebuild()
 	if is_inside_tree():
@@ -73,6 +73,7 @@ func rebuild() -> void:
 	if run.node_state.is_empty():
 		return
 	_build(_body)
+	_fit.refit()
 
 
 ## Subclasses fill the screen.

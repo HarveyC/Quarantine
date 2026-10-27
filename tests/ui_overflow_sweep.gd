@@ -7,11 +7,18 @@ extends SceneTree
 const UiScreens := preload("res://tools/ui_screens.gd")
 const UiOverflow := preload("res://tools/ui_overflow.gd")
 const Tips := preload("res://ui/tips/tips.gd")
+const W := preload("res://ui/widgets.gd")
+
+## Menus never scroll, so a crowded one zooms out (W.FitBox). At the default text size and
+## scale it must not zoom out past this, or it is too small to read: redesign it instead.
+const MIN_ZOOM := 0.7
+const ZOOM_CONFIGS := ["720p", "900p", "deck"]
 
 ## name -> [window size, Interface scale, Text size]. 1920x1080 lays out the same as 1280x720
 ## (the UI stretches with the window), so 16:9 and the Steam Deck's 16:10 cover the shapes.
 const CONFIGS := {
 	"720p": [Vector2i(1280, 720), 1.0, 1.0],
+	"900p": [Vector2i(1600, 900), 1.0, 1.0],
 	"deck": [Vector2i(1280, 800), 1.0, 1.15],
 	"text": [Vector2i(1280, 720), 1.0, 1.5],
 	"worst": [Vector2i(1280, 720), 1.25, 1.5],
@@ -43,6 +50,8 @@ func _init() -> void:
 			for i in 12:
 				await process_frame
 			var found := UiOverflow.scan(root)
+			if cfg in ZOOM_CONFIGS:
+				found.append_array(_zoomed_out(root))
 			checked += 1
 			if not found.is_empty():
 				failed += 1
@@ -88,4 +97,15 @@ func _sweep_cards() -> PackedStringArray:
 	tips.set_expanded(false)
 	tips.close_all()
 	host.queue_free()
+	return out
+
+
+## Every FitBox on screen that has zoomed its content out below MIN_ZOOM.
+func _zoomed_out(from: Node) -> PackedStringArray:
+	var out := PackedStringArray()
+	for n in from.find_children("*", "Container", true, false):
+		if n is W.FitBox and n.is_visible_in_tree() and n.get_child_count() > 0:
+			var z: float = (n.get_child(0) as Control).scale.x
+			if z < MIN_ZOOM:
+				out.append("%s: content zoomed out to %d%%, below the %d%% floor" % [n.get_path(), z * 100.0, MIN_ZOOM * 100.0])
 	return out

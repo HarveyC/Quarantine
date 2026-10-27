@@ -28,10 +28,13 @@ func _build() -> void:
 	var snap := StoryProfile.snapshot()
 	var found: Array = snap.lore
 	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 56)
-	add_child(margin)
+	# Menus never scroll: more entries than room zooms the screen out.
+	var fit := W.FitBox.new()
+	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(fit)
+	fit.add_child(margin)
 	var root := Styles.vbox(18)
 	margin.add_child(root)
 	var top := Styles.hbox(18)
@@ -57,14 +60,9 @@ func _build() -> void:
 	var cols := Styles.hbox(24)
 	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(cols)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size.x = 420
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	cols.add_child(scroll)
 	_list = Styles.vbox(6)
-	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_list)
+	_list.custom_minimum_size.x = 420
+	cols.add_child(_list)
 	var first_found := ""
 	for i in StoryData.LORE.size():
 		var e: Dictionary = StoryData.LORE[i]

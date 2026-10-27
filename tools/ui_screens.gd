@@ -6,6 +6,7 @@ extends RefCounted
 
 const MAIN := preload("res://scenes/main.tscn")
 const APP := preload("res://scenes/app.tscn")
+const W := preload("res://ui/widgets.gd")
 const GearDemo := preload("res://ui/gear/gear_demo.gd")
 const MainMenu := preload("res://ui/main_menu.gd")
 const FieldHQ := preload("res://ui/meta/field_hq.gd")
@@ -27,7 +28,7 @@ static func _screens() -> Array[String]:
 		"runend", "pause", "settings_graphics", "settings_audio", "settings_gameplay", "settings_accessibility",
 		"settings_controls", "depot_grafts", "hospital_grafts", "reward_grafts", "loadout_grafts", "hq_unlocks", "hq_severity", "hq_record", "hq_achievements", "archive", "story",
 		"ending_vote", "offer_training", "reward_compare", "mutation_compare", "guns_compare", "kit_compare", "reward_loadout", "depot_compare",
-		"event_loadout", "loadout_veteran"]
+		"event_loadout", "loadout_veteran", "rankup_ability"]
 	for i in TutorialScript.STEPS.size():
 		out.append("training:%d" % i)
 	return out
@@ -293,8 +294,16 @@ static func _full_screen(root: Node, ctl: Control, run: RunState) -> void:
 	var s := StubSession.new()
 	s.run = run
 	s.players.assign(run.players)
-	root.add_child(ctl)
-	ctl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# The pick screen is always hosted in a screen with a FitBox (reward, hospital); stand in for it.
+	if ctl.get_script() == Progression.pick_screen():
+		var fit := W.FitBox.new()
+		fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		root.add_child(fit)
+		ctl.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		fit.add_child(ctl)
+	else:
+		root.add_child(ctl)
+		ctl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ctl.setup(run, s)
 
 
