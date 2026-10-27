@@ -258,8 +258,8 @@ func test_apply_to_unit_stamps_stats_and_tags() -> void:
 	var mob := u.mobility
 	var def := u.defense
 	GearRun.apply_to_unit(u, r)
-	assert_eq(u.mobility, mob + 1, "exo frame move")
-	assert_eq(u.defense, def + 5, "exo frame defense")
+	assert_eq(u.mobility, mob, "exo frame adds no flat move")
+	assert_eq(u.defense, def, "or defense")
 	assert_eq(u.hp, u.max_hp, "full HP")
 	assert_eq(u.status.gear_tags, {"Mark": 1, "Close": 1}, "tags stamped")
 	assert_eq(GearTags.unit_counts(u).get("Mark"), 1, "live count")
@@ -329,21 +329,14 @@ func test_autoplay_actions_settle_rewards() -> void:
 	assert_true(not GearRun.has_pending(run), "nothing left pending")
 
 
-func test_max_hp_gear_moves_record_hp() -> void:
+func test_no_gear_changes_max_hp() -> void:
 	var run := make_run()
 	var r: Dictionary = run.soldiers[2]
 	r["max_hp"] = 6
 	r["hp"] = 5
 	Loadout.equip(run, r, "filter_mask")
-	assert_eq([r.max_hp, r.hp], [6, 5], "Mk I has no HP")
 	Loadout.equip(run, r, "filter_mask")
-	assert_eq([r.max_hp, r.hp], [7, 6], "Mk II adds one max and current")
-	Loadout.unequip(run, r, "armor")
-	assert_eq([r.max_hp, r.hp], [6, 5], "taking it off removes it")
-	r.hp = 1
-	Loadout.equip(run, r, "filter_mask", 2)
-	Loadout.unequip(run, r, "armor")
-	assert_eq(r.hp, 1, "never drops below 1")
+	assert_eq([r.max_hp, r.hp], [6, 5], "Mk II adds no flat HP")
 
 
 func test_gun_cards_pick_and_swap() -> void:

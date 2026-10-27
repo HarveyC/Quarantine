@@ -442,3 +442,26 @@ func test_consumables_do_more_than_a_number() -> void:
 	u.actions_left = 4
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:recon_drone", "cell": e.pos}), "drone")
 	assert_true(GearFx.is_marked(s, e), "the drone Marks what it reveals")
+
+
+func test_exo_frame_riot_shield_and_filter_mask_mk2() -> void:
+	var s := _state()
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	var e := _add(s, "runner", Types.Team.ENEMY, Vector2i(3, 2))
+	_gear(u, [["exo_frame", 2]])
+	GearTricks.after_move(s, u)
+	assert_eq(e.pos, Vector2i(4, 2), "slammed back a tile")
+	assert_true(Combat.has_status(s, e, "suppressed"), "and Suppressed")
+	var v := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 5))
+	var f := _add(s, "runner", Types.Team.ENEMY, Vector2i(3, 5))
+	_gear(v, [["riot_shield", 2]])
+	Rules.deal_damage(s, v, 2, f)
+	assert_true(f.status.get("k_skip_turn", false), "the first adjacent hitter is stunned")
+	var md := _add(s, "medic", Types.Team.PLAYER, Vector2i(6, 5))
+	var ally := _add(s, "trooper", Types.Team.PLAYER, Vector2i(7, 5))
+	_gear(md, [], ["medkit"])
+	_gear(ally, [["filter_mask", 2]])
+	ally.hp = 2
+	ally.infection = 30
+	GearFx.on_purge(s, md, ally, 15)
+	assert_eq(ally.hp, 2 + GearFx.FILTER_HEAL, "Purge heals through a Mk II filter mask")

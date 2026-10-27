@@ -199,7 +199,33 @@ static func damage_taken(s: GameState, target: Unit, amount: int, source: Unit) 
 			Hazards.add(s, cells, "acid", 2, target.id, Types.Team.PLAYER)
 			_gear(s, target, "mycelial_weave", source)
 		_busy = false
+	if source != null and source.is_alive() and source.is_enemy_of(target) and _m2(target, "riot_shield") and _has(target, "riot_shield") \
+			and GearFx._cheb(source.pos, target.pos) <= 1 and int(target.status.get("bash_turn", -1)) != s.turn:
+		target.status["bash_turn"] = s.turn
+		source.status["k_skip_turn"] = true
+		source.actions_left = 0
+		_gear(s, target, "riot_shield", source)
 	return amount
+
+
+## Exo frame: a move that ends beside an enemy slams it back a tile and Suppresses it (Mk II: 2 damage too).
+static func after_move(s: GameState, u: Unit) -> void:
+	if not _has(u, "exo_frame") or not u.is_alive():
+		return
+	var foe: Unit = null
+	for o in s.living():
+		if u.is_enemy_of(o) and GearFx._cheb(o.pos, u.pos) == 1:
+			foe = o
+			break
+	if foe == null:
+		return
+	var dir := Vector2i(signi(foe.pos.x - u.pos.x), signi(foe.pos.y - u.pos.y))
+	EnemyAbilities.knockback(s, foe, dir, 1)
+	foe.status["suppressed"] = Combat.phase_index(s) + 2
+	foe.overwatch = false
+	_gear(s, u, "exo_frame", foe)
+	if _m2(u, "exo_frame") and foe.is_alive():
+		Rules.deal_damage(s, foe, 2, u)
 
 
 # --- Turn flow ------------------------------------------------------------------------------

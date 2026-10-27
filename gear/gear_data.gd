@@ -132,9 +132,8 @@ const ITEMS := {
 		"desc": "Once per fight, 1 action: move 5 tiles in a straight line, walls included",
 		"desc_mk2": "Twice per fight, 1 action: move 5 tiles in a straight line, walls included"},
 	"exo_frame": {"name": "Exo frame", "tag": "Close", "slot": "armor", "rarity": "rare",
-		"desc": "+1 movement, +5 defense and a 3rd pocket",
-		"desc_mk2": "+2 movement, +5 defense and a 3rd pocket",
-		"stats": {"mobility": 1, "defense": 5}, "stats_mk2": {"mobility": 2, "defense": 5}},
+		"desc": "A third pocket. A move that ends next to an enemy slams it back a tile and Suppresses it",
+		"desc_mk2": "A third pocket. A move that ends next to an enemy slams it back a tile, Suppresses it and deals 2 damage"},
 	# Strain
 	"bio_mesh": {"name": "Graft weave", "tag": "Strain", "slot": "armor", "rarity": "common",
 		"desc": "Each awake mutation heals you 2 HP every team phase",
@@ -150,8 +149,7 @@ const ITEMS := {
 		"desc_mk2": "Pay mutation use costs with HP instead of Infection, 1 HP per 10 (not if it would drop you)"},
 	# Purge
 	"filter_mask": {"name": "Filter mask", "tag": "Purge", "slot": "armor", "rarity": "common",
-		"desc": "Spore zones don't infect you", "desc_mk2": "Spore zones don't infect you; +1 max HP",
-		"stats_mk2": {"max_hp": 1}},
+		"desc": "Spore zones don't infect you", "desc_mk2": "Spore zones don't infect you, and a Purge on you also heals 3 HP"},
 	"med_injector": {"name": "Med-injector", "tag": "Purge", "slot": "gadget", "rarity": "common",
 		"desc": "Once per fight, 1 action: an adjacent ally loses 15 Infection",
 		"desc_mk2": "Once per fight, 1 action: an adjacent ally loses 25 Infection"},
@@ -175,8 +173,7 @@ const ITEMS := {
 		"desc_mk2": "Twice per fight: place a full-cover barricade next to you"},
 	"riot_shield": {"name": "Riot shield", "tag": "Guard", "slot": "armor", "rarity": "rare",
 		"desc": "You always count as in half cover, and adjacent allies share your cover",
-		"desc_mk2": "You always count as in half cover, +5 defense, and adjacent allies share your cover",
-		"stats_mk2": {"defense": 5}},
+		"desc_mk2": "You always count as in half cover, adjacent allies share your cover, and the first adjacent enemy to hit you each turn is stunned"},
 	# Content pack 2 (acts 2 and 3): one or two more per tag so runs draw wider.
 	"pilot_light": {"name": "Wick", "tag": "Burn", "slot": "weapon", "rarity": "common",
 		"desc": "Hitting a Burning enemy sets 2 tiles of fire behind it",

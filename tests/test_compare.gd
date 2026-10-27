@@ -50,12 +50,7 @@ func test_replace_names_the_old_item_and_where_it_goes() -> void:
 	assert_eq(s.old.id, "kevlar_vest", "names the vest")
 	assert_eq(s.fate, "stash", "plate goes to the stash")
 	assert_eq(d.stash, [Loadout.stash(run).size(), Loadout.stash(run).size() + 1], "stash count moves")
-	var mob := _row(d, "mobility")
-	var dfn := _row(d, "defense")
-	assert_eq(mob.to - mob.from, 1, "+1 move")
-	assert_true(mob.better, "more move is better")
-	assert_eq(dfn.to - dfn.from, 5, "+5 defense")
-	assert_true(dfn.better, "more defense is better")
+	assert_true(d.stats.is_empty(), "no flat stats to compare")
 	assert_eq(d.tags, GearTags.preview(r, "exo_frame"), "tag rows match the card's preview")
 
 
@@ -77,8 +72,7 @@ func test_duplicate_shows_the_mk2_upgrade() -> void:
 	var d := GearCompare.compare(run, r, {"kind": "gear", "id": "exo_frame"})
 	assert_eq(d.swaps[0].fate, "upgrade", "merges into Mk II")
 	assert_eq(d.swaps[0].new.mk, 2, "offered side is Mk II")
-	var mob := _row(d, "mobility")
-	assert_eq(mob.to - mob.from, 1, "+2 vs +1 move")
+	assert_true(d.stats.is_empty(), "Mk II changes no flat stat")
 
 
 func test_gun_keeps_the_old_one_as_a_spare() -> void:

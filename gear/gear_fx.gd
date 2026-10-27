@@ -730,6 +730,9 @@ static func on_purge(s: GameState, u: Unit, t: Unit, amount: int, self_took := f
 		s.emit({"type": "gear", "unit": u.id, "item": "bloodletting", "actions": u.actions_left})
 		Infection.add(s, u, amount)
 	u.status["purged_turn"] = s.turn
+	if has(t, "filter_mask") and mk(t, "filter_mask") >= 2 and t.hp < t.max_hp:
+		t.hp = mini(t.max_hp, t.hp + FILTER_HEAL)
+		s.emit({"type": "gear", "unit": t.id, "item": "filter_mask", "heal": FILTER_HEAL, "hp": t.hp})
 	GearLinks.on_purge(s, u, t)
 	if has_set(u, "Purge") and t.hp < t.max_hp:
 		t.hp += 1
@@ -760,6 +763,7 @@ static func mutation_cost(s: GameState, u: Unit, cost: int) -> int:
 
 ## Thrown pocket items: a Servo arm graft throws them further.
 const WARD_POINTS := 3
+const FILTER_HEAL := 3
 const SPORE_DIV := 8
 const SPORE_RADIUS := 2
 const THROWN := ["frag_grenade", "flashbang", "smoke_grenade"]
