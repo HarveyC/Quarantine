@@ -47,6 +47,11 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return "%s hunkers down" % who.call("unit")
 		"reload":
 			return "%s reloads (%d rounds)" % [who.call("unit"), int(ev.get("ammo", 0))]
+		"ability" when ev.get("parting", false):
+			var res := "misses"
+			if ev.get("hit", false):
+				res = "grazes" if ev.get("graze", false) else "hits"
+			return "Parting blow: %s %s %s (%d%%)" % [who.call("unit"), res, who.call("target"), int(ev.get("chance", 0))]
 		"ability" when ev.get("ability") in MELEE:
 			var res := "misses"
 			if ev.get("hit", false):

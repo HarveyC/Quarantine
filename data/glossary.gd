@@ -413,6 +413,22 @@ static func _build() -> Dictionary:
 		"more": ["Does nothing in the open."],
 		"see": ["cover"],
 		"aliases": ["Hunker", "Hunkered", "Hunkering"]}
+	t["parting_blow"] = {"name": "Parting blow", "kind": "mechanic", "icon": "ability", "tone": "danger",
+		"line": "Step out of a melee fighter's reach and it gets one free strike at full damage.",
+		"art": "",
+		"stats": [["1", "per fighter per phase"], ["full", "damage"]],
+		"more": ["Melee enemies swing at soldiers who leave their reach. Reapers and Wardens swing at enemies who leave theirs.",
+			"Ending the step still in reach costs nothing, and a stunned fighter can't swing.",
+			"{disengage|Disengage} to leave safely."],
+		"see": ["disengage"],
+		"aliases": ["Parting blows"]}
+	t["disengage"] = {"name": "Disengage", "kind": "action", "icon": "hunker", "tone": "amber",
+		"line": "Back away up to %d tiles with no {parting_blow|Parting blow}. Costs 1 action." % PartingBlow.CAREFUL_RANGE,
+		"art": "",
+		"stats": [["%d" % PartingBlow.CAREFUL_RANGE, "tiles"], ["1", "action"]],
+		"more": ["Only offered while a melee fighter is next to you."],
+		"see": ["parting_blow"],
+		"aliases": ["Disengaged"]}
 	t["ammo"] = {"name": "Ammo", "kind": "resource", "icon": "reload", "tone": "amber",
 		"line": "Your gun holds a few rounds. Each shot spends one, and an empty gun can't shoot or watch.",
 		"art": "magazine",
