@@ -40,16 +40,20 @@ static func for_action(a: Dictionary) -> String:
 	return ABILITY_ICON.get(str(a.get("id", "")), "ability")
 
 
-## Art is used from 20px up; smaller icons keep the line glyphs, which stay crisp.
-const ART_MIN := 20.0
+## Art replaces the line glyphs from 12px up. It is trimmed to its drawing, so it is drawn a
+## little larger than the 24-grid glyphs' rect (which carry a margin) and fitted by aspect.
+const ART_MIN := 12.0
+const ART_SCALE := 1.25
 
 
 static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width := 2.0) -> void:
 	if minf(rect.size.x, rect.size.y) >= ART_MIN:
 		var art := IconArt.vocab(id)
 		if art != null:
-			var side := minf(rect.size.x, rect.size.y)
-			ci.draw_texture_rect(art, Rect2(rect.get_center() - Vector2(side, side) * 0.5, Vector2(side, side)), false, color)
+			var box := rect.size * ART_SCALE
+			var k := minf(box.x / art.get_width(), box.y / art.get_height())
+			var sz := Vector2(art.get_size()) * k
+			ci.draw_texture_rect(art, Rect2(rect.get_center() - sz * 0.5, sz), false, color)
 			return
 	var s := minf(rect.size.x, rect.size.y) / 24.0
 	var o := rect.position + (rect.size - Vector2(24, 24) * s) * 0.5

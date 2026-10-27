@@ -76,11 +76,13 @@ func build() -> void:
 	_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_arrow.draw.connect(_draw_arrow)
 	_icon = W.Icon.new("shoot", Styles.DANGER, 26.0, 2.2)
-	_icon.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_arrow.add_child(_icon)
+	# Centre by hand on the arrow's real size, so the icon sits over the hit % whatever its art.
+	_arrow.resized.connect(func() -> void: _icon.position = ((_arrow.size - _icon.size) * 0.5).round())
 	mid.add_child(_arrow)
 	_chance = Styles.caps("", 13, Styles.AMBER)
 	_chance.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_chance.custom_minimum_size.x = _arrow.custom_minimum_size.x  # the column keeps the arrow's width
 	Tips.term(_chance, "hit_chance")
 	mid.add_child(_chance)
 	_gun = Styles.caps("", 11, Styles.DIM)

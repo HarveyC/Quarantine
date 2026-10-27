@@ -306,7 +306,7 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 		Tips.term(b, term)
 	b.set_meta("key", key)
 	b.pressed.connect(func() -> void: action_pressed.emit(key))
-	var ip := px * 0.42
+	var ip := px * 0.5
 	var ic := W.Icon.new(Icons.for_action(a), fg, ip, 2.0)
 	ic.position = (Vector2(px, px) - Vector2(ip, ip)) * 0.5
 	b.add_child(ic)

@@ -19,8 +19,8 @@ VOCAB = {
     "event": "a radio mast sending a signal", "depot": "a stack of supply crates", "hospital": "a field medical tent with a lantern",
     "survivors": "a small group of three huddled people silhouettes", "boss": "a horned monstrous skull", "unknown": "a closed door with a keyhole and a question mark-like curl, no letters",
     # action wheel
-    "shoot": "a rifle crosshair scope reticle", "overwatch": "a vigilant open eye over a rifle sight", "reload": "a rifle magazine sliding in with a curved arrow",
-    "hunker": "a soldier crouched behind a low wall", "tag": "a targeting marker pin with radiating ticks", "suppress": "three bullets streaming through a lane of fire",
+    "shoot": "a rifle crosshair scope reticle", "overwatch": "a single simple open eye, almond shape with a round iris and pupil, nothing else, symmetrical", "reload": "a rifle magazine sliding in with a curved arrow",
+    "hunker": "a soldier crouched behind a low wall", "tag": "a targeting marker pin with radiating ticks", "suppress": "a fan-shaped cone of five bullets spreading outward from one point, bullet tips pointing away, simple and symmetrical",
     "breach": "a door blown inward with a burst of fragments", "grenade": "a frag grenade with pin", "charge": "a demolition charge brick with a wire and timer",
     "smoke": "a smoke grenade venting a cloud", "flash": "a flashbang grenade with a bright starburst", "drone": "a small quadcopter recon drone",
     "medic": "a medical cross over a syringe", "purge": "a vial pouring clean drops onto a spore", "incinerate": "a flamethrower nozzle with a flame",
@@ -30,11 +30,25 @@ VOCAB = {
     "guard": "a heavy tower shield", "shield_charge": "a tower shield rushing forward with motion lines", "bloom_claw": "a hooked organic claw",
     "runner_leap": "a clawed figure leaping with motion lines",
     # signature abilities (PR #144)
-    "lockdown": "a closing steel cage grid", "deadeye": "a sniper scope with a single eye-like pupil", "quarantine_field": "a hexagonal energy dome",
+    "lockdown": "a closing steel cage grid", "deadeye": "a round sniper scope lens with a single eye-like pupil, circular composition", "quarantine_field": "a hexagonal energy dome",
     "bring_down": "a toppling scaffold tower falling", "flashover": "a room igniting into a fireball burst", "vent": "a steam valve venting gas",
     "death_sweep": "a wide scythe slash arc", "provoke": "a taunting shouting mouth with sound waves, no teeth, no text",
+    # glossary and status icons
+    "alert": "an exclamation-like alarm bell ringing, no text", "amputate": "a surgical bone saw", "armor": "a plate carrier body armor vest",
+    "attack": "a combat knife striking with a slash arc", "barrel": "a fuel drum barrel with a flame mark", "clock": "a round wall clock showing the passage of turns, no numerals",
+    "concealed": "a hooded figure half hidden in shadow", "consumable": "a single-use injector vial", "danger": "a hazard warning triangle with a jagged crack, no text",
+    "detected": "a wide open eye with a red alert ring, no text", "doctrine": "a folded battle-plan scroll with a seal", "enemy": "a hostile infected creature head with spines",
+    "flag": "an objective flag on a pole", "graft": "a mechanical arm joint fused with organic tendrils", "health": "a beating heart with a pulse line",
+    "infection": "a spore cluster with creeping tendrils", "intel": "a data tablet with a magnifying lens", "kill": "a skull crossed with a bullet",
+    "loadout": "an open gear case with items in slots", "outbreak": "an expanding ring of spore bursts", "patch": "a bandage patch cross-stitched",
+    "perk": "a rising chevron stack star", "pinned": "a soldier pinned down under crossed bullet lines", "plus": "a bold plus sign",
+    "rank": "a military rank chevron badge", "recruit": "a new soldier helmet with a plus", "refit": "a wrench and gear over a mechanical limb",
+    "reveal": "an eye opening with light rays", "serum": "a glowing vial of serum with a dropper", "skull": "a human skull",
+    "stun": "a dazed head with spiral eyes and stars", "supplies": "a crate of supplies with a cog", "train": "a dumbbell with a rising arrow",
+    "turn": "a circular arrow cycling around a flag", "turned": "a soldier head half transformed into spores", "weapon": "an assault rifle, side view",
+    "wound": "a gash wound with stitches",
     # classes
-    "trooper": "a soldier helmet with a chevron", "marksman": "a sniper rifle scope crosshair", "breacher": "a shotgun with a door ram",
+    "trooper": "a soldier helmet with a chevron", "marksman": "a sniper rifle scope crosshair", "breacher": "a compact square emblem: a heavy door-breaching ram head with a spark burst, tall and squat shape",
     "reaper": "a hooded scythe blade", "warden": "a riot shield with a baton", "hazmat": "a gas mask respirator", "vector": "a hypodermic injector with a spreading burst",
 }
 ITEM_HINT = {"weapon": "a weapon attachment", "ammo": "ammunition", "armor": "a piece of body armor", "gadget": "a tactical gadget"}
