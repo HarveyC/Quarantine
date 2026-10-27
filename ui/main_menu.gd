@@ -863,7 +863,7 @@ func _class_tile(k: String, on: bool, locked := false) -> Button:
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := W.Icon.new(Icons.for_class(k), Styles.AMBER if on else (Styles.MUTED if locked else Styles.DIM), 34, 1.9)
+	var ic := W.Icon.new(Icons.for_class(k), Styles.AMBER if on else (Styles.MUTED if locked else Styles.DIM), 52, 1.9)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
 	var l := Styles.caps(UnitData.SOLDIERS[k].name, 14, Styles.AMBER if on else (Styles.MUTED if locked else Styles.TEXT))

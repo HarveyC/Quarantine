@@ -30,11 +30,11 @@ VOCAB = {
     "guard": "a heavy tower shield", "shield_charge": "a tower shield rushing forward with motion lines", "bloom_claw": "a hooked organic claw",
     "runner_leap": "a clawed figure leaping with motion lines",
     # signature abilities (PR #144)
-    "lockdown": "a closing steel cage grid", "deadeye": "a sniper scope with a single eye-like pupil", "quarantine_field": "a hexagonal energy dome",
+    "lockdown": "a closing steel cage grid", "deadeye": "a round sniper scope lens with a single eye-like pupil, circular composition", "quarantine_field": "a hexagonal energy dome",
     "bring_down": "a toppling scaffold tower falling", "flashover": "a room igniting into a fireball burst", "vent": "a steam valve venting gas",
     "death_sweep": "a wide scythe slash arc", "provoke": "a taunting shouting mouth with sound waves, no teeth, no text",
     # classes
-    "trooper": "a soldier helmet with a chevron", "marksman": "a sniper rifle scope crosshair", "breacher": "a shotgun with a door ram",
+    "trooper": "a soldier helmet with a chevron", "marksman": "a sniper rifle scope crosshair", "breacher": "a compact square emblem: a heavy door-breaching ram head with a spark burst, tall and squat shape",
     "reaper": "a hooded scythe blade", "warden": "a riot shield with a baton", "hazmat": "a gas mask respirator", "vector": "a hypodermic injector with a spreading burst",
 }
 ITEM_HINT = {"weapon": "a weapon attachment", "ammo": "ammunition", "armor": "a piece of body armor", "gadget": "a tactical gadget"}

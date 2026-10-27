@@ -416,8 +416,10 @@ class Art:
 		var s := minf(size.y * 0.36, 60.0)
 		var w := 2.0
 		if texture != null:
-			var side := minf(size.y, 150.0)
-			draw_texture_rect(texture, Rect2(c - Vector2(side, side) * 0.5, Vector2(side, side)), false, color)
+			var box := Vector2(minf(size.x - 24.0, 280.0), minf(size.y, 150.0))
+			var k := minf(box.x / texture.get_width(), box.y / texture.get_height())
+			var sz := Vector2(texture.get_size()) * k
+			draw_texture_rect(texture, Rect2(c - sz * 0.5, sz), false, color)
 			return
 		match kind:
 			"weapon":
