@@ -28,7 +28,8 @@ static var _labels := {}   # lower-case exact labels -> key (find() only)
 static var _link_color: Variant = null   # set by bbcode() for the links it writes
 
 ## Abilities whose own icon Icons draws; the rest show the generic one.
-const ABILITY_ICONS := ["incinerate", "siphon", "lunge", "bash", "shield_charge", "bloom_claw", "breach", "runner_leap"]
+const ABILITY_ICONS := ["incinerate", "siphon", "lunge", "bash", "shield_charge", "bloom_claw", "breach", "runner_leap",
+	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
 ## Short names an ability goes by in text ("Bash the first enemy...").
 const ABILITY_ALIASES := {"bash": ["Bash", "Bashes"], "talk_down": ["Talked down", "Talking down"], "incinerate": ["Incinerates"]}
 

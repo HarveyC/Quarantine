@@ -93,6 +93,11 @@ func rebuild() -> void:
 		pad.add_theme_constant_override("margin_top", STRIP_GLOW)
 		pad.add_child(_strip(waiting))
 		_list.add_child(pad)
+	var intro := Signatures.intro_for(cur[1]) if Progression.pending_picks(cur[1]) > 0 else ""
+	if intro != "":
+		var rcap := CenterBox.new(MAX_W)
+		rcap.add_child(_reveal(intro))
+		_list.add_child(rcap)
 	var main := Styles.hbox(18)
 	main.alignment = BoxContainer.ALIGNMENT_CENTER
 	main.add_child(_hero(cur[0], cur[1]))
@@ -262,6 +267,46 @@ func _preview_inf(to: int) -> void:
 	if _portrait != null and is_instance_valid(_portrait):
 		_portrait.preview = to
 		_portrait.queue_redraw()
+
+
+# ------------------------------------------------------------------ new ability
+
+## The soldier's signature ability, shown the first time they reach the unlock rank: its icon,
+## name, how fast it recharges (one ready pip, then the dim ones it takes to come back), its
+## rules and the gear tags it counts as.
+func _reveal(id: String) -> Control:
+	var def: Dictionary = ClassAbilities.ABILITIES[id]
+	var frame := W.Frame.new(Vector4(20, 14, 20, 14))
+	frame.set_look(Color(0.043, 0.065, 0.103, 0.92), Styles.BORDER_SOFT, Styles.AMBER, false)
+	frame.stripe = Styles.AMBER
+	var row := Styles.hbox(18)
+	frame.add_child(row)
+	var disc := _disc(Icons.ABILITY_ICON.get(id, "ability"), Styles.AMBER, 84)
+	disc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(disc)
+	var body := Styles.vbox(6)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.alignment = BoxContainer.ALIGNMENT_CENTER
+	var top := Styles.hbox(14)
+	top.add_child(Styles.caps(str(def.name), 30, Styles.AMBER))
+	var cd := int(def.cooldown)
+	var pips := W.Pips.new(Vector2(22, 8))
+	pips.set_values(cd, 1, 0, Styles.AMBER)
+	pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(pips)
+	var cdl := Styles.caps("Cooldown %d" % cd, 15, Styles.DIM)
+	Tips.term(cdl, "cooldown")
+	top.add_child(cdl)
+	body.add_child(top)
+	body.add_child(Tips.text(str(def.desc), 17, Styles.TEXT, MAX_W - 220.0))
+	var tags := Styles.hbox(14)
+	for tag in Signatures.TAGS[id]:
+		var tl := Styles.caps(str(tag), 16, GearData.tag_color(str(tag)))
+		Tips.term(tl, "tag_" + str(tag).to_lower())
+		tags.add_child(tl)
+	body.add_child(tags)
+	row.add_child(body)
+	return frame
 
 
 # ------------------------------------------------------------------ cards

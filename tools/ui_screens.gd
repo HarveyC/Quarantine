@@ -194,7 +194,7 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 						root.warp_mouse(at)
 						tips.show_for(b, at)
 						break
-		"rankup", "rankup_reward":
+		"rankup", "rankup_reward", "rankup_ability":
 			var run := RunRules.new_run(players, 81)
 			RunRules.start_run(run)
 			for r in run.squad():
@@ -202,7 +202,11 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 				r.infection = 30
 			var first: Dictionary = run.squad()[0]
 			first.prog.bonus_picks = 0
-			first.prog.offers.append({"cards": ["hollow_bones", "shared_blood", "rampage"], "source": "nest"})
+			if screen == "rankup_ability":
+				first.prog.rank = Signatures.UNLOCK_RANK   # the signature's reveal card shows above the perks
+				first.prog.picks = 1
+			if screen != "rankup_ability":
+				first.prog.offers.append({"cards": ["hollow_bones", "shared_blood", "rampage"], "source": "nest"})
 			# rankup_reward: the step as players see it, inside the reward screen (title, squad
 			# panel), with the run's opening deployment orders already taken.
 			GearRun.state(run).offers.clear()
