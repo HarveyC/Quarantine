@@ -92,6 +92,18 @@ static func generate(spec: Dictionary) -> Grid:
 	if plots.is_empty():
 		objective = "skirmish"
 		plots = data.plots.filter(func(p: Dictionary) -> bool: return p.objectives.has("skirmish"))
+	# Fights are built from places (DistrictGen); spec "layout": "plots" asks for the stamped-parcel plots instead.
+	if str(spec.get("layout", "district")) == "district" and objective != "boss":
+		for attempt in MAX_TRIES:
+			var drng := RandomNumberGenerator.new()
+			drng.seed = ("%d:%s:%s:%d:district" % [int(spec.get("seed", 0)), biome, objective, attempt]).hash()
+			var dg := _build_district(biome, objective, drng)
+			if dg != null:
+				dg.biome = biome
+				dg.objective = objective
+				last_plot = "district"
+				return dg
+		push_warning("MapGen: no valid district for %s (%s), trying the plots" % [spec, last_reject])
 	for attempt in MAX_TRIES:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = ("%d:%s:%s:%d" % [int(spec.get("seed", 0)), biome, objective, attempt]).hash()
@@ -277,6 +289,14 @@ class _Pool:
 		return bag.pop_back()
 
 
+static func _build_district(biome: String, objective: String, rng: RandomNumberGenerator) -> Grid:
+	var d := DistrictGen.build(biome, objective, rng)
+	if d.is_empty():
+		return null
+	var spine: Array[int] = []
+	return _finish(d.grid, objective, d.deploy, d.pods, d.markers, d.reserved, spine, rng, true)
+
+
 static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: RandomNumberGenerator) -> Grid:
 	# Boss arenas stay exactly as they were (20x20, cover as drawn): the fight is about the boss,
 	# not the approach, and their balance is tuned on that layout.
@@ -385,6 +405,15 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 					reserved[Vector2i(x, y)] = true
 		markers.boss.append(centre)
 
+	return _finish(g, objective, deploy, pods, markers, reserved, spine_rows, rng, false)
+
+
+## Fix-ups, connectivity and validation shared by plot layouts and district layouts. `district`
+## layouts keep sight in check with the places themselves, so the T-wall passes are skipped and the
+## drop-zone cap below only rejects.
+static func _finish(g: Grid, objective: String, deploy: Array[Vector2i], pods: Array, markers: Dictionary,
+		reserved: Dictionary, spine_rows: Array[int], rng: RandomNumberGenerator, district: bool) -> Grid:
+	var open_ground := objective != "boss"
 	# Roofs are laid out by hand and every ladder and stair needs both ends clear: the fix-up passes leave them be.
 	for l in g.ladders.keys() + g.stairs.keys():
 		for d in Grid.DIRS4:
@@ -403,9 +432,10 @@ static func _build(data: Dictionary, plot: Dictionary, objective: String, rng: R
 		last_reject = "plot has no deploy or pods"
 		return null
 	_fix_dead_ground(g, fixed, rng, DEAD_GROUND if open_ground else BOSS_DEAD_GROUND)
-	_fix_sightlines(g, fixed, rng, MAX_SIGHTLINE if open_ground else BOSS_MAX_SIGHTLINE)
-	if open_ground:
-		_cap_drop_sight(g, deploy, fixed, rng)
+	if not district:
+		_fix_sightlines(g, fixed, rng, MAX_SIGHTLINE if open_ground else BOSS_MAX_SIGHTLINE)
+		if open_ground:
+			_cap_drop_sight(g, deploy, fixed, rng)
 
 	# Connectivity: everything that matters must be reachable from the drop zone and able to walk
 	# back to it (drop-downs are one way); seal the rest. `back` keeps only round-trip cells.

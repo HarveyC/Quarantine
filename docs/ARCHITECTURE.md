@@ -394,7 +394,20 @@ button's enabled state comes from `NodeRules.validate`, so the screen and the ru
 
 ## Tactical map generator (mapgen/)
 
-`MapGen.generate(spec) -> Grid` builds a fight's map XCOM 2-style: a **plot** (a whole-map layout
+**Fights are built from places** (`mapgen/district_gen.gd`, `DistrictGen`): a few streets cut the 28x28
+map into blocks (staggered cross streets, a walled landing yard bottom middle), and every block holds
+one recognisable place per biome: row houses and barracks (a wall ring, rooms split by partitions with
+doorways, an outside door that is often shut, windows, a second way in), ruins (the same with breaches
+and rubble), fenced yards with crates and a shed, tent camps, warehouses, container stacks, rock cuts
+with tunnels, and flat roofs you climb (stairs, sometimes a ladder, sometimes a penthouse). Walls only
+exist as part of a place, so no wall stands alone (`test_no_free_standing_wall_pieces`). Enemy pods start
+inside places far from the drop zone and objective cells sit in rooms, yards and squares. `MapGen._finish`
+runs the same fix-ups and validation as the plots, minus the T-wall passes (the places keep sight in
+check; the 35% drop-zone cap only rejects). Boss arenas are still authored. `spec["layout"] = "plots"`
+asks for the older parcel layout described below, which also serves as the fallback if no district
+validates; `MapGen.last_plot` is "district" for the new one.
+
+The stamped-parcel layout works XCOM 2-style: a **plot** (a whole-map layout
 of slots) is filled with hand-made 4x4 **parcels**, each rotated or mirrored, then checked and
 rerolled until it passes. Design rules are in the design doc's "Tactical maps" section.
 
