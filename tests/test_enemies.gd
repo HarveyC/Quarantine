@@ -739,6 +739,14 @@ func test_brood_mother_burrows_and_surfaces_with_a_sac() -> void:
 	s.turn = 5
 	_enemy_turn(s, bm)
 	assert_true(not bm.status.has("burrowed"), "surfaced")
+	var rocks: Array = s.encounter.telegraphs.filter(func(x): return x.kind == "rockfall")
+	assert_eq(rocks.size(), 1, "the eruption throws up rocks")
+	assert_true(rocks[0].cells.size() >= BroodMother.ROCKS[2] - 1, "a spray of tiles")
+	assert_true(rocks[0].cells.has(t.pos), "a soldier's own tile is marked, so they must move")
+	var hp := t.hp
+	s.turn = 6
+	Encounter.on_enemy_phase_start(s)
+	assert_true(t.hp < hp, "a soldier who stays on a marked tile is hit")
 	assert_eq(_sacs(s).size(), BroodMother.SURFACE_SACS[2], "with a fresh sac")
 	assert_eq(str(bm.status.get("tether", "")), "egg_sac", "that shields her")
 	s.turn = 6

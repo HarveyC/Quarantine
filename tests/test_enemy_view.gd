@@ -83,7 +83,7 @@ func test_brood_mother_phase_2_plays_burrow_trail_and_eruption() -> void:
 		u.max_hp = 99
 		u.hp = 99
 	var uv = v.view_for(bm.id)
-	var seen := {"sunk": 0.0, "trail": false, "eruption_tiles": false, "label": false, "moved": 0, "erupted": false}
+	var seen := {"sunk": 0.0, "trail": false, "eruption_tiles": false, "label": false, "moved": 0, "erupted": false, "rocks": false}
 	v.player.beat_finished.connect(func(ev: Dictionary) -> void:
 		if int(ev.get("unit", -1)) != bm.id:
 			return
@@ -91,6 +91,8 @@ func test_brood_mother_phase_2_plays_burrow_trail_and_eruption() -> void:
 			seen.sunk = uv._sink
 		if ev.get("type") == "ability" and ev.get("ability") == "erupt":
 			seen.erupted = true
+		if ev.get("type") == "ability" and ev.get("ability") == "rockfall" and not (ev.get("cells", []) as Array).is_empty():
+			seen.rocks = true
 		if ev.get("type") == "move" and ev.get("tunnel", false):
 			seen.moved += 1)
 	var walked := 0
@@ -117,6 +119,7 @@ func test_brood_mother_phase_2_plays_burrow_trail_and_eruption() -> void:
 	assert_true(seen.trail and seen.eruption_tiles, "the dig trail and the eruption tiles are drawn")
 	assert_true(seen.label, "the eruption is labelled")
 	assert_true(seen.erupted and seen.moved >= 1, "she tunnels under and erupts")
+	assert_true(seen.rocks, "the eruption throws rocks")
 	assert_true(not v.player.generic_log.any(func(x): return str(x).contains("burrow") or str(x).contains("erupt")), "no bare-label fallback beats")
 	assert_true(bm.is_alive() and uv.visible and uv._sink == 0.0, "and she is back above ground afterwards")
 	v.free()
