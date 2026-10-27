@@ -35,9 +35,9 @@ const ABILITIES := {
 		"desc": "Rake an adjacent enemy for 3-5, +1 per Infection tier. A kill heals 1 HP. 1 action."},
 	"runner_leap": {"name": "Leap", "targeting": "cell", "cost": 1, "cooldown": 0,
 		"desc": "Once per fight: jump up to 4 tiles to a free cell, over cover and past overwatch. 1 action."},
-	# Rank 2 signatures (Signatures): one per class, each carries a gear tag.
+	# Rank 3 signatures (Signatures): one per class, each carries a gear tag.
 	"lockdown": {"name": "Lockdown", "targeting": "none", "cost": -1, "cooldown": 4, "sig": true,
-		"desc": "Reload, then until your next turn hold overwatch that never runs out: you shoot every enemy that moves in sight, once each, and pin whoever you hit. Ends turn."},
+		"desc": "Reload, then hold overwatch that never runs out until your next turn: you shoot every enemy that moves in sight, once each, and pin whoever you hit. Ends turn."},
 	"deadeye": {"name": "Deadeye", "targeting": "unit", "cost": 1, "cooldown": 4, "sig": true,
 		"desc": "Shoot a visible enemy: never misses, ignores cover, deals 3 extra damage and Marks it. 1 action."},
 	"quarantine_field": {"name": "Quarantine Field", "targeting": "none", "cost": 1, "cooldown": 5, "sig": true,
@@ -51,7 +51,7 @@ const ABILITIES := {
 	"death_sweep": {"name": "Death Sweep", "targeting": "none", "cost": 1, "cooldown": 4, "sig": true,
 		"desc": "Cut every adjacent enemy for 3 and leave them bleeding. A kill resets Lunge and gives an action back. 1 action."},
 	"provoke": {"name": "Provoke", "targeting": "none", "cost": 1, "cooldown": 5, "sig": true,
-		"desc": "Until your next turn every enemy picks you as its target. You gain 20 defense and take 1 less damage from each hit. 1 action."},
+		"desc": "Every enemy picks you as its target until your next turn. You gain 20 defense and take 1 less damage from each hit. 1 action."},
 }
 
 const INCINERATE_DAMAGE := 3
@@ -100,6 +100,8 @@ static func available(s: GameState, u: Unit) -> Array[Dictionary]:
 		var entry := {"id": id, "name": def.name, "targeting": def.targeting, "cost": def.cost,
 			"cooldown": cd, "desc": def.desc, "targets": targets,
 			"ready": cd <= 0 and u.actions_left >= maxi(1, def.cost) and u.is_alive() and has_targets and _extra_error(s, u, id) == ""}
+		if def.get("sig", false) and u.status.get("sig_new", false) and not u.status.get("k_sig_used", false):
+			entry["new"] = true
 		if id == "runner_leap":
 			entry["range"] = GraftData.LEAP_RANGE
 		out.append(entry)

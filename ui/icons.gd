@@ -12,7 +12,9 @@ const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "b
 	"gear:concussion_launcher": "suppress", "gear:thermite_charge": "incinerate", "gear:med_injector": "purge",
 	"gear:adrenal_pump": "mutation", "gear:deployable_cover": "cover_half", "gear:grapple": "move",
 	"gear:containment_emitter": "cure", "gear:sentry_turret": "overwatch", "item:containment_foam": "lock",
-	"bloom_claw": "bloom_claw", "runner_leap": "runner_leap"}
+	"bloom_claw": "bloom_claw", "runner_leap": "runner_leap",
+	"lockdown": "lockdown", "deadeye": "deadeye", "quarantine_field": "quarantine_field", "bring_down": "bring_down",
+	"flashover": "flashover", "vent": "vent", "death_sweep": "death_sweep", "provoke": "provoke"}
 
 
 static func for_class(kind: String) -> String:
@@ -502,6 +504,54 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 			line.call([[7, 4], [11, 10], [11, 13], [9, 15], [5, 15], [3, 13], [3, 10], [7, 4]])
 			line.call([[11, 15], [16, 20], [20, 20]])
 			line.call([[17, 17], [20, 20], [17, 23]])
+		"lockdown":   # a fire lane: a cone fanning out to a barrier
+			line.call([[12, 20], [4, 7]])
+			line.call([[12, 20], [20, 7]])
+			line.call([[3, 5], [21, 5]])
+			line.call([[12, 17], [12, 9]])
+			dot.call(12, 12, 1.4)
+		"deadeye":   # a crosshair with a hot centre
+			circle.call(12, 12, 7)
+			line.call([[12, 2], [12, 7]])
+			line.call([[12, 17], [12, 22]])
+			line.call([[2, 12], [7, 12]])
+			line.call([[17, 12], [22, 12]])
+			dot.call(12, 12, 1.8)
+		"quarantine_field":   # a sealed ring round a cross
+			circle.call(12, 12, 9)
+			line.call([[12, 8], [12, 16]])
+			line.call([[8, 12], [16, 12]])
+		"bring_down":   # a wall coming apart onto the ground
+			line.call([[3, 21], [21, 21]])
+			line.call([[4, 4], [11, 4], [11, 11], [4, 11], [4, 4]])
+			line.call([[14, 9], [20, 9], [20, 15], [14, 15], [14, 9]])
+			line.call([[8, 14], [8, 18]])
+		"flashover":   # a flame bursting outward
+			line.call([[12, 7], [15, 11], [16, 14], [14, 17], [12, 18], [10, 17], [8, 14], [9, 11], [12, 7]])
+			line.call([[12, 2], [12, 4]])
+			line.call([[4, 8], [6, 9]])
+			line.call([[20, 8], [18, 9]])
+			line.call([[3, 15], [6, 15]])
+			line.call([[21, 15], [18, 15]])
+		"vent":   # a drop letting go of a spore burst
+			circle.call(12, 12, 4)
+			line.call([[12, 3], [12, 6]])
+			line.call([[12, 18], [12, 21]])
+			line.call([[3, 12], [6, 12]])
+			line.call([[18, 12], [21, 12]])
+			line.call([[6, 6], [8, 8]])
+			line.call([[18, 6], [16, 8]])
+			line.call([[6, 18], [8, 16]])
+			line.call([[18, 18], [16, 16]])
+		"death_sweep":   # a blade swinging round in an arc
+			arc.call(12, 13, 8, PI * 1.05, PI * 1.95)
+			line.call([[20, 13], [17, 10]])
+			line.call([[20, 13], [23, 10]])
+			line.call([[12, 13], [12, 21]])
+		"provoke":   # a shield with a call-out mark
+			line.call([[6, 3], [18, 3], [18, 13], [12, 21], [6, 13], [6, 3]])
+			line.call([[12, 7], [12, 12]])
+			dot.call(12, 15, 1.2)
 		"train":
 			line.call([[4, 12], [20, 12]])
 			line.call([[4, 8], [4, 16]])
