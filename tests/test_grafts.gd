@@ -78,7 +78,7 @@ func test_machine_beds_in_and_bloom_costs_infection() -> void:
 	var ribs := _run()
 	var hp: int = _rec(ribs).max_hp
 	Grafts.take(_rec(ribs), "plated_ribs")
-	assert_eq(_rec(ribs).max_hp, hp + GraftData.RIBS_HP, "ribs HP on the record")
+	assert_eq(_rec(ribs).max_hp, hp, "ribs add no flat HP")
 
 
 func test_bloom_floor_survives_serum_and_purges() -> void:
@@ -110,17 +110,13 @@ func test_machine_parts_cut_infection_gain() -> void:
 	assert_eq(_me(one).infection, 9, "-10% per part")
 
 
-func test_machine_stats_and_jam() -> void:
-	var base := _state("trooper", {})
-	var s := _state("trooper", {"head": "targeting_optic", "legs": "hydraulic_legs"})
+func test_machine_effects_and_jam() -> void:
+	var s := _state("trooper", {"head": "targeting_optic"})
 	var u := _me(s)
-	assert_eq(u.aim, _me(base).aim + GraftData.OPTIC_AIM, "+15 aim")
-	assert_eq(u.mobility, _me(base).mobility + 1, "+1 move")
 	var shrieker := s.add_unit(UnitData.make("shrieker", Types.Team.ENEMY), Vector2i(3, 0))
 	s.phase = Types.Phase.ENEMY
 	Grafts.jam(s, shrieker, 6.0)
-	assert_eq(u.aim, _me(base).aim, "jammed optic")
-	assert_eq(u.mobility, _me(base).mobility, "jammed legs")
+	assert_true(not Grafts.active(s, u, "targeting_optic"), "jammed optic")
 	assert_true(s.log.any(func(e): return e.type == "jammed"), "jam event")
 	var p := Progression.new_record("trooper")
 	p.grafts = {"head": "targeting_optic"}
@@ -199,15 +195,46 @@ func test_lattice_sight_senses_through_walls() -> void:
 	assert_eq(Vision.sense_radius(_me(s)), GraftData.LATTICE_RADIUS, "sense radius")
 
 
-func test_targeting_optic_tags_last_longer() -> void:
+func test_targeting_optic_marks_a_second_enemy() -> void:
 	var s := _state("marksman", {"head": "targeting_optic"})
-	var plain := _state("marksman", {})
-	for st in [s, plain]:
-		var foe: Unit = st.add_unit(UnitData.make("runner", Types.Team.ENEMY), Vector2i(4, 0))
-		Rules.apply(st, {"type": Types.ABILITY, "unit": _me(st).id, "ability": "tag", "target": foe.id})
-	var a: int = s.units[-1].status.get("tagged", 0)
-	var b: int = plain.units[-1].status.get("tagged", 0)
-	assert_eq(a, b + 2, "one turn longer")
+	var u := _me(s)
+	var a: Unit = s.add_unit(UnitData.make("runner", Types.Team.ENEMY), Vector2i(4, 0))
+	var b: Unit = s.add_unit(UnitData.make("runner", Types.Team.ENEMY), Vector2i(5, 1))
+	Grafts.after_shot(s, u, a)
+	assert_true(Combat.has_status(s, b, "tagged"), "the neighbour is painted")
+	assert_true(not Combat.has_status(s, a, "tagged"), "the target itself is left to the shot")
+
+
+func test_plated_ribs_cap_a_hit_and_vent_the_rest() -> void:
+	var s := _state("trooper", {"chest": "plated_ribs"})
+	var u := _me(s)
+	var foe: Unit = s.add_unit(UnitData.make("runner", Types.Team.ENEMY), Vector2i(1, 0))
+	foe.max_hp = 20
+	foe.hp = 20
+	var hp := u.hp
+	Rules.deal_damage(s, u, 7, foe)
+	assert_eq(u.hp, hp - GraftData.RIBS_CAP, "one hit takes at most 3")
+	assert_eq(foe.hp, 20 - 4, "the excess vents at the attacker")
+
+
+func test_hydraulic_legs_drop_on_an_enemy() -> void:
+	var s := _state("trooper", {"legs": "hydraulic_legs"})
+	var u := _me(s)
+	s.grid.set_level(Vector2i(0, 0), 1)
+	var foe: Unit = s.add_unit(UnitData.make("runner", Types.Team.ENEMY), Vector2i(2, 0))
+	foe.max_hp = 20
+	foe.hp = 20
+	u.pos = Vector2i(1, 0)
+	Grafts.after_move(s, u, Vector2i(0, 0))
+	assert_eq(foe.hp, 20 - GraftData.DROP_DAMAGE, "4 damage")
+	assert_true(foe.status.get("k_skip_turn", false), "and a stun")
+
+
+func test_servo_arm_first_gadget_is_free() -> void:
+	var s := _state("trooper", {"arm": "servo_arm"})
+	var u := _me(s)
+	assert_true(Grafts.gadget_free(s, u), "first one is free")
+	assert_true(not Grafts.gadget_free(s, u), "then it costs")
 
 
 func test_hydraulic_legs_climb_ladders_for_one() -> void:

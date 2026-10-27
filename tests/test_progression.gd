@@ -292,8 +292,14 @@ func test_second_heart_and_chitin() -> void:
 	assert_eq(tr.mobility, mob + 1 - 1, "Mutating tier +1, Chitin -1")
 	assert_true(not Rules.apply(s, {"type": Types.HUNKER, "unit": tr.id}), "can't hunker")
 	var hp := tr.hp
-	Rules.deal_damage(s, tr, 3, null)
-	assert_eq(tr.hp, hp - 1, "armour 2")
+	var foe := _enemy(s, "runner", Vector2i(1, 1))
+	foe.max_hp = 20
+	foe.hp = 20
+	Rules.deal_damage(s, tr, 5, foe)
+	assert_eq(tr.hp, hp - 1, "the first hit is cut to 1")
+	assert_eq(foe.hp, 16, "and the 4 it stopped come back")
+	Rules.deal_damage(s, tr, 3, foe)
+	assert_eq(tr.hp, hp - 4, "the second hit lands in full")
 	Infection.add(s, tr, -20)
 	assert_eq(tr.mobility, mob, "dormant below Mutating")
 	_give(tr, [], {"mutating": "second_heart"})
@@ -302,6 +308,33 @@ func test_second_heart_and_chitin() -> void:
 	Rules.deal_damage(s, tr, 50, null)
 	assert_eq(tr.hp, 1, "stays up")
 	assert_eq(tr.infection, inf + 15, "+15 Infection")
+
+
+func test_hollow_bones_hide_after_a_long_run_until_you_shoot() -> void:
+	var s := _state(["trooper"])
+	var tr := _soldier(s, 0)
+	_give(tr, [], {"exposed": "hollow_bones"})
+	Infection.add(s, tr, 30)
+	Kit.on_move(s, tr, 3)
+	assert_true(not tr.status.get("hidden", false), "a short move shows you")
+	Kit.on_move(s, tr, 5)
+	assert_true(tr.status.get("hidden", false), "5 tiles leaves you unseen")
+	var foe := _enemy(s, "runner", Vector2i(3, 1))
+	Kit.after_shot(s, tr, foe, {}, false)
+	assert_true(not tr.status.get("hidden", false), "shooting gives you away")
+
+
+func test_clotting_blood_heals_only_when_badly_hurt() -> void:
+	var s := _state(["trooper"])
+	var tr := _soldier(s, 0)
+	_give(tr, [], {"exposed": "clotting_blood"})
+	Infection.add(s, tr, 30)
+	tr.hp = tr.max_hp
+	Kit.on_team_phase_start(s)
+	assert_eq(tr.hp, tr.max_hp, "nothing when healthy")
+	tr.hp = 2
+	Kit.on_team_phase_start(s)
+	assert_eq(tr.hp, 2 + Kit.CLOT_HEAL, "3 under half")
 
 
 func test_acid_spit_and_rally_musk() -> void:
@@ -322,14 +355,9 @@ func test_acid_spit_and_rally_musk() -> void:
 	var md := _soldier(s, 2)
 	_give(md, [], {"mutating": "rally_musk"})
 	Infection.add(s, md, 50)
-	var aim := mk.aim
-	var mob := mk.mobility
+	var acts := mk.actions_left
 	assert_true(Rules.apply(s, {"type": Types.MUTATION, "unit": md.id, "mutation": "rally_musk"}), "rally")
-	assert_eq(mk.aim, aim + 10, "+10 aim")
-	assert_eq(mk.mobility, mob + 1, "+1 move")
-	s.players.assign([0])
-	Rules.set_ready(s, 0, true)
-	assert_eq(mk.aim, aim, "wears off next turn")
+	assert_eq(mk.actions_left, acts + 1, "a free action")
 
 
 func test_sealed_suit_halves_and_setup_is_unmodified() -> void:

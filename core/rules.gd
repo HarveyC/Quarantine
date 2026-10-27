@@ -285,8 +285,10 @@ static func _do_move(s: GameState, u: Unit, to: Vector2i, careful := false) -> v
 ## A Warden's Guard bash can stop the move short (ClassAbilities.resolve_guards).
 static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 	var path := s.grid.find_path(u.pos, to, s.occupied(u.id), false, Grafts.climbs(u))
+	var origin := u.pos
 	u.hunkered = false
 	GearFx.on_move(s, u, path.size())
+	Kit.on_move(s, u, path.size())
 	var segment: Array[Vector2i] = []
 	var walked: Array[Vector2i] = []
 	var from := u.pos
@@ -337,6 +339,7 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 			return
 	if not segment.is_empty():
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": segment})
+	Grafts.after_move(s, u, origin)
 	Hazards.on_move(s, u, path)
 
 

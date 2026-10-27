@@ -197,17 +197,17 @@ func test_fresh_mag_perk_marks_and_guarantees_the_next_shot() -> void:
 	assert_eq(int(Combat.hit_chance(s, u, foe).hit), 100, "and the next shot can't miss")
 
 
-func test_bone_magazine_wakes_with_infection_and_costs_it_per_reload() -> void:
+func test_bone_magazine_shoots_empty_for_infection() -> void:
 	var s := _state()
 	var u := _soldier(s)
 	u.status["mutations"] = {"exposed": "bone_magazine"}
 	Infection.add(s, u, 30)
 	Ammo.setup(u)
-	assert_eq(Ammo.mag_size(u), Weapons.TABLE.rifle.mag + Ammo.BONE_MAG, "awake bonus")
-	u.status["ammo"] = 1
+	u.status["ammo"] = 0
+	assert_true(Ammo.can_fire(u), "an empty magazine still fires")
 	var inf := u.infection
-	assert_true(_reload(s, u), "reload")
-	assert_eq(u.infection, inf + Ammo.BONE_MAG_INFECTION, "the reload costs Infection")
+	Ammo.bone_shot(s, u)
+	assert_eq(u.infection, inf + Ammo.BONE_SHOT_INFECTION, "the shot costs Infection")
 
 
 func test_lockdown_reloads_the_gun() -> void:

@@ -117,9 +117,7 @@ static func take(record: Dictionary, id: String) -> void:
 
 ## Plated ribs' +2 max HP lands on the run record straight away (like gear HP).
 static func _on_gain(record: Dictionary, id: String) -> void:
-	if id == "plated_ribs" and record.has("max_hp"):
-		record.max_hp = int(record.max_hp) + GraftData.RIBS_HP
-		record.hp = int(record.hp) + GraftData.RIBS_HP
+	pass
 
 
 ## The Bloom slot Amputate and refit would cut ("" if none): the first in slot order.
@@ -213,8 +211,6 @@ static func apply_to_unit(u: Unit, prog: Dictionary) -> void:
 	u.status["grafts"] = g.duplicate()
 	if prog.get("bedding", false):
 		u.status["graft_bedding"] = true
-	if has(u, "plated_ribs"):
-		u.max_hp += GraftData.RIBS_HP
 	for id in ["bloom_limb", "runner_legs"]:
 		var ability: String = {"bloom_limb": "bloom_claw", "runner_legs": "runner_leap"}[id]
 		if has(u, id) and not u.abilities.has(ability):
@@ -238,10 +234,6 @@ static func stat_mods(s: GameState, u: Unit, want: Dictionary) -> void:
 		want.mobility += GraftData.HEART_SLOW
 	if of_unit(u).is_empty():
 		return
-	if active(s, u, "targeting_optic"):
-		want.aim += GraftData.OPTIC_AIM
-	if active(s, u, "hydraulic_legs"):
-		want.mobility += GraftData.HYDRAULIC_MOBILITY
 	if u.status.get("graft_bedding", false):
 		want.mobility += GraftData.BEDDING_MOBILITY
 	if active(s, u, "servo_arm"):
@@ -249,11 +241,6 @@ static func stat_mods(s: GameState, u: Unit, want: Dictionary) -> void:
 		var gun := int(Weapons.stats(Weapons.id_of(u)).get("mobility", 0))
 		if gun < 0:
 			want.mobility -= gun
-
-
-## Rounds Machine parts add to the magazine (Servo arm).
-static func mag_bonus(u: Unit) -> int:
-	return Ammo.SERVO_MAG if has(u, "servo_arm") else 0
 
 
 ## Infection change after Machine parts (-10% of a gain per part, up to -30%).
@@ -269,7 +256,75 @@ static func infection_gain(s: GameState, u: Unit, amount: int) -> int:
 	return maxi(1, roundi(amount * (10 - cut) / 10.0))
 
 
-## Plated ribs: Infection from spores and Spitters is halved.
+## Plated ribs: one hit takes at most RIBS_CAP HP; the rest vents at the attacker.
+static func cap_hit(s: GameState, target: Unit, amount: int, source: Unit) -> int:
+	if amount <= GraftData.RIBS_CAP or not active(s, target, "plated_ribs"):
+		return amount
+	var excess := amount - GraftData.RIBS_CAP
+	s.emit({"type": "perk", "unit": target.id, "perk": "plated_ribs", "target": source.id if source != null else -1})
+	if source != null and source.is_alive() and source != target and not source.status.get("g_vent", false):
+		source.status["g_vent"] = true
+		Rules.deal_damage(s, source, excess, target)
+		source.status.erase("g_vent")
+	return GraftData.RIBS_CAP
+
+
+## Targeting optic: a shot also paints a second enemy near its target.
+static func after_shot(s: GameState, u: Unit, t: Unit) -> void:
+	if not active(s, u, "targeting_optic") or not t.is_alive():
+		return
+	var best: Unit = null
+	for o in s.living():
+		if o != t and u.is_enemy_of(o) and Kit.cheb(o.pos, t.pos) <= GraftData.OPTIC_SPREAD and Combat.can_see(s, u.pos, o.pos):
+			if best == null or Kit.cheb(o.pos, t.pos) < Kit.cheb(best.pos, t.pos):
+				best = o
+	if best != null:
+		GearFx._mark(s, best, 2, u)
+		s.emit({"type": "perk", "unit": u.id, "perk": "targeting_optic", "target": best.id})
+
+
+## Servo arm: a melee hit shoves the target a tile back.
+static func after_strike(s: GameState, u: Unit, t: Unit) -> void:
+	if not active(s, u, "servo_arm") or not t.is_alive():
+		return
+	var dir := Vector2i(signi(t.pos.x - u.pos.x), signi(t.pos.y - u.pos.y))
+	if dir == Vector2i.ZERO:
+		return
+	var n := t.pos + dir
+	if s.grid.is_walkable(n) and s.unit_at(n) == null:
+		EnemyAbilities.knockback(s, t, dir, 1)
+		s.emit({"type": "perk", "unit": u.id, "perk": "servo_arm", "target": t.id})
+
+
+## Servo arm: the first gadget or pocket item each turn costs no action.
+static func gadget_free(s: GameState, u: Unit) -> bool:
+	if not active(s, u, "servo_arm") or u.status.get("g_servo_turn", -1) == s.turn:
+		return false
+	u.status["g_servo_turn"] = s.turn
+	return true
+
+
+## Hydraulic legs: a move that ends lower than it began drops onto an adjacent enemy.
+static func after_move(s: GameState, u: Unit, origin: Vector2i) -> void:
+	if not active(s, u, "hydraulic_legs") or not u.is_alive():
+		return
+	if s.grid.level(origin) - s.grid.level(u.pos) < 1:
+		return
+	var best: Unit = null
+	for o in s.living():
+		if u.is_enemy_of(o) and Kit.cheb(o.pos, u.pos) == 1:
+			best = o
+			break
+	if best == null:
+		return
+	s.emit({"type": "perk", "unit": u.id, "perk": "hydraulic_legs", "target": best.id})
+	Rules.deal_damage(s, best, GraftData.DROP_DAMAGE, u)
+	if best.is_alive():
+		best.status["k_skip_turn"] = true
+		best.actions_left = 0
+
+
+## Hydraulic legs: ladders cost a normal step. and Spitters is halved.
 static func filtered(s: GameState, u: Unit, amount: int) -> int:
 	if amount <= 0 or not active(s, u, "plated_ribs"):
 		return amount
@@ -278,15 +333,6 @@ static func filtered(s: GameState, u: Unit, amount: int) -> int:
 
 static func is_spitter(source: Unit) -> bool:
 	return source != null and source.kind == "spitter"
-
-
-## Targeting optic: Tags this soldier places last one turn (two phases) longer.
-static func tag_bonus(s: GameState, u: Unit) -> int:
-	return 2 if active(s, u, "targeting_optic") else 0
-
-
-static func melee_bonus(s: GameState, u: Unit) -> int:
-	return GraftData.SERVO_MELEE if active(s, u, "servo_arm") else 0
 
 
 static func throw_bonus(u: Unit) -> float:

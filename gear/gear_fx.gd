@@ -911,7 +911,10 @@ static func validate_ability(s: GameState, u: Unit, action: Dictionary) -> Strin
 static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 	var id: String = action.ability
 	var d := _def(u, id)
-	u.actions_left = 0 if d.cost < 0 else maxi(0, u.actions_left - int(d.cost))
+	if d.cost >= 0 and Grafts.gadget_free(s, u):
+		s.emit({"type": "perk", "unit": u.id, "perk": "servo_arm"})
+	else:
+		u.actions_left = 0 if d.cost < 0 else maxi(0, u.actions_left - int(d.cost))
 	if d.cooldown > 0:
 		u.cooldowns[id] = d.cooldown
 	var uses: Dictionary = u.status.get("gear_uses", {})

@@ -31,39 +31,38 @@ const AMPUTATE_PRICE := 30
 const AMPUTATE_HP := 3
 
 ## Numbers for the effects below (first guesses for the balance sim).
-const OPTIC_AIM := 15
+const OPTIC_SPREAD := 3
 const LATTICE_RADIUS := 6
-const SERVO_MELEE := 1
 const SERVO_THROW := 2.0
-const RIBS_HP := 2
+const RIBS_CAP := 3
+const DROP_DAMAGE := 4
 const HEART_REGEN := 1
 const HEART_SLOW := -2
-const HYDRAULIC_MOBILITY := 1
 const CLAW_DAMAGE := Vector2i(3, 5)
 const CLAW_KILL_HEAL := 1
 const LEAP_RANGE := 4
 
 const GRAFTS := {
 	"targeting_optic": {"name": "Targeting optic", "slot": "head", "path": MACHINE, "tag": "Mark",
-		"desc": "+15 aim, and your Marks last one turn longer.",
+		"desc": "Each hit also Marks a second enemy within 3 tiles of the target.",
 		"look": "A large targeting lens with a range-finder in place of one mask optic"},
 	"lattice_sight": {"name": "Lattice sight", "slot": "head", "path": BLOOM, "tag": "Overwatch",
 		"desc": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers come through as +1 Intel after each fight.",
 		"look": "The mask cracked open, teal crystals growing through the visor"},
 	"servo_arm": {"name": "Servo arm", "slot": "arm", "path": MACHINE, "tag": "Suppress",
-		"desc": "+1 melee damage, +2 throw range, +2 rounds in your magazine, and heavy guns no longer slow you.",
+		"desc": "The first gadget or pocket item each turn costs no action, and melee hits shove the target back a tile. Heavy guns no longer slow you.",
 		"look": "A bare servo forearm and hand, pistons showing"},
 	"bloom_limb": {"name": "Bloom limb", "slot": "arm", "path": BLOOM, "tag": "Close",
 		"desc": "Bloom Claw: strike an adjacent enemy for 3-5, +1 per Infection tier. A kill heals 1 HP.",
 		"look": "A swollen fungal limb with a long claw and glowing veins"},
 	"plated_ribs": {"name": "Plated ribs", "slot": "chest", "path": MACHINE, "tag": "Guard",
-		"desc": "+2 max HP, and Infection from spores and Spitters is halved.",
+		"desc": "A single hit can take at most 3 HP; the excess vents at the attacker. Infection from spores and Spitters is halved.",
 		"look": "An armoured ribcage plate with a second regulator and hoses"},
 	"heart_knot": {"name": "Heart knot", "slot": "chest", "path": BLOOM, "tag": "Strain",
 		"desc": "Regenerate 1 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for a turn.",
 		"look": "A pulsing knot bursting through the plate carrier"},
 	"hydraulic_legs": {"name": "Hydraulic legs", "slot": "legs", "path": MACHINE, "tag": "Guard",
-		"desc": "+1 move, and ladders cost a normal step.",
+		"desc": "Ending a move lower than it began drops you on an adjacent enemy for 4 damage and a stun. Ladders cost a normal step.",
 		"look": "Hydraulic braces from hip to boot"},
 	"runner_legs": {"name": "Runner legs", "slot": "legs", "path": BLOOM, "tag": "Close",
 		"desc": "Leap: once per fight, jump up to 4 tiles, over cover and past overwatch. 1 action.",

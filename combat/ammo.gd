@@ -19,9 +19,7 @@ const SCAVENGER := [1, 2]          # rounds a kill gives back, Scavenger rounds 
 const FRESH_AIM := 10              # Speed loader Mk II: aim on the shot after a reload
 const BANDOLIER := 2
 const BELT_FED := 4
-const BONE_MAG := 2
-const BONE_MAG_INFECTION := 3
-const SERVO_MAG := 2
+const BONE_SHOT_INFECTION := 5
 
 
 ## True when `u` has a magazine to run dry.
@@ -35,7 +33,7 @@ static func rounds(u: Unit) -> int:
 
 
 static func can_fire(u: Unit) -> bool:
-	return not tracked(u) or int(u.status["ammo"]) > 0
+	return not tracked(u) or int(u.status["ammo"]) > 0 or Kit.awake(u, "bone_magazine")
 
 
 ## Full magazine size right now: the gun's own plus everything that adds rounds.
@@ -43,7 +41,6 @@ static func mag_size(u: Unit) -> int:
 	var n := Weapons.mag_of(u)
 	n += GearFx.mag_bonus(u)
 	n += Kit.mag_bonus(u)
-	n += Grafts.mag_bonus(u)
 	return maxi(1, n)
 
 
@@ -59,6 +56,13 @@ static func setup(u: Unit) -> void:
 static func refill(u: Unit) -> void:
 	if tracked(u):
 		u.status["ammo"] = mag_size(u)
+
+
+## Bone Magazine: a shot from an empty magazine is paid for in Infection.
+static func bone_shot(s: GameState, u: Unit) -> void:
+	if tracked(u) and int(u.status["ammo"]) <= 0 and Kit.awake(u, "bone_magazine"):
+		Infection.add(s, u, BONE_SHOT_INFECTION)
+		s.emit({"type": "perk", "unit": u.id, "perk": "bone_magazine"})
 
 
 ## Spends `n` rounds (never below 0). Returns the rounds actually spent.
@@ -84,11 +88,11 @@ static func suppress_rounds(u: Unit) -> int:
 	return 0 if Kit.has_perk(u, "belt_fed") else SUPPRESS_ROUNDS
 
 
-## A kill with the gun: Scavenger rounds and Bone Magazine hand rounds back.
+## A kill with the gun: Scavenger rounds hand rounds back.
 static func on_kill(s: GameState, u: Unit) -> void:
 	if not tracked(u):
 		return
-	var back := GearFx.kill_rounds(u) + Kit.kill_rounds(u)
+	var back := GearFx.kill_rounds(u)
 	if back > 0:
 		var got := give(u, back)
 		if got > 0:
