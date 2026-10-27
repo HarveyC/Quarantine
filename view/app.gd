@@ -11,6 +11,7 @@ extends Node
 
 const MISSION := preload("res://scenes/main.tscn")
 const MainMenu := preload("res://ui/main_menu.gd")
+const NetNotice := preload("res://ui/net_notice.gd")
 const Coach := preload("res://ui/tutorial/coach.gd")
 const TutorialOverlay := preload("res://ui/tutorial/tutorial_overlay.gd")
 ## Longest a finished fight waits on its debrief before moving on anyway.
@@ -31,6 +32,7 @@ var _fade_tween: Tween
 var _autostart_run := false
 var _autostart := 0
 var _autostart_armed := false
+var _notices: CanvasLayer
 var _menu_layer: CanvasLayer
 ## First-time tips and the "play training first?" card, above everything but the fade.
 var coach: Coach
@@ -47,6 +49,11 @@ func _ready() -> void:
 	net.disconnected.connect(_on_disconnected)
 	net.run_changed.connect(func(_r: RunState) -> void: _update_screens())
 	net.rejected.connect(func(reason: String) -> void: if view: view.hud.toast(reason))
+	_notices = NetNotice.new()
+	add_child(_notices)
+	net.notice.connect(func(text: String) -> void:
+		print("[notice] ", text)
+		_notices.notice(text))
 	_run_layer = CanvasLayer.new()
 	_run_layer.layer = 5
 	add_child(_run_layer)
@@ -89,8 +96,8 @@ func _ready() -> void:
 		if not net.invite_friends():
 			menu.show_status("The Steam overlay isn't available. Friends can still pick Join game on you in their friends list."))
 	net.reconnecting.connect(func(attempt: int, of: int) -> void:
-		if view: view.hud.toast("Connection lost, reconnecting (%d/%d)..." % [attempt, of]))
-	net.reconnected.connect(func() -> void: if view: view.hud.toast("Reconnected"))
+		_notices.notice("Connection lost. Reconnecting, try %d of %d" % [attempt, of]))
+	net.reconnected.connect(func() -> void: _notices.notice("Reconnected"))
 	var plat := _platform()
 	if plat != null:
 		plat.lobby_join_requested.connect(_join_steam)

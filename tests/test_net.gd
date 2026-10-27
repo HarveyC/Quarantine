@@ -105,3 +105,18 @@ func test_changing_squad_or_reconnecting_clears_ready() -> void:
 	n.handle_hello(5, "Ana", "a")
 	assert_true(not n.is_ready(1), "a reconnect starts not ready")
 	n.free()
+
+
+func test_everyone_is_told_when_a_player_drops_and_rejoins() -> void:
+	var n := _host()
+	var said: Array = []
+	n.notice.connect(func(t: String) -> void: said.append(t))
+	n.handle_hello(2, "Ana", "a")
+	assert_eq(said.back(), "Ana joined the lobby", "lobby join")
+	n.in_match = true
+	n.state = MatchConfig.build(MatchConfig.make(2, 7))
+	n._on_peer_disconnected(2)
+	assert_true(said.back().begins_with("Ana disconnected"), "drop is announced")
+	n.handle_hello(9, "Ana", "a")
+	assert_eq(said.back(), "Ana rejoined", "rejoin is announced")
+	n.free()

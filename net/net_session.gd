@@ -27,6 +27,8 @@ signal reconnecting(attempt: int, of: int)
 signal reconnected
 ## A ping, map stroke or clear (see coop/marks.gd) from anyone, this player included.
 signal marked(m: Dictionary)
+## Something worth telling the player about the game: someone dropped, rejoined or left.
+signal notice(text: String)
 
 const DEFAULT_PORT := 24680
 const MAX_PLAYERS := 4
@@ -700,6 +702,7 @@ func handle_hello(id: int, name: String, cid: String) -> int:
 		_send_kick(id, "That game is full" if not in_match else "That match is full or already running")
 		return -1
 	lobby[id] = {"name": name, "player": slot, "cid": cid}
+	_announce("%s rejoined" % name if in_match or not squad.is_empty() else "%s joined the lobby" % name)
 	if not squad.is_empty():
 		lobby[id]["squad"] = squad
 	absent.erase(slot)
@@ -719,6 +722,18 @@ func _on_peer_connected(id: int) -> void:
 # Network sends, skipped when the session isn't live (unit tests drive the host logic directly).
 func _live() -> bool:
 	return is_inside_tree() and multiplayer.multiplayer_peer != null
+
+
+## Host: tell everyone (this machine included) something happened.
+func _announce(text: String) -> void:
+	if _live():
+		_notice.rpc(text)
+	notice.emit(text)
+
+
+@rpc("authority", "reliable")
+func _notice(text: String) -> void:
+	notice.emit(text)
 
 
 func _broadcast_lobby() -> void:
@@ -762,9 +777,13 @@ func _on_peer_disconnected(id: int) -> void:
 	if not lobby.has(id):
 		return
 	var p: int = lobby[id].player
+	var who: String = lobby[id].name
 	lobby.erase(id)
 	if in_match:
 		absent[p] = true
+		_announce("%s disconnected. Their soldiers hold position until they rejoin." % who)
+	else:
+		_announce("%s left the lobby" % who)
 	_broadcast_lobby()
 	if in_match and run != null and p != run.host_player and run.players.has(p):
 		_commit_host({"type": RUN, "action": {"type": RunRules.BENCH, "player": run.host_player, "target": p, "on": true}})
