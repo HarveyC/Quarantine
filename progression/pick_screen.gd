@@ -39,14 +39,10 @@ func setup(p_run: RunState, p_session) -> void:
 	session = p_session
 	theme = Styles.make_theme()
 	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(scroll)
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_theme_constant_override("separation", 16)
-	scroll.add_child(_list)
+	add_child(_list)
 	if run.has_signal("event"):
 		run.event.connect(func(_ev): rebuild())
 	rebuild()
@@ -110,6 +106,10 @@ func rebuild() -> void:
 	_list.add_child(cap)
 	if is_inside_tree():
 		Feel.deal(cards.get_children(), 0.06)
+		# A different soldier or a reveal card changes the height; the zoom starts over.
+		var fit := W.FitBox.above(self)
+		if fit != null:
+			fit.refit()
 
 
 # ------------------------------------------------------------------ soldier strip

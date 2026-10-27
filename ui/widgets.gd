@@ -513,9 +513,15 @@ class FitBox extends Container:
 	var _fitting := false
 	var _scale := 1.0
 	var _for_size := Vector2.ZERO
+	var _refit_queued := false
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _ready() -> void:
+		# Unseen until the first fit has settled, so the opening frames don't show the zoom-out.
+		modulate.a = 0.0
+		refit()
 
 	func _get_minimum_size() -> Vector2:
 		return Vector2.ZERO
@@ -536,6 +542,30 @@ class FitBox extends Container:
 	func refit() -> void:
 		_for_size = Vector2.ZERO
 		queue_sort()
+		# Content that has just been built often measures too big for its first pass, and the
+		# scale would stay down; start over once more when the frame's layout has settled.
+		if not _refit_queued:
+			_refit_queued = true
+			_refit_again.call_deferred()
+
+	func _refit_again() -> void:
+		for i in 2:
+			if not is_inside_tree():
+				break
+			await get_tree().process_frame
+		_refit_queued = false
+		_for_size = Vector2.ZERO
+		queue_sort()
+		modulate.a = 1.0
+
+	## The FitBox above a node, for content that changes inside one (null when there is none).
+	static func above(node: Node) -> FitBox:
+		var p := node.get_parent()
+		while p != null:
+			if p is FitBox:
+				return p
+			p = p.get_parent()
+		return null
 
 	## Wrapped and flowing content needs less height when it gets more width, so the scale only
 	## ever steps down for a given box size: it settles instead of flickering between two fits.

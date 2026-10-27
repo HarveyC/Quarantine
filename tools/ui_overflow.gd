@@ -20,6 +20,13 @@ static func scan(root: Node) -> PackedStringArray:
 	var out := PackedStringArray()
 	var view := Rect2(Vector2.ZERO, root.get_viewport().get_visible_rect().size) if root is Viewport \
 			else root.get_viewport().get_visible_rect()
+	for sc in root.find_children("*", "ScrollContainer", true, false):
+		var box := sc as ScrollContainer
+		if not box.is_visible_in_tree() or _skipped(box, "scroll_ok") or box.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED:
+			continue
+		var over := box.get_v_scroll_bar().max_value - box.get_v_scroll_bar().page
+		if over > SLACK:
+			out.append("%s: menus must not scroll, content is %d px taller than its box" % [_short_path(box), over])
 	for c in root.find_children("*", "Control", true, false):
 		var ctl := c as Control
 		if not ctl.is_visible_in_tree() or _skipped(ctl) or (_text(ctl) == "" and not ctl is BaseButton):

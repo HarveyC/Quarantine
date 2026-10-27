@@ -7,6 +7,7 @@ extends Control
 signal closed
 
 const Styles := preload("res://ui/styles.gd")
+const Widgets := preload("res://ui/widgets.gd")
 const TABS := [["graphics", "Graphics"], ["audio", "Audio"], ["gameplay", "Gameplay"],
 	["accessibility", "Accessibility"], ["controls", "Controls"]]
 const VOLUME_LABELS := {"Master": "Master", "Music": "Music", "Ambience": "Ambience", "SFX": "Effects", "UI": "Interface"}
@@ -15,9 +16,10 @@ const MODIFIER_KEYS := [KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META]
 var tab := "graphics"
 var _tab_buttons := {}
 var _content: VBoxContainer
-var _scroll: ScrollContainer
 var _capture: Array = []        # [action, slot, Button] while waiting for a key
 var _tick_at := 0
+var _fit: Widgets.FitBox
+const CONTROL_BLOCKS := 3
 
 
 ## The game theme plus a visible amber focus frame, so gamepad focus is always clear.
@@ -51,10 +53,14 @@ func _build() -> void:
 	shade.color = Color(0, 0, 0, 0.6)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(shade)
+	# Menus never scroll: a tab with more rows than room zooms out to fit instead.
+	var fit := Widgets.FitBox.new()
+	_fit = fit
+	fit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(fit)
 	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(center)
+	fit.add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(780, 0)
 	panel.add_theme_stylebox_override("panel", Styles.panel_box(Styles.BG_RAISED, Styles.AMBER.darkened(0.45)))
@@ -80,15 +86,11 @@ func _build() -> void:
 		b.pressed.connect(func() -> void: show_tab(id))
 		tabs.add_child(b)
 		_tab_buttons[id] = b
-	_scroll = ScrollContainer.new()
-	_scroll.custom_minimum_size = Vector2(0, 430)
-	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.follow_focus = true
-	box.add_child(_scroll)
 	_content = Styles.vbox(8)
+	_content.custom_minimum_size = Vector2(0, 430)
 	_content.mouse_filter = Control.MOUSE_FILTER_PASS
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scroll.add_child(_content)
+	box.add_child(_content)
 	var foot := Styles.hbox(8)
 	foot.mouse_filter = Control.MOUSE_FILTER_PASS
 	box.add_child(foot)
@@ -121,6 +123,8 @@ func show_tab(id: String) -> void:
 		"gameplay": _gameplay()
 		"accessibility": _accessibility()
 		"controls": _controls()
+	if _fit != null:
+		_fit.refit()
 	if _tab_buttons.has(id) and is_inside_tree():
 		_tab_buttons[id].grab_focus.call_deferred()
 
@@ -210,26 +214,37 @@ func _accessibility() -> void:
 func _controls() -> void:
 	_section("Keyboard (click a key, then press the new one · Delete clears · Esc keeps)")
 	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 10)
+	grid.columns = 3 * CONTROL_BLOCKS
+	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 4)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_child(grid)
-	for h in ["Action", "Key", "Alternate", "Gamepad"]:
-		grid.add_child(Styles.caps(h, 13, Styles.MUTED))
-	for a in GameSettings.ACTIONS:
-		var name_l := Styles.label(a[1], 15, Styles.TEXT)
-		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.add_child(name_l)
-		for slot in 2:
-			var b := Button.new()
-			b.custom_minimum_size = Vector2(130, 32)
-			_set_key_text(b, a[0], slot)
-			var action: String = a[0]
-			var s: int = slot
-			b.pressed.connect(func() -> void: _start_capture(action, s, b))
-			grid.add_child(b)
-		grid.add_child(Styles.label(GameSettings.pad_label(a[0]), 14, Styles.DIM))
+	for g in CONTROL_BLOCKS:
+		for h in ["Action", "Key", "Alternate"]:
+			grid.add_child(Styles.caps(h, 13, Styles.MUTED))
+	# The actions run down side-by-side blocks, so the whole list fits without scrolling.
+	var rows := ceili(GameSettings.ACTIONS.size() / float(CONTROL_BLOCKS))
+	for i in rows:
+		for g in CONTROL_BLOCKS:
+			var at := g * rows + i
+			if at >= GameSettings.ACTIONS.size():
+				for n in 3:
+					grid.add_child(Control.new())
+				continue
+			var a: Array = GameSettings.ACTIONS[at]
+			var name_l := Styles.label(a[1], 15, Styles.TEXT)
+			name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			name_l.tooltip_text = "Gamepad: " + GameSettings.pad_label(a[0])
+			name_l.mouse_filter = Control.MOUSE_FILTER_PASS
+			grid.add_child(name_l)
+			for slot in 2:
+				var b := Button.new()
+				b.custom_minimum_size = Vector2(104, 30)
+				_set_key_text(b, a[0], slot)
+				var action: String = a[0]
+				var sl: int = slot
+				b.pressed.connect(func() -> void: _start_capture(action, sl, b))
+				grid.add_child(b)
 	_section("Gamepad")
 	for line in ["Left stick moves the pointer · D-pad steps it one cell · A clicks / moves / fires · B cancels",
 			"X shoots · Y quick action menu · LB/RB cycle soldiers or targets · Start = Ready",
@@ -237,6 +252,7 @@ func _controls() -> void:
 			"L3 pings what the pointer is on (hold for the ping wheel) · hold R3 and move the pointer to draw"]:
 		var l := Styles.label(line, 14, Styles.DIM)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD
+		l.custom_minimum_size.x = 700
 		_content.add_child(l)
 
 

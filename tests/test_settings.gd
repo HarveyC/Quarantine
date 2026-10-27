@@ -158,7 +158,9 @@ func test_settings_screen_builds_every_tab() -> void:
 		assert_true(menu._content.get_child_count() > 1, "tab %s has rows" % t[0])
 	menu.show_tab("controls")
 	var grid: GridContainer = menu._content.get_child(1)
-	assert_eq(grid.get_child_count(), (GameSettings.ACTIONS.size() + 1) * 4, "a row per rebindable action")
+	var blocks: int = SettingsMenu.CONTROL_BLOCKS
+	var rows := ceili(GameSettings.ACTIONS.size() / float(blocks))
+	assert_eq(grid.get_child_count(), (rows + 1) * blocks * 3, "every rebindable action sits in a block")
 	menu.free()
 	_restore()
 
