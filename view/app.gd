@@ -51,9 +51,7 @@ func _ready() -> void:
 	net.rejected.connect(func(reason: String) -> void: if view: view.hud.toast(reason))
 	_notices = NetNotice.new()
 	add_child(_notices)
-	net.notice.connect(func(text: String) -> void:
-		print("[notice] ", text)
-		_notices.notice(text))
+	net.notice.connect(_say)
 	_run_layer = CanvasLayer.new()
 	_run_layer.layer = 5
 	add_child(_run_layer)
@@ -96,8 +94,8 @@ func _ready() -> void:
 		if not net.invite_friends():
 			menu.show_status("The Steam overlay isn't available. Friends can still pick Join game on you in their friends list."))
 	net.reconnecting.connect(func(attempt: int, of: int) -> void:
-		_notices.notice("Connection lost. Reconnecting, try %d of %d" % [attempt, of]))
-	net.reconnected.connect(func() -> void: _notices.notice("Reconnected"))
+		_say("Connection lost. Reconnecting, try %d of %d" % [attempt, of]))
+	net.reconnected.connect(func() -> void: _say("Reconnected"))
 	var plat := _platform()
 	if plat != null:
 		plat.lobby_join_requested.connect(_join_steam)
@@ -363,6 +361,12 @@ func _fade_to(alpha: float, secs: float, then: Callable = Callable()) -> void:
 	_fade_tween.tween_property(_fade, "color:a", alpha, secs)
 	if then.is_valid():
 		_fade_tween.tween_callback(then)
+
+
+## Shows an online message over whatever screen is up, and logs it for the net playtest.
+func _say(text: String) -> void:
+	print("[notice] ", text)
+	_notices.notice(text)
 
 
 func _on_lobby_changed() -> void:
