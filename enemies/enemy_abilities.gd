@@ -23,6 +23,8 @@ const DEFS := {
 		"desc": "Infected within 6 tiles get +2 move and +10 aim next turn, and every dormant pod wakes."},
 	"acid_rain": {"name": "Acid rain", "targeting": "cell", "cost": 1, "cooldown": 2,
 		"desc": "Lobs acid onto a 3x3 that lands next enemy phase: 3 damage and a spore patch for 2 turns."},
+	"rockfall": {"name": "Rockfall", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Throws up a spray of rocks onto marked tiles that land next enemy phase: 2 damage each, smashes cover. Move off a marked tile to dodge."},
 	"airstrike": {"name": "Airstrike", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
 		"desc": "Calls a 3x3 airstrike that lands next enemy phase: 4 damage and destroys half cover."},
 	"flashbang": {"name": "Flashbang", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
@@ -82,6 +84,7 @@ const FLASH_RANGE := 7.0
 const STRIKE_DAMAGE := 4
 const ACID_RAIN_DAMAGE := 3
 const ACID_RAIN_RANGE := 10.0
+const ROCK_DAMAGE := 2
 const PULL_STEPS := 2
 const LEAP_RANGE := 5
 const LEAP_DAMAGE := 4
@@ -298,6 +301,11 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": u.pos, "cells": cells})
 			Encounter.add_telegraph(s, {"kind": id, "cells": cells, "turn": s.turn + 1,
 				"damage": STOMP_DAMAGE if id == "stomp" else STRIKE_DAMAGE, "source": u.id, "smash": true, "unit": u.id})
+		"rockfall":
+			var rocks: Array = action.get("cells", [])
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cells": rocks})
+			Encounter.add_telegraph(s, {"kind": "rockfall", "cells": rocks, "turn": s.turn + 1,
+				"damage": ROCK_DAMAGE, "source": u.id, "smash": true, "unit": u.id})
 		"hurl":
 			var cells := square(s.grid, action.cell, 1)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})

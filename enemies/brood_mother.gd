@@ -10,13 +10,14 @@ extends RefCounted
 ## Encounter, EnemyBehaviours and FightBuilder call in here. OWNER: enemies workstream.
 
 ## Boss HP as a share of her 40, by squad size (FightBuilder, instead of SQUAD_BOSS_HEALTH).
-const HEALTH := {1: 0.42, 2: 1.15, 3: 1.6, 4: 2.8}
+const HEALTH := {1: 0.36, 2: 0.9, 3: 1.6, 4: 2.8}
 const SACS := {1: 1, 2: 2, 3: 3, 4: 4}              # sacs she starts with
 const SURFACE_SACS := {1: 0, 2: 1, 3: 1, 4: 2}      # sacs she keeps alive while burrowing
 const RELAY := 3               # turns before she re-lays a sac once every sac is dead (phase 1)
 const SAC_RUNNER_EVERY := {1: 8, 2: 6, 3: 5, 4: 4}   # turns between a sac's Runners
 const SURFACED_TURNS := 3      # her turns above ground (the eruption turn included) before she dives again
 const BURROW_COOLDOWN := 2
+const ROCKS := {1: 2, 2: 4, 3: 5, 4: 6}   # tiles her eruption throws rocks onto
 const LEAP_COOLDOWN := 2       # phase 3: turns between leaps at raised soldiers
 const MOBILITY := {2: 4, 3: 5}
 const OFFSETS: Array[Vector2i] = [Vector2i(-2, 0), Vector2i(2, 0), Vector2i(0, -2), Vector2i(0, 2)]
@@ -116,6 +117,8 @@ static func take_turn(s: GameState, u: Unit) -> void:
 		if phase == 2 and _sacs(s) < SURFACE_SACS[_squad(s)]:
 			var sac := lay_sac(s, u, u.pos + Vector2i(0, 1), s.turn + 2)
 			s.emit({"type": "spawned", "unit": sac.id, "kind": sac.kind, "cell": sac.pos, "from": u.id})
+		if u.is_alive() and s.phase != Types.Phase.ENDED:
+			_rockfall(s, u)
 		return
 	if phase == 3 and u.status.has("leap_cell"):
 		_leap(s, u)
@@ -191,6 +194,34 @@ static func burrow_target(s: GameState, u: Unit, hostiles: Array[Unit]) -> Unit:
 			best = score
 			target = h
 	return target
+
+
+## The eruption throws up rocks: every soldier's tile is marked (so they have to move) plus
+## scatter around them, landing next enemy phase.
+static func rock_cells(s: GameState, u: Unit, hostiles: Array[Unit]) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var occ := {}
+	for e in s.living(Types.Team.ENEMY):
+		occ[e.pos] = true
+	for h in hostiles:
+		if not out.has(h.pos) and not occ.has(h.pos):
+			out.append(h.pos)
+	var want: int = ROCKS[_squad(s)]
+	var tries := 0
+	while out.size() < want and tries < 60 and not hostiles.is_empty():
+		tries += 1
+		var h: Unit = hostiles[s.rng.randi_range(0, hostiles.size() - 1)]
+		var c := h.pos + Vector2i(s.rng.randi_range(-2, 2), s.rng.randi_range(-2, 2))
+		if s.grid.in_bounds(c) and s.grid.is_walkable(c) and not out.has(c) and not occ.has(c):
+			out.append(c)
+	return out
+
+
+static func _rockfall(s: GameState, u: Unit) -> void:
+	var cells := rock_cells(s, u, EnemyAI._hostiles(s, u))
+	if not cells.is_empty():
+		u.actions_left = 1   # the eruption itself spent her turn; the rocks ride along with it
+		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "rockfall", "cells": cells})
 
 
 ## Phase 3: nobody in claw reach but a soldier is perched above her, so she crouches and marks a
