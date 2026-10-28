@@ -9,7 +9,7 @@ extends RefCounted
 ## seed, and for run fights "fight" (the fight spec, see RunRules / docs/ARCHITECTURE.md).
 
 const MAP := "res://maps/mission_01.txt"
-const CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
+const CLASSES: Array[String] = ["trooper", "medic", "breacher", "hazmat"]
 const ENEMIES: Array[String] = ["runner", "runner", "spitter", "runner", "spitter"]
 
 

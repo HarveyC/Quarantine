@@ -17,7 +17,7 @@ const ROUTES := {"gear_": "GearRun", "prog_": "Progression", "node_": "NodeRules
 const START_SUPPLIES := 60
 const START_INTEL := 1
 const START_RESERVE := 1           # recruits per player, +1 for each 2 soldiers past the first (reserve_for)
-const RESERVE_CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
+const RESERVE_CLASSES: Array[String] = ["trooper", "medic", "breacher", "hazmat"]
 const HEAL_AFTER_FIGHT := 0.35
 const BOSS_OUTBREAK_DROP := 2
 ## How a fight moves Outbreak (fight_outbreak): a won nest and a won Purge each

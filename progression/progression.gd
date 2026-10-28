@@ -22,7 +22,7 @@ const OFFER_SIZE := 3
 const INOCULATED_FIGHTS := 2
 ## Serum samples for one full cure (2 doses of 2 samples).
 const CURE_SAMPLES := 4
-const BASE_CLASSES: Array[String] = ["trooper", "marksman", "medic", "breacher"]
+const BASE_CLASSES: Array[String] = ["trooper", "medic", "breacher", "hazmat"]
 ## Graft Infection never Turns a soldier between fights.
 const GRAFT_CAP := 99
 const MUTATING_AT := 50
@@ -42,10 +42,8 @@ const QUICK_PLAY_MUTATIONS := {
 
 ## How each unlockable class is earned, one short sentence for menus (Field HQ).
 const CLASS_UNLOCK_HINTS := {
-	"hazmat": "Beat the Act 1 boss.",
 	"vector": "Win a fight with a soldier at Mutating Infection or higher who didn't Turn.",
 	"reaper": "Win a fight where one soldier killed 3 enemies standing next to them.",
-	"warden": "Win a fight where one soldier was hit 4 times and lived.",
 }
 ## Unlock thresholds for the melee classes (Unit status counters kept by Kit).
 const REAPER_CLOSE_KILLS := 3
@@ -443,13 +441,10 @@ static func _count(perks: Array, mutations: Dictionary, tier: int, grafts: Dicti
 
 static func unlocked_classes(meta: Dictionary) -> Array[String]:
 	var out := BASE_CLASSES.duplicate()
-	if meta.get("act1_boss_beaten", false) or meta.get("hazmat_unlocked", false):
-		out.append("hazmat")
 	if meta.get("vector_unlocked", false):
 		out.append("vector")
-	for kind in ["reaper", "warden"]:
-		if meta.get(kind + "_unlocked", false):
-			out.append(kind)
+	if meta.get("reaper_unlocked", false):
+		out.append("reaper")
 	return out
 
 
@@ -468,8 +463,6 @@ static func on_fight_end(run: RunState, outcome: Dictionary) -> void:
 			_unlock(run, "vector")
 		if int(u.status.get("close_kills", 0)) >= REAPER_CLOSE_KILLS:
 			_unlock(run, "reaper")
-		if int(u.status.get("hits_taken", 0)) >= WARDEN_HITS_TAKEN:
-			_unlock(run, "warden")
 
 
 static func _unlock(run: RunState, kind: String) -> void:
