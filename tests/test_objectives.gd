@@ -54,8 +54,33 @@ func test_extract_wins_when_everyone_is_on_the_pad() -> void:
 	for i in squad.size():
 		_place(s, squad[i], evac[i])
 	_end_round(s)
+	assert_eq(s.result, Types.Result.NONE, "the flare goes up first")
+	assert_eq(s.objective.flare, 1, "flare turn recorded")
+	_end_round(s)
 	assert_eq(s.result, Types.Result.VICTORY, "extracted")
 	assert_true(Objectives.bonus_met(s), "nobody left behind")
+
+
+func test_extract_flare_wakes_nearby_enemies() -> void:
+	var s := _mission("extract", ["runner", "runner"])
+	for e in s.living(Types.Team.ENEMY):
+		e.status.erase("alerted")
+		e.pos = s.grid.marker("evac")[0] + Vector2i(2, 0)
+	_place(s, Objectives.soldiers(s)[0], s.grid.marker("evac")[0])
+	Objectives.on_team_phase_end(s)
+	for e in s.living(Types.Team.ENEMY):
+		assert_true(EnemyAI.is_alerted(e), "flare woke the pod")
+	assert_true(not Concealment.active(s), "no longer concealed")
+
+
+func test_hold_beacon_wakes_everyone_after_turn_one() -> void:
+	var s := _mission("hold", ["runner", "brute"])
+	for e in s.living(Types.Team.ENEMY):
+		e.status.erase("alerted")
+	s.turn = 1
+	Objectives.on_team_phase_end(s)
+	for e in s.living(Types.Team.ENEMY):
+		assert_true(EnemyAI.is_alerted(e), "beacon woke " + e.kind)
 
 
 func test_extract_dropship_leaves_after_turn_limit() -> void:

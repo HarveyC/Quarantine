@@ -21,8 +21,8 @@ const OBJECTIVE_NAMES := {"skirmish": "Clear", "extract": "Extract", "hold": "Ho
 	"escort": "Escort", "demolish": "Sabotage", "hack": "Hack", "samples": "Samples"}
 const OBJECTIVE_TEXT := {
 	"skirmish": "Kill every enemy.",
-	"extract": "Get everyone to the evac zone.",
-	"hold": "Hold the beacon for %d turns. Don't leave it to the enemy two rounds running." % 4,
+	"extract": "Get everyone to the evac zone. The flare wakes the area; the dropship needs a round to land.",
+	"hold": "The beacon wakes every enemy. Hold it for %d turns. Don't leave it to the enemy two rounds running." % 4,
 	"rescue": "Escort the civilians to the drop zone.",
 	"purge": "Destroy the spore nests.",
 	"escort": "Walk the courier to the evac zone. It only moves while a soldier is close.",

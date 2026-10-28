@@ -590,17 +590,17 @@ static func _build() -> Dictionary:
 		"labels": ["Aim area"]}
 	var evac := TileOverlays.color("evac")
 	t["zone_evac"] = {"name": "Evac zone", "kind": "objective", "icon": "flag", "tone": evac,
-		"line": "Get every soldier onto the green pad by the end of a squad turn to win.",
+		"line": "Get every soldier onto the green pad. The first one there fires a flare that wakes the area.",
 		"art": "tile", "art_ctx": {"overlay": "evac"},
 		"stats": [["%d" % Objectives.EXTRACT_TURNS, "turns to make it"]],
-		"more": ["When the dropship leaves, anyone off the pad is lost."],
+		"more": ["The dropship needs a round to land, so the win comes at the end of a later squad turn.", "When the dropship leaves, anyone off the pad is lost."],
 		"see": ["actions"],
 		"aliases": ["Evac", "Evac pad", "Evac zone"]}
 	t["zone_beacon"] = {"name": "Beacon", "kind": "objective", "icon": "flag", "tone": "amber",
-		"line": "Hold it: if only enemies stand in the amber zone when a round ends, the fight is lost.",
+		"line": "Wakes every enemy after turn one. Lost if only enemies hold the zone.",
 		"art": "tile", "art_ctx": {"overlay": "beacon"},
 		"stats": [["%d" % Objectives.HOLD_TURNS, "rounds to hold"]],
-		"more": ["One soldier inside is enough to keep it."],
+		"more": ["One soldier inside is enough to keep it.", "If only enemies stand in the zone when a round ends, that round is a warning, and two in a row lose the fight."],
 		"see": ["overwatch"],
 		"aliases": ["Beacon zone"]}
 	t["zone_drop"] = {"name": "Drop zone", "kind": "objective", "icon": "flag", "tone": evac,
