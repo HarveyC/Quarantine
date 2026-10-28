@@ -443,7 +443,9 @@ static func _burn_set_spread(s: GameState, t: Unit) -> void:
 static func fire_damage(s: GameState, u: Unit, dmg: int, ignores_armour: bool) -> void:
 	if ignores_armour:
 		u.status["ignore_armour"] = true
+	Rules.cause = "Fire"
 	Rules.deal_damage(s, u, dmg)
+	Rules.cause = ""
 	u.status.erase("ignore_armour")
 
 

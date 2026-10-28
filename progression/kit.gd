@@ -436,7 +436,9 @@ static func modify_incoming(s: GameState, target: Unit, amount: int, source: Uni
 		var half := amount / 2
 		amount -= half
 		partner.status["k_splitting"] = true
+		Rules.cause = "Shared blood"
 		Rules.deal_damage(s, partner, half, null)
+		Rules.cause = ""
 		partner.status.erase("k_splitting")
 	if amount >= target.hp and is_soldier(target):
 		if target.hp > 1 and GearFx.has_capstone(target, "Guard"):
@@ -776,7 +778,9 @@ static func prevent_turn(s: GameState, u: Unit) -> bool:
 		u.infection = Infection.CRITICAL_AT - 1
 		s.emit({"type": "perk", "unit": u.id, "perk": "brink"})
 		s.emit({"type": "infection", "unit": u.id, "value": u.infection, "tier": Infection.tier(u.infection)})
+		Rules.cause = "Brink"
 		Rules.deal_damage(s, u, 3, null)
+		Rules.cause = ""
 		return true
 	if awake(u, "ride_the_wave") and _once(u, "k_rode"):
 		u.status["k_riding"] = 2
