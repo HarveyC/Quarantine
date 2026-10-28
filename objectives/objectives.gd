@@ -14,12 +14,10 @@ extends RefCounted
 ##            soldier on it at the end of HOLD_OVERRUN_ROUNDS rounds in a row. The first such round
 ##            only warns (a `beacon_overrun` event) and doesn't count as held, so the squad always
 ##            gets a turn to retake it.
-##   rescue:  civilians stay put until a soldier is within ESCORT_LEASH, then follow the nearest soldier; win when every living civilian has reached the
+##   rescue:  civilians are moved by the players (move only, any player); win when every living civilian has reached the
 ##            exit (the drop zone). If every civilian dies, killing every enemy wins instead.
 ##   purge:   destroy every spore nest (units of kind NEST_KIND), or kill every enemy.
-##   escort:  a courier starts with the squad and walks toward the evac zone, up to ESCORT_MOVE tiles at the
-##            end of each squad turn, but only while a soldier is within ESCORT_LEASH of it and never
-##            further than ESCORT_STAY from the nearest soldier. Lost if it dies.
+##   escort:  a courier starts with the squad; any player can move it (move only) to the evac zone. Lost if it dies.
 ##   demolish: stand on a charge site at the end of a squad turn to arm it. An armed charge blows
 ##            CHARGE_FUSE rounds later (a demo blast, soldiers in it are hurt too); an enemy standing on
 ##            it defuses it. Won when every charge has blown, lost after DEMOLISH_TURNS rounds.
@@ -37,9 +35,7 @@ const HOLD_OVERRUN_ROUNDS := 2  # rounds in a row the enemy can own the beacon b
 const BONUS_BY_TURN := 5        # skirmish / elite / purge bonus: done by the end of this turn
 const NEST_KIND := "spore_nest"
 const ESCORT_HP := 8
-const ESCORT_MOVE := 3          # tiles the courier walks at the end of each squad turn
-const ESCORT_LEASH := 4         # ... if a soldier is within this many tiles
-const ESCORT_STAY := 2          # ... and never ends a walk further than this from the nearest soldier
+const ESCORT_MOVE := 3          # tiles the courier can walk per move
 const CHARGE_FUSE := 2          # rounds from arming to the blast
 const CHARGE_BLAST := {"radius": 1, "centre": 3, "ring": 1, "damage": 3}
 const DEMOLISH_TURNS := 10      # all charges must have blown by the end of this round
@@ -164,7 +160,7 @@ static func _spawn_civilian(s: GameState, c: Vector2i) -> Unit:
 	u.kind = "civilian"
 	u.team = Types.Team.PLAYER
 	u.display_name = CIVILIAN.name
-	u.owner_player = -1          # nobody commands them
+	u.owner_player = -1          # no owner: any player can move them (Rules.validate allows MOVE only)
 	u.max_hp = CIVILIAN.max_hp
 	u.hp = CIVILIAN.max_hp
 	u.aim = 0
@@ -190,7 +186,7 @@ static func _civilians(s: GameState, living_only := true) -> Array[Unit]:
 
 # ---------------------------------------------------------------- hooks called by Rules
 
-## End of the squad's turn (after hazards): civilians follow, extraction and rescue are checked.
+## End of the squad's turn (after hazards): extraction and rescue are checked.
 static func on_team_phase_end(s: GameState) -> void:
 	if s.objective.is_empty() or s.phase == Types.Phase.ENDED:
 		return
@@ -263,7 +259,7 @@ static func _dist_to_evac(s: GameState) -> Dictionary:
 	return seen
 
 
-static func _nearest_soldier_dist(s: GameState, cell: Vector2i) -> int:
+static func nearest_soldier_dist(s: GameState, cell: Vector2i) -> int:
 	var best := 1 << 20
 	for u in soldiers(s):
 		best = mini(best, _cheb(u.pos, cell))
@@ -275,24 +271,6 @@ static func _escort_turn(s: GameState) -> void:
 	if c == null or not c.is_alive():
 		return
 	var dist := _dist_to_evac(s)
-	var near := soldiers(s).any(func(u: Unit) -> bool: return _cheb(u.pos, c.pos) <= ESCORT_LEASH)
-	if near:
-		var best := c.pos
-		var best_d: int = dist.get(c.pos, 1 << 20)
-		var stay := maxi(ESCORT_STAY, _nearest_soldier_dist(s, c.pos))
-		for cell in Rules.move_range(s, c):
-			if _nearest_soldier_dist(s, cell) > stay:
-				continue   # never outrun the squad
-			var d: int = dist.get(cell, 1 << 20)
-			if d < best_d or (d == best_d and best != c.pos and (cell.y < best.y or cell.y == best.y and cell.x < best.x)):
-				best = cell
-				best_d = d
-		if best != c.pos:
-			c.actions_left = 1
-			Rules.apply(s, {"type": Types.MOVE, "unit": c.id, "to": best})
-			c.actions_left = 0
-	else:
-		s.emit({"type": "courier_waits", "unit": c.id})
 	if not c.is_alive():
 		return
 	var left: int = dist.get(c.pos, 0)
@@ -478,8 +456,6 @@ static func _rescue_turn(s: GameState) -> void:
 	for c in _civilians(s):
 		if s.objective.rescued.has(c.id):
 			continue
-		if not exit.has(c.pos) and _nearest_soldier_dist(s, c.pos) <= ESCORT_LEASH:
-			_follow(s, c)   # until a soldier finds them, a civilian stays hidden where they are
 		if c.is_alive() and exit.has(c.pos):
 			s.objective.rescued.append(c.id)
 			s.emit({"type": "rescued", "unit": c.id})
@@ -487,39 +463,6 @@ static func _rescue_turn(s: GameState) -> void:
 	_progress(s, s.objective.rescued.size(), s.objective.civilians.size())
 	if waiting.is_empty() and not s.objective.rescued.is_empty():
 		s.objective.result = Types.Result.VICTORY
-
-
-## A civilian walks one move toward the nearest soldier (or onto a free exit cell when one is in
-## reach and a soldier is close), as a normal MOVE so overwatch and hazards apply.
-static func _follow(s: GameState, c: Unit) -> void:
-	var squad := soldiers(s)
-	if squad.is_empty():
-		return
-	var reach := Rules.move_range(s, c)
-	var nearest: Unit = squad[0]
-	for u in squad:
-		if _cheb(u.pos, c.pos) < _cheb(nearest.pos, c.pos):
-			nearest = u
-	var best := c.pos
-	var best_score := _follow_score(s, c, c.pos, nearest.pos)
-	for cell in reach:
-		var sc := _follow_score(s, c, cell, nearest.pos)
-		if sc < best_score or (sc == best_score and (cell.y < best.y or cell.y == best.y and cell.x < best.x)):
-			best = cell
-			best_score = sc
-	if best == c.pos:
-		return
-	c.actions_left = 1
-	Rules.apply(s, {"type": Types.MOVE, "unit": c.id, "to": best})
-	c.actions_left = 0
-
-
-static func _follow_score(s: GameState, c: Unit, cell: Vector2i, leader: Vector2i) -> float:
-	var d := _cheb(cell, leader)
-	var score := float(maxi(d - 1, 0)) * 10.0   # keep within one tile of the leader
-	if s.grid.marker("exit").has(cell) and d <= 3:
-		score -= 25.0                            # step onto the exit when the escort is close
-	return score + Hazards.avoid_cost(s, c, cell) * 5.0
 
 
 static func _progress(s: GameState, done: int, goal: int) -> void:

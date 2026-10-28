@@ -870,7 +870,7 @@ func _check_request(sender: int, action: Dictionary) -> String:
 			return "That's not your READY button"
 		return "" if state.phase == Types.Phase.TEAM else "Wait for the squad phase"
 	var u := state.get_unit(action.get("unit", -1))
-	if u == null or u.owner_player != player:
+	if u == null or (u.owner_player != player and not Objectives.is_civilian(u)):
 		return "That soldier belongs to another player"
 	return Rules.validate(state, action)
 

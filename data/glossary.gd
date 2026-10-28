@@ -604,7 +604,7 @@ static func _build() -> Dictionary:
 		"see": ["overwatch"],
 		"aliases": ["Beacon zone"]}
 	t["zone_drop"] = {"name": "Drop zone", "kind": "objective", "icon": "flag", "tone": evac,
-		"line": "Civilians follow the nearest soldier. Lead them onto the green zone to rescue them.",
+		"line": "Any player can move civilians. They cannot attack. Lead them onto the green zone to rescue them.",
 		"art": "tile", "art_ctx": {"overlay": "exit"},
 		"stats": [["%d" % Objectives.CIVILIAN.max_hp, "civilian HP"]],
 		"more": ["If every civilian dies, killing every enemy still wins."],
@@ -628,7 +628,7 @@ static func _build() -> Dictionary:
 		"more": ["A carrier who falls drops it.", "An enemy ending a round on a loose sample destroys it."],
 		"aliases": ["Sample points"]}
 	t["courier"] = {"name": "Courier", "kind": "objective", "icon": "flag", "tone": "amber",
-		"line": "Walks %d tiles toward the evac zone at the end of each squad turn, but only while a soldier is within %d tiles." % [Objectives.ESCORT_MOVE, Objectives.ESCORT_LEASH],
+		"line": "Any player can move it, %d tiles a turn. It cannot attack. Lead it to the evac zone." % Objectives.ESCORT_MOVE,
 		"stats": [["%d" % Objectives.ESCORT_HP, "courier HP"]],
 		"more": ["If the courier dies the mission is lost."],
 		"aliases": ["Courier"]}

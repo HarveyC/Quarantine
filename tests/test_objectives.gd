@@ -210,33 +210,24 @@ func _texts(n: Node) -> Array:
 	return out
 
 
-func test_rescue_civilians_follow_and_reach_the_exit() -> void:
+func test_rescue_civilians_are_moved_by_any_player_and_cannot_attack() -> void:
 	var s := _mission("rescue")
 	var civs := s.living(Types.Team.PLAYER).filter(func(u: Unit) -> bool: return Objectives.is_civilian(u))
 	assert_eq(civs.size(), s.grid.marker("civilian").size(), "civilians spawned on their markers")
-	assert_true(civs.all(func(c: Unit) -> bool: return c.owner_player == -1 and not c.ai_controlled), "nobody commands them")
+	assert_true(civs.all(func(c: Unit) -> bool: return c.owner_player == -1 and not c.ai_controlled), "nobody owns them")
 	assert_eq(s.controllable_units(0).size() + s.controllable_units(1).size(), 4, "squad unchanged")
-	# With no soldier near, a civilian stays where they are.
-	var lone: Unit = civs[0]
-	var home := lone.pos
-	for u in Objectives.soldiers(s):
-		if Objectives._cheb(u.pos, home) <= Objectives.ESCORT_LEASH:
-			_place(s, u, Vector2i(0, 0) if s.unit_at(Vector2i(0, 0)) == null else Vector2i(1, 0))
-	if Objectives._nearest_soldier_dist(s, home) > Objectives.ESCORT_LEASH:
-		_end_round(s)
-		assert_eq(lone.pos, home, "an unfound civilian does not wander off")
-	# A soldier next to each civilian: they follow towards it.
 	var c: Unit = civs[0]
 	var start := c.pos
-	var sol := Objectives.soldiers(s)[0]
-	var far := start
-	for cell in Rules.move_range(s, c):
-		if Objectives._cheb(cell, start) >= 2 and s.unit_at(cell) == null:
-			far = cell
-			break
-	_place(s, sol, far)
 	_end_round(s)
-	assert_true(Objectives._cheb(c.pos, sol.pos) <= 1, "civilian walked up to the soldier")
+	assert_eq(c.pos, start, "a civilian never walks on their own")
+	var dest := start
+	for cell in Rules.move_range(s, c):
+		if s.unit_at(cell) == null:
+			dest = cell
+			break
+	assert_true(Rules.apply(s, {"type": Types.MOVE, "unit": c.id, "to": dest}), "a player can move a civilian")
+	assert_eq(c.pos, dest, "and it moved")
+	assert_true(Rules.validate(s, {"type": Types.HUNKER, "unit": c.id}) != "", "civilians cannot act beyond moving")
 	# Walk everyone to the exit.
 	var exit := s.grid.marker("exit")
 	for i in civs.size():
@@ -292,23 +283,21 @@ func test_new_objectives_generate_without_fallback() -> void:
 	assert_eq(grand.width, 28, "sites ride on grand maps")
 
 
-func test_escort_courier_walks_with_the_squad_and_wins_at_evac() -> void:
+func test_escort_courier_is_moved_by_players_and_wins_at_evac() -> void:
 	var s := _mission("escort")
 	var c := Objectives.courier(s)
 	assert_true(c != null and c.is_alive(), "a courier starts")
 	var d0 := Objectives._courier_dist(s, c.pos)
 	assert_true(d0 > 0, "the evac zone is a walk away")
-	var gap0 := Objectives._nearest_soldier_dist(s, c.pos)
-	_end_round(s)
-	assert_true(Objectives._courier_dist(s, c.pos) < d0, "it advanced with the squad close")
-	assert_true(Objectives._nearest_soldier_dist(s, c.pos) <= maxi(Objectives.ESCORT_STAY, gap0), "it did not outrun the squad")
-	# Far from every soldier it waits.
-	for u in Objectives.soldiers(s):
-		_place(s, u, Vector2i(0, 0) if s.unit_at(Vector2i(0, 0)) == null else Vector2i(1, 0))
 	var here := c.pos
-	if Objectives.soldiers(s).all(func(u: Unit) -> bool: return maxi(absi(u.pos.x - here.x), absi(u.pos.y - here.y)) > Objectives.ESCORT_LEASH):
-		_end_round(s)
-		assert_eq(c.pos, here, "it waits for an escort")
+	_end_round(s)
+	assert_eq(c.pos, here, "it does not walk on its own")
+	var best := c.pos
+	for cell in Rules.move_range(s, c):
+		if Objectives._courier_dist(s, cell) < Objectives._courier_dist(s, best):
+			best = cell
+	assert_true(Rules.apply(s, {"type": Types.MOVE, "unit": c.id, "to": best}), "a player moves the courier")
+	assert_true(Objectives._courier_dist(s, c.pos) < d0, "closer to evac")
 	_place(s, c, s.grid.marker("evac")[0])
 	_end_round(s)
 	assert_eq(s.result, Types.Result.VICTORY, "courier at evac wins")

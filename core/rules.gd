@@ -95,6 +95,8 @@ static func validate(s: GameState, action: Dictionary) -> String:
 		return Encounter.validate_struggle(s, u)
 	if u.actions_left <= 0:
 		return "No actions left"
+	if Objectives.is_civilian(u) and action.get("type") != Types.MOVE:
+		return "Civilians can only move"
 	var blocked := Encounter.validate(s, u, action)
 	if blocked != "":
 		return blocked
