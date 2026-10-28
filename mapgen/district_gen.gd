@@ -226,15 +226,40 @@ static func _landing_yard(c: Ctx) -> void:
 		_set_edge(c, _side_key(r, side, c.rng.randi_range(1, r.size.y - 2)), DOOR)
 	var cx := r.position.x + r.size.x / 2
 	var bottom := _y1(r)
-	for dx in [-1, 0]:
-		for dy in [-1, 0]:
-			c.deploy.append(Vector2i(cx + dx, bottom + dy))
+	c.deploy.append_array(_scatter(c.rng, _rect_cells(Rect2i(r.position.x + 1, bottom - 3, maxi(r.size.x - 2, 2), 4)), 4, 2))
 	for dx in [-2, -1, 1, 2]:
 		_put(c, Vector2i(cx + dx, r.position.y + 1), Types.Tile.LOW)
 	_claim(c, r)
 	for cell in c.deploy:
 		c.reserved[cell] = true
 	c.deploy.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
+
+
+## Up to `n` cells picked at random from `cells`, each at least `gap` (Chebyshev) from the others;
+## tops up with the nearest leftovers if the area is too small. Deterministic per rng.
+static func _scatter(rng: RandomNumberGenerator, cells: Array, n: int, gap: int) -> Array[Vector2i]:
+	var pool := cells.duplicate()
+	_shuffle(pool, rng)
+	var out: Array[Vector2i] = []
+	for cell in pool:
+		if out.size() >= n:
+			break
+		if out.all(func(o: Vector2i) -> bool: return maxi(absi(o.x - cell.x), absi(o.y - cell.y)) >= gap):
+			out.append(cell)
+	for cell in pool:
+		if out.size() >= n:
+			break
+		if not out.has(cell):
+			out.append(cell)
+	return out
+
+
+static func _rect_cells(r: Rect2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for y in range(r.position.y, r.position.y + r.size.y):
+		for x in range(r.position.x, r.position.x + r.size.x):
+			out.append(Vector2i(x, y))
+	return out
 
 
 static func _fill_block(c: Ctx, b: Rect2i, kind: String) -> void:
@@ -764,14 +789,10 @@ static func _place_pods(c: Ctx) -> Array:
 		if not centres.all(func(o: Vector2) -> bool: return absf(o.x - cand.centre.x) + absf(o.y - cand.centre.y) >= 8.0):
 			continue
 		centres.append(cand.centre)
-		var cells: Array = cand.cells.duplicate()
-		cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-			return (Vector2(a) - cand.centre).length() < (Vector2(b) - cand.centre).length())
-		var pod: Array[Vector2i] = []
-		for k in mini(c.rng.randi_range(2, 3), cells.size()):
-			pod.append(cells[k])
-			c.pod_cells.append(cells[k])
-			c.reserved[cells[k]] = true
+		var pod := _scatter(c.rng, cand.cells, mini(c.rng.randi_range(2, 3), cand.cells.size()), 3)
+		for cell in pod:
+			c.pod_cells.append(cell)
+			c.reserved[cell] = true
 		pods.append(pod)
 	var total := 0
 	var nearest := 1 << 30
