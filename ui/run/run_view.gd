@@ -434,8 +434,22 @@ func _reserve_card() -> Control:
 	card.add_child(box)
 	var reserve := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.RESERVE)
 	box.add_child(Styles.caps("Reserve · %d" % reserve.size(), 13, Styles.DIM))
+	var open_slot: bool = run.squad().size() < 4 and run.phase == RunState.Phase.MAP and session != null and not session.local_players().is_empty()
 	for r in reserve.slice(0, 3):
-		box.add_child(_mini_line(r, Styles.TEXT))
+		var line := _mini_line(r, Styles.TEXT)
+		if open_slot:
+			var b := Button.new()
+			b.text = "Deploy"
+			b.custom_minimum_size = Vector2(0, 22)
+			b.add_theme_font_size_override("font_size", 12)
+			b.flat = true
+			b.focus_mode = Control.FOCUS_NONE
+			for k in ["font_color", "font_hover_color", "font_pressed_color"]:
+				b.add_theme_color_override(k, Styles.AMBER)
+			b.pressed.connect(func() -> void:
+				session.submit_run({"type": RunRules.DEPLOY, "player": session.local_players()[0], "sid": r.id}))
+			line.add_child(b)
+		box.add_child(line)
 	if reserve.size() > 3:
 		box.add_child(Styles.label("+%d more" % (reserve.size() - 3), 12, Styles.MUTED))
 	var lost := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status in [RunSoldier.DEAD, RunSoldier.TURNED])
@@ -450,7 +464,7 @@ func _reserve_card() -> Control:
 func _mini_line(r: Dictionary, col: Color) -> Control:
 	var row := Styles.hbox(8)
 	var dot := ColorRect.new()
-	dot.color = Styles.player_color(r.owner)
+	dot.color = Styles.player_color(r.owner) if r.status != RunSoldier.RESERVE else Styles.MUTED
 	dot.custom_minimum_size = Vector2(4, 14)
 	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
