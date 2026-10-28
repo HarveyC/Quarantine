@@ -77,6 +77,10 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			return {"icon": "claw", "label": "BURROW", "target": -1}
 		"hooker":
 			return {"icon": "hook", "label": "HOOK", "target": _best_visible(s, u)}
+		"relay":
+			return {"icon": "hide", "label": "RELAYING", "target": -1}
+		"hound":
+			return {"icon": "claw", "label": "HUNTING", "target": _most_exposed(s, u, hostiles)}
 		"emplacement":
 			return {"icon": "strike", "label": "CROSSFIRE", "target": -1}
 		"overwatcher":

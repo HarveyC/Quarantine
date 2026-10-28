@@ -10,7 +10,7 @@ const Board := preload("res://view/board.gd")
 ## model (ModelKit.CHARACTERS sizes the rest). Bosses and elites read bigger.
 const SCALE := {
 	"hive_node": [1.3, 0.7], "egg_sac": [0.9, 0.55], "spore_nest": [1.1, 0.6],
-	"source_root": [1.2, 0.9], "the_source": [2.6, 2.2], "drifter": [1.1, 0.7],
+	"source_root": [1.2, 0.9], "relay": [0.7, 1.9], "the_source": [2.6, 2.2], "drifter": [1.1, 0.7],
 }
 const ELITE_SCALE := 1.2
 
@@ -18,7 +18,7 @@ const ELITE_SCALE := 1.2
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
 	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell",
-	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot"]
+	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -177,6 +177,10 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			if rv != null:
 				fx.floating_text(head.call(rv), "ITEM BACK", Palette.AMBER, 44)
 			return {"dur": 0.3}
+		"stalled":
+			if uv != null:
+				fx.floating_text(head.call(uv), "NO RELAY", Color(0.8, 0.82, 0.8), 44)
+			return {"dur": 0.3}
 		"fled":
 			if uv != null:
 				fx.floating_text(head.call(uv), "SLIPPED AWAY", Color(0.8, 0.82, 0.8), 40)
@@ -285,6 +289,7 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"plated": return "%s's plate turns the blow" % who.call("unit")
 		"stolen": return "[color=#%s]%s has an item stolen[/color]" % [red, who.call("unit")]
 		"recovered": return "%s gets the item back" % who.call("unit")
+		"stalled": return "%s loses its signal and stalls" % who.call("unit")
 		"fled": return "%s slips off the map%s" % [who.call("unit"), " with the loot" if ev.get("loot", false) else ""]
 		"loot": return "%s drops its loot (+%d Supplies)" % [who.call("unit"), int(ev.get("supplies", 0))]
 		"stalked": return "[color=#%s]%s is cut off and takes a stalker's bonus hit[/color]" % [red, who.call("target")]

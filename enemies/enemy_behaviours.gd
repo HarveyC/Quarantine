@@ -10,7 +10,7 @@ const SUPPORT_MIN := 6.0
 const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
-	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher",
+	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
 	"brood_mother", "colonel_hale", "the_source"]
 
 
@@ -96,6 +96,8 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"fence": return Scavengers.fence(s, u, hostiles)
 		"shieldman": return rush(s, u, hostiles, "slam")
 		"overwatcher": return Security.overwatcher(s, u)
+		"hound": return rush(s, u, Automata.hound_targets(hostiles), "claw")
+		"loader": return rush(s, u, hostiles, "slam")
 	return {}
 
 
@@ -134,7 +136,7 @@ static func end_turn(s: GameState, u: Unit) -> void:
 
 
 static func can_charge(u: Unit) -> bool:
-	if u.kind == "brute":
+	if u.kind == "brute" or u.kind == "loader":
 		return true
 	return u.kind == "colonel_hale" and int(u.status.get("boss_phase", 1)) >= 2
 
