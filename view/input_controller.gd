@@ -31,6 +31,8 @@ var target_idx := 0
 var hover_cell := NO_CELL
 var _reach: Dictionary = {}
 var move_target := NO_CELL         # tile picked by the first click, awaiting a second click to confirm
+var aim_pin := NO_CELL             # cone aimed by the first click, awaiting a second click to fire
+var area_pending := ""             # self-centred area ability previewed, awaiting a second press to use
 
 
 func _ready() -> void:
@@ -154,6 +156,8 @@ func _set_mode(m: Mode) -> void:
 	mode = m
 	if m != Mode.SHOOT:
 		targets.clear()
+	aim_pin = NO_CELL
+	area_pending = ""
 	if m == Mode.MOVE:
 		pending = {}
 	else:
@@ -288,7 +292,7 @@ func _update_hover(force: bool) -> void:
 			_show_move_preview(u, c)
 		elif mode == Mode.TARGET_CELL:
 			view.board.mark_cells([c] + cell_targets + _item_area(c), Color(Palette.AMBER, 0.22), "aim")
-			_show_blast(c)
+			_show_blast(c if aim_pin == NO_CELL else aim_pin)
 		elif mode == Mode.TARGET_UNIT:
 			_show_landing(u, c)
 		elif mode == Mode.MOVE and move_target != NO_CELL:
@@ -300,6 +304,8 @@ func _update_hover(force: bool) -> void:
 		# Hovering a fuel barrel the soldier could shoot previews its blast (click to aim).
 		if u != null and can_act() and c != NO_CELL and u.actions_left > 0 and Combat.shot_barrels(view.state, u).has(c):
 			_show_barrel_blast(c)
+		elif area_pending != "" and u != null:
+			_show_self_area(u, area_pending)
 		else:
 			view.board.clear_blast()
 	var other: UnitView = view.unit_view_at(c) if c != NO_CELL else null
@@ -426,6 +432,22 @@ func tile_terms(c: Vector2i) -> Array:
 	return out.filter(func(k) -> bool: return Glossary.has(str(k)))
 
 
+## Self-centred area abilities that preview before they are used (second press confirms).
+const SELF_AREAS := {"vent": 2, "quarantine_field": 2, "death_sweep": 1}   # radius, as in Signatures
+
+
+func _show_self_area(u: Unit, id: String) -> void:
+	var r: int = SELF_AREAS[id]
+	var cells: Array = []
+	for y in range(u.pos.y - r, u.pos.y + r + 1):
+		for x in range(u.pos.x - r, u.pos.x + r + 1):
+			var c := Vector2i(x, y)
+			if c != u.pos and view.state.grid.in_bounds(c) and view.state.grid.is_walkable(c) \
+					and Combat.line_clear(view.state.grid, u.pos, c):
+				cells.append(c)
+	view.board.show_blast(cells, {})
+
+
 ## Grenades and demo charges: what the blast would cover and break (Destruction.preview).
 func _show_blast(c: Vector2i) -> void:
 	var st: GameState = view.state
@@ -433,6 +455,11 @@ func _show_blast(c: Vector2i) -> void:
 	match str(pending.get("ability", "")):
 		"item:frag_grenade": p = Destruction.FRAG
 		"item:demo_charge": p = Destruction.DEMO
+		"incinerate":
+			var u := selected_unit()
+			var cone: Variant = RunHooks.call_static("ClassAbilities", "incinerate_cells", [st, u, c], [])
+			view.board.show_blast(cone if u != null else [], {})
+			return
 	if p.is_empty():
 		view.board.clear_blast()
 		return
@@ -555,6 +582,16 @@ func _trigger(u: Unit, a: Dictionary) -> void:
 			pending_reach = int(a.get("reach", 0))
 			_set_mode(Mode.TARGET_UNIT if a.targeting == "unit" else Mode.TARGET_CELL)
 		_:
+			if a.type == Types.ABILITY and SELF_AREAS.has(a.id):
+				if area_pending == a.id:
+					submit(_template(u, a))
+				else:
+					area_pending = a.id
+					_ui_sound("ui_click")
+					refresh()
+					_show_self_area(u, a.id)
+					view.hud.toast("%s: press again to confirm" % a.label)
+				return
 			submit(_template(u, a))
 
 
@@ -609,7 +646,13 @@ func _ui_sound(s: String) -> void:
 
 func cancel() -> void:
 	_ui_sound("ui_hover")
-	if mode != Mode.MOVE:
+	if area_pending != "":
+		area_pending = ""
+		refresh()
+	elif aim_pin != NO_CELL:
+		aim_pin = NO_CELL
+		refresh()
+	elif mode != Mode.MOVE:
 		_set_mode(Mode.MOVE)
 	elif move_target != NO_CELL:
 		move_target = NO_CELL
@@ -659,6 +702,12 @@ func click_cell(c: Vector2i) -> void:
 				act.to = c
 			else:
 				act.cell = c
+				if str(pending.get("ability", "")) == "incinerate" and aim_pin != c:
+					aim_pin = c
+					_ui_sound("ui_click")
+					refresh()
+					_update_hover(true)
+					return
 			submit(act)
 
 
@@ -689,6 +738,10 @@ func _action_input(e: InputEvent) -> void:
 	elif e.is_action_pressed("confirm"):
 		if mode == Mode.SHOOT:
 			confirm_shot()
+		elif mode == Mode.MOVE and area_pending != "" and selected_unit() != null:
+			for a in actions():
+				if a.get("id", "") == area_pending:
+					_trigger(selected_unit(), a)
 		elif mode == Mode.MOVE and move_target != NO_CELL and selected_unit() != null:
 			_click_move(selected_unit(), move_target)
 	elif e.is_action_pressed("ready"):
