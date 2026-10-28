@@ -266,6 +266,31 @@ const ITEMS := {
 	"blood_clock": {"name": "Blood clock", "tag": "Close", "slot": "weapon", "rarity": "rare",
 		"desc": "Once a turn, a kill within 3 tiles cuts your signature ability's cooldown by 1",
 		"desc_mk2": "Once a turn, a kill within 3 tiles cuts your signature ability's cooldown by 2"},
+	# Signature rigs: any soldier can carry a class signature (GearRun.apply_to_unit grants the ability)
+	"sig_lockdown": {"name": "Lockdown rig", "tag": "Overwatch", "slot": "utility", "rarity": "rare",
+		"desc": "Grants the Lockdown ability",
+		"desc_mk2": "Grants the Lockdown ability"},
+	"sig_deadeye": {"name": "Deadeye scope", "tag": "Mark", "slot": "utility", "rarity": "rare",
+		"desc": "Grants the Deadeye ability",
+		"desc_mk2": "Grants the Deadeye ability"},
+	"sig_quarantine_field": {"name": "Field projector", "tag": "Purge", "slot": "utility", "rarity": "rare",
+		"desc": "Grants the Quarantine Field ability",
+		"desc_mk2": "Grants the Quarantine Field ability"},
+	"sig_bring_down": {"name": "Demolition rig", "tag": "Close", "slot": "utility", "rarity": "rare",
+		"desc": "Grants the Bring Down ability",
+		"desc_mk2": "Grants the Bring Down ability"},
+	"sig_flashover": {"name": "Flashover igniter", "tag": "Burn", "slot": "utility", "rarity": "rare",
+		"desc": "Grants the Flashover ability",
+		"desc_mk2": "Grants the Flashover ability"},
+	"sig_vent": {"name": "Vent valve", "tag": "Strain", "slot": "utility", "rarity": "rare",
+		"desc": "Grants the Vent ability",
+		"desc_mk2": "Grants the Vent ability"},
+	"sig_death_sweep": {"name": "Sweep blade", "tag": "Close", "slot": "utility", "rarity": "rare",
+		"desc": "Grants the Death Sweep ability",
+		"desc_mk2": "Grants the Death Sweep ability"},
+	"sig_provoke": {"name": "Provoke horn", "tag": "Guard", "slot": "utility", "rarity": "rare",
+		"desc": "Grants the Provoke ability",
+		"desc_mk2": "Grants the Provoke ability"},
 }
 
 ## Combo items: need both tags at 2+ on the soldier, count for both, start at Mk II, never sold.
@@ -387,6 +412,11 @@ static func slots_for(type: String) -> Array[String]:
 	else:
 		out.append(type)
 	return out
+
+
+## The class signature ability a signature rig grants, or "".
+static func signature_of(id: String) -> String:
+	return id.trim_prefix("sig_") if id.begins_with("sig_") else ""
 
 
 static func rarity_of(id: String) -> String:

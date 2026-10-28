@@ -561,6 +561,10 @@ static func apply_to_unit(u: Unit, record) -> void:
 	if not docs.is_empty():
 		u.status["doctrines"] = docs.duplicate()
 	Weapons.equip_unit(u, Loadout.gun(record))
+	for e in Loadout.equipped(record):
+		var sig := GearData.signature_of(e.id)
+		if sig != "" and not u.abilities.has(sig):
+			u.abilities.append(sig)
 	u.status["gear"] = g
 	u.status["gear_tags"] = Loadout.gear_tags(record)
 	u.status["pockets"] = Loadout.pockets(record).duplicate(true)

@@ -54,6 +54,7 @@ const GADGET_LOOK := {
 	"adrenal_pump": "pump", "med_injector": "injector", "containment_emitter": "emitter",
 	"deployable_cover": "cover", "spotter_flare": "spotter", "bloodletting": "vials",
 	"quarantine_field": "collar",
+	"sig_lockdown": "sentry", "sig_deadeye": "tracker", "sig_quarantine_field": "emitter", "sig_bring_down": "thermite", "sig_flashover": "spotter", "sig_vent": "vials", "sig_death_sweep": "grapple", "sig_provoke": "pump",
 }
 
 
