@@ -47,6 +47,10 @@ const ACT_SCENES := {
 		["SOURCE", "Every one of you is already part of me. Come down."],
 	]},
 }
+## An act's transition scene when a given boss waits at its end, same shape as ACT_SCENES (lines,
+## title, sub, stage). It replaces the act's default scene, so the story foreshadows the boss.
+## A new boss adds its entry here and in BOSS_SCENES; bosses without one use ACT_SCENES.
+const ACT_SCENES_BY_BOSS := {}
 ## Act 3's second line when an earlier wave has reached the Source.
 const SOURCE_REMEMBERS := ["SOURCE", "You came back. I remember the fire."]
 ## The Source's extra boss line when the last wave burned it.

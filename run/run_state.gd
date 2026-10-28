@@ -19,6 +19,14 @@ const LONG_ROWS := 7
 const EXTRA_ROW := 4
 
 
+## The boss waiting at the end of this act's map: rolled from the pool by the boss node's seed.
+func act_boss() -> String:
+	for n in map:
+		if n.type == RunMap.BOSS:
+			return EnemyRoster.boss_for(act, int(n.seed))
+	return EnemyRoster.BOSS_OF_ACT.get(act, "")
+
+
 static func rows_for(act: int) -> int:
 	return ACT1_ROWS if act <= 1 else LONG_ROWS
 

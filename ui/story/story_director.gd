@@ -205,7 +205,7 @@ func _on_run_event(ev: Dictionary) -> void:
 				_queue_scene("act:%d:%d" % [run.seed, ev.act], act_spec(run, ev.act))
 		"fight_start":
 			if ev.kind == RunMap.BOSS:
-				var boss: String = EnemyRoster.BOSS_OF_ACT.get(run.act, "")
+				var boss: String = run.act_boss()
 				_queue_scene("boss:%d:%d" % [run.seed, run.act], boss_spec(run, boss))
 		"ending":
 			_queue_scene("ending:%d" % run.seed, ending_spec(run))
@@ -436,6 +436,9 @@ static func intro_spec(run: RunState) -> Dictionary:
 
 static func act_spec(run: RunState, act: int) -> Dictionary:
 	var a: Dictionary = StoryData.ACT_SCENES.get(act, {})
+	var by_boss: Dictionary = StoryData.ACT_SCENES_BY_BOSS.get(run.act_boss(), {})
+	if not by_boss.is_empty() and run.act == act:
+		a = by_boss
 	if a.is_empty():
 		return {}
 	var lines: Array = a.lines.duplicate()
