@@ -113,7 +113,7 @@ static func _tight_group(s: GameState, u: Unit, t: Unit, dmg: int) -> void:
 ## Knock rounds: shove `t` a tile away from `u`. Against a wall or a unit, both take damage and `t` is stunned.
 static func _knock(s: GameState, u: Unit, t: Unit) -> void:
 	var dir := Vector2i(signi(t.pos.x - u.pos.x), signi(t.pos.y - u.pos.y))
-	if dir == Vector2i.ZERO:
+	if dir == Vector2i.ZERO or EnemyAbilities.immovable(t):
 		return
 	var n := t.pos + dir
 	var blocker: Unit = s.unit_at(n)
