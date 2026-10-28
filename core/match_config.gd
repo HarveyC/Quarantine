@@ -124,7 +124,7 @@ static func for_fight(run: RunState, st: Dictionary) -> Dictionary:
 	return {
 		"echo": echo,
 		"map": MAP, "map_spec": {"biome": RunMap.biome(run.act), "objective": st.objective, "seed": seed,
-			"act": run.act, "row": run.row, "outbreak": run.outbreak},
+			"act": run.act, "row": run.row, "outbreak": run.outbreak, "boss": spec.boss},
 		"squad": squad, "enemies": enemies, "encounter": built.get("encounter", {}), "seed": seed, "fight": spec,
 	}
 

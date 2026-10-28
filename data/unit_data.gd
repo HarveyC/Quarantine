@@ -66,6 +66,8 @@ const ENEMIES := {
 	# Bosses
 	"brood_mother": {"name": "The Brood Mother", "max_hp": 40, "aim": 65, "mobility": 0, "damage": [3, 5], "abilities": ["claw", "spit", "acid_rain", "burrow", "erupt", "leap", "rockfall"], "melee_only": true},
 	"colonel_hale": {"name": "Colonel Hale", "max_hp": 36, "aim": 70, "mobility": 5, "damage": [3, 5], "abilities": ["airstrike", "flashbang", "smoke_screen", "slam", "charge", "stomp", "hurl", "danger_close"]},
+	"coolant_valve": {"name": "Coolant valve", "max_hp": 8, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true, "infects": false, "machine": true},
+	"bore_engine": {"name": "The Bore Engine", "max_hp": 30, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": ["piston", "bite"], "melee_only": true, "infects": false},
 	"the_source": {"name": "The Source", "max_hp": 30, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": ["pull", "core_slam", "lash"], "melee_only": true},
 }
 

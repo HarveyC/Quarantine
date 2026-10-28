@@ -472,6 +472,13 @@ func _set_boss() -> void:
 				_box(Vector3(2.5, 1.2, 1.0), Vector3(x, 0.6, -2.0), CONCRETE, 0.3 * signf(x))
 			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
 			_omni(Vector3(-4, 1, -4), Color("ff4a33"), 2.0, 8.0, true)
+		"bore_engine":
+			col = Color("ffc470")
+			for i in 3:
+				var a := TAU * i / 3.0 + 1.5708
+				_unit("coolant_valve", -1, 0, Vector3(cos(a) * 4.5, 0, sin(a) * 4.5 - 1.0), Vector3(0, 0, -1))
+			_omni(Vector3(0, 3, 0), Color("ff7a33"), 7.0, 16.0, true)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 6.0, 16.0, 22.0)
 		"the_source":
 			for i in 6:
 				var a := TAU * i / 6.0

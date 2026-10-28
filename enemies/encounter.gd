@@ -90,6 +90,9 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 				var root := _place(s, "source_root", src.pos + offsets[i])
 				root.status["spawner"] = {"kinds": ["runner", "spitter"], "every": 3 + slower, "next": 2 + i, "i": i}
 			src.status["alerted"] = true
+		"bore_engine":
+			var engine := _place(s, "bore_engine", _marker(s, "boss", Vector2i(s.grid.width / 2, s.grid.height / 2)))
+			BoreEngine.setup(s, engine, squad)
 	var mult := float(enc.get("boss_health_mult", 1.0))
 	for u in s.living(Types.Team.ENEMY):
 		if EnemyRoster.is_static(u) or enc.get("ambush", false):
@@ -401,7 +404,7 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			continue
 		var victims: Array[Unit] = []
 		for u in s.living():
-			if t.cells.has(u.pos) and u != src:
+			if t.cells.has(u.pos) and u != src and not (t.get("foes_only", false) and src != null and not src.is_enemy_of(u)):
 				victims.append(u)
 		s.emit({"type": "strike", "kind": t.kind, "cells": t.cells, "unit": t.get("unit", -1),
 			"units": victims.map(func(x: Unit) -> int: return x.id), "damage": t.damage})
@@ -590,6 +593,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		return ColonelHale.clamp_damage(target, amount)
 	if target.kind == "the_source":
 		return SourceBoss.clamp_damage(target, amount)
+	if target.kind == "bore_engine":
+		return BoreEngine.clamp_damage(target, amount)
 	return amount
 
 
@@ -672,13 +677,17 @@ static func on_died(s: GameState, u: Unit) -> void:
 		for o in s.living(Types.Team.ENEMY):
 			kill(s, o)
 		return
-	if u.kind in ["hive_node", "source_root", "egg_sac"] and not _any_alive(s, u.kind):
+	if u.kind == "coolant_valve":
+		BoreEngine.on_valve_cut(s, u)
+	if u.kind in ["hive_node", "source_root", "egg_sac", "coolant_valve"] and not _any_alive(s, u.kind):
 		for o in s.living(Types.Team.ENEMY):
 			if o.status.get("tether", "") == u.kind:
 				o.status.erase("tether")
 				s.emit({"type": "untethered", "unit": o.id})
 				if o.kind == "the_source":
 					SourceBoss.on_roots_dead(s, o)
+				elif o.kind == "bore_engine":
+					BoreEngine.on_valves_dead(s, o)
 
 
 static func _any_alive(s: GameState, kind: String) -> bool:

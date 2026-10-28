@@ -184,8 +184,9 @@ def streets():
 class A:
     """A 20x20 arena. P deploy, E enemy pod cells, B boss anchor (b: on an upper roof) (see maps/biome_wall.txt for glyphs)."""
 
-    def __init__(self, name):
+    def __init__(self, name, boss=""):
         self.name = name
+        self.boss = boss   # arena only for this boss kind; untagged arenas serve every boss of the biome
         self.g = [["."] * 20 for _ in range(20)]
 
     def put(self, x, y, ch):
@@ -219,7 +220,8 @@ class A:
         return self
 
     def render(self):
-        return "\n".join([f"@arena {self.name}"] + ["".join(r) for r in self.g])
+        head = f"@arena {self.name}" + (f" boss={self.boss}" if self.boss else "")
+        return "\n".join([head] + ["".join(r) for r in self.g])
 
 
 def brood_arena():
@@ -278,7 +280,26 @@ def source_arena():
     return a
 
 
-ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
+def engine_arena():
+    a = A("drill_deck", "bore_engine")
+    a.put(10, 9, "B")                                   # the drill head over the shaft
+    for cx, cy, stairs in [(10, 3, [(10, 6)]), (4, 12, [(4, 9), (7, 12)]), (16, 12, [(16, 9), (13, 12)])]:
+        a.rect(cx - 2, cy - 2, cx + 2, cy + 2, "^")     # a coolant platform, one valve each; it falls when the valve is cut
+        a.rect(cx - 1, cy - 1, cx + 1, cy + 1, "^")
+        a.put(cx - 2, cy + 2, "%").put(cx + 2, cy + 2, "%").put(cx - 2, cy - 2, "%").put(cx + 2, cy - 2, "%")
+        for sx, sy in stairs:
+            a.put(sx, sy, "s")
+    for x0, y0, x1, y1 in [(7, 7, 8, 8), (12, 7, 13, 8), (7, 10, 8, 11), (12, 10, 13, 11)]:
+        a.rect(x0, y0, x1, y1, "#")                      # piston housings around the shaft
+    for x, y in [(9, 14), (11, 14), (2, 16), (17, 16), (1, 6), (18, 6), (6, 5), (14, 5), (9, 12), (11, 12)]:
+        a.put(x, y, "=")
+    a.put(1, 9, "!").put(18, 9, "!")
+    a.deploy()
+    a.pods([(1, 1), (2, 1), (17, 1), (18, 1), (1, 13), (1, 14), (19, 13), (19, 14)])
+    return a
+
+
+ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": [source_arena, engine_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)
@@ -370,7 +391,9 @@ def build(biome):
         parts.append(p.render())
         parts.append("")
     parts.append(PLOTS.strip("\n"))
-    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.", ARENAS[biome]().render()]
+    fns = ARENAS[biome] if isinstance(ARENAS[biome], list) else [ARENAS[biome]]
+    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases. `boss=<kind>` arenas are only used for that boss."]
+    parts += [fn().render() + "\n" for fn in fns]
     return "\n".join(parts) + "\n"
 
 

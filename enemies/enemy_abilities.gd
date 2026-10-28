@@ -57,6 +57,10 @@ const DEFS := {
 		"desc": "Drags the soldier with the most Infection 2 tiles toward the Source."},
 	"core_slam": {"name": "Core slam", "targeting": "cell", "cost": -1, "cooldown": 0, "phases": [2, 3],
 		"desc": "Marks a whole row or column; it slams for 4 damage next enemy phase."},
+	"piston": {"name": "Piston", "targeting": "cell", "cost": 1, "cooldown": 0,
+		"desc": "Marks a whole row or column; the pistons sweep it for 4 damage next enemy phase."},
+	"bite": {"name": "Bite", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Clamps down on everything within 2 tiles of the Engine: 5 damage next enemy phase."},
 	"smoke_screen": {"name": "Smoke screen", "targeting": "cell", "cost": 1, "cooldown": 4,
 		"desc": "Pops a 3x3 smoke cloud to cover a fall back: +defense inside it."},
 	"stomp": {"name": "Stomp", "targeting": "none", "cost": -1, "cooldown": 3,
@@ -112,6 +116,9 @@ const SMOKE_RANGE := 6.0
 const SMOKE_TURNS := 3
 const HURL_RANGE := 9.0
 const LASH_RANGE := 24.0
+const PISTON_DAMAGE := 4
+const BITE_DAMAGE := 5
+const BITE_RADIUS := 2
 
 
 static func handles(id: String) -> bool:
@@ -209,7 +216,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			"flashbang":
 				if u.pos.distance_to(cell) > FLASH_RANGE or not Combat.can_see(s, u.pos, cell):
 					return "Out of range"
-			"core_slam":
+			"core_slam", "piston":
 				if not action.get("axis", "") in ["row", "col"]:
 					return "No axis"
 			"smoke_screen":
@@ -347,6 +354,16 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			Encounter.add_telegraph(s, {"kind": "lash", "cells": cells, "turn": s.turn + 1,
 				"damage": SourceBoss.LASH_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "spores": SPORE_TURNS})
 		"pull": _pull(s, u)
+		"piston":
+			var lane := slam_line(s, u, action.cell, action.axis)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": lane})
+			Encounter.add_telegraph(s, {"kind": "piston", "cells": lane, "turn": s.turn + 1,
+				"damage": PISTON_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "foes_only": true})
+		"bite":
+			var jaws := square(s.grid, u.pos, BITE_RADIUS)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": u.pos, "cells": jaws})
+			Encounter.add_telegraph(s, {"kind": "bite", "cells": jaws, "turn": s.turn + 1,
+				"damage": BITE_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "foes_only": true})
 		"core_slam":
 			var cells := slam_line(s, u, action.cell, action.axis)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})

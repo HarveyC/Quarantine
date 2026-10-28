@@ -49,6 +49,10 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			return {"icon": "pulse", "label": "LASH + INFECTION +%d" % pulse, "target": -1}
 		var pt := EnemyAbilities.pull_target(s, u)
 		return {"icon": "pull", "label": "PULL + SLAM" if phase == 2 else "LASH + SLAM", "target": pt.id if pt else -1}
+	if u.kind == "bore_engine":
+		if BoreEngine.is_open(u):
+			return {"icon": "strike", "label": "CORE OPEN %d" % int(u.status.window), "target": -1}
+		return {"icon": "strike", "label": "PISTONS" if int(u.status.get("cut", 0)) == 0 else "PISTONS + BITE", "target": -1}
 	if not EnemyAI.is_alerted(u) and not u.status.get("turned", false) and UnitData.ENEMIES.has(u.kind):
 		return {"icon": "dormant", "label": "UNAWARE", "target": -1}
 	if u.kind == "collector" and not Recovery.collector_intent(s, u).is_empty():

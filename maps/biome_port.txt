@@ -976,7 +976,7 @@ CCSRE
 CCSRR
 CCDRR
 
-; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.
+; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases. `boss=<kind>` arenas are only used for that boss.
 @arena command_post
 ....................
 .^^^............^^^.
@@ -998,3 +998,4 @@ CCDRR
 ........PPPP........
 ........PPPP........
 .......=....=.......
+
