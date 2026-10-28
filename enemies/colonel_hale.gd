@@ -5,20 +5,22 @@ extends RefCounted
 ##     clusters and the soldiers on rooftops, flashbangs overwatch, pops smoke and falls back when
 ##     a soldier closes in. A recovery team drops in from turn 3.
 ##   2 Mutation (67-33%): the Bloom takes him. Heals a little, grows plating, roars (his adds
-##     frenzy), then stomps (marked 3x3) and charges lanes (marked) through cover and roofs.
-##   3 Wreck (33-0%): sheds the plating. Hurls wreckage onto cover (marked 3x3) and calls
-##     danger close on his own position (marked 5x5) when the squad crowds him.
+##     frenzy), then stomps (marked 3x3), charges lanes (marked) through cover and roofs, and keeps
+##     calling the fire mission on the squad's clusters.
+##   3 Wreck (33-0%): sheds the plating. Hurls wreckage onto cover (marked 3x3), keeps the fire
+##     mission coming and calls danger close on his own position (marked 5x5) when the squad crowds him.
 ## Encounter, EnemyBehaviours and FightBuilder call in here. OWNER: enemies workstream.
 
 ## Boss HP as a share of his 36, by squad size (FightBuilder, instead of SQUAD_BOSS_HEALTH).
-const HEALTH := {1: 0.4, 2: 0.65, 3: 1.0, 4: 1.3}
+const HEALTH := {1: 0.6, 2: 0.7, 3: 1.05, 4: 1.35}
 const MOBILITY := {2: 6, 3: 7}
 const HEAL := 0.15              # share of max HP he regains when the Bloom takes him
 const POST_RADIUS := 6          # how far from his start he looks for the highest ground
 const FALL_BACK := 3            # a soldier this close (Chebyshev) sends him looking for a new post
 const WAVE_FIRST := 3
 const WAVE_EVERY := 4
-const WAVE_KINDS := {1: [], 2: ["fallen"], 3: ["fallen"], 4: ["fallen", "fallen"]}
+## Colony Security reinforcements: the recovery team is Hale's cordon, not the Infected.
+const WAVE_KINDS := {1: [], 2: ["overwatcher"], 3: ["shieldman", "overwatcher"], 4: ["shieldman", "overwatcher", "fallen"]}
 
 
 static func setup(s: GameState, h: Unit, squad: int) -> void:
@@ -137,6 +139,15 @@ static func _command(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:
 	return _act(s, EnemyBehaviours.cover_shooter(s, u, hostiles))
 
 
+## The fire mission never stops: from phase 2 he still calls strikes on the best cluster whenever it is
+## ready and costs him no one he cares about, so standing still is never safe.
+static func _fire_mission(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:
+	if int(u.cooldowns.get("airstrike", 0)) > 0:
+		return false
+	var strike := strike_cell(s, u, hostiles)
+	return strike.hits >= 1 and _act(s, EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "airstrike", "cell": strike.cell}))
+
+
 ## The 3x3 that catches the most soldiers, with extra weight on anyone on high ground (a strike
 ## brings the roof down on them). {cell, hits}.
 static func strike_cell(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
@@ -198,6 +209,8 @@ static func _relocate(s: GameState, u: Unit, hostiles: Array[Unit], margin: floa
 ## Phase 2: the Brute. Stomps when two or more are in reach, else claws; the charge itself is
 ## wound up at the end of his turn (EnemyBehaviours.end_turn) and shown as a marked lane.
 static func _brute(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:
+	if _fire_mission(s, u, hostiles):
+		return true
 	var adjacent := hostiles.filter(func(h: Unit) -> bool: return s.grid.melee_reach(u.pos, h.pos))
 	if adjacent.size() >= 2 and _act(s, EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "stomp"})):
 		return true
@@ -207,6 +220,8 @@ static func _brute(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:
 ## Phase 3: hurls wreckage at soldiers dug in behind cover or up high, calls danger close when
 ## crowded, and otherwise tears into whoever is nearest.
 static func _wreck(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:
+	if _fire_mission(s, u, hostiles):
+		return true
 	var crowd := hostiles.filter(func(h: Unit) -> bool: return EnemyAI._cheb(u.pos, h.pos) <= 2)
 	if not crowd.is_empty() and int(u.cooldowns.get("danger_close", 0)) <= 0 \
 			and _act(s, EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "danger_close"})):

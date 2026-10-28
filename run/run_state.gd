@@ -49,6 +49,7 @@ var supplies := 60
 var intel := 1
 var outbreak := 0
 var serum := {}              # player -> samples (2 samples = 1 dose)
+var peak_squad := 0           # most soldiers this run has fielded; fights stay scaled for it after a loss
 var fights_won := 0          # fights survived this run (XP / rank-ups are per soldier, see soldiers)
 
 ## Every soldier of the run: active squad, reserve, dead and turned. Dictionaries, see RunSoldier.
@@ -172,7 +173,7 @@ func to_dict() -> Dictionary:
 		"players": players.duplicate(), "host_player": host_player, "benched": benched.duplicate(),
 		"act": act, "row": row, "node": node, "map": map.duplicate(true),
 		"supplies": supplies, "intel": intel, "outbreak": outbreak, "serum": serum.duplicate(),
-		"fights_won": fights_won, "soldiers": soldiers.duplicate(true), "next_sid": _next_sid,
+		"fights_won": fights_won, "peak_squad": peak_squad, "soldiers": soldiers.duplicate(true), "next_sid": _next_sid,
 		"votes": votes.duplicate(), "steps": steps.duplicate(), "fight_config": fight_config.duplicate(true),
 		"fight_snapshot": fight_snapshot.duplicate(true), "node_state": node_state.duplicate(true),
 		"gear": gear.duplicate(true), "modifiers": modifiers.duplicate(true), "seen_events": seen_events.duplicate(),
@@ -190,7 +191,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	r.players.assign(d.players)
 	r._next_sid = d.next_sid
 	for key in ["phase", "result", "host_player", "act", "row", "node", "supplies", "intel", "outbreak",
-			"fights_won", "unknown_streak", "benched", "map", "serum", "soldiers", "votes", "steps",
+			"fights_won", "peak_squad", "unknown_streak", "benched", "map", "serum", "soldiers", "votes", "steps",
 			"fight_config", "fight_snapshot", "node_state", "gear", "modifiers", "seen_events", "echoes", "meta", "tally", "story"]:
 		if d.has(key):
 			var v: Variant = d[key]

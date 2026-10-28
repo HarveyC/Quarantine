@@ -71,8 +71,8 @@ const DEFS := {
 ## Hale's abilities by phase (ColonelHale): radio and air support, then the Brute, then the wreck.
 const HALE_PHASES := {
 	1: ["airstrike", "flashbang", "smoke_screen"],
-	2: ["slam", "charge", "stomp"],
-	3: ["slam", "charge", "stomp", "hurl", "danger_close"],
+	2: ["slam", "charge", "stomp", "airstrike"],
+	3: ["slam", "charge", "stomp", "hurl", "danger_close", "airstrike"],
 }
 
 const CHARGE_RANGE := 6
@@ -785,6 +785,8 @@ static func slam_line(s: GameState, u: Unit, cell: Vector2i, axis: String) -> Ar
 
 ## Pushes `t` up to `steps` tiles along `dir` while the way is open floor. Emits a move event.
 static func knockback(s: GameState, t: Unit, dir: Vector2i, steps: int) -> void:
+	if t.kind == "the_source" or EnemyRoster.is_static(t):
+		return   # the Source and its roots are rooted in the shaft
 	var path: Array[Vector2i] = []
 	var c := t.pos
 	var occ := s.occupied(t.id)

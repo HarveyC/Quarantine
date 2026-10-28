@@ -109,7 +109,9 @@ static func for_fight(run: RunState, st: Dictionary) -> Dictionary:
 	for r in run.squad():
 		if r.sit_out <= 0:
 			squad.append(RunSoldier.squad_entry(run, r))
-	spec["squad"] = squad.size()
+	# Fights stay scaled for the biggest squad the run has fielded: losing a soldier is not a discount.
+	run.peak_squad = maxi(run.peak_squad, run.squad().size())
+	spec["squad"] = clampi(maxi(squad.size(), run.peak_squad), 1, 4)
 	Severity.adjust_fight_spec(run, spec)
 	var built: Dictionary = RunHooks.call_static("FightBuilder", "build", [spec], {})
 	var enemies: Array = built.get("enemies", default_enemies(spec))
