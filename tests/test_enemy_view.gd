@@ -6,10 +6,10 @@ const MAIN := preload("res://scenes/main.tscn")
 const Board := preload("res://view/board.gd")
 
 
-func _view_for_fight(spec: Dictionary) -> MissionView:
+func _view_for_fight(spec: Dictionary, boss_only := "") -> MissionView:
 	var fight := FightBuilder.build(spec)
 	var config := MatchConfig.make(1, 99)
-	config["enemies"] = fight.enemies
+	config["enemies"] = fight.enemies.filter(func(e): return boss_only == "" or str(e).begins_with(boss_only))
 	config["encounter"] = fight.encounter
 	var v: MissionView = MAIN.instantiate()
 	v.start(MatchConfig.build(config))
@@ -214,7 +214,7 @@ func _no_bare_labels(v: MissionView) -> bool:
 ## Colonel Hale through the view: air support from his post with marked strikes and smoke, the
 ## Bloom taking him (banner beat, stomps and charges), then hurled wreckage and danger close.
 func test_colonel_hale_three_phases_play_through_the_view() -> void:
-	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 5, "squad": 2, "players": 2})
+	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 5, "squad": 2, "players": 2}, "colonel_hale")   # his escort has its own tests
 	_drain(v)
 	var h := _boss_of(v, "colonel_hale")
 	var hv = v.view_for(h.id)

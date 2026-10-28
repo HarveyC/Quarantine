@@ -220,8 +220,6 @@ static func _brute(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:
 ## Phase 3: hurls wreckage at soldiers dug in behind cover or up high, calls danger close when
 ## crowded, and otherwise tears into whoever is nearest.
 static func _wreck(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:
-	if _fire_mission(s, u, hostiles):
-		return true
 	var crowd := hostiles.filter(func(h: Unit) -> bool: return EnemyAI._cheb(u.pos, h.pos) <= 2)
 	if not crowd.is_empty() and int(u.cooldowns.get("danger_close", 0)) <= 0 \
 			and _act(s, EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "danger_close"})):
@@ -233,6 +231,8 @@ static func _wreck(s: GameState, u: Unit, hostiles: Array[Unit]) -> bool:
 		var target := hurl_cell(s, u, hostiles)
 		if target.hits >= 1 and _act(s, EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": "hurl", "cell": target.cell})):
 			return true
+	if _fire_mission(s, u, hostiles):
+		return true
 	return _act(s, EnemyBehaviours.rush(s, u, _melee_pool(s, u, hostiles), "slam"))
 
 
