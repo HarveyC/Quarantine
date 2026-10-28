@@ -130,8 +130,6 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return _c("Sample delivered", Palette.AMBER)
 		"sample_lost":
 			return _c("The enemy destroyed a sample", Palette.DANGER)
-		"courier_waits":
-			return _c("The courier waits for an escort", Palette.AMBER)
 		"beacon_overrun":
 			return _c("Beacon overrun. Retake it this turn or the mission fails", Palette.DANGER)
 		"mission_end":

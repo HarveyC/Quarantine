@@ -559,6 +559,13 @@ func _autoplay_step() -> void:
 				if not move.is_empty():
 					session.submit(move)
 					return
+	# Civilians are ours to move too: walk them to the exit or evac once the squad is close or the fight is over.
+	for c in state.living(Types.Team.PLAYER).filter(func(c: Unit) -> bool: return Objectives.is_civilian(c)):
+		if c.actions_left > 0 and (state.living(Types.Team.ENEMY).is_empty() or Objectives.nearest_soldier_dist(state, c.pos) <= 2):
+			var cm := _autoplay_advance(c)
+			if not cm.is_empty():
+				session.submit(cm)
+				return
 	for p in session.local_players():
 		if state.phase == Types.Phase.TEAM and not state.ready.get(p, false):
 			print("[autoplay] turn %d: player %d ready" % [state.turn, p])
@@ -588,13 +595,10 @@ func _autoplay_marks() -> void:
 func _autoplay_advance(u: Unit) -> Dictionary:
 	var foes := state.living(Types.Team.ENEMY)
 	var goals: Array = foes.map(func(e: Unit) -> Vector2i: return e.pos)
-	if goals.is_empty():   # nobody left to fight: walk to the objective (a rescue needs an escort to the exit)
-		goals = state.grid.marker({"rescue": "exit", "extract": "evac", "hold": "beacon"}.get(str(state.grid.objective), ""))
-		if str(state.grid.objective) == "rescue":   # civilians wait to be found: walk to the nearest one first
-			var lost: Array = Objectives._civilians(state).filter(func(c: Unit) -> bool:
-				return not state.objective.rescued.has(c.id) and Objectives._nearest_soldier_dist(state, c.pos) > Objectives.ESCORT_LEASH)
-			if not lost.is_empty():
-				goals = lost.map(func(c: Unit) -> Vector2i: return c.pos)
+	if Objectives.is_civilian(u):   # a civilian only ever heads for the way out
+		goals = state.grid.marker("evac" if str(state.grid.objective) == "escort" else "exit")
+	elif goals.is_empty():   # nobody left to fight: walk to the objective (the squad then escorts the civilians)
+		goals = state.grid.marker({"rescue": "exit", "escort": "evac", "extract": "evac", "hold": "beacon"}.get(str(state.grid.objective), ""))
 	if goals.is_empty():
 		return {}
 	# Walk the real way round walls and through doorways: head for the goal nearest by path, and take

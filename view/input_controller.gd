@@ -54,6 +54,9 @@ func controllable() -> Array[Unit]:
 	var out: Array[Unit] = []
 	for p in view.session.local_players():
 		out.append_array(view.state.controllable_units(p))
+	for u in view.state.living(Types.Team.PLAYER):
+		if Objectives.is_civilian(u):
+			out.append(u)   # escorted civilians answer to every player
 	return out
 
 
