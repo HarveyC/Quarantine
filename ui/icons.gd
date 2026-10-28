@@ -330,10 +330,10 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 		"ammo":
 			for bx in [6.5, 12, 17.5]:
 				line.call([[bx - 2, 21], [bx - 2, 9], [bx, 4], [bx + 2, 9], [bx + 2, 21], [bx - 2, 21]])
-		"armor":
+		"armor", "body", "head", "offhand":
 			line.call([[12, 3], [20, 6], [20, 12], [17.5, 17.5], [12, 21], [6.5, 17.5], [4, 12], [4, 6], [12, 3]])
 			line.call([[12, 7], [12, 17]])
-		"gadget", "consumable":
+		"gadget", "utility", "utility2", "consumable":
 			line.call([[12, 2.5], [20.5, 7.25], [20.5, 16.75], [12, 21.5], [3.5, 16.75], [3.5, 7.25], [12, 2.5]])
 			line.call([[13, 6.5], [9.5, 12.5], [14.5, 12.5], [11, 18]])
 		# Menus.

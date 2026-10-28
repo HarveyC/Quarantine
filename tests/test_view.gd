@@ -1002,9 +1002,9 @@ func test_every_item_and_mutation_has_a_look() -> void:
 	items.merge(GearData.PROTOTYPES)
 	for id in items:
 		match str(items[id].slot):
-			"armor":
+			"body", "head", "offhand":
 				assert_true(GearKit.ARMOR_LOOK.has(id), "armour %s has a look" % id)
-			"gadget":
+			"utility":
 				assert_true(GearKit.GADGET_LOOK.has(id), "gadget %s has a look" % id)
 	for id in GearData.CONSUMABLES:
 		assert_true(not GearKit._pocket(id, 0).is_empty() and GearKit.POCKET_LOOKS.has(id), "pocket item %s has a look" % id)
@@ -1018,7 +1018,7 @@ func test_soldiers_wear_their_gear() -> void:
 	var GearKit := preload("res://view/gear_kit.gd")
 	var u := UnitData.make("trooper", Types.Team.PLAYER)
 	u.owner_player = 0
-	u.status["gear"] = {"armor": {"id": "plated_rig", "mk": 1}, "gadget": {"id": "sentry_turret", "mk": 1}}
+	u.status["gear"] = {"body": {"id": "plated_rig", "mk": 1}, "utility": {"id": "sentry_turret", "mk": 1}}
 	u.status["pockets"] = [{"id": "medkit", "charges": 1}, null]
 	var uv = preload("res://view/unit_view.gd").new()
 	uv.build(u)

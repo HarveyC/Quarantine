@@ -104,7 +104,7 @@ func _spec_lineup(spec: String) -> void:
 			opts[kv.get_slice("=", 0)] = kv.substr(kv.find("=") + 1)
 		var status := {}
 		var gear := {}
-		for slot in ["armor", "gadget", "ammo", "weapon"]:
+		for slot in ["head", "body", "offhand", "utility", "utility2", "ammo", "weapon"]:
 			if opts.has(slot):
 				gear[slot] = {"id": opts[slot], "mk": 1}
 		status["gear"] = gear
