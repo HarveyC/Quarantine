@@ -590,14 +590,14 @@ static func _build() -> Dictionary:
 		"labels": ["Aim area"]}
 	var evac := TileOverlays.color("evac")
 	t["zone_evac"] = {"name": "Evac zone", "kind": "objective", "icon": "flag", "tone": evac,
-		"line": "Get every soldier onto the green pad by the end of a squad turn to win.",
+		"line": "Get every soldier onto the green pad by the end of a squad turn. The first one there fires a flare that wakes the area, and the dropship needs a round to land.",
 		"art": "tile", "art_ctx": {"overlay": "evac"},
 		"stats": [["%d" % Objectives.EXTRACT_TURNS, "turns to make it"]],
 		"more": ["When the dropship leaves, anyone off the pad is lost."],
 		"see": ["actions"],
 		"aliases": ["Evac", "Evac pad", "Evac zone"]}
 	t["zone_beacon"] = {"name": "Beacon", "kind": "objective", "icon": "flag", "tone": "amber",
-		"line": "Hold it: if only enemies stand in the amber zone when a round ends, the fight is lost.",
+		"line": "It wakes every enemy once the first turn ends. If only enemies stand in the amber zone when a round ends, the fight is lost.",
 		"art": "tile", "art_ctx": {"overlay": "beacon"},
 		"stats": [["%d" % Objectives.HOLD_TURNS, "rounds to hold"]],
 		"more": ["One soldier inside is enough to keep it."],

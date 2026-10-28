@@ -8,9 +8,12 @@ extends RefCounted
 ## run framework calls bonus_met. See docs/ARCHITECTURE.md, "Objectives".
 ##
 ##   skirmish, elite, boss: kill every enemy.
-##   extract: every living soldier on the evac zone at the end of a squad turn. After turn
-##            EXTRACT_TURNS the dropship leaves: soldiers off the pad are lost.
-##   hold:    survive HOLD_TURNS rounds; lost once enemies have stood in the beacon zone with no
+##   extract: every living soldier on the evac zone at the end of a squad turn. The first soldier
+##            to reach the pad fires a signal flare that wakes every Infected within SIGNAL_RADIUS,
+##            and the dropship needs a round to land: the win comes at the end of a later squad
+##            turn. After turn EXTRACT_TURNS the dropship leaves: soldiers off the pad are lost.
+##   hold:    the beacon goes live after the squad's first turn and wakes every Infected on the map.
+##            Survive HOLD_TURNS rounds; lost once enemies have stood in the beacon zone with no
 ##            soldier on it at the end of HOLD_OVERRUN_ROUNDS rounds in a row. The first such round
 ##            only warns (a `beacon_overrun` event) and doesn't count as held, so the squad always
 ##            gets a turn to retake it.
@@ -29,8 +32,9 @@ extends RefCounted
 ##            enemy ending a round on a loose sample destroys it. Won at SAMPLES_NEED delivered, lost
 ##            when too few are left.
 
-const EXTRACT_TURNS := 8           # one more than the old 7: the evac zone sits farther out on the bigger maps
+const EXTRACT_TURNS := 9           # one more than the old 7: the evac zone sits farther out on the bigger maps
 const HOLD_TURNS := 4
+const SIGNAL_RADIUS := 14.0     # how far the evac flare carries
 const HOLD_OVERRUN_ROUNDS := 2  # rounds in a row the enemy can own the beacon before it falls
 const BONUS_BY_TURN := 5        # skirmish / elite / purge bonus: done by the end of this turn
 const NEST_KIND := "spore_nest"
@@ -101,6 +105,7 @@ static func setup(s: GameState) -> void:
 			s.objective.contested = false
 		"extract":
 			s.objective.left_behind = 0
+			s.objective.flare = -1   # the turn the first soldier reached the pad
 		"escort":
 			var courier := _spawn_courier(s)
 			s.objective.courier = courier.id if courier != null else -1
@@ -192,6 +197,7 @@ static func on_team_phase_end(s: GameState) -> void:
 		return
 	match kind(s):
 		"extract": _check_extract(s)
+		"hold": _beacon_goes_live(s)
 		"rescue": _rescue_turn(s)
 		"escort": _escort_turn(s)
 		"demolish": _demolish_arm(s)
@@ -210,12 +216,34 @@ static func on_enemy_phase_end(s: GameState) -> void:
 		"samples": _samples_round(s)
 
 
+## Wakes every Infected within `radius` of `cells` (the squad is no longer unseen).
+static func _signal(s: GameState, cells: Array, radius: float) -> void:
+	Concealment.lose(s, "signal")
+	for e in s.living(Types.Team.ENEMY):
+		if EnemyAI.is_alerted(e) or not UnitData.ENEMIES.has(e.kind):
+			continue
+		for c in cells:
+			if e.pos.distance_to(c) <= radius:
+				EnemyAI.alert(s, e)
+				break
+
+
+## The beacon comes online once the squad has had a turn to dig in.
+static func _beacon_goes_live(s: GameState) -> void:
+	if s.turn == 1 and not s.objective.get("live", false):
+		s.objective.live = true
+		_signal(s, s.grid.marker("beacon"), 999.0)
+
+
 static func _check_extract(s: GameState) -> void:
 	var evac := s.grid.marker("evac")
 	var squad := soldiers(s)
 	var on_pad := squad.filter(func(u: Unit) -> bool: return evac.has(u.pos))
 	_progress(s, on_pad.size(), squad.size())
-	if on_pad.size() == squad.size():
+	if not on_pad.is_empty() and int(s.objective.flare) < 0:
+		s.objective.flare = s.turn
+		_signal(s, evac, SIGNAL_RADIUS)
+	if on_pad.size() == squad.size() and s.turn > int(s.objective.flare):
 		s.objective.result = Types.Result.VICTORY
 	elif s.turn >= EXTRACT_TURNS:
 		# The dropship leaves: anyone not aboard is lost.

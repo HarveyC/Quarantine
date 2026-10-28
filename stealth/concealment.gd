@@ -15,6 +15,7 @@ extends RefCounted
 ##   fired      a soldier attacks or damages an enemy (missed shots count)
 ##   attacked   an enemy damages one of ours (a Lurker's pounce, an Echo)
 ##   explosion  a barrel, charge or grenade goes off (Destruction.noise)
+##   signal     the evac flare goes up (Objectives, extract)
 ##   alerted    an Infected wakes for any other reason (a hidden Lurker found, a scream)
 ## It emits {"type": "concealment_lost", "cause", "unit" (spotter or target, -1), "by" (ours, -1)}
 ## and wakes that enemy and its pod.
@@ -29,7 +30,7 @@ const AMBUSH_AIM := 15
 const PATROL_CHANCE := 0.6
 const PATROL_STEP := 3        # tiles per patrol move
 const PATROL_RADIUS := 5.0    # how far a patrol strays from where the enemy started
-const CAUSES := ["spotted", "fired", "attacked", "explosion", "alerted"]
+const CAUSES := ["spotted", "fired", "attacked", "explosion", "alerted", "signal"]
 
 
 ## Called by Encounter.setup. `enc.concealed` turns concealment on for this fight.
@@ -227,4 +228,5 @@ static func cause_text(cause: String, enemy_name := "") -> String:
 		"fired": return "The squad opened fire"
 		"attacked": return "Under attack"
 		"explosion": return "The blast was heard"
+		"signal": return "The flare lit up the area"
 	return "The Infected are awake"
