@@ -3,6 +3,7 @@ extends TestCase
 ## during the team phase. Built out of the tree like test_view.gd.
 
 const MAIN := preload("res://scenes/main.tscn")
+const Board := preload("res://view/board.gd")
 
 
 func _view_for_fight(spec: Dictionary) -> MissionView:
@@ -287,4 +288,54 @@ func test_parting_blow_warning_card_has_width() -> void:
 	assert_true(card.get_combined_minimum_size().x >= 300.0, "card is wide enough to read, not a sliver")
 	v.hud.hide_move_warning()
 	assert_true(v.hud._move_warning == null, "warning card cleared")
+	v.free()
+
+
+## Every unit stands on the floor of its cell once a beat queue is over, whatever the fight threw at it.
+func test_units_stand_on_their_floor_after_the_source_fight() -> void:
+	var bad := []
+	for sd in [1, 2, 3]:
+		var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": sd, "squad": 3, "players": 1})
+		_drain(v)
+		var src: Unit = v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "the_source")[0]
+		for u in v.state.living(Types.Team.PLAYER):
+			u.max_hp = 999
+			u.hp = 999
+		for turn in 14:
+			if v.state.phase == Types.Phase.ENDED:
+				break
+			if turn == 4:
+				src.hp = mini(src.hp, SourceBoss.gate(src) - 1)
+			for p in v.state.players:
+				Rules.set_ready(v.state, p, true)
+			_drain(v)
+			for u in v.state.living():
+				var uv := v.view_for(u.id)
+				var want := Board.cell_to_world(u.pos).y
+				if uv.visible and absf(uv.position.y - want) > 0.05:
+					bad.append("seed %d turn %d %s at %s y=%.2f want %.2f" % [sd, turn, u.kind, str(u.pos), uv.position.y, want])
+				if uv.visible and uv._body != null and uv._body.position.y < -0.3:
+					bad.append("seed %d turn %d %s body y=%.2f" % [sd, turn, u.kind, uv._body.position.y])
+		v.free()
+	assert_eq(bad.size(), 0, "units on their floor: %s" % str(bad.slice(0, 6)))
+
+
+func test_soldier_on_a_collapsing_tile_drops_with_it() -> void:
+	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 1, "squad": 3, "players": 1})
+	_drain(v)
+	var s: GameState = v.state
+	var raised: Vector2i = Vector2i(-1, -1)
+	for y in s.grid.height:
+		for x in s.grid.width:
+			if s.grid.level(Vector2i(x, y)) > 0 and s.unit_at(Vector2i(x, y)) == null and s.grid.is_walkable(Vector2i(x, y)):
+				raised = Vector2i(x, y)
+	assert_true(raised.x >= 0, "the arena has raised tiles")
+	var u: Unit = s.living(Types.Team.PLAYER)[0]
+	u.pos = raised
+	v.view_for(u.id).set_cell(raised)
+	var before := v.view_for(u.id).position.y
+	assert_true(before > 0.1, "standing up on the tile")
+	Elevation.set_level(s, raised, 0)
+	_drain(v)
+	assert_true(absf(v.view_for(u.id).position.y - Board.cell_to_world(raised).y) < 0.05, "and level with the floor once it falls")
 	v.free()
