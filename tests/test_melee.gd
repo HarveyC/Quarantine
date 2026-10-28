@@ -277,9 +277,9 @@ func test_melee_unlocks() -> void:
 	tank.status["hits_taken"] = 4
 	Progression.on_fight_end(run, {"result": Types.Result.VICTORY, "soldiers": [{"unit": reaper.to_dict()}, {"unit": tank.to_dict()}]})
 	assert_true(run.meta.get("reaper_unlocked", false), "3 close kills unlock the Reaper")
-	assert_true(run.meta.get("warden_unlocked", false), "4 hits taken unlock the Warden")
+	assert_true(not run.meta.get("warden_unlocked", false), "the Warden is retired, its role is gear now")
 	var classes := Progression.unlocked_classes(run.meta)
-	assert_true(classes.has("reaper") and classes.has("warden"), "listed")
+	assert_true(classes.has("reaper") and not classes.has("warden"), "listed")
 	assert_true(Progression.CLASS_UNLOCK_HINTS.has("reaper"), "hint")
 
 

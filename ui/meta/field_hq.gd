@@ -17,10 +17,8 @@ const PERK_ICON := {"field_kit": "ability", "serum_reserve": "serum"}
 const OWNED := Styles.HP
 ## How each locked class unlocks, unless Progression publishes CLASS_UNLOCK_HINTS.
 const CLASS_HINTS := {
-	"hazmat": "Beat the act 1 boss",
 	"vector": "Win a fight with a soldier at Mutating or higher who didn't Turn",
 	"reaper": "Get 3 kills on adjacent enemies with one soldier in a won fight",
-	"warden": "Survive a won fight after being hit 4 or more times",
 }
 
 var tab := "unlocks"

@@ -84,7 +84,7 @@ static func make_run(screen: String) -> RunState:
 		r.gear.offers[sq[1].id].cards = [GearRun._gear_card("flare_launcher"), GearRun._gear_card("tracer_rounds"),
 			GearRun._gear_card("killbox")]
 		if screen == "guns":
-			r.gear.offers[sq[1].id].cards = [{"kind": "gun", "id": "battle_rifle", "rarity": "uncommon", "tags": ["Suppress"]}, GearRun._gear_card("flare_launcher"),
+			r.gear.offers[sq[1].id].cards = [{"kind": "gun", "id": "flechette_smg", "rarity": "uncommon", "tags": ["Suppress"]}, GearRun._gear_card("flare_launcher"),
 				{"kind": "gun", "id": "scout_carbine", "rarity": "uncommon", "tags": ["Close"]}]
 		if screen == "reward_grafts":   # the Bloom card a Critical soldier is offered
 			r.gear.offers[sq[1].id].cards[2] = Grafts.card_for(sq[1], "lattice_sight")
