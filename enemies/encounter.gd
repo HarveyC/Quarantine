@@ -534,11 +534,25 @@ static func _wave_cells(s: GameState, n: int) -> Array[Vector2i]:
 	cands.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return _dist_to_squad(s, a) > _dist_to_squad(s, b))
 	var out: Array[Vector2i] = []
 	var occ := s.occupied()
-	for c in cands:
-		if out.size() >= n:
-			break
-		if not occ.has(c):
-			out.append(c)
+	cands.assign(cands.filter(func(c: Vector2i) -> bool: return not occ.has(c)))
+	# Scatter: the farther half of the vents in a seeded shuffle, kept 3 apart where possible. Boss
+	# arenas keep the farthest-first order their scripts and tests lean on.
+	var scatter := str(s.encounter.get("boss", "")) == ""
+	var far := cands.slice(0, maxi(n, (cands.size() + 1) / 2) if scatter else n)
+	if scatter:
+		var rng := RandomNumberGenerator.new()   # its own stream, so state.rng draws stay put
+		rng.seed = hash([s.turn, s.grid.width, s.grid.height, n, cands.size()])
+		for i in range(far.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var t: Vector2i = far[i]
+			far[i] = far[j]
+			far[j] = t
+	for gap in ([3, 2, 0] if scatter else [0]):
+		for c in far + cands:
+			if out.size() >= n:
+				break
+			if not out.has(c) and out.all(func(o: Vector2i) -> bool: return maxi(absi(o.x - c.x), absi(o.y - c.y)) >= gap):
+				out.append(c)
 	if out.is_empty():
 		out.append(free_cell(s, _far_spawn(s)))
 	return out

@@ -165,6 +165,7 @@ func _unhandled_input(e: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	_update_mouse_confine()
 	if _fps.visible:
 		_fps_t -= delta
 		if _fps_t <= 0.0:
@@ -176,6 +177,19 @@ func _process(delta: float) -> void:
 	if v.length() > 0.0:
 		# Ease in: small tilts for precise aim, full tilt to cross the screen.
 		_move_pointer(v * pow(v.length(), 0.8) * POINTER_SPEED * delta)
+
+
+## Confine the pointer to the window while the game has focus (not in Settings, not alt-tabbed).
+func _update_mouse_confine() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var cur := Input.mouse_mode
+	if cur != Input.MOUSE_MODE_VISIBLE and cur != Input.MOUSE_MODE_CONFINED:
+		return
+	var want := GameSettings.confine_mouse() and DisplayServer.window_is_focused() and not is_menu_open()
+	var mode := Input.MOUSE_MODE_CONFINED if want else Input.MOUSE_MODE_VISIBLE
+	if cur != mode:
+		Input.mouse_mode = mode
 
 
 func _move_pointer(by: Vector2) -> void:

@@ -26,16 +26,16 @@ func _build(into: VBoxContainer) -> void:
 	if s.claimed_by != -1:
 		var j := NodeUi.hbox(8)
 		j.add_child(W.Icon.new("check", NodeUi.player_color(s.claimed_by), 18, 2.0))
-		j.add_child(NodeUi.caption("Joins %s's reserve" % NodeUi.player_name(session, s.claimed_by), NodeUi.player_color(s.claimed_by), 15))
+		j.add_child(NodeUi.caption("Claimed by %s" % NodeUi.player_name(session, s.claimed_by), NodeUi.player_color(s.claimed_by), 15))
 		v.add_child(j)
 	else:
 		for p in local_players():
-			var t := "Take into my reserve" if local_players().size() == 1 else "Take · %s" % NodeUi.player_name(session, p)
+			var t := "Take into the reserve" if local_players().size() == 1 else "Take · %s" % NodeUi.player_name(session, p)
 			var b := NodeUi.button(t, true, false, "", "recruit")
 			b.pressed.connect(submit.bind({"type": "node_claim", "player": p}))
 			v.add_child(b)
 	into.add_child(card)
 	var f := footer("", true, "Move on")
 	if s.claimed_by == -1:
-		f.tooltip_text = "If nobody takes them, they join the smallest reserve."
+		f.tooltip_text = "If nobody takes them, they join the reserve anyway."
 	into.add_child(f)

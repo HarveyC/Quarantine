@@ -62,6 +62,7 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		var hit: Unit = lane.hit
 		return {"icon": "charge", "label": "CHARGING", "target": hit.id if hit and u.is_enemy_of(hit) else -1}
 	var hostiles := EnemyAI._hostiles(s, u)
+	var plan := EnemyAI.preview(s, u)   # what the AI would do right now: targets come from it
 	match u.kind:
 		"bloater", "broodling":
 			return {"icon": "seek", "label": "SEEKING", "target": _nearest(u, hostiles)}
@@ -72,15 +73,15 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		"spitter":
 			return {"icon": "spit", "label": "SPIT", "target": _best_visible(s, u)}
 		"drifter":
-			return {"icon": "drop", "label": "DROP", "target": _most_exposed(s, u, hostiles)}
+			return {"icon": "drop", "label": "DROP", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 		"burrower":
 			return {"icon": "claw", "label": "BURROW", "target": -1}
 		"hooker":
-			return {"icon": "hook", "label": "HOOK", "target": _best_visible(s, u)}
+			return {"icon": "hook", "label": "HOOK", "target": _planned(s, u, plan, _best_visible(s, u))}
 		"relay":
 			return {"icon": "hide", "label": "RELAYING", "target": -1}
 		"hound":
-			return {"icon": "claw", "label": "HUNTING", "target": _most_exposed(s, u, hostiles)}
+			return {"icon": "claw", "label": "HUNTING", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 		"emplacement":
 			return {"icon": "strike", "label": "CROSSFIRE", "target": -1}
 		"overwatcher":
@@ -93,7 +94,7 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		"cutter":
 			if u.status.has("loot"):
 				return {"icon": "hide", "label": "FLEEING", "target": -1}
-			return {"icon": "claw", "label": "SNATCH", "target": _most_exposed(s, u, hostiles)}
+			return {"icon": "claw", "label": "SNATCH", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 		"fence":
 			return {"icon": "hide", "label": "LEAVING" if s.turn >= EnemyRoster.FENCE_LEAVES_TURN else "HOLDING LOOT", "target": -1}
 		"sapper":
@@ -103,7 +104,7 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		"stalker":
 			if EnemyBehaviours.is_watched(s, u):
 				return {"icon": "hide", "label": "FROZEN", "target": -1}
-			return {"icon": "claw", "label": "STALKING", "target": _most_exposed(s, u, hostiles)}
+			return {"icon": "claw", "label": "STALKING", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 		"weaver":
 			var mt := EnemyAbilities.mend_target(s, u)
 			if mt != null:
@@ -113,7 +114,7 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			if BroodMother.will_burrow(s, u, true):
 				return {"icon": "claw", "label": "BURROWING", "target": -1}
 			if phase >= 3:
-				return {"icon": "claw", "label": "BERSERK", "target": _most_exposed(s, u, hostiles)}
+				return {"icon": "claw", "label": "BERSERK", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 			if int(u.cooldowns.get("acid_rain", 0)) <= 1:
 				return {"icon": "strike", "label": "ACID RAIN", "target": -1}
 		"colonel_hale":
@@ -130,10 +131,28 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			elif phase >= 2 and int(u.cooldowns.get("stomp", 0)) <= 1 and \
 					hostiles.filter(func(h: Unit) -> bool: return s.grid.melee_reach(u.pos, h.pos)).size() >= 2:
 				return {"icon": "strike", "label": "STOMP", "target": -1}
-	if UnitData.is_melee_only(u.kind) or (u.kind == "colonel_hale" and phase >= 2):
-		return {"icon": "claw", "label": "", "target": _most_exposed(s, u, hostiles)}
-	return {"icon": "shoot", "label": "", "target": _best_visible(s, u)}
+	var melee: bool = UnitData.is_melee_only(u.kind) or (u.kind == "colonel_hale" and phase >= 2)
+	var icon := "claw" if melee else "shoot"
+	if EnemyAI.has_scripted_turn(u):   # bosses run their own turn, so there is no generic plan to read
+		return {"icon": icon, "label": "", "target": _most_exposed(s, u, hostiles) if melee else _best_visible(s, u)}
+	if plan.is_empty():
+		return {"icon": "hide", "label": "HOLDING", "target": -1}
+	return {"icon": icon, "label": "", "target": _planned(s, u, plan, -1)}
 
+
+## The unit the AI's own next action (EnemyAI.preview) is aimed at: its shoot / ability target, or for a
+## move the hostile nearest the cell it is walking to. `fallback` when the plan names nobody.
+static func _planned(s: GameState, u: Unit, plan: Dictionary, fallback: int) -> int:
+	if plan.is_empty():
+		return fallback
+	if plan.has("target"):
+		return int(plan.target)
+	var at: Vector2i = plan.get("to", plan.get("cell", u.pos))
+	var best: Unit = null
+	for h in EnemyAI._hostiles(s, u):
+		if best == null or EnemyAI._dist(at, h.pos) < EnemyAI._dist(at, best.pos):
+			best = h
+	return best.id if best else fallback
 
 static func dangers(s: GameState) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []

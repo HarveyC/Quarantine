@@ -291,8 +291,9 @@ func _update_hover(force: bool) -> void:
 		if mode == Mode.MOVE and _reach.has(c):
 			_show_move_preview(u, c)
 		elif mode == Mode.TARGET_CELL:
-			view.board.mark_cells([c] + cell_targets + _item_area(c), Color(Palette.AMBER, 0.22), "aim")
-			_show_blast(c if aim_pin == NO_CELL else aim_pin)
+			var at: Vector2i = c if aim_pin == NO_CELL else aim_pin
+			view.board.mark_cells([at] + cell_targets + _item_area(at), Color(Palette.AMBER, 0.22), "aim")
+			_show_blast(at)
 		elif mode == Mode.TARGET_UNIT:
 			_show_landing(u, c)
 		elif mode == Mode.MOVE and move_target != NO_CELL:
@@ -370,7 +371,9 @@ func _click_move(u: Unit, c: Vector2i) -> void:
 
 func _item_area(c: Vector2i) -> Array:
 	var r := 0
-	match str(pending.get("ability", "")):
+	match str(pending.get("ability", pending.get("mutation", ""))):
+		"overgrowth": r = 1
+		"spore_burst": r = 2
 		"item:smoke_grenade": r = GearFx.SMOKE_RADIUS
 		"item:flashbang", "gear:flare_launcher": r = 1
 		"gear:concussion_launcher":
@@ -433,6 +436,7 @@ func tile_terms(c: Vector2i) -> Array:
 
 
 ## Self-centred area abilities that preview before they are used (second press confirms).
+const PINNED_CELL_ABILITIES := ["incinerate", "runner_leap"]   # first click aims, second fires
 const SELF_AREAS := {"vent": 2, "quarantine_field": 2, "death_sweep": 1}   # radius, as in Signatures
 
 
@@ -579,6 +583,8 @@ func _trigger(u: Unit, a: Dictionary) -> void:
 			pending = _template(u, a)
 			unit_targets = Array(a.get("targets", []))
 			cell_targets = Array(a.get("cells", []))
+			if cell_targets.is_empty() and a.targeting == "cell":
+				cell_targets = _legal_cells(u, a)
 			pending_reach = int(a.get("reach", 0))
 			_set_mode(Mode.TARGET_UNIT if a.targeting == "unit" else Mode.TARGET_CELL)
 		_:
@@ -593,6 +599,27 @@ func _trigger(u: Unit, a: Dictionary) -> void:
 					view.hud.toast("%s: press again to confirm" % a.label)
 				return
 			submit(_template(u, a))
+
+
+## Cells a Leap, Rampage or mutation cast can pick, so the range shows while aiming.
+func _legal_cells(u: Unit, a: Dictionary) -> Array:
+	var st: GameState = view.state
+	match str(a.get("id", "")):
+		"runner_leap":
+			return Array(Grafts.leap_cells(st, u))
+		"rampage":
+			return Rules.move_range(st, u).keys()
+	if not a.has("mutation"):
+		return []
+	var out: Array = []
+	var r := int(Mutations.CAST_RANGE)
+	for y in range(u.pos.y - r, u.pos.y + r + 1):
+		for x in range(u.pos.x - r, u.pos.x + r + 1):
+			var c := Vector2i(x, y)
+			if c != u.pos and st.grid.in_bounds(c) and u.pos.distance_to(c) <= Mutations.CAST_RANGE \
+					and Combat.can_see(st, u.pos, c):
+				out.append(c)
+	return out
 
 
 func _template(u: Unit, a: Dictionary) -> Dictionary:
@@ -701,8 +728,11 @@ func click_cell(c: Vector2i) -> void:
 					return
 				act.to = c
 			else:
+				if not cell_targets.is_empty() and not cell_targets.has(c):
+					view.hud.toast("Out of range")
+					return
 				act.cell = c
-				if str(pending.get("ability", "")) == "incinerate" and aim_pin != c:
+				if (act.has("mutation") or PINNED_CELL_ABILITIES.has(str(act.get("ability", "")))) and aim_pin != c:
 					aim_pin = c
 					_ui_sound("ui_click")
 					refresh()

@@ -191,6 +191,7 @@ func _gameplay() -> void:
 	_section("Camera")
 	_toggle("Auto ready", "gameplay", "auto_ready", "Marks you Ready as soon as every one of your soldiers is out of actions. Press Ready again to take it back while the others plan.")
 	_toggle("Edge scrolling", "gameplay", "edge_pan", "Pan when the mouse touches the screen edge.")
+	_toggle("Lock mouse to window", "gameplay", "confine_mouse", "Keeps the pointer inside the game window so edge scrolling never loses it to another monitor. Released while this menu is open or the window is not in focus.")
 	_slider("Camera pan speed", "gameplay", "camera_speed", 0.25, 3.0, 0.25, "%d%%", 100.0)
 
 
