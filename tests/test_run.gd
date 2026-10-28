@@ -501,3 +501,13 @@ func test_bridge_keeps_a_seven_row_map_connected() -> void:
 		for n in map:
 			if n.row > 1:
 				assert_true(incoming.has(n.id), "every later node is reachable")
+
+
+func test_reserve_recruit_deploys_into_an_open_slot() -> void:
+	var run := RunRules.new_run(1, 5, {}, {0: ["trooper", "medic"]})
+	RunRules.start_run(run)
+	_rewards(run)
+	var rec: Dictionary = run.reserve_of()[0]
+	assert_true(RunRules.apply(run, {"type": RunRules.DEPLOY, "player": 0, "sid": rec.id}), "deploy")
+	assert_eq(run.squad().size(), 3, "recruit joined")
+	assert_true(not RunRules.apply(run, {"type": RunRules.DEPLOY, "player": 0, "sid": rec.id}), "already deployed")
