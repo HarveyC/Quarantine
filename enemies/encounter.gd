@@ -465,6 +465,7 @@ static func on_unit_turn_start(s: GameState, u: Unit) -> void:
 		u.status["stalking"] = true
 	if EnemyRoster.has_affix(u, "hasted"):
 		u.actions_left = Types.ACTIONS_PER_TURN + 1
+	Automata.on_turn_start(s, u)
 	if EnemyRoster.has_affix(u, "regenerating") and u.hp < u.max_hp \
 			and int(u.status.get("burned_turn", -1)) != s.turn and int(u.status.get("burning", 0)) <= 0:
 		var healed := mini(REGEN, u.max_hp - u.hp)

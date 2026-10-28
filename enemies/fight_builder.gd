@@ -221,7 +221,7 @@ static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, e
 static func _wave(rng: RandomNumberGenerator, pool: Array[String], n: int, act: int = 1) -> Array[String]:
 	var cheap: Array[String] = []
 	for k in pool:
-		if EnemyRoster.COST[k] <= 2 and k != "lurker" and k != "fence" and k != "emplacement" and not EnemyRoster.is_ranged(k):
+		if EnemyRoster.COST[k] <= 2 and k != "lurker" and k != "fence" and k != "emplacement" and k != "relay" and not EnemyRoster.is_ranged(k):
 			cheap.append(k)
 	var out: Array[String] = []
 	for i in n:

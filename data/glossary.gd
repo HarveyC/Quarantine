@@ -1005,7 +1005,16 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 			"Cross its view behind cover or {smoke}, or {suppress} it first."],
 		"see": ["overwatch", "suppress", "smoke"],
 		"labels": ["Watching"]}
+	t["relayed"] = {"name": "Relayed", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "Machines within %d tiles of a living Relay get a third action. With no Relay left they get only one." % EnemyRoster.RELAY_RANGE,
+		"art": "", "stats": [["+1", "action, near a Relay"], ["1", "action, no Relay"]],
+		"more": ["Kill the Relay first and the Hounds and Loaders stall.",
+			"It is a mast, so it never moves. Shoot it from cover."],
+		"labels": ["Relayed", "Stalled"]}
 	var cards := {
+		"hound": ["Fast, fragile drone that hunts the weakest soldier and ignores the rest. {relayed}.", ["relayed"]],
+		"loader": ["Armoured frame that charges through cover. {relayed}.", ["relayed"]],
+		"relay": ["A signal mast. While it stands, nearby machines act three times a turn.", ["relayed"]],
 		"shieldman": ["A {riot_shield} turns every shot from the front. Flank it.", ["riot_shield"]],
 		"overwatcher": ["Holds its post and is {watchful}. Do not cross its view in the open.", ["watchful"]],
 		"emplacement": ["A sandbag gun that never moves. Its {crossfire} cone hits everyone in it.", ["crossfire"]],
