@@ -134,9 +134,13 @@ static func _dormant_turn(s: GameState, u: Unit) -> void:
 ## What `u` would do with its next action right now ({} for nothing). Pure: the intent icons call this,
 ## so what the overlay promises is what `_choose` decides.
 static func preview(s: GameState, u: Unit) -> Dictionary:
-	if not _can_act(s, u) or u.status.get("lapsed", false) or has_scripted_turn(u):
+	if not u.is_alive() or s.phase == Types.Phase.ENDED or u.status.get("lapsed", false) or has_scripted_turn(u):
 		return {}
-	return _choose(s, u)
+	var saved := u.actions_left   # during the team phase enemies hold no actions yet: plan as if at turn start
+	u.actions_left = maxi(saved, Types.ACTIONS_PER_TURN)
+	var action := _choose(s, u)
+	u.actions_left = saved
+	return action
 
 
 ## Units whose turn is a script of their own (EnemyBehaviours.custom_turn), not `_choose`.
