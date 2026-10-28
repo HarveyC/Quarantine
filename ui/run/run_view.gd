@@ -434,7 +434,7 @@ func _reserve_card() -> Control:
 	card.add_child(box)
 	var reserve := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.RESERVE)
 	box.add_child(Styles.caps("Reserve · %d" % reserve.size(), 13, Styles.DIM))
-	var open_slot := run.squad().size() < 4 and run.phase == RunState.Phase.MAP and session != null and not session.local_players().is_empty()
+	var open_slot: bool = run.squad().size() < 4 and run.phase == RunState.Phase.MAP and session != null and not session.local_players().is_empty()
 	for r in reserve.slice(0, 3):
 		var line := _mini_line(r, Styles.TEXT)
 		if open_slot:
