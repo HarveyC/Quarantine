@@ -85,7 +85,8 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 			var centre := Vector2i(s.grid.width / 2, s.grid.height / 2)
 			var src := _place(s, "the_source", _marker(s, "boss", centre))
 			var offsets: Array[Vector2i] = [Vector2i(0, -4), Vector2i(-4, 3), Vector2i(4, 3)]
-			for i in SOURCE_ROOTS[squad]:
+			SourceBoss.setup(s, src, str(enc.get("aspect", "")), enc.get("echo_names", []))
+			for i in SourceBoss.roots_for(squad, SourceBoss.aspect_of(src), SOURCE_ROOTS[squad]):
 				var root := _place(s, "source_root", src.pos + offsets[i])
 				root.status["spawner"] = {"kinds": ["runner", "spitter"], "every": 3 + slower, "next": 2 + i, "i": i}
 			src.status["alerted"] = true
@@ -374,7 +375,7 @@ static func on_enemy_phase_start(s: GameState) -> void:
 		var hit: Array[int] = []
 		for u in s.living(Types.Team.PLAYER):
 			hit.append(u.id)
-		var amount: int = SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)]
+		var amount: int = SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)] + SourceBoss.pulse_bonus(s, src)
 		s.emit({"type": "source_pulse", "unit": src.id, "units": hit, "amount": amount})
 		for id in hit:
 			Infection.add(s, s.get_unit(id), amount)
@@ -496,7 +497,7 @@ static func on_enemy_phase_end(s: GameState) -> void:
 
 ## The Source fight: spore zones grow one ring inward from the map edge every turn.
 static func _spread_spore_ring(s: GameState, src: Unit) -> void:
-	var ring := s.turn - 1
+	var ring := s.turn - 1 + SourceBoss.ring_head(src)
 	var last := ring
 	if int(src.status.get("boss_phase", 1)) >= 3:   # the collapse: the ring runs two rings ahead each turn
 		ring += s.turn - int(src.status.get("phase3_turn", s.turn))

@@ -42,7 +42,11 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 	var phase := int(u.status.get("boss_phase", 1))
 	if u.kind == "the_source":
 		if u.status.has("tether"):
-			return {"icon": "pulse", "label": "LASH + INFECTION +%d" % Encounter.SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)], "target": -1}
+			var pulse: int = Encounter.SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)] + SourceBoss.pulse_bonus(s, u)
+			if SourceBoss.pulls_in_phase_1(u):
+				var hungry := EnemyAbilities.pull_target(s, u)
+				return {"icon": "pull", "label": "PULL + LASH + INFECTION +%d" % pulse, "target": hungry.id if hungry else -1}
+			return {"icon": "pulse", "label": "LASH + INFECTION +%d" % pulse, "target": -1}
 		var pt := EnemyAbilities.pull_target(s, u)
 		return {"icon": "pull", "label": "PULL + SLAM" if phase == 2 else "LASH + SLAM", "target": pt.id if pt else -1}
 	if not EnemyAI.is_alerted(u) and not u.status.get("turned", false) and UnitData.ENEMIES.has(u.kind):
