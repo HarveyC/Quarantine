@@ -56,6 +56,7 @@ const ENEMIES := {
 	# Bosses
 	"brood_mother": {"name": "The Brood Mother", "max_hp": 40, "aim": 65, "mobility": 0, "damage": [3, 5], "abilities": ["claw", "spit", "acid_rain", "burrow", "erupt", "leap", "rockfall"], "melee_only": true},
 	"colonel_hale": {"name": "Colonel Hale", "max_hp": 36, "aim": 70, "mobility": 5, "damage": [3, 5], "abilities": ["airstrike", "flashbang", "smoke_screen", "slam", "charge", "stomp", "hurl", "danger_close"]},
+	"lantern_echoes": {"name": "The Last Echo", "max_hp": 30, "aim": 65, "mobility": 0, "damage": [1, 2], "abilities": []},
 	"the_source": {"name": "The Source", "max_hp": 30, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": ["pull", "core_slam", "lash"], "melee_only": true},
 }
 

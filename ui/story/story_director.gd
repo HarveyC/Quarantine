@@ -285,7 +285,7 @@ func _on_beat_finished(ev: Dictionary) -> void:
 
 ## Boss fight lines (StoryData.BARKS "<boss>_<phase>", "<boss>_open"), each once a fight.
 func _boss_bark(key: String) -> void:
-	if StoryData.BARKS.has(key) and not _boss_said.has(key):
+	if (StoryData.BARKS.has(key) or StoryData.BOSS_BARKS.has(key)) and not _boss_said.has(key):
 		_boss_said[key] = true
 		_bark(key, {})
 
@@ -337,7 +337,7 @@ static func tier_rule(tier: int) -> String:
 func _bark(key: String, vars: Dictionary) -> void:
 	if _run == null:
 		return
-	var lines: Array = StoryData.BARKS.get(key, [])
+	var lines: Array = StoryData.BARKS.get(key, StoryData.BOSS_BARKS.get(key, []))
 	if lines.is_empty():
 		return
 	var clean := StoryData.fill(lines[_rng.randi() % lines.size()], vars)
@@ -470,8 +470,11 @@ static func ending_spec(run: RunState) -> Dictionary:
 		if cast[i].sid == run.story.get("carrier", -1):
 			carrier = i
 			name = "%s %s" % [UnitData.SOLDIERS[cast[i].kind].name, cast[i].name]
+	var lines: Array = e.lines.duplicate()
+	if run.act >= 3 and run.act_boss() == "lantern_echoes" and StoryData.ENDING_AFTER_ECHOES.has(id):
+		lines.insert(1, StoryData.ENDING_AFTER_ECHOES[id])   # the Echoes colour how the run ends
 	var raw: Array = []
-	for l in e.lines:
+	for l in lines:
 		# the carrier says their own last words
 		raw.append([name, l[1]] if id == "carry" and l[0] == "SQUAD" and name != "" else l)
 	return {"stage": e.stage, "title": e.title, "sub": e.sub, "lines": _lines(run, raw, {"name": name}),

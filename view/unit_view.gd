@@ -144,7 +144,7 @@ func build(u: Unit) -> void:
 	display_name = u.display_name
 	owner_player = u.owner_player
 	is_soldier = u.team == Types.Team.PLAYER
-	soldier_body = is_soldier or u.status.has("echo")
+	soldier_body = is_soldier or u.status.has("echo") or u.status.has("lantern_echo")
 	hp = u.hp
 	max_hp = u.max_hp
 	infection = u.infection

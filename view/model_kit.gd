@@ -42,11 +42,12 @@ const CHARACTERS := {
 	"colonel_hale": preload("res://assets/characters/colonel_hale.glb"),
 	"lurker": preload("res://assets/characters/lurker.glb"),
 	"burrower": preload("res://assets/characters/burrower.glb"),
+	"lantern_echoes": preload("res://assets/characters/trooper.glb"),   # the Last Echo wears a soldier's body
 }
 ## Body size per kind (the characters share one skeleton; bosses and brutes read bigger).
 const SIZE := {
 	"broodling": 0.62, "brute": 1.32, "bloater": 1.15, "brood_mother": 1.85, "shrieker": 1.1,
-	"colonel_hale": 1.05,
+	"colonel_hale": 1.05, "lantern_echoes": 1.2,
 }
 const BODY_TEX := {
 	"male": [preload("res://assets/characters/textures/male_albedo.jpg"), preload("res://assets/characters/textures/male_normal.png")],

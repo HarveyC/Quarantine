@@ -11,7 +11,7 @@ const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
 	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
-	"brood_mother", "colonel_hale", "the_source"]
+	"brood_mother", "colonel_hale", "the_source", "lantern_echoes"]
 
 
 static func handles(s: GameState, u: Unit) -> bool:
@@ -33,6 +33,9 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 		return true
 	if u.kind == "the_source":
 		SourceBoss.take_turn(s, u)
+		return true
+	if LanternEchoes.scripted(u):
+		LanternEchoes.boss_turn(s, u)
 		return true
 	if u.status.has("swelling"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "burst"})
@@ -74,6 +77,8 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 
 
 static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	if u.status.get("lantern_echo", false) or u.kind == "lantern_echoes":
+		return LanternEchoes.choose(s, u, hostiles)
 	if u.status.get("turned", false):
 		return cover_shooter(s, u, hostiles)
 	match u.kind:

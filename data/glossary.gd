@@ -1011,6 +1011,23 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 		"more": ["Kill the Relay first and the Hounds and Loaders stall.",
 			"It is a mast, so it never moves. Shoot it from cover."],
 		"labels": ["Relayed", "Stalled"]}
+	# The Lantern Echoes boss (enemies/lantern_echoes.gd).
+	t["lantern_echo"] = {"name": "Lantern Echo", "kind": "enemy", "icon": "skull", "tone": "danger",
+		"line": "A dead soldier of Lantern Company, raised by the Source in that soldier's class.",
+		"art": "", "stats": [["1", "per soldier"], ["0", "items"]],
+		"more": ["It uses {suppress}, {overwatch}, {hunker} and the class signature.", "Its hits carry no {infection}. Its fall leaves spores.",
+			"The Last Echo is shielded until every Echo is down."],
+		"see": ["suppress", "overwatch", "hunker", "infection"],
+		"aliases": ["Lantern Echoes"]}
+	t["taken"] = {"name": "Taken", "kind": "enemy trait", "icon": "enemy", "tone": "danger",
+		"line": "A fallen Echo's body, taken by the Source. Each one alive pulses {infection} through the squad every round.",
+		"art": "", "stats": [["+%d" % LanternEchoes.TAKEN_PULSE[2], "Infection per husk"]],
+		"more": ["Kill the husk to stop its pulse.", "They all collapse into spores when the last Echo falls."],
+		"see": ["infection"]}
+	t["enemy_lantern_echoes"] = {"name": "The Last Echo", "kind": "enemy", "icon": "enemy", "tone": "danger",
+		"line": "Waits on the dais, shielded while any {lantern_echo} stands. Then it wears the weakest soldier's shape.",
+		"art": "", "stats": [["%d" % int(UnitData.ENEMIES.lantern_echoes.max_hp), "HP"]],
+		"more": ["Once it is open it fights with that soldier's class and signature."], "see": ["lantern_echo", "taken"]}
 	var cards := {
 		"hound": ["Fast, fragile drone that hunts the weakest soldier and ignores the rest. {relayed}.", ["relayed"]],
 		"loader": ["Armoured frame that charges through cover. {relayed}.", ["relayed"]],

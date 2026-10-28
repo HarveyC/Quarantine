@@ -89,6 +89,9 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 				var root := _place(s, "source_root", src.pos + offsets[i])
 				root.status["spawner"] = {"kinds": ["runner", "spitter"], "every": 3 + slower, "next": 2 + i, "i": i}
 			src.status["alerted"] = true
+		"lantern_echoes":
+			var last := _place(s, "lantern_echoes", _marker(s, "boss", _far_spawn(s)))
+			LanternEchoes.setup(s, last, squad)
 	var mult := float(enc.get("boss_health_mult", 1.0))
 	for u in s.living(Types.Team.ENEMY):
 		if EnemyRoster.is_static(u) or enc.get("ambush", false):
@@ -369,6 +372,7 @@ static func on_enemy_phase_start(s: GameState) -> void:
 	if s.encounter.is_empty():
 		return
 	_resolve_telegraphs(s)
+	LanternEchoes.on_enemy_phase_start(s)
 	var src := _boss(s, "the_source")
 	if src != null and src.status.has("tether"):
 		var hit: Array[int] = []
@@ -581,6 +585,10 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 	if target.kind == "the_source" and source != null and source.team == Types.Team.PLAYER \
 			and Infection.tier(source.infection) >= Infection.Tier.MUTATING:
 		amount = ceili(amount * CARRIER_BONUS)
+	if source != null and source.status.get("lantern_echo", false) and target.team == Types.Team.PLAYER:
+		amount = LanternEchoes.scale_hit(s, source, amount)
+	if target.kind == "lantern_echoes":
+		return LanternEchoes.clamp_damage(s, target, amount, source)
 	if target.kind == "brood_mother":
 		return BroodMother.clamp_damage(target, amount)
 	if target.kind == "colonel_hale":
@@ -660,6 +668,7 @@ static func on_died(s: GameState, u: Unit) -> void:
 		EnemyAbilities.burst(s, u)
 	if u.team == Types.Team.ENEMY and EnemyRoster.has_affix(u, "volatile") and s.phase != Types.Phase.ENDED:
 		Destruction.explode(s, u.pos, EnemyRoster.VOLATILE_BLAST, null, "volatile")
+	LanternEchoes.on_died(s, u)
 	if EnemyRoster.is_boss(u):
 		s.encounter["over"] = true
 		s.emit({"type": "boss_defeated", "unit": u.id, "boss": u.kind})

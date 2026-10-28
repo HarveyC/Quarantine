@@ -175,7 +175,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	var id: String = action.get("ability", "")
 	# A Turned Reaper or Warden keeps its melee strikes (EnemyAI uses them); nothing else.
 	var turned_strike: bool = u.status.get("turned", false) and id in ["lunge", "bash", "shield_charge"]
-	if not _owns(u, id) or not (Kit.is_soldier(u) or turned_strike):
+	var echo: bool = u.status.get("lantern_echo", false) or u.status.has("mirror")   # the Lantern Echoes copy the whole kit
+	if not _owns(u, id) or not (Kit.is_soldier(u) or turned_strike or echo):
 		return "Unknown ability"
 	var def: Dictionary = ABILITIES[id]
 	if int(u.cooldowns.get(id, 0)) > 0:

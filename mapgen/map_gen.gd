@@ -81,7 +81,8 @@ static func generate(spec: Dictionary) -> Grid:
 	if objective == "boss" and not data.arenas.is_empty():
 		var arng := RandomNumberGenerator.new()
 		arng.seed = ("%d:%s:arena" % [int(spec.get("seed", 0)), biome]).hash()
-		var arena := _build_arena(data.arenas[arng.randi() % data.arenas.size()], arng)
+		var pool := _arenas_for(data.arenas, str(spec.get("boss", "")))
+		var arena := _build_arena(pool[arng.randi() % pool.size()], arng)
 		if arena != null:
 			arena.biome = biome
 			arena.objective = objective
@@ -123,6 +124,16 @@ static func generate(spec: Dictionary) -> Grid:
 	fb.biome = biome
 	fb.objective = "skirmish"
 	return fb
+
+
+## The arenas a fight against `boss` may use: those tagged "boss=<kind>" for it, else the untagged
+## ones (the biome's own boss arena).
+static func _arenas_for(arenas: Array, boss: String) -> Array:
+	var own := arenas.filter(func(a: Dictionary) -> bool: return a.get("boss", "") == boss and boss != "")
+	if not own.is_empty():
+		return own
+	var shared := arenas.filter(func(a: Dictionary) -> bool: return a.get("boss", "") == "")
+	return shared if not shared.is_empty() else arenas
 
 
 ## A boss arena drawn whole in the biome file (20x20, plain glyphs; P deploy, E pod cells, B boss
@@ -200,6 +211,9 @@ static func parse(text: String) -> Dictionary:
 			var parts := line.substr(1).split(" ", false)
 			if parts[0] == "arena":
 				current = {"name": parts[1], "rows": PackedStringArray()}
+				for p in parts.slice(2):
+					if p.begins_with("boss="):
+						current["boss"] = p.trim_prefix("boss=")
 				arenas.append(current)
 			elif parts[0] == "plot":
 				var lanes := 0

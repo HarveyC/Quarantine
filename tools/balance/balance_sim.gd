@@ -36,6 +36,7 @@ func _init() -> void:
 	var rank := int(args.get("rank", RANK_BY_ACT[act]))
 	objective_override = str(args.get("objective", ""))
 	boss_hp = float(args.get("bosshp", 1.0))
+	boss_kind = str(args.get("boss", ""))
 	build_level = str(args.get("build", "none"))
 	PartingBlow.enabled = not args.has("nopb")
 	SquadBot.skip_signatures = args.has("nosig")
@@ -51,6 +52,7 @@ func _init() -> void:
 	quit(0)
 
 
+var boss_kind := ""   # boss= pins the act's boss (default: what the seed rolls)
 var boss_hp := 1.0   # bosshp= scales the boss's health on top of FightBuilder's (for tuning)
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
 var build_level := "none"       # build= (see build_quality.gd)
@@ -71,6 +73,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var spec := {"act": act, "row": 2, "node": node, "objective": objective, "outbreak": outbreak,
 		"seed": seed, "players": kinds.size(), "squad": kinds.size(),
 		"modifiers": {"boss_health_mult": boss_hp} if boss_hp != 1.0 else {}}
+	if boss_kind != "":
+		spec["boss"] = boss_kind
 	var built := FightBuilder.build(spec)
 	var enemies: Array = built.enemies
 	var enc: Dictionary = built.encounter
@@ -78,7 +82,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		enemies = Array(enemy_override.split(","))
 		enc = {}
 	var config := {"map": MatchConfig.MAP, "squad": squad, "enemies": enemies, "encounter": enc, "seed": seed,
-		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak}}
+		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak, "boss": enc.get("boss", "")}}
 	var s := MatchConfig.build(config)
 	if guns != "":
 		var gl := guns.split(",")
@@ -146,6 +150,10 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 					"clear": counter.cover += 1
 		elif ev.type == "level_changed":
 			counter.roofs += 1
+		if ev.type in ["ability", "hunker", "overwatch"] and s.get_unit(int(ev.get("unit", -1))) != null \
+				and s.get_unit(int(ev.unit)).status.get("lantern_echo", false):
+			var key := "echo:" + str(ev.get("ability", ev.type))
+			boss_acts[key] = int(boss_acts.get(key, 0)) + 1
 		if boss_ids.has(int(ev.get("unit", -1))):
 			if ev.type == "ability":
 				boss_acts[str(ev.ability)] = int(boss_acts.get(str(ev.ability), 0)) + 1
