@@ -535,14 +535,19 @@ static func _wave_cells(s: GameState, n: int) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	var occ := s.occupied()
 	cands.assign(cands.filter(func(c: Vector2i) -> bool: return not occ.has(c)))
-	# Scatter: the farther half of the vents in a seeded shuffle, kept 3 apart where possible.
-	var far := cands.slice(0, maxi(n, (cands.size() + 1) / 2))
-	for i in range(far.size() - 1, 0, -1):
-		var j := s.rng.randi_range(0, i)
-		var t: Vector2i = far[i]
-		far[i] = far[j]
-		far[j] = t
-	for gap in [3, 2, 0]:
+	# Scatter: the farther half of the vents in a seeded shuffle, kept 3 apart where possible. Boss
+	# arenas keep the farthest-first order their scripts and tests lean on.
+	var scatter := str(s.encounter.get("boss", "")) == ""
+	var far := cands.slice(0, maxi(n, (cands.size() + 1) / 2) if scatter else n)
+	if scatter:
+		var rng := RandomNumberGenerator.new()   # its own stream, so state.rng draws stay put
+		rng.seed = hash([s.turn, s.grid.width, s.grid.height, n, cands.size()])
+		for i in range(far.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var t: Vector2i = far[i]
+			far[i] = far[j]
+			far[j] = t
+	for gap in ([3, 2, 0] if scatter else [0]):
 		for c in far + cands:
 			if out.size() >= n:
 				break
