@@ -306,7 +306,7 @@ func test_squad_defaults_solo_four_and_coop_one_each() -> void:
 		assert_eq(run.squad().size(), n, "%d players, %d soldiers" % [n, n])
 		for p in n:
 			assert_eq(run.soldiers_of(p).filter(func(r): return r.status == RunSoldier.ACTIVE).size(), 1, "one each")
-			assert_eq(run.reserve_of(p).size(), RunRules.START_RESERVE, "reserve per player")
+			assert_eq(run.reserve_of(p).size(), RunRules.START_RESERVE * n, "one shared reserve")
 	var picked := RunRules.new_run(2, 5, {}, {0: "medic", 1: "medic"})
 	assert_eq(picked.squad().map(func(r): return r.kind), ["medic", "medic"], "picks are honoured, repeats allowed")
 	var partial := MatchConfig.squad_plan(3, {1: "trooper"})
@@ -328,8 +328,7 @@ func test_players_choose_their_squad_size() -> void:
 	var uneven := RunRules.new_run(2, 5, {}, {0: ["trooper", "medic", "breacher"]})
 	assert_eq(uneven.soldiers_of(0).size(), 3, "3 + 1")
 	assert_eq(uneven.soldiers_of(1).size(), 1, "the other player still gets one")
-	assert_eq(uneven.reserve_of(0).size(), 2, "3 soldiers start with 2 recruits")
-	assert_eq(uneven.reserve_of(1).size(), 1, "1 soldier starts with 1 recruit")
+	assert_eq(uneven.reserve_of().size(), 3, "3 soldiers start with 2 recruits, 1 soldier with 1, pooled")
 	var cfg := MatchConfig.for_fight(duo, {"kind": "skirmish", "objective": "hold", "seed": 4})
 	assert_eq(cfg.fight.squad, 4, "enemies scale to soldiers, not players")
 	assert_eq(MatchConfig.for_fight(lone, {"kind": "skirmish", "objective": "hold", "seed": 4}).fight.squad, 1, "a lone soldier faces a lone-soldier fight")

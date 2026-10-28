@@ -242,7 +242,7 @@ func test_last_seat_sends_home() -> void:
 	_choose(run, 0, "send")
 	_choose(run, 1, "send")
 	assert_eq(run.get_soldier(2).status, RunSoldier.GONE, "left the run")
-	assert_eq(run.reserve_of(0).size(), 2, "owner gets a recruit")
+	assert_eq(run.reserve_of().size(), 3, "owner gets a recruit")
 	assert_eq(_events(run, "perk_pick_granted").size(), 1, "with a perk pick")
 
 
@@ -283,8 +283,7 @@ func test_stragglers_split_and_carrier() -> void:
 	NodeRules.enter(run, "event", "stragglers")
 	_choose(run, 0, "take")
 	_choose(run, 1, "take")
-	assert_eq(run.reserve_of(0).size(), 2, "one each")
-	assert_eq(run.reserve_of(1).size(), 2, "one each")
+	assert_eq(run.reserve_of().size(), 4, "one each into the shared reserve")
 	var carriers: Array = (run.reserve_of(0) + run.reserve_of(1)).filter(func(r): return r.get("hidden_carrier", false))
 	assert_eq(carriers.size(), 1, "exactly one carrier")
 
@@ -469,14 +468,14 @@ func test_survivors_claim_and_default() -> void:
 	assert_true(ns.text.contains(ns.recruit.name), "scene names the recruit")
 	assert_true(_act(run, "node_claim", 1), "claim")
 	assert_true(not _act(run, "node_claim", 0), "already claimed")
-	assert_eq(run.reserve_of(1).size(), 2, "in player 1's reserve")
+	assert_eq(run.reserve_of().size(), 3, "in the shared reserve")
 	var run2 := _run()
 	RunRules.add_recruit(run2, 0)
 	NodeRules.enter(run2, "survivors")
 	_act(run2, "node_leave", 0)
 	_act(run2, "node_leave", 1)
 	assert_true(NodeRules.is_done(run2), "done")
-	assert_eq(run2.reserve_of(1).size(), 2, "unclaimed -> smallest reserve")
+	assert_eq(run2.reserve_of().size(), 4, "unclaimed -> reserve anyway")
 
 
 func test_benched_player_does_not_block() -> void:
