@@ -133,6 +133,8 @@ static func _phase_ok(u: Unit, id: String) -> bool:
 	if u.kind == "colonel_hale":
 		return HALE_PHASES[clampi(phase, 1, 3)].has(id)
 	var need: int = DEFS[id].get("phase", 0)
+	if id == "pull" and u.kind == "the_source" and SourceBoss.pulls_in_phase_1(u):
+		return true
 	if DEFS[id].has("phases"):
 		return DEFS[id].phases.has(phase)
 	return need == 0 or need == phase

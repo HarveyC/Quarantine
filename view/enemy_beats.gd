@@ -19,7 +19,7 @@ const ELITE_SCALE := 1.2
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
 	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell",
-	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled"]
+	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled", "boss_aspect"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -239,6 +239,13 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			view.camera_rig.shake(1.2)
 			ep._sfx("mutation")
 			return {"dur": 1.4}
+		"boss_aspect":
+			if uv != null:
+				ep._focus(uv)
+				fx.pulse(uv.position, Palette.TEAL)
+			view.hud.banner(("The Source: %s" % str(ev.get("text", ""))).to_upper(), Palette.TEAL)
+			ep._sfx("sting_enemy", -4.0)
+			return {"dur": 1.2}
 		"boss_defeated":
 			view.hud.banner("%s IS DOWN" % view.unit_name(int(ev.get("unit", -1))).to_upper(), Palette.AMBER)
 			ep._sfx("victory", -4.0)
@@ -299,6 +306,7 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"fled": return "%s slips off the map%s" % [who.call("unit"), " with the loot" if ev.get("loot", false) else ""]
 		"loot": return "%s drops its loot (+%d Supplies)" % [who.call("unit"), int(ev.get("supplies", 0))]
 		"stalked": return "[color=#%s]%s is cut off and takes a stalker's bonus hit[/color]" % [red, who.call("target")]
+		"boss_aspect": return "[color=#%s]The Source: %s. %s[/color]" % [red, str(ev.get("text", "")), SourceBoss.ASPECT_RULES.get(str(ev.get("aspect", "")), "")]
 		"boss_defeated": return "[b]%s is defeated[/b]" % name_of.call(int(ev.get("unit", -1)))
 	return ""
 
