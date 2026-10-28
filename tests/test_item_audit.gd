@@ -604,6 +604,8 @@ func _probes() -> Dictionary:
 		Hazards.add(x.s, [x.u.pos], "fire", 2)
 		var safe := GearFx.hazard_hit(x.s, x.u, {"kind": "fire", "source": -1}, 2, 0).x == 0
 		return _expect(safe and _term(Combat.hit_chance(x.s, x.foe, x.u), "Cauterizer") == -10, "fire hurts or no defense")
+	for sig in ["lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]:
+		p["sig_" + sig] = func(x): return _expect(x.u.abilities.has(sig), "%s not granted" % sig)
 	return p
 
 
