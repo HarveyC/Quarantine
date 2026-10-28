@@ -345,7 +345,7 @@ func test_squad_picks_never_pass_four() -> void:
 	assert_eq(MatchConfig.room_for(2, {0: ["trooper"]}, 0), 3, "the rest is mine")
 	assert_eq(MatchConfig.room_for(1, {}, 0), 4, "solo has all 4")
 	var filled := MatchConfig.squad_plan(1, {0: ["", "", "medic"]})
-	assert_eq(filled.map(func(e): return e.kind), ["trooper", "marksman", "medic"], "blanks take free classes")
+	assert_eq(filled.map(func(e): return e.kind), ["trooper", "breacher", "medic"], "blanks take free classes")
 
 
 func test_solo_bonds_any_two_soldiers() -> void:
