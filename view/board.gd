@@ -358,68 +358,27 @@ func _indoor_cells() -> Dictionary:
 	return out
 
 
-## Roofs: one slab per connected group of roofed cells, drawn over the building's walls. A roof fades
-## out while a soldier stands under it (open_roofs) so the interior stays playable.
-var _roofs: Array = []   # {"cells": {Vector2i: true}, "nodes": Array[MeshInstance3D], "open": bool}
-const ROOF_THICK := 0.16
-const ROOF_FADE := 0.25
+## Roofs: drawn only as a thin outline round each connected group of roofed cells, so the interior is
+## always visible from the camera while the outline shows a roof is there (it still blocks sight for
+## the rules).
+const ROOF_THICK := 0.06
+const ROOF_LINE := 0.07
 
 
 func _build_roofs() -> void:
-	_roofs.clear()
 	if grid.roofed.is_empty():
 		return
 	var look := BiomeLook.of(grid.biome)
-	var slab := grimy(look.partition.darkened(0.25), 0.95, 0.3)
-	var lip := Palette.mat(look.trim.darkened(0.2), 0.7, 0.2)
+	var line := Palette.emissive(look.trim.lightened(0.35), 0.8)
 	var layer := _layer("Roofs")
-	var seen := {}
-	for start in grid.roofed:
-		if seen.has(start):
-			continue
-		var group := {}
-		var frontier: Array[Vector2i] = [start]
-		seen[start] = true
-		while not frontier.is_empty():
-			var c: Vector2i = frontier.pop_back()
-			group[c] = true
-			for d in Grid.DIRS4:
-				var n: Vector2i = c + d
-				if grid.roofed.has(n) and not seen.has(n):
-					seen[n] = true
-					frontier.append(n)
-		var nodes: Array[MeshInstance3D] = []
-		for c in group:
-			var top := Palette.box(Vector3(1.02, ROOF_THICK, 1.02), slab)
-			top.position = Vector3(c.x, EDGE_HEIGHT + ROOF_THICK * 0.5, c.y)
-			layer.add_child(top)
-			nodes.append(top)
-			if (c.x + c.y) % 3 == 0:
-				var vent := Palette.box(Vector3(0.4, 0.14, 0.4), lip)
-				vent.position = Vector3(c.x + 0.15, EDGE_HEIGHT + ROOF_THICK + 0.07, c.y - 0.1)
-				layer.add_child(vent)
-				nodes.append(vent)
-		_roofs.append({"cells": group, "nodes": nodes, "open": false})
-
-
-## Cuts away every roof with a soldier under it (cells of the squad) and closes the rest.
-func open_roofs(squad: Array) -> void:
-	for roof in _roofs:
-		var open := false
-		for c in squad:
-			if roof.cells.has(c):
-				open = true
-				break
-		if open == roof.open:
-			continue
-		roof.open = open
-		for node in roof.nodes:
-			var tw := create_tween()
-			tw.tween_property(node, "transparency", 1.0 if open else 0.0, ROOF_FADE)
-			if open:
-				tw.tween_callback(func() -> void: node.visible = false)
-			else:
-				node.visible = true
+	var y := EDGE_HEIGHT + ROOF_THICK * 0.5
+	for c in grid.roofed:
+		for d in Grid.DIRS4:
+			if grid.roofed.has(c + d):
+				continue
+			var bar := Palette.box(Vector3(1.0 if d.x == 0 else ROOF_LINE, ROOF_THICK, 1.0 if d.y == 0 else ROOF_LINE), line)
+			bar.position = Vector3(c.x + d.x * 0.5, y, c.y + d.y * 0.5)
+			layer.add_child(bar)
 
 
 ## Edge walls: thin walls, windows, low walls and door frames on the borders between cells, with
