@@ -303,6 +303,10 @@ func _build_overlays() -> void:
 
 # --- updates -----------------------------------------------------------------
 
+var _last_left := {}   # player -> actions left as of the last refresh
+var _auto_readied := {}   # player -> turn auto ready already fired
+
+
 func refresh() -> void:
 	var s := view.state
 	var can_act := view.input != null and view.input.can_act()
@@ -327,6 +331,8 @@ func refresh() -> void:
 	var sel := view.input.selected_id if view.input != null else -1
 	roster.refresh(view, sel, can_act)
 	readiness.refresh(view, can_act)
+	if can_act:
+		_auto_ready()
 	if view.input != null:
 		action_bar.refresh(view)
 		_refresh_targeting()
@@ -617,6 +623,29 @@ func _process(delta: float) -> void:
 func _on_unit_clicked(id: int) -> void:
 	if view.input.can_act():
 		view.input.select(id)
+
+
+## Auto ready setting: a local player whose soldiers have all spent their actions is marked Ready
+## once per turn, so pressing Ready again afterwards still takes it back.
+func _auto_ready() -> void:
+	if not GameSettings.auto_ready():
+		return
+	var s := view.state
+	for p in s.players:
+		if not view.session.is_local(p) or s.ready.get(p, false) or _auto_readied.get(p, -1) == s.turn:
+			continue
+		var any := false
+		var left := 0
+		for u in s.units:
+			if u.team == Types.Team.PLAYER and u.owner_player == p and u.is_alive() and not u.ai_controlled:
+				any = true
+				left += u.actions_left
+		# Only fires on the refresh that sees the last action go, never on a turn that starts empty.
+		var before: int = _last_left.get(p, 0)
+		_last_left[p] = left
+		if any and left == 0 and before > 0:
+			_auto_readied[p] = s.turn
+			_on_ready_toggled(p, true)
 
 
 ## Toggles Ready for the local player the READY button acts for (Space shortcut).

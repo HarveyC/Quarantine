@@ -189,6 +189,7 @@ func _gameplay() -> void:
 	_toggle("Shot cameras", "gameplay", "shot_cams", "Over-the-shoulder camera for epic shots: kills, crits, boss hits, long shots (C in a fight).")
 	_toggle("Confirm moves", "gameplay", "confirm_move", "The first click on a tile shows the path and what the move risks, a second click on the same tile moves. Right click or Esc cancels.")
 	_section("Camera")
+	_toggle("Auto ready", "gameplay", "auto_ready", "Marks you Ready as soon as every one of your soldiers is out of actions. Press Ready again to take it back while the others plan.")
 	_toggle("Edge scrolling", "gameplay", "edge_pan", "Pan when the mouse touches the screen edge.")
 	_slider("Camera pan speed", "gameplay", "camera_speed", 0.25, 3.0, 0.25, "%d%%", 100.0)
 
