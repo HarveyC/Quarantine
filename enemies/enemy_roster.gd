@@ -83,6 +83,12 @@ const CROSSFIRE_CONE := 0.8   # dot product with the facing: about 37 degrees ei
 const RELAY_RANGE := 8
 const BOSSES: Array[String] = ["brood_mother", "colonel_hale", "the_source"]
 const BOSS_OF_ACT := {1: "brood_mother", 2: "colonel_hale", 3: "the_source"}
+## The bosses an act can roll, in a fixed order (a boss node's seed picks one). A new boss joins
+## its act's pool here once its module, arena, intro scene and view beats are in.
+const BOSS_POOL := {1: ["brood_mother"], 2: ["colonel_hale"], 3: ["the_source"]}
+## Regular enemies an act leans on when that boss waits at its end (twice as likely, like the Act
+## signatures), so the Act foreshadows the boss. A new boss lists its faction's kinds here.
+const BOSS_PACK := {}
 const ARMOURED_REDUCTION := 2
 const ELITE_HP_MULT := 2
 
@@ -172,6 +178,19 @@ static func infects(source: Unit) -> bool:
 	if source.status.get("turned", false):
 		return true
 	return UnitData.ENEMIES.get(source.kind, {}).get("infects", true)
+
+
+## The boss an act rolls for the boss node with this `seed`.
+static func boss_for(act: int, seed: int) -> String:
+	var pool: Array = BOSS_POOL.get(act, [])
+	if pool.is_empty():
+		return BOSS_OF_ACT.get(act, "")
+	return pool[absi(seed) % pool.size()]
+
+
+## The kinds a boss's faction adds weight to, or [].
+static func pack_of(boss: String) -> Array:
+	return BOSS_PACK.get(boss, [])
 
 
 ## Regular enemies available in `act` (1-3).

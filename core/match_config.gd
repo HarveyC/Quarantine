@@ -103,7 +103,7 @@ static func for_fight(run: RunState, st: Dictionary) -> Dictionary:
 	var spec := {
 		"act": run.act, "row": run.row, "node": st.kind, "objective": st.objective,
 		"outbreak": run.outbreak, "seed": seed, "players": run.players.size(),
-		"modifiers": run.modifiers.duplicate(true),
+		"modifiers": run.modifiers.duplicate(true), "boss": run.act_boss(),
 	}
 	var squad: Array = []
 	for r in run.squad():

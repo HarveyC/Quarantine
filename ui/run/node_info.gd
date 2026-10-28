@@ -62,7 +62,7 @@ static func title(n: Dictionary) -> String:
 
 
 static func boss_name(run: RunState) -> String:
-	var pv: Dictionary = RunHooks.call_static("FightBuilder", "preview", [{"act": run.act, "node": RunMap.BOSS, "seed": 1}], {})
+	var pv: Dictionary = RunHooks.call_static("FightBuilder", "preview", [{"act": run.act, "node": RunMap.BOSS, "seed": 1, "boss": run.act_boss()}], {})
 	return pv.get("title", "The boss")
 
 
