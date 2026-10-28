@@ -310,7 +310,7 @@ func test_squad_defaults_solo_four_and_coop_one_each() -> void:
 	var picked := RunRules.new_run(2, 5, {}, {0: "medic", 1: "medic"})
 	assert_eq(picked.squad().map(func(r): return r.kind), ["medic", "medic"], "picks are honoured, repeats allowed")
 	var partial := MatchConfig.squad_plan(3, {1: "trooper"})
-	assert_eq(partial.map(func(e): return e.kind), ["marksman", "trooper", "medic"], "defaults skip picked classes")
+	assert_eq(partial.map(func(e): return e.kind), ["medic", "trooper", "breacher"], "defaults skip picked classes")
 
 
 func test_players_choose_their_squad_size() -> void:
@@ -438,7 +438,7 @@ func test_fights_move_outbreak() -> void:
 
 ## Outbreak climbs across a run even when every bonus objective is met (it used to net out near 0).
 func test_outbreak_climbs_through_the_run() -> void:
-	var run := RunRules.new_run(2, 2024)
+	var run := RunRules.new_run(2, 2025)
 	RunRules.start_run(run)
 	_rewards(run)
 	var at_boss := []
