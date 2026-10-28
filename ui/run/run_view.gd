@@ -440,6 +440,8 @@ func _reserve_card() -> Control:
 		if open_slot:
 			var b := Button.new()
 			b.text = "Deploy"
+			b.custom_minimum_size = Vector2(0, 22)
+			b.add_theme_font_size_override("font_size", 12)
 			Styles.style_button(b, "secondary", 10)
 			b.pressed.connect(func() -> void:
 				session.submit_run({"type": RunRules.DEPLOY, "player": session.local_players()[0], "sid": r.id}))
