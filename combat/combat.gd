@@ -274,6 +274,7 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 	Weapons.odds_terms(s, attacker, target, from, cover, breakdown)
 	if attacker.team == Types.Team.PLAYER and has_status(s, target, "tagged"):
 		breakdown.append(["Marked", TAG_BONUS])
+	Recovery.odds_terms(s, attacker, target, breakdown)
 	if has_status(s, attacker, "suppressed"):
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
 	if reaction and attacker.kind != "overwatcher" and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
@@ -305,6 +306,7 @@ static func melee_chance(s: GameState, attacker: Unit, target: Unit, from: Vecto
 	var breakdown: Array = [["Aim", attacker.aim]]
 	if cover != Types.Cover.NONE:
 		breakdown.append(["Cover", -MELEE_COVER])
+	Recovery.odds_terms(s, attacker, target, breakdown)
 	if has_status(s, attacker, "suppressed"):
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
 	return _finish_odds(breakdown, cover, cover == Types.Cover.NONE, true, 0)
@@ -359,7 +361,7 @@ static func available_abilities(s: GameState, u: Unit) -> Array[Dictionary]:
 		var has_targets: bool = def.targeting == "cell" or not targets.is_empty()
 		out.append({"id": id, "name": def.name, "targeting": def.targeting, "cost": def.cost,
 			"cooldown": cd, "desc": def.desc, "targets": targets,
-			"ready": cd <= 0 and u.actions_left > 0 and u.is_alive() and has_targets})
+			"ready": cd <= 0 and u.actions_left > 0 and u.is_alive() and has_targets and not has_status(s, u, "hushed")})
 	out.append_array(GearFx.available_abilities(s, u))
 	return out
 
@@ -430,6 +432,8 @@ static func _validate_ability(s: GameState, u: Unit, action: Dictionary) -> Stri
 		return "Unknown ability"
 	if int(u.cooldowns.get(id, 0)) > 0:
 		return "On cooldown"
+	if u.team == Types.Team.PLAYER and has_status(s, u, "hushed"):
+		return "Hushed"
 	if ABILITIES[id].targeting == "cell":
 		return _spit_cell_error(s, u, action.get("cell"))
 	var t := u
