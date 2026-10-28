@@ -131,6 +131,19 @@ static func _dormant_turn(s: GameState, u: Unit) -> void:
 		Rules.apply(s, action)
 
 
+## What `u` would do with its next action right now ({} for nothing). Pure: the intent icons call this,
+## so what the overlay promises is what `_choose` decides.
+static func preview(s: GameState, u: Unit) -> Dictionary:
+	if not _can_act(s, u) or u.status.get("lapsed", false) or has_scripted_turn(u):
+		return {}
+	return _choose(s, u)
+
+
+## Units whose turn is a script of their own (EnemyBehaviours.custom_turn), not `_choose`.
+static func has_scripted_turn(u: Unit) -> bool:
+	return u.kind in ["emplacement", "brood_mother", "colonel_hale", "the_source"] or EnemyRoster.is_static(u)
+
+
 # --- Lapsed soldiers -------------------------------------------------------------------------
 
 ## Confused: 50% shoot the nearest visible unit of any team, else wander to a random cell.
