@@ -10,7 +10,7 @@ const Board := preload("res://view/board.gd")
 ## model (ModelKit.CHARACTERS sizes the rest). Bosses and elites read bigger.
 const SCALE := {
 	"hive_node": [1.3, 0.7], "egg_sac": [0.9, 0.55], "spore_nest": [1.1, 0.6],
-	"source_root": [1.2, 0.9], "relay": [0.7, 1.9], "the_source": [2.6, 2.2], "drifter": [1.1, 0.7],
+	"source_root": [1.2, 0.9], "relay": [0.7, 1.9], "carrier": [1.4, 0.95], "the_source": [2.6, 2.2], "drifter": [1.1, 0.7],
 }
 const ELITE_SCALE := 1.2
 
@@ -18,7 +18,8 @@ const ELITE_SCALE := 1.2
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
 	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell",
-	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled"]
+	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled",
+	"scrap", "snared", "snares_cut", "downed", "revived", "revive_broken"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -44,19 +45,25 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 	var head := func(n: Node3D) -> Vector3: return n.position + Vector3(0, 2.0 * n.scale.y, 0)
 	match str(ev.get("type", "")):
 		"spawned":
+			var infected: bool = UnitData.ENEMIES.get(str(ev.get("kind", "")), {}).get("infects", true)
 			if uv != null:
 				uv.visible = true
-				fx.puff(uv.position + Vector3(0, 0.3, 0), Palette.TEAL_DIM, 1.0, 0.9, 0.6)
-				fx.burst(uv.position + Vector3(0, 0.2, 0), Vector3.UP, Palette.TEAL, 12, 2.0, true, 0.04)
+				if infected:
+					fx.puff(uv.position + Vector3(0, 0.3, 0), Palette.TEAL_DIM, 1.0, 0.9, 0.6)
+					fx.burst(uv.position + Vector3(0, 0.2, 0), Vector3.UP, Palette.TEAL, 12, 2.0, true, 0.04)
+				else:   # a drone bay opens: people and machines arrive in dust and sparks, not spores
+					fx.puff(uv.position + Vector3(0, 0.3, 0), Color(0.62, 0.6, 0.55), 0.9, 0.8, 0.4)
+					fx.burst(uv.position + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER, 10, 2.5, true, 0.03)
+					fx.floating_text(head.call(uv), "DEPLOYED", Palette.DANGER, 40)
 				ep._focus(uv)
-			ep._sfx("sting_enemy", -8.0)
+			ep._sfx("sting_enemy" if infected else "gadget_deploy", -8.0 if infected else -4.0)
 			return {"dur": 0.45}
 		"telegraph":
 			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
 				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
 				"acid_rain": "ACID RAIN", "stomp": "STOMP", "hurl": "WRECKAGE INCOMING", "rockfall": "ROCKS INCOMING", "danger_close": "DANGER CLOSE",
 				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES",
-				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN", "firebomb": "FIREBOMB LOBBED", "crossfire": "CROSSFIRE"}
+				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN", "firebomb": "FIREBOMB LOBBED", "crossfire": "CROSSFIRE", "frag": "FRAG LOBBED"}
 			if ev.get("kind", "") == "erupt":   # the boss is underground: label the ground that will break
 				var cells: Array = ev.get("cells", [])
 				if not cells.is_empty():
@@ -73,7 +80,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				return {"dur": 0.6}
 			for c in ev.get("cells", []):
 				var w := Board.cell_to_world(c)
-				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "rockfall", "danger_close", "satchel", "firebomb", "crossfire"] else Palette.TEAL, 6, 4.0, true, 0.05)
+				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "rockfall", "danger_close", "satchel", "firebomb", "crossfire", "frag"] else Palette.TEAL, 6, 4.0, true, 0.05)
 			if not (ev.get("cells", []) as Array).is_empty():
 				var mid := Board.cell_to_world(ev.cells[ev.cells.size() / 2])
 				fx.flash_light(mid + Vector3(0, 1.0, 0), Palette.AMBER, 8.0, 0.35, 6.0)
@@ -189,6 +196,51 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			if uv != null:
 				fx.floating_text(head.call(uv), "LOOT +%d" % int(ev.get("supplies", 0)), Palette.AMBER, 48)
 			return {"dur": 0.4}
+		"scrap":   # a Packrat's loot armour takes a hit: a plate comes off and lands in a pile
+			if uv != null:
+				var left := int(ev.get("plates", 0))
+				fx.floating_text(head.call(uv), "PLATE OFF" if left > 0 else "STRIPPED", Palette.AMBER, 44)
+				fx.burst(uv.aim_point(), Vector3.UP, Color(0.72, 0.62, 0.42), 10, 3.0, false, 0.04)
+				fx.crumble(Board.cell_to_world(uv.cell), 0.45, Color(0.5, 0.42, 0.3))
+			ep._sfx("plate_clang", -3.0)
+			return {"dur": 0.35}
+		"snared":   # a Rigger's line pulls tight round a soldier's ankle
+			var sv: Node3D = view.view_for(int(ev.get("unit", -1)))
+			if sv != null:
+				fx.floating_text(head.call(sv), "SNARED", Palette.DANGER, 48)
+				fx.burst(sv.position + Vector3(0, 0.15, 0), Vector3.UP, Color(0.7, 0.62, 0.45), 8, 2.0, false, 0.03)
+				sv.hit_react(sv.position + Vector3(0, 1, 0), 0.6)
+				ep._focus(sv)
+			_refresh_overlay(view)
+			ep._sfx("grapple", -4.0)
+			return {"dur": 0.5}
+		"snares_cut":
+			if uv != null:
+				fx.floating_text(head.call(uv), "SNARES CUT", Palette.AMBER, 40)
+			_refresh_overlay(view)
+			return {"dur": 0.3}
+		"downed":   # a Security goes down where a medic could still reach it
+			if uv != null:
+				fx.floating_text(head.call(uv), "DOWN", Color(0.8, 0.82, 0.8), 40)
+			return {"dur": 0.2}
+		"revived":   # the body gets up: the fallen one's old view goes, a fresh one takes the cell
+			var bv: Node3D = view.view_for(int(ev.get("body", -1)))
+			if bv != null:
+				bv.visible = false
+			if uv != null:
+				uv.visible = true
+				uv.set_hp(int(ev.get("hp", 0)))
+				fx.floating_text(head.call(uv), "BACK UP", Palette.AMBER, 48)
+				fx.puff(uv.position + Vector3(0, 0.3, 0), Color(0.62, 0.6, 0.55), 0.8, 0.7, 0.4)
+				fx.pulse(uv.position, Palette.AMBER)
+				ep._focus(uv)
+			ep._sfx("heal", -4.0)
+			return {"dur": 0.6}
+		"revive_broken":
+			if uv != null:
+				fx.floating_text(head.call(uv), "REVIVE BROKEN", Palette.AMBER, 44)
+			ep._sfx("plate_clang", -3.0)
+			return {"dur": 0.4}
 		"braced":   # a Carapace turns its plate toward the squad
 			if uv != null and ev.get("facing") is Vector2i:
 				uv.face_towards(Board.cell_to_world(uv.cell + ev.facing))
@@ -292,6 +344,12 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"stalled": return "%s loses its signal and stalls" % who.call("unit")
 		"fled": return "%s slips off the map%s" % [who.call("unit"), " with the loot" if ev.get("loot", false) else ""]
 		"loot": return "%s drops its loot (+%d Supplies)" % [who.call("unit"), int(ev.get("supplies", 0))]
+		"scrap": return "%s loses a plate (%d left)" % [who.call("unit"), int(ev.get("plates", 0))]
+		"snared": return "[color=#%s]%s is snared and loses an action[/color]" % [red, who.call("unit")]
+		"snares_cut": return "%s's snares are cut" % who.call("unit")
+		"downed": return "%s is down" % who.call("unit")
+		"revived": return "[color=#%s]%s is back up on %d HP[/color]" % [red, who.call("unit"), int(ev.get("hp", 0))]
+		"revive_broken": return "%s loses its patient" % who.call("unit")
 		"stalked": return "[color=#%s]%s is cut off and takes a stalker's bonus hit[/color]" % [red, who.call("target")]
 		"boss_defeated": return "[b]%s is defeated[/b]" % name_of.call(int(ev.get("unit", -1)))
 	return ""

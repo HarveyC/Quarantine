@@ -8,6 +8,8 @@ const VOICES := 6
 const ALIAS := {"hive_node": "", "egg_sac": "", "spore_nest": "", "source_root": "",
 	"cutter": "fallen", "torchman": "fallen", "fence": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
+	"packrat": "fallen", "rigger": "fallen", "lookout": "fallen", "sergeant": "fallen", "grenadier": "fallen", "field_medic": "fallen",
+	"tender": "", "carrier": "", "arc_welder": "",
 	"hound": "", "loader": "", "relay": ""}   # machines have no voice   # the looters are people
 ## Barks per beat type, with a volume (dB) and a chance.
 const CUES := {

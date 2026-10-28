@@ -439,7 +439,10 @@ static func _run_spawners(s: GameState) -> void:
 		var kinds: Array = sp.kinds
 		var kind: String = kinds[int(sp.i) % kinds.size()]
 		sp.i = int(sp.i) + 1
-		spawn(s, kind, u.pos, u)
+		for n in int(sp.get("count", 1)):
+			if _mobile_enemies(s) >= _spawn_cap(s):
+				break
+			spawn(s, kind, u.pos, u)
 
 
 static func _spawn_cap(s: GameState) -> int:
@@ -466,6 +469,7 @@ static func on_unit_turn_start(s: GameState, u: Unit) -> void:
 	if EnemyRoster.has_affix(u, "hasted"):
 		u.actions_left = Types.ACTIONS_PER_TURN + 1
 	Automata.on_turn_start(s, u)
+	Security.on_turn_start(s, u)
 	if EnemyRoster.has_affix(u, "regenerating") and u.hp < u.max_hp \
 			and int(u.status.get("burned_turn", -1)) != s.turn and int(u.status.get("burning", 0)) <= 0:
 		var healed := mini(REGEN, u.max_hp - u.hp)
@@ -571,6 +575,10 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		armour = 0   # Wildfire fire
 	if armour > 0:
 		amount = maxi(1, amount - armour)
+	if target.kind == "packrat" and int(target.status.get("plates", 0)) > 0 and amount > 0 and source != null:
+		amount = maxi(1, amount - EnemyRoster.PACKRAT_REDUCTION)
+		target.status["plates"] = int(target.status.plates) - 1
+		s.emit({"type": "scrap", "unit": target.id, "plates": int(target.status.plates)})
 	if EnemyBehaviours.plate_covers(s, target, source) and amount > 0:
 		amount = 0 if target.status.get("shield", false) else maxi(1, amount - EnemyRoster.PLATE_REDUCTION)
 		s.emit({"type": "plated", "unit": target.id, "source": source.id})
@@ -633,6 +641,7 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 		release_pin(s, target)
 	if not target.is_alive():
 		return
+	Security.on_damaged(s, target)
 	match target.kind:
 		"brood_mother":
 			BroodMother.on_damaged(s, target)
@@ -656,6 +665,7 @@ static func on_died(s: GameState, u: Unit) -> void:
 		for i in 2:
 			spawn(s, "runner", u.pos, u)
 	Scavengers.on_died(s, u)
+	Security.on_died(s, u)
 	if u.kind in ["bloater", "broodling"] and not u.status.get("burst", false):
 		EnemyAbilities.burst(s, u)
 	if u.team == Types.Team.ENEMY and EnemyRoster.has_affix(u, "volatile") and s.phase != Types.Phase.ENDED:
