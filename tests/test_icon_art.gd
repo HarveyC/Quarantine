@@ -28,5 +28,10 @@ func test_node_and_action_art() -> void:
 		assert_true(_has("res://assets/icons/%s.png" % id), "%s has art" % id)
 
 
+func test_menu_art() -> void:
+	for id in ["continue", "solo", "coop", "online", "join", "hotseat", "quick", "settings", "leave", "flag", "doctrine", "intel"]:
+		assert_true(_has("res://assets/icons/%s.png" % id), "%s has menu art" % id)
+
+
 func test_missing_art_falls_back() -> void:
 	assert_eq(IconArt.vocab("no_such_icon_id"), null, "a missing id has no texture")
