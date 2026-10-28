@@ -56,7 +56,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
 				"acid_rain": "ACID RAIN", "stomp": "STOMP", "hurl": "WRECKAGE INCOMING", "rockfall": "ROCKS INCOMING", "danger_close": "DANGER CLOSE",
 				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES",
-				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN", "firebomb": "FIREBOMB LOBBED"}
+				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN", "firebomb": "FIREBOMB LOBBED", "crossfire": "CROSSFIRE"}
 			if ev.get("kind", "") == "erupt":   # the boss is underground: label the ground that will break
 				var cells: Array = ev.get("cells", [])
 				if not cells.is_empty():
@@ -73,7 +73,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				return {"dur": 0.6}
 			for c in ev.get("cells", []):
 				var w := Board.cell_to_world(c)
-				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "rockfall", "danger_close", "satchel", "firebomb"] else Palette.TEAL, 6, 4.0, true, 0.05)
+				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "rockfall", "danger_close", "satchel", "firebomb", "crossfire"] else Palette.TEAL, 6, 4.0, true, 0.05)
 			if not (ev.get("cells", []) as Array).is_empty():
 				var mid := Board.cell_to_world(ev.cells[ev.cells.size() / 2])
 				fx.flash_light(mid + Vector3(0, 1.0, 0), Palette.AMBER, 8.0, 0.35, 6.0)

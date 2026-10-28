@@ -13,8 +13,10 @@ extends RefCounted
 const GunModels := preload("res://view/gun_models.gd")
 
 const BODY := {"hooker": "spitter", "sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker",
-	"cutter": "runner", "torchman": "fallen", "fence": "fallen"}
-const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95}
+	"cutter": "runner", "torchman": "fallen", "fence": "fallen",
+	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen"}
+const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95,
+	"shieldman": 1.1, "overwatcher": 1.0, "emplacement": 1.0}
 ## Role tints: kind -> {role: lighten (+) or darken (-) amount}.
 const TINT := {
 	"hooker": {"body": -0.25, "flesh": -0.15},
@@ -25,6 +27,9 @@ const TINT := {
 	"cutter": {"body": 0.15, "rags": 0.1},
 	"torchman": {"body": -0.1},
 	"fence": {"body": 0.1, "rags": 0.2},
+	"shieldman": {"body": 0.2},
+	"overwatcher": {"body": -0.2},
+	"emplacement": {"body": 0.1},
 }
 
 
@@ -58,6 +63,10 @@ static func dress(model: Node3D, kind: String) -> void:
 			_attach(sk, "spine_03", "back_spines", _spines())
 		"torchman":
 			_attach(sk, "spine_03", "fuel_tank", _tank())
+		"shieldman":
+			_attach(sk, "spine_03", "riot_shield", _shield())
+		"emplacement":
+			_attach(sk, "pelvis", "sandbags", _sandbags())
 		"weaver":
 			_attach(sk, "lowerarm_l", "strands_l", _strands())
 			_attach(sk, "lowerarm_r", "strands_r", _strands())
@@ -130,6 +139,26 @@ static func _tank() -> Mesh:
 		["lamp", "ball", Vector3(0.0, 0.26, -0.19), 0.035],
 	]
 	return GunModels.build_mesh(p, {}, {"metal": Color("a0412c"), "lamp": [Color(0.55, 0.2, 0.08), Color(1.0, 0.55, 0.15)]})
+
+
+static func _shield() -> Mesh:
+	var p := [
+		["glass", "box", Vector3(0.0, 0.05, 0.28), Vector3(0.5, 0.7, 0.04)],
+		["frame", "box", Vector3(0.0, 0.42, 0.28), Vector3(0.56, 0.05, 0.06)],
+		["frame", "box", Vector3(0.0, -0.3, 0.28), Vector3(0.56, 0.05, 0.06)],
+		["amber", "box", Vector3(0.0, 0.05, 0.31), Vector3(0.4, 0.03, 0.01)],
+	]
+	return GunModels.build_mesh(p, {}, {"glass": Color("4a5a66"), "frame": Color("2a2a28")})
+
+
+static func _sandbags() -> Mesh:
+	var p := []
+	for i in 5:
+		p.append(["bag", "box", Vector3(-0.4 + i * 0.2, -0.1, 0.4), Vector3(0.22, 0.16, 0.16)])
+	for i in 4:
+		p.append(["bag", "box", Vector3(-0.3 + i * 0.2, 0.05, 0.4), Vector3(0.22, 0.16, 0.16)])
+	p.append(["metal", "tube", Vector3(0.0, 0.2, 0.2), Vector3(0.0, 0.2, 0.7), 0.04])
+	return GunModels.build_mesh(p, {}, {"bag": Color("8a7e5c"), "metal": Color("3a3a38")})
 
 
 static func _plate() -> Mesh:

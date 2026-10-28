@@ -77,6 +77,11 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			return {"icon": "claw", "label": "BURROW", "target": -1}
 		"hooker":
 			return {"icon": "hook", "label": "HOOK", "target": _best_visible(s, u)}
+		"emplacement":
+			return {"icon": "strike", "label": "CROSSFIRE", "target": -1}
+		"overwatcher":
+			if EnemyAI._best_shot(s, u).is_empty():
+				return {"icon": "hide", "label": "WATCHING", "target": -1}
 		"torchman":
 			if int(u.cooldowns.get("firebomb", 0)) <= 1:
 				return {"icon": "satchel", "label": "FIREBOMB", "target": _nearest(u, hostiles)}

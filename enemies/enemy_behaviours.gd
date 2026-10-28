@@ -10,7 +10,7 @@ const SUPPORT_MIN := 6.0
 const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
-	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence",
+	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher",
 	"brood_mother", "colonel_hale", "the_source"]
 
 
@@ -20,6 +20,9 @@ static func handles(s: GameState, u: Unit) -> bool:
 
 ## Turns that skip the normal alert/choose loop. Returns true if the turn was handled.
 static func custom_turn(s: GameState, u: Unit) -> bool:
+	if u.kind == "emplacement":
+		Security.emplacement_turn(s, u)
+		return true
 	if EnemyRoster.is_static(u):
 		return true
 	if u.kind == "brood_mother":
@@ -91,6 +94,8 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"cutter": return Scavengers.cutter(s, u, hostiles)
 		"torchman": return _sapper(s, u, hostiles, "firebomb")
 		"fence": return Scavengers.fence(s, u, hostiles)
+		"shieldman": return rush(s, u, hostiles, "slam")
+		"overwatcher": return Security.overwatcher(s, u)
 	return {}
 
 
