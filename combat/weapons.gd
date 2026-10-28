@@ -340,4 +340,6 @@ static func barbs_tick(s: GameState, u: Unit, start: Vector2i) -> void:
 		return
 	u.status.erase("k_barbs")
 	s.emit({"type": "perk", "unit": u.id, "perk": "barbs"})
+	Rules.cause = "Barbs"
 	Rules.deal_damage(s, u, n, null)
+	Rules.cause = ""
