@@ -71,8 +71,8 @@ const DEFS := {
 ## Hale's abilities by phase (ColonelHale): radio and air support, then the Brute, then the wreck.
 const HALE_PHASES := {
 	1: ["airstrike", "flashbang", "smoke_screen"],
-	2: ["slam", "charge", "stomp"],
-	3: ["slam", "charge", "stomp", "hurl", "danger_close"],
+	2: ["slam", "charge", "stomp", "airstrike"],
+	3: ["slam", "charge", "stomp", "hurl", "danger_close", "airstrike"],
 }
 
 const CHARGE_RANGE := 6

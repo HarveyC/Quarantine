@@ -1011,7 +1011,7 @@ func test_source_lashes_the_highest_ground_while_the_roots_live() -> void:
 	s.turn = 1
 	_enemy_turn(s, src)
 	var lashes: Array = s.encounter.telegraphs.filter(func(x): return x.kind == "lash")
-	assert_eq(lashes.size(), SourceBoss.LASH[4], "lashes per turn")
+	assert_eq(lashes.size(), mini(SourceBoss.LASH[4], 2), "one lash per soldier, up to LASH")
 	assert_true(lashes[0].cells.has(roof.pos), "the first lash is for the soldier on the roof")
 	assert_eq(EnemyIntent._intent(s, src).icon, "pulse", "the intent names the pulse")
 	s.turn = 2
@@ -1019,6 +1019,14 @@ func test_source_lashes_the_highest_ground_while_the_roots_live() -> void:
 	assert_true(roof.hp < roof.max_hp, "and it lands next phase")
 	assert_true(Encounter.is_spore(s, roof.pos), "leaving spores")
 	assert_true(ground.hp > 0)
+
+
+func test_source_cannot_be_knocked_back() -> void:
+	var s := _boss_state("the_source")
+	var src := _boss(s, "the_source")
+	var before := src.pos
+	EnemyAbilities.knockback(s, src, Vector2i(0, 1), 2)
+	assert_eq(src.pos, before, "the Source stays put")
 
 
 func test_source_collapse_regrows_roots_and_drops_the_floor() -> void:
