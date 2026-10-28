@@ -55,8 +55,7 @@ func test_extract_wins_when_everyone_is_on_the_pad() -> void:
 		_place(s, squad[i], evac[i])
 	_end_round(s)
 	assert_eq(s.result, Types.Result.NONE, "the flare goes up first")
-	assert_eq(s.objective.flare, s.turn, "flare turn recorded")
-	s.turn += 1
+	assert_eq(s.objective.flare, 1, "flare turn recorded")
 	_end_round(s)
 	assert_eq(s.result, Types.Result.VICTORY, "extracted")
 	assert_true(Objectives.bonus_met(s), "nobody left behind")
