@@ -213,7 +213,7 @@ func _no_bare_labels(v: MissionView) -> bool:
 ## Colonel Hale through the view: air support from his post with marked strikes and smoke, the
 ## Bloom taking him (banner beat, stomps and charges), then hurled wreckage and danger close.
 func test_colonel_hale_three_phases_play_through_the_view() -> void:
-	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 4, "squad": 2, "players": 2})
+	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 5, "squad": 2, "players": 2})
 	_drain(v)
 	var h := _boss_of(v, "colonel_hale")
 	var hv = v.view_for(h.id)
