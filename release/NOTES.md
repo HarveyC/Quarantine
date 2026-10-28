@@ -2,9 +2,7 @@
 
 **New icons.** The main menu, lobby, shop, pause and audio settings now use the same glowing amber line art as the rest of the game. Check the menu buttons and the bottom row for any leftover old white icons.
 
-**Colony Security.** Act 1 and 2 fights can now include Shieldman, Overwatcher and Emplacement.
-
-**Automata.** Hound drone, Loader frame and Relay join the enemy roster.
+**New enemy factions.** Colony Security (Shieldman, Overwatcher, Emplacement) and Automata (Hound drone, Loader frame, Relay) join the roster.
 
 **Still in this build (v0.23.1).** Scavengers (Cutter, Torchman, Fence), and spores laid by soldiers now damage enemies.
 
