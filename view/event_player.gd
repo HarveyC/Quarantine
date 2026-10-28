@@ -1328,7 +1328,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
 	"burrow", "erupt", "leap", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
-	"hook", "reel", "satchel", "mend",
+	"hook", "reel", "satchel", "firebomb", "mend",
 	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
 
 ## Rank 2 signatures (Signatures): the sound, title and colour of each one's beat.
@@ -1405,7 +1405,7 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			if ev.ability == "reel":
 				hb.dur = 0.5
 			return hb
-		"satchel":
+		"satchel", "firebomb":
 			_sfx("satchel_arm", -4.0)
 			return _throw_beat(ev)
 		"mend":

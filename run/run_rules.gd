@@ -364,7 +364,7 @@ static func _start_fight(run: RunState, st: Dictionary) -> void:
 static func fight_outcome(s: GameState, bonus: Variant = null) -> Dictionary:
 	if bonus == null:
 		bonus = RunHooks.call_static("Objectives", "bonus_met", [s], false)
-	var out := {"result": s.result, "bonus": bonus, "soldiers": [],
+	var out := {"result": s.result, "bonus": bonus, "loot": int(s.encounter.get("loot", 0)), "soldiers": [],
 		"echoes_down": RunHooks.call_static("Story", "echoes_down", [s], [])}
 	for u in s.units:
 		if u.status.has("sid"):
@@ -424,6 +424,8 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 			r.hp = mini(r.max_hp, r.hp + ceili(r.max_hp * heal) + extra_hp)
 	var income: Dictionary = INCOME.get(kind, INCOME[RunMap.SKIRMISH])
 	add_supplies(run, Severity.income(run, income.supplies) + (BONUS_SUPPLIES if outcome.bonus else 0), kind)
+	if int(outcome.get("loot", 0)) > 0:
+		add_supplies(run, EnemyRoster.FENCE_SUPPLIES * int(outcome.loot), "loot")
 	if outcome.bonus:
 		add_intel(run, 1, "bonus objective")
 	if income.serum > 0:

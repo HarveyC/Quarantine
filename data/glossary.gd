@@ -960,7 +960,32 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 			"Kill the Weaver or put a wall between them and the mending stops.",
 			"It never mends bosses or nests."],
 		"labels": ["Mending"]}
+	t["firebomb"] = {"name": "Firebomb", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "A lobbed bottle that bursts next enemy phase on the red 3x3, then the ground burns.",
+		"art": "", "stats": [["%d" % EnemyRoster.FIREBOMB_DAMAGE, "damage"], ["%d" % EnemyRoster.FIREBOMB_FIRE_TURNS, "rounds of fire"]],
+		"more": ["The Infected walk through the fire unharmed, so the squad pays for cover alone.",
+			"Shoot the Torchman and its fuel tank bursts into flame where it falls.",
+			"{hazard_fire|Fire} burns away spores too."],
+		"see": ["hazards", "hazard_fire"]}
+	t["snatch"] = {"name": "Snatch", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "A Cutter's hit lifts one item off the soldier, then it runs for the map edge.",
+		"art": "", "stats": [["1", "item taken"], ["Best", "item first"]],
+		"more": ["Kill the Cutter and the item comes back.",
+			"If it reaches the edge, the item stays gone until the fight ends.",
+			"A stolen item does nothing for its owner while it is away."],
+		"see": ["overwatch"],
+		"labels": ["Fleeing"]}
+	t["loot"] = {"name": "Loot", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "A Fence carries a sack of colony supplies and leaves the map once the fight runs long.",
+		"art": "", "stats": [["+%d" % EnemyRoster.FENCE_SUPPLIES, "Supplies"], ["%d" % EnemyRoster.FENCE_LEAVES_TURN, "turn it leaves"]],
+		"more": ["Kill it before it reaches the edge to keep the loot.",
+			"It keeps its distance, so Suppress and Overwatch catch it where a chase will not."],
+		"see": ["suppress", "overwatch"],
+		"labels": ["Holding loot"]}
 	var cards := {
+		"cutter": ["Human looter. Its hit will {snatch} an item, then it runs.", ["snatch"]],
+		"torchman": ["Lobs a {firebomb}. Its fuel tank burns when it dies.", ["firebomb"]],
+		"fence": ["Hangs back with the {loot} and leaves the map. Kill it in time.", ["loot"]],
 		"hooker": ["Locks a barbed line onto a soldier, then {hook|reels} them toward it next turn.", ["hook"]],
 		"sapper": ["Throws a {satchel} onto the squad's cover, then runs.", ["satchel"]],
 		"carapace": ["Slow Infected with a bone {plate} over its front. Flank it.", ["plate"]],

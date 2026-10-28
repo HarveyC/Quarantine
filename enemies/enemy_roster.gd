@@ -17,14 +17,16 @@ extends RefCounted
 ## Threat budget each regular enemy spends when a fight is built.
 const COST := {"runner": 1, "spitter": 1, "fallen": 2, "bloater": 2, "lurker": 2, "shrieker": 2, "brute": 3,
 	"leaper": 2, "drifter": 1, "sharpshooter": 2, "burrower": 2,
-	"hooker": 2, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3}
+	"hooker": 2, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3,
+	"cutter": 2, "torchman": 2, "fence": 2}
 ## First act an enemy appears in as a regular.
 const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "leaper": 1, "brute": 2, "lurker": 2,
 	"drifter": 2, "sharpshooter": 2, "shrieker": 3, "burrower": 3,
-	"hooker": 1, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3}
+	"hooker": 1, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3,
+	"cutter": 1, "torchman": 1, "fence": 2}
 ## Each act's signature enemies are twice as likely to be bought there, so acts feel different:
 ## act 1 the cordon (Fallen, Leaper), act 2 the port (Drifter, Sharpshooter, Brute), act 3 the bore.
-const SIGNATURE := {1: ["fallen", "leaper"], 2: ["drifter", "sharpshooter", "brute", "sapper", "carapace"],
+const SIGNATURE := {1: ["fallen", "leaper", "cutter", "torchman"], 2: ["drifter", "sharpshooter", "brute", "sapper", "carapace", "fence"],
 	3: ["burrower", "shrieker", "lurker", "stalker", "weaver"]}
 ## Ranged enemies: they shoot or spit from a distance. Fights are built mostly from melee infected
 ## that rush the squad; ranged kinds are supporting threats (FightBuilder caps their share).
@@ -34,7 +36,8 @@ const RANGED: Array[String] = ["spitter", "fallen", "sharpshooter", "hooker"]
 const WEIGHT := {"runner": {1: 3, 2: 2, 3: 2}}
 ## First act an enemy can be an elite in.
 const ELITE_FROM_ACT := {"brute": 1, "lurker": 1, "fallen": 1, "leaper": 1, "bloater": 2, "shrieker": 2,
-	"sharpshooter": 2, "burrower": 3, "hooker": 2, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3}
+	"sharpshooter": 2, "burrower": 3, "hooker": 2, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3,
+	"cutter": 2, "torchman": 2}
 const AFFIXES: Array[String] = ["armoured", "regenerating", "splitting", "virulent", "hasted", "tethered", "volatile", "rallying"]
 const AFFIX_INFO := {
 	"armoured": {"name": "Armoured", "desc": "Takes 2 less damage per hit (min 1). Doesn't stack with natural armour.", "counter": "Needs big hits or a Mark."},
@@ -62,6 +65,12 @@ const MEND_HEAL := 3
 const RALLY_RADIUS := 3
 const RALLY_DAMAGE := 1
 const VOLATILE_BLAST := {"radius": 1, "centre": 1, "ring": 1, "damage": 2}
+## Scavengers (enemies/scavengers.gd).
+const FIREBOMB_DAMAGE := 2
+const FIREBOMB_FIRE_TURNS := 2
+const TANK_FIRE_TURNS := 2
+const FENCE_LEAVES_TURN := 6
+const FENCE_SUPPLIES := 25
 const BOSSES: Array[String] = ["brood_mother", "colonel_hale", "the_source"]
 const BOSS_OF_ACT := {1: "brood_mother", 2: "colonel_hale", 3: "the_source"}
 const ARMOURED_REDUCTION := 2

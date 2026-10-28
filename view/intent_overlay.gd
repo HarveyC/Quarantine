@@ -15,7 +15,7 @@ const ICON_TEXT := {
 	"claw": "CLAW", "shoot": "SHOOT", "spit": "SPIT", "burst": "BURST", "charge": "CHARGE",
 	"scream": "SCREAM", "spawn": "SPAWN", "strike": "AIRSTRIKE", "pull": "PULL", "pulse": "PULSE",
 	"hide": "HIDE", "seek": "SEEK", "dormant": "zz", "pinning": "MAUL", "leap": "LEAP",
-	"snipe": "AIMING", "drop": "DROP", "hook": "HOOK", "satchel": "SATCHEL", "mend": "MEND",
+	"snipe": "AIMING", "drop": "DROP", "hook": "HOOK", "satchel": "SATCHEL", "firebomb": "FIREBOMB", "mend": "MEND",
 }
 
 var view: Node

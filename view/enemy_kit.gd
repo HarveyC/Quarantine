@@ -12,8 +12,9 @@ extends RefCounted
 
 const GunModels := preload("res://view/gun_models.gd")
 
-const BODY := {"hooker": "spitter", "sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker"}
-const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95}
+const BODY := {"hooker": "spitter", "sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker",
+	"cutter": "runner", "torchman": "fallen", "fence": "fallen"}
+const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95}
 ## Role tints: kind -> {role: lighten (+) or darken (-) amount}.
 const TINT := {
 	"hooker": {"body": -0.25, "flesh": -0.15},
@@ -21,6 +22,9 @@ const TINT := {
 	"carapace": {"body": -0.15},
 	"stalker": {"body": 0.35, "skin": 0.35, "flesh": 0.3, "chitin": 0.3},
 	"weaver": {"body": 0.3, "skin": 0.3, "flesh": 0.25},
+	"cutter": {"body": 0.15, "rags": 0.1},
+	"torchman": {"body": -0.1},
+	"fence": {"body": 0.1, "rags": 0.2},
 }
 
 
@@ -52,6 +56,8 @@ static func dress(model: Node3D, kind: String) -> void:
 			_attach(sk, "spine_03", "plate_front", _plate())
 		"stalker":
 			_attach(sk, "spine_03", "back_spines", _spines())
+		"torchman":
+			_attach(sk, "spine_03", "fuel_tank", _tank())
 		"weaver":
 			_attach(sk, "lowerarm_l", "strands_l", _strands())
 			_attach(sk, "lowerarm_r", "strands_r", _strands())
@@ -115,6 +121,15 @@ static func _satchels() -> Mesh:
 		["lamp", "ball", Vector3(-0.08, 0.08, 0.265), 0.025],
 	]
 	return GunModels.build_mesh(p, {}, {"leather": Color("3a3228"), "lamp": [Color(0.55, 0.2, 0.08), Color(1.0, 0.55, 0.15)]})
+
+
+static func _tank() -> Mesh:
+	var p := [
+		["metal", "tube", Vector3(0.0, -0.18, -0.19), Vector3(0.0, 0.2, -0.19), 0.1],
+		["amber", "box", Vector3(0.0, 0.0, -0.29), Vector3(0.16, 0.03, 0.01)],
+		["lamp", "ball", Vector3(0.0, 0.26, -0.19), 0.035],
+	]
+	return GunModels.build_mesh(p, {}, {"metal": Color("a0412c"), "lamp": [Color(0.55, 0.2, 0.08), Color(1.0, 0.55, 0.15)]})
 
 
 static func _plate() -> Mesh:

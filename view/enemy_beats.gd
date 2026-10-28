@@ -18,7 +18,7 @@ const ELITE_SCALE := 1.2
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
 	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell",
-	"jammed", "slowed", "plated", "stalked", "braced"]
+	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -56,7 +56,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
 				"acid_rain": "ACID RAIN", "stomp": "STOMP", "hurl": "WRECKAGE INCOMING", "rockfall": "ROCKS INCOMING", "danger_close": "DANGER CLOSE",
 				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES",
-				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN"}
+				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN", "firebomb": "FIREBOMB LOBBED"}
 			if ev.get("kind", "") == "erupt":   # the boss is underground: label the ground that will break
 				var cells: Array = ev.get("cells", [])
 				if not cells.is_empty():
@@ -73,7 +73,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				return {"dur": 0.6}
 			for c in ev.get("cells", []):
 				var w := Board.cell_to_world(c)
-				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "rockfall", "danger_close", "satchel"] else Palette.TEAL, 6, 4.0, true, 0.05)
+				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "rockfall", "danger_close", "satchel", "firebomb"] else Palette.TEAL, 6, 4.0, true, 0.05)
 			if not (ev.get("cells", []) as Array).is_empty():
 				var mid := Board.cell_to_world(ev.cells[ev.cells.size() / 2])
 				fx.flash_light(mid + Vector3(0, 1.0, 0), Palette.AMBER, 8.0, 0.35, 6.0)
@@ -165,6 +165,26 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				fx.floating_text(head.call(tv), "CUT OFF", Palette.DANGER, 44)
 			ep._sfx("alert", -6.0)
 			return {"dur": 0.3}
+		"stolen":   # a Cutter lifts an item off a soldier
+			var sv: Node3D = view.view_for(int(ev.get("unit", -1)))
+			if sv != null:
+				fx.floating_text(head.call(sv), "ITEM STOLEN", Palette.DANGER, 48)
+				fx.burst(sv.aim_point(), Vector3.UP, Palette.AMBER, 8, 2.5, false, 0.03)
+			ep._sfx("alert", -6.0)
+			return {"dur": 0.5}
+		"recovered":
+			var rv: Node3D = view.view_for(int(ev.get("unit", -1)))
+			if rv != null:
+				fx.floating_text(head.call(rv), "ITEM BACK", Palette.AMBER, 44)
+			return {"dur": 0.3}
+		"fled":
+			if uv != null:
+				fx.floating_text(head.call(uv), "SLIPPED AWAY", Color(0.8, 0.82, 0.8), 40)
+			return {"dur": 0.3}
+		"loot":
+			if uv != null:
+				fx.floating_text(head.call(uv), "LOOT +%d" % int(ev.get("supplies", 0)), Palette.AMBER, 48)
+			return {"dur": 0.4}
 		"braced":   # a Carapace turns its plate toward the squad
 			if uv != null and ev.get("facing") is Vector2i:
 				uv.face_towards(Board.cell_to_world(uv.cell + ev.facing))
@@ -263,6 +283,10 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"slowed": return "%s is slowed by %s's Heart knot" % [who.call("unit"), who.call("by")]
 		"fell": return "[color=#%s]%s falls off the ledge (%d)[/color]" % [red, who.call("unit"), int(ev.get("damage", 0))]
 		"plated": return "%s's plate turns the blow" % who.call("unit")
+		"stolen": return "[color=#%s]%s has an item stolen[/color]" % [red, who.call("unit")]
+		"recovered": return "%s gets the item back" % who.call("unit")
+		"fled": return "%s slips off the map%s" % [who.call("unit"), " with the loot" if ev.get("loot", false) else ""]
+		"loot": return "%s drops its loot (+%d Supplies)" % [who.call("unit"), int(ev.get("supplies", 0))]
 		"stalked": return "[color=#%s]%s is cut off and takes a stalker's bonus hit[/color]" % [red, who.call("target")]
 		"boss_defeated": return "[b]%s is defeated[/b]" % name_of.call(int(ev.get("unit", -1)))
 	return ""
