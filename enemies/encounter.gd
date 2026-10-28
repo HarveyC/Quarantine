@@ -557,7 +557,7 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 	if armour > 0:
 		amount = maxi(1, amount - armour)
 	if EnemyBehaviours.plate_covers(s, target, source) and amount > 0:
-		amount = maxi(1, amount - EnemyRoster.PLATE_REDUCTION)
+		amount = 0 if target.status.get("shield", false) else maxi(1, amount - EnemyRoster.PLATE_REDUCTION)
 		s.emit({"type": "plated", "unit": target.id, "source": source.id})
 	if source != null and target.team == Types.Team.PLAYER and source.team == Types.Team.ENEMY:
 		amount += _rally_bonus(s, source) + _stalk_bonus(s, source, target)

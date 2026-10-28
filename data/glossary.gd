@@ -982,7 +982,33 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 			"It keeps its distance, so Suppress and Overwatch catch it where a chase will not."],
 		"see": ["suppress", "overwatch"],
 		"labels": ["Holding loot"]}
+	t["riot_shield"] = {"name": "Riot shield", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "A Shieldman takes no damage from the front arc, from level ground or below.",
+		"art": "", "stats": [["0", "damage, front"], ["Flank", "gets round it"]],
+		"more": ["The amber tiles on the ground show the shielded side.",
+			"Shoot it from the side or from {high_ground}, or catch it in a blast.",
+			"It turns toward the nearest soldier at the end of its turn."],
+		"see": ["flank", "high_ground"],
+		"labels": ["Shielded"]}
+	t["crossfire"] = {"name": "Crossfire", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "An Emplacement's cone of red floor. Everyone standing in it when it goes off takes the damage.",
+		"art": "", "stats": [["%d" % EnemyRoster.CROSSFIRE_DAMAGE, "damage"], ["%d" % EnemyRoster.CROSSFIRE_RANGE, "tiles"]],
+		"more": ["It never moves or turns. Walk round the cone, or break it with {smoke}.",
+			"The Infected caught in the cone take the damage too.",
+			"Kill the gun to switch it off."],
+		"see": ["smoke"],
+		"labels": ["Crossfire"]}
+	t["watchful"] = {"name": "Watchful", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "An Overwatcher holds its post. Its reaction shots carry no aim penalty.",
+		"art": "", "stats": [["0", "reaction penalty"], ["85", "aim"]],
+		"more": ["It shoots what it can see, and keeps {overwatch} up when it cannot.",
+			"Cross its view behind cover or {smoke}, or {suppress} it first."],
+		"see": ["overwatch", "suppress", "smoke"],
+		"labels": ["Watching"]}
 	var cards := {
+		"shieldman": ["A {riot_shield} turns every shot from the front. Flank it.", ["riot_shield"]],
+		"overwatcher": ["Holds its post and is {watchful}. Do not cross its view in the open.", ["watchful"]],
+		"emplacement": ["A sandbag gun that never moves. Its {crossfire} cone hits everyone in it.", ["crossfire"]],
 		"cutter": ["Human looter. Its hit will {snatch} an item, then it runs.", ["snatch"]],
 		"torchman": ["Lobs a {firebomb}. Its fuel tank burns when it dies.", ["firebomb"]],
 		"fence": ["Hangs back with the {loot} and leaves the map. Kill it in time.", ["loot"]],

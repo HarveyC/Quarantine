@@ -38,6 +38,11 @@ const ENEMIES := {
 	"cutter": {"name": "Cutter", "max_hp": 5, "aim": 70, "mobility": 6, "damage": [2, 3], "abilities": ["claw"], "melee_only": true, "infects": false},
 	"torchman": {"name": "Torchman", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["firebomb"], "melee_only": true, "infects": false},
 	"fence": {"name": "Fence", "max_hp": 6, "aim": 0, "mobility": 6, "damage": [0, 0], "abilities": [], "melee_only": true, "infects": false},
+	# Colony Security (Hale's cordon holdouts): human, hits deal damage only. "shield" = the front arc
+	# takes no damage at all.
+	"shieldman": {"name": "Shieldman", "max_hp": 7, "aim": 65, "mobility": 4, "damage": [3, 4], "abilities": ["slam"], "melee_only": true, "plate": true, "shield": true, "infects": false},
+	"overwatcher": {"name": "Overwatcher", "max_hp": 5, "aim": 85, "mobility": 3, "damage": [3, 5], "abilities": [], "infects": false},
+	"emplacement": {"name": "Emplacement", "max_hp": 8, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true, "infects": false},
 	"broodling": {"name": "Broodling", "max_hp": 3, "aim": 0, "mobility": 3, "damage": [0, 0], "abilities": ["burst"], "melee_only": true},
 	"hive_node": {"name": "Hive node", "max_hp": 12, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
 	"egg_sac": {"name": "Egg sac", "max_hp": 4, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},

@@ -276,7 +276,7 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 		breakdown.append(["Marked", TAG_BONUS])
 	if has_status(s, attacker, "suppressed"):
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
-	if reaction and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
+	if reaction and attacker.kind != "overwatcher" and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
 		breakdown.append(["Reaction shot", -Weapons.reaction_penalty(attacker, REACTION_PENALTY)])
 	GearFx.odds_terms(s, attacker, target, from, reaction, cover, breakdown)
 	Concealment.odds_terms(s, attacker, target, reaction, breakdown)
@@ -294,7 +294,7 @@ static func barrel_chance(s: GameState, attacker: Unit, c: Vector2i, from: Vecto
 	Weapons.range_terms(attacker, from.distance_to(c), breakdown)
 	if has_status(s, attacker, "suppressed"):
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
-	if reaction and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
+	if reaction and attacker.kind != "overwatcher" and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
 		breakdown.append(["Reaction shot", -Weapons.reaction_penalty(attacker, REACTION_PENALTY)])
 	return _finish_odds(breakdown, Types.Cover.NONE, false, can_see(s, from, c), 0, 0)
 
