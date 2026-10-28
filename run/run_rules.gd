@@ -440,13 +440,14 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 	_advance(run)
 
 
-## A dead or turned soldier's owner deploys a recruit from their reserve, if they have one.
+## A dead or turned soldier is replaced by a recruit from the shared reserve, if it has one.
 static func _deploy_recruit(run: RunState, lost: Dictionary) -> void:
-	var reserve := run.reserve_of(lost.owner)
+	var reserve := run.reserve_of()
 	if reserve.is_empty() or run.squad().size() >= 4:
 		return
 	var r: Dictionary = reserve[0]
 	r.status = RunSoldier.ACTIVE
+	r.owner = lost.owner   # the shared reserve fills the slot of whoever lost a soldier
 	RunHooks.call_static("Progression", "on_recruit_deployed", [r.prog, lost.prog])
 	run.emit({"type": "recruit_deployed", "sid": r.id, "replaces": lost.id, "player": r.owner})
 
