@@ -804,9 +804,10 @@ static func available_abilities(s: GameState, u: Unit) -> Array[Dictionary]:
 	if u.team != Types.Team.PLAYER or not u.status.has("gear"):
 		return out
 	var ids: Array[String] = []
-	var g = u.status.gear.get("gadget")
-	if g != null and GADGETS.has(g.id):
-		ids.append("gear:" + g.id)
+	for slot in ["utility", "utility2"]:
+		var g = u.status.gear.get(slot)
+		if g != null and GADGETS.has(g.id) and not ids.has("gear:" + g.id):
+			ids.append("gear:" + g.id)
 	for p in u.status.get("pockets", []):
 		if p != null and CONSUMABLE_USE.has(p.id) and not ids.has("item:" + p.id):
 			ids.append("item:" + p.id)

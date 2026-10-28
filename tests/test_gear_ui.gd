@@ -87,7 +87,7 @@ func test_client_takes_from_stash_while_viewing_teammate() -> void:
 	var slot_tile = scr._slots.get_children().filter(func(c): return c.can_drop.call({"from": "stash", "id": "concussion_launcher", "index": idx}))[0]
 	slot_tile.clicked.call()
 	assert_eq(s.sent.back().player, 1, "action sent as the client")
-	assert_eq(Loadout.item_at(run.get_soldier(mine[0].id), "gadget").id, "concussion_launcher", "equipped")
+	assert_eq(Loadout.item_at(run.get_soldier(mine[0].id), "utility").id, "concussion_launcher", "equipped")
 	scr.free()
 
 
@@ -112,7 +112,7 @@ func test_stash_click_equips_through_the_reward_overlay() -> void:
 	var tile: Control = ov._stash_row.get_child(idx)
 	assert_true(tile.has_meta(Tips.META), "compare card attached")
 	_release_click(tile)
-	assert_eq(Loadout.item_at(run.get_soldier(r.id), "gadget").id, "concussion_launcher", "equipped by one click")
+	assert_eq(Loadout.item_at(run.get_soldier(r.id), "utility").id, "concussion_launcher", "equipped by one click")
 	assert_eq(s.sent.back().type, "gear_stash_take", "sent as a stash take")
 	scr.free()
 
@@ -140,14 +140,14 @@ func test_dragging_marks_sources_and_drop_targets() -> void:
 		else:
 			faded += 1
 			assert_true(t.modulate.a < 1.0, "other slots fade")
-	assert_eq(valid, 1, "one slot takes a gadget")
+	assert_eq(valid, 2, "both utility slots take a gadget")
 	assert_true(faded > 0, "the rest fade")
 	for t in scr._slots.get_children():
 		t._unmark_drag()
 		assert_eq(t.modulate.a, 1.0, "restored")
 	var slot: Control = scr._slots.get_children().filter(func(t): return t.can_drop.call(data))[0]
 	slot._drop_data(Vector2.ZERO, data)
-	assert_eq(Loadout.item_at(run.get_soldier(scr._sid), "gadget").id, "concussion_launcher", "dropped and equipped")
+	assert_eq(Loadout.item_at(run.get_soldier(scr._sid), "utility").id, "concussion_launcher", "dropped and equipped")
 	scr.free()
 
 
@@ -162,10 +162,10 @@ func test_loadout_screen_equips_from_stash_and_unequips() -> void:
 	scr._set_preview("concussion_launcher")
 	scr._refresh()
 	scr._equip_from_stash(idx)
-	assert_eq(Loadout.item_at(r, "gadget").id, "concussion_launcher", "equipped")
+	assert_eq(Loadout.item_at(r, "utility").id, "concussion_launcher", "equipped")
 	assert_true(GearTags.has_set(GearTags.counts(r), "Suppress"), "Suppress set on")
-	scr._unequip("armor")
-	assert_eq(Loadout.item_at(r, "armor"), null, "armor to stash")
+	scr._unequip("body")
+	assert_eq(Loadout.item_at(r, "body"), null, "armor to stash")
 	assert_eq(s.sent.size(), 2, "two actions sent")
 	scr._refresh()
 	scr.free()

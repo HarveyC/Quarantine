@@ -2,7 +2,7 @@ class_name Loadout
 extends RefCounted
 ## A soldier's equipment, kept on their run record as `record.gear` (plain data, so it
 ## serializes for saves and network sync):
-##   {"slots": {"weapon": {"id", "mk"} | null, "ammo": .., "armor": .., "gadget": ..},
+##   {"slots": {"head", "body", "offhand", "weapon", "ammo", "utility", "utility2": {"id", "mk"} | null},
 ##    "pockets": [{"id", "charges"} | null, ...],
 ##    "gun": weapon id carried ("" = the class's signature gun), "guns": [alternate gun ids owned]}
 ## Guns live in combat/weapons.gd; an alternate gun's tag counts like a gear item's.
@@ -26,7 +26,25 @@ static func make() -> Dictionary:
 static func of(record) -> Dictionary:
 	if record.get("gear") == null or (record.gear is Dictionary and record.gear.is_empty()):
 		record["gear"] = make()
+	_migrate(record.gear)
 	return record.gear
+
+
+## Saves from before the slot rework kept "armor" and "gadget" slots.
+static func _migrate(g: Dictionary) -> void:
+	for slot in GearData.SLOTS:
+		if not g.slots.has(slot):
+			g.slots[slot] = null
+	for old in ["armor", "gadget"]:
+		if not g.slots.has(old):
+			continue
+		var it = g.slots[old]
+		g.slots.erase(old)
+		if it != null:
+			var s: String = GearData.slots_for(GearData.slot_of(it.id))[0]
+			if g.slots.get(s) != null and s == "utility":
+				s = "utility2"
+			g.slots[s] = it
 
 
 static func item_at(record, slot: String):
@@ -156,13 +174,15 @@ static func gun_pool(record, rarity: String = "") -> Array[String]:
 ## How picking `id` would land: "upgrade" (duplicate -> Mk II), "equip" (empty slot),
 ## "replace" (old item goes to the stash), or "stash" (duplicate already at Mk II).
 static func preview_equip(record, id: String) -> Dictionary:
-	var slot := GearData.slot_of(id)
-	var cur = item_at(record, slot)
-	if cur == null:
-		return {"mode": "equip", "slot": slot}
-	if cur.id == id:
-		return {"mode": "upgrade" if cur.mk < 2 else "stash", "slot": slot}
-	return {"mode": "replace", "slot": slot, "old": cur.duplicate()}
+	var options := GearData.slots_for(GearData.slot_of(id))
+	for slot in options:
+		var held = item_at(record, slot)
+		if held != null and held.id == id:
+			return {"mode": "upgrade" if held.mk < 2 else "stash", "slot": slot}
+	for slot in options:
+		if item_at(record, slot) == null:
+			return {"mode": "equip", "slot": slot}
+	return {"mode": "replace", "slot": options[0], "old": item_at(record, options[0]).duplicate()}
 
 
 ## Equips `id` on the soldier. A duplicate upgrades to Mk II; a different item in the slot

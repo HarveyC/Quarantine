@@ -434,10 +434,10 @@ class Art:
 					draw_polyline(PackedVector2Array([Vector2(bx - s * 0.22, c.y + s), Vector2(bx - s * 0.22, top + s * 0.3),
 						Vector2(bx, top), Vector2(bx + s * 0.22, top + s * 0.3), Vector2(bx + s * 0.22, c.y + s),
 						Vector2(bx - s * 0.22, c.y + s)]), color, w, true)
-			"armor":
+			"armor", "body", "head", "offhand":
 				draw_polyline(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.85, -s * 0.65), c + Vector2(s * 0.85, 0),
 					c + Vector2(0, s), c + Vector2(-s * 0.85, 0), c + Vector2(-s * 0.85, -s * 0.65), c + Vector2(0, -s)]), color, w, true)
-			"gadget", "consumable":
+			"gadget", "utility", "utility2", "consumable":
 				var pts := PackedVector2Array()
 				for i in 7:
 					pts.append(c + Vector2.from_angle(TAU * i / 6.0 + PI / 6.0) * s)

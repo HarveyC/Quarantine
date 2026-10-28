@@ -7,8 +7,10 @@ extends RefCounted
 ## `stats_mk2` (flat stat changes applied when a soldier spawns, see GearRun.apply_to_unit).
 ## Rule effects are keyed by item id in GearFx.
 
-const SLOTS: Array[String] = ["weapon", "ammo", "armor", "gadget"]
-const SLOT_NAMES := {"weapon": "Weapon mod", "ammo": "Ammo", "armor": "Armor", "gadget": "Gadget"}
+## Soldier slots. Items declare a slot TYPE (`slot_of`); "utility" fits either utility slot.
+const SLOTS: Array[String] = ["head", "body", "offhand", "weapon", "ammo", "utility", "utility2"]
+const SLOT_NAMES := {"head": "Head", "body": "Body", "offhand": "Offhand", "weapon": "Weapon mod", "ammo": "Ammo",
+	"utility": "Utility", "utility2": "Utility"}
 const POCKETS := 2
 const STASH_SIZE := 4
 const SET_THRESHOLD := 3        # one set bonus per tag at 3
@@ -49,7 +51,7 @@ const TAG_INFO := {
 
 const ITEMS := {
 	# Burn
-	"flame_coat": {"name": "Flame-retardant coat", "tag": "Burn", "slot": "armor", "rarity": "common",
+	"flame_coat": {"name": "Flame-retardant coat", "tag": "Burn", "slot": "body", "rarity": "common",
 		"desc": "Immune to fire tiles; +1 move when you start a turn in fire",
 		"desc_mk2": "Immune to fire tiles; +2 move when you start a turn in fire"},
 	"igniter_barrel": {"name": "Igniter barrel", "tag": "Burn", "slot": "weapon", "rarity": "uncommon",
@@ -58,7 +60,7 @@ const ITEMS := {
 	"incendiary_rounds": {"name": "Incendiary rounds", "tag": "Burn", "slot": "ammo", "rarity": "uncommon",
 		"desc": "Hits set the target Burning",
 		"desc_mk2": "Hits set the target Burning for 1 extra turn"},
-	"thermite_charge": {"name": "Thermite charge", "tag": "Burn", "slot": "gadget", "rarity": "uncommon",
+	"thermite_charge": {"name": "Thermite charge", "tag": "Burn", "slot": "utility", "rarity": "uncommon",
 		"desc": "Once per fight: a 3-tile line of fire for 2 turns",
 		"desc_mk2": "Once per fight: a 5-tile line of fire for 2 turns"},
 	"phosphor_rounds": {"name": "Phosphor rounds", "tag": "Burn", "slot": "ammo", "rarity": "rare",
@@ -71,7 +73,7 @@ const ITEMS := {
 	"tracer_rounds": {"name": "Tracer rounds", "tag": "Mark", "slot": "ammo", "rarity": "common",
 		"desc": "Hits Mark the target until the end of the turn",
 		"desc_mk2": "Hits Mark the target until the end of the next turn"},
-	"flare_launcher": {"name": "Flare launcher", "tag": "Mark", "slot": "gadget", "rarity": "uncommon",
+	"flare_launcher": {"name": "Flare launcher", "tag": "Mark", "slot": "utility", "rarity": "uncommon",
 		"desc": "Cooldown 3: Mark every enemy in a radius-1 area",
 		"desc_mk2": "Cooldown 2: Mark every enemy in a radius-1 area"},
 	"suppressor": {"name": "Suppressor", "tag": "Mark", "slot": "weapon", "rarity": "uncommon",
@@ -90,7 +92,7 @@ const ITEMS := {
 	"shock_rounds": {"name": "Shock rounds", "tag": "Suppress", "slot": "ammo", "rarity": "uncommon",
 		"desc": "Hits Suppress the target (-15 aim on its next shot)",
 		"desc_mk2": "Hits Suppress the target (-25 aim on its next shot)"},
-	"concussion_launcher": {"name": "Concussion launcher", "tag": "Suppress", "slot": "gadget", "rarity": "uncommon",
+	"concussion_launcher": {"name": "Concussion launcher", "tag": "Suppress", "slot": "utility", "rarity": "uncommon",
 		"desc": "Once per fight: Suppress every enemy in a radius-1 area",
 		"desc_mk2": "Once per fight: Suppress every enemy in a radius-2 area"},
 	"rotary_feed": {"name": "Rotary feed", "tag": "Suppress", "slot": "weapon", "rarity": "rare",
@@ -103,7 +105,7 @@ const ITEMS := {
 	"bipod": {"name": "Dug in", "tag": "Overwatch", "slot": "weapon", "rarity": "common",
 		"desc": "An enemy that ends its move in the open takes your Overwatch shot twice",
 		"desc_mk2": "An enemy that ends its move in half cover or the open takes your Overwatch shot twice"},
-	"motion_tracker": {"name": "Motion tracker", "tag": "Overwatch", "slot": "gadget", "rarity": "common",
+	"motion_tracker": {"name": "Motion tracker", "tag": "Overwatch", "slot": "utility", "rarity": "common",
 		"desc": "Shows every enemy that moves within 8 tiles in the enemy phase",
 		"desc_mk2": "Shows every enemy that moves within 12 tiles in the enemy phase"},
 	"rangefinder": {"name": "Long line", "tag": "Overwatch", "slot": "weapon", "rarity": "uncommon",
@@ -112,14 +114,14 @@ const ITEMS := {
 	"expanding_rounds": {"name": "Wounding rounds", "tag": "Overwatch", "slot": "ammo", "rarity": "uncommon",
 		"desc": "Overwatch hits leave a wound that deals the same damage again when your next turn starts",
 		"desc_mk2": "Overwatch hits leave a wound that deals the same damage again when your next turn starts, and roots the target"},
-	"sentry_turret": {"name": "Sentry turret", "tag": "Overwatch", "slot": "gadget", "rarity": "rare",
+	"sentry_turret": {"name": "Sentry turret", "tag": "Overwatch", "slot": "utility", "rarity": "rare",
 		"desc": "Once per fight: deploy a sentry turret within 3 tiles that fires each turn for 3 turns (aim 60, 2 damage)",
 		"desc_mk2": "Once per fight: deploy a sentry turret within 3 tiles that fires each turn for 4 turns (aim 70, 3 damage)"},
 	# Close
 	"speed_loader": {"name": "Speed loader", "tag": "Close", "slot": "weapon", "rarity": "uncommon",
 		"desc": "The first Reload each turn costs no action",
 		"desc_mk2": "The first Reload each turn costs no action, and shots that turn get +10 aim"},
-	"light_harness": {"name": "Slipstream", "tag": "Close", "slot": "armor", "rarity": "common",
+	"light_harness": {"name": "Slipstream", "tag": "Close", "slot": "body", "rarity": "common",
 		"desc": "After a move of 4 or more tiles, your next shot costs no action",
 		"desc_mk2": "After a move of 3 or more tiles, your next shot costs no action"},
 	"slug_rounds": {"name": "Knock rounds", "tag": "Close", "slot": "ammo", "rarity": "common",
@@ -128,57 +130,57 @@ const ITEMS := {
 	"choke": {"name": "Choke", "tag": "Close", "slot": "weapon", "rarity": "uncommon",
 		"desc": "Shots within 3 tiles also hit an enemy next to the target for half damage",
 		"desc_mk2": "Shots within 3 tiles also hit an enemy next to the target for full damage"},
-	"grapple": {"name": "Grapple", "tag": "Close", "slot": "gadget", "rarity": "uncommon",
+	"grapple": {"name": "Grapple", "tag": "Close", "slot": "utility", "rarity": "uncommon",
 		"desc": "Once per fight, 1 action: move 5 tiles in a straight line, walls included",
 		"desc_mk2": "Twice per fight, 1 action: move 5 tiles in a straight line, walls included"},
-	"exo_frame": {"name": "Exo frame", "tag": "Close", "slot": "armor", "rarity": "rare",
+	"exo_frame": {"name": "Exo frame", "tag": "Close", "slot": "body", "rarity": "rare",
 		"desc": "A third pocket. A move that ends next to an enemy slams it back a tile and Suppresses it",
 		"desc_mk2": "A third pocket. A move that ends next to an enemy slams it back a tile, Suppresses it and deals 2 damage"},
 	# Strain
-	"bio_mesh": {"name": "Graft weave", "tag": "Strain", "slot": "armor", "rarity": "common",
+	"bio_mesh": {"name": "Graft weave", "tag": "Strain", "slot": "body", "rarity": "common",
 		"desc": "Each awake mutation heals you 2 HP every team phase",
 		"desc_mk2": "Each awake mutation heals you 3 HP every team phase"},
 	"spore_rounds": {"name": "Spore-laced rounds", "tag": "Strain", "slot": "ammo", "rarity": "uncommon",
 		"desc": "+1 damage per awake mutation; each shot adds 2 Infection to you",
 		"desc_mk2": "+1 damage per awake mutation, +1 more; each shot adds 2 Infection to you"},
-	"adrenal_pump": {"name": "Adrenal pump", "tag": "Strain", "slot": "gadget", "rarity": "uncommon",
+	"adrenal_pump": {"name": "Adrenal pump", "tag": "Strain", "slot": "utility", "rarity": "uncommon",
 		"desc": "Once per fight, free: +15 Infection to yourself, to reach a tier fast",
 		"desc_mk2": "Twice per fight, free: +15 Infection to yourself, to reach a tier fast"},
-	"symbiotic_suit": {"name": "Symbiotic suit", "tag": "Strain", "slot": "armor", "rarity": "rare",
+	"symbiotic_suit": {"name": "Symbiotic suit", "tag": "Strain", "slot": "body", "rarity": "rare",
 		"desc": "Pay mutation use costs with HP instead of Infection, 1 HP per 5 (not if it would drop you)",
 		"desc_mk2": "Pay mutation use costs with HP instead of Infection, 1 HP per 10 (not if it would drop you)"},
 	# Purge
-	"filter_mask": {"name": "Filter mask", "tag": "Purge", "slot": "armor", "rarity": "common",
+	"filter_mask": {"name": "Filter mask", "tag": "Purge", "slot": "head", "rarity": "common",
 		"desc": "Spore zones don't infect you", "desc_mk2": "Spore zones don't infect you, and a Purge on you also heals 3 HP"},
-	"med_injector": {"name": "Med-injector", "tag": "Purge", "slot": "gadget", "rarity": "common",
+	"med_injector": {"name": "Med-injector", "tag": "Purge", "slot": "utility", "rarity": "common",
 		"desc": "Once per fight, 1 action: an adjacent ally loses 15 Infection",
 		"desc_mk2": "Once per fight, 1 action: an adjacent ally loses 25 Infection"},
-	"hazard_liner": {"name": "Hazard liner", "tag": "Purge", "slot": "armor", "rarity": "uncommon",
+	"hazard_liner": {"name": "Hazard liner", "tag": "Purge", "slot": "body", "rarity": "uncommon",
 		"desc": "Half Infection from spores and bites", "desc_mk2": "Two thirds less Infection from spores and bites"},
 	"purifier_rounds": {"name": "Purifier rounds", "tag": "Purge", "slot": "ammo", "rarity": "uncommon",
 		"desc": "Each hit on an infected enemy removes 3 Infection from you",
 		"desc_mk2": "Each hit on an infected enemy removes 5 Infection from you"},
-	"containment_emitter": {"name": "Containment emitter", "tag": "Purge", "slot": "gadget", "rarity": "rare",
+	"containment_emitter": {"name": "Containment emitter", "tag": "Purge", "slot": "utility", "rarity": "rare",
 		"desc": "Cooldown 3: allies within 2 tiles gain no Infection until your next turn",
 		"desc_mk2": "Cooldown 2: allies within 2 tiles gain no Infection until your next turn"},
 	# Guard
-	"kevlar_vest": {"name": "Trauma plate", "tag": "Guard", "slot": "armor", "rarity": "common",
+	"kevlar_vest": {"name": "Trauma plate", "tag": "Guard", "slot": "body", "rarity": "common",
 		"desc": "The first hit each fight is cut to 1 damage. The plate cracks until you Reload",
 		"desc_mk2": "The first two hits each fight are cut to 1 damage. A Reload re-seats the plate"},
-	"plated_rig": {"name": "Planted rig", "tag": "Guard", "slot": "armor", "rarity": "uncommon",
+	"plated_rig": {"name": "Planted rig", "tag": "Guard", "slot": "body", "rarity": "uncommon",
 		"desc": "If you haven't moved this turn, hits on you deal half damage",
 		"desc_mk2": "If you haven't moved this turn, hits on you deal a third of their damage"},
-	"deployable_cover": {"name": "Deployable cover", "tag": "Guard", "slot": "gadget", "rarity": "uncommon",
+	"deployable_cover": {"name": "Deployable cover", "tag": "Guard", "slot": "utility", "rarity": "uncommon",
 		"desc": "Once per fight: place a full-cover barricade next to you",
 		"desc_mk2": "Twice per fight: place a full-cover barricade next to you"},
-	"riot_shield": {"name": "Riot shield", "tag": "Guard", "slot": "armor", "rarity": "rare",
+	"riot_shield": {"name": "Riot shield", "tag": "Guard", "slot": "offhand", "rarity": "rare",
 		"desc": "You always count as in half cover, and adjacent allies share your cover",
 		"desc_mk2": "You always count as in half cover, adjacent allies share your cover, and the first adjacent enemy to hit you each turn is stunned"},
 	# Content pack 2 (acts 2 and 3): one or two more per tag so runs draw wider.
 	"pilot_light": {"name": "Wick", "tag": "Burn", "slot": "weapon", "rarity": "common",
 		"desc": "Hitting a Burning enemy sets 2 tiles of fire behind it",
 		"desc_mk2": "Hitting a Burning enemy sets 4 tiles of fire behind it"},
-	"ember_plating": {"name": "Ember plating", "tag": "Burn", "slot": "armor", "rarity": "uncommon",
+	"ember_plating": {"name": "Ember plating", "tag": "Burn", "slot": "body", "rarity": "uncommon",
 		"desc": "An enemy that damages you starts Burning",
 		"desc_mk2": "An enemy that damages you starts Burning for 1 extra turn"},
 	"spotter_scope": {"name": "Dead reckoning", "tag": "Mark", "slot": "weapon", "rarity": "uncommon",
@@ -187,7 +189,7 @@ const ITEMS := {
 	"hollow_points": {"name": "Pin shot", "tag": "Suppress", "slot": "ammo", "rarity": "uncommon",
 		"desc": "Hitting a Suppressed enemy roots it in place for a turn",
 		"desc_mk2": "Hitting a Suppressed enemy roots it in place for 2 turns"},
-	"ghillie_cloak": {"name": "Still life", "tag": "Overwatch", "slot": "armor", "rarity": "uncommon",
+	"ghillie_cloak": {"name": "Still life", "tag": "Overwatch", "slot": "head", "rarity": "uncommon",
 		"desc": "Your Overwatch shots at enemies that haven't spotted you cannot miss and Mark the target",
 		"desc_mk2": "Your Overwatch shots at enemies that haven't spotted you cannot miss and Mark the target for 3 turns"},
 	"match_rounds": {"name": "Tight group", "tag": "Overwatch", "slot": "ammo", "rarity": "common",
@@ -196,7 +198,7 @@ const ITEMS := {
 	"bayonet": {"name": "Fixed blade", "tag": "Close", "slot": "weapon", "rarity": "common",
 		"desc": "A kill within 2 tiles stabs an adjacent enemy for 3 damage, once a turn",
 		"desc_mk2": "A kill within 2 tiles stabs an adjacent enemy for 5 damage, once a turn"},
-	"mycelial_weave": {"name": "Acid blister", "tag": "Strain", "slot": "armor", "rarity": "uncommon",
+	"mycelial_weave": {"name": "Acid blister", "tag": "Strain", "slot": "body", "rarity": "uncommon",
 		"desc": "When you are hit, the attacker's tile is splashed with acid for 2 turns, once a turn",
 		"desc_mk2": "When you are hit, the attacker's tile and the tiles around it are splashed with acid for 2 turns"},
 	"leech_rounds": {"name": "Leech rounds", "tag": "Strain", "slot": "ammo", "rarity": "rare",
@@ -204,7 +206,7 @@ const ITEMS := {
 		"desc_mk2": "While Exposed or higher, hits heal you 1 HP and add 1 Infection to you"},
 	"purge_canister": {"name": "Purge canister", "tag": "Purge", "slot": "ammo", "rarity": "common",
 		"desc": "Each kill removes 5 Infection from you", "desc_mk2": "Each kill removes 10 Infection from you"},
-	"ballistic_plate": {"name": "Spall liner", "tag": "Guard", "slot": "armor", "rarity": "common",
+	"ballistic_plate": {"name": "Spall liner", "tag": "Guard", "slot": "body", "rarity": "common",
 		"desc": "A hit on you throws half its damage back at every adjacent enemy",
 		"desc_mk2": "A hit on you throws its full damage back at every adjacent enemy"},
 	# Links: items that feed each other. Each one takes a status in, puts a status out, or spreads one,
@@ -218,7 +220,7 @@ const ITEMS := {
 	"cinder_lens": {"name": "Cinder lens", "tag": "Burn", "slot": "weapon", "rarity": "rare",
 		"desc": "Enemies you set Burning are also Marked while they burn",
 		"desc_mk2": "Enemies you set Burning are also Marked, and the Mark outlasts the fire"},
-	"flash_fry": {"name": "Flash-fry grips", "tag": "Close", "slot": "armor", "rarity": "rare",
+	"flash_fry": {"name": "Flash-fry grips", "tag": "Close", "slot": "offhand", "rarity": "rare",
 		"desc": "A kill within 3 tiles sets every enemy next to the victim Burning",
 		"desc_mk2": "A kill within 3 tiles sets every enemy within 2 tiles of the victim Burning"},
 	"pressure_nozzle": {"name": "Pressure nozzle", "tag": "Suppress", "slot": "weapon", "rarity": "rare",
@@ -230,7 +232,7 @@ const ITEMS := {
 	"pin_tag_rounds": {"name": "Pin-tag rounds", "tag": "Suppress", "slot": "ammo", "rarity": "rare",
 		"desc": "Hits on a Marked enemy Suppress it",
 		"desc_mk2": "Hits on a Marked enemy Suppress it, with a further -10 aim"},
-	"hair_trigger": {"name": "Hair-trigger harness", "tag": "Overwatch", "slot": "armor", "rarity": "rare",
+	"hair_trigger": {"name": "Hair-trigger harness", "tag": "Overwatch", "slot": "body", "rarity": "rare",
 		"desc": "While on overwatch, you fire at any enemy in sight that becomes Marked",
 		"desc_mk2": "While on overwatch, you fire at any enemy in sight that becomes Marked, and the shot keeps your overwatch"},
 	"patient_eye": {"name": "Patient eye", "tag": "Overwatch", "slot": "weapon", "rarity": "uncommon",
@@ -239,7 +241,7 @@ const ITEMS := {
 	"kill_spill": {"name": "Kill spill", "tag": "Close", "slot": "ammo", "rarity": "uncommon",
 		"desc": "A kill within 3 tiles deals half the shot's damage to an enemy next to the victim",
 		"desc_mk2": "A kill within 3 tiles deals the shot's full damage to an enemy next to the victim"},
-	"retaliation_plate": {"name": "Retaliation plate", "tag": "Guard", "slot": "armor", "rarity": "rare",
+	"retaliation_plate": {"name": "Retaliation plate", "tag": "Guard", "slot": "offhand", "rarity": "rare",
 		"desc": "An enemy that damages you is Marked",
 		"desc_mk2": "An enemy that damages you is Marked and Suppressed"},
 	"serum_lance": {"name": "Serum lance", "tag": "Purge", "slot": "weapon", "rarity": "rare",
@@ -258,7 +260,7 @@ const ITEMS := {
 	"ready_stance": {"name": "Ready stance", "tag": "Overwatch", "slot": "ammo", "rarity": "uncommon",
 		"desc": "Reloading puts you on overwatch",
 		"desc_mk2": "Reloading puts you on overwatch with +10 aim on its next shot"},
-	"bounty_ledger": {"name": "Bounty ledger", "tag": "Mark", "slot": "armor", "rarity": "rare",
+	"bounty_ledger": {"name": "Bounty ledger", "tag": "Mark", "slot": "head", "rarity": "rare",
 		"desc": "A kill on a Marked enemy cuts your signature ability's cooldown by 1",
 		"desc_mk2": "A kill on a Marked enemy cuts your signature ability's cooldown by 2"},
 	"blood_clock": {"name": "Blood clock", "tag": "Close", "slot": "weapon", "rarity": "rare",
@@ -268,7 +270,7 @@ const ITEMS := {
 
 ## Combo items: need both tags at 2+ on the soldier, count for both, start at Mk II, never sold.
 const PROTOTYPES := {
-	"spotter_flare": {"name": "Spotter flare", "tags": ["Burn", "Mark"], "slot": "gadget",
+	"spotter_flare": {"name": "Spotter flare", "tags": ["Burn", "Mark"], "slot": "utility",
 		"desc": "Marked enemies take double damage from fire"},
 	"scorched_earth": {"name": "Scorched earth", "tags": ["Burn", "Purge"], "slot": "ammo",
 		"desc": "Your fire doesn't hurt allies and burns 10 Infection off any ally standing in it"},
@@ -278,21 +280,21 @@ const PROTOTYPES := {
 		"desc": "At the end of the enemy turn, your overwatch fires at a Suppressed enemy that didn't move"},
 	"breach_and_clear": {"name": "Breach and clear", "tags": ["Close", "Suppress"], "slot": "ammo",
 		"desc": "Enemies you Suppress within 3 tiles lose their cover bonus"},
-	"hold_position": {"name": "Hold position", "tags": ["Guard", "Suppress"], "slot": "armor",
+	"hold_position": {"name": "Hold position", "tags": ["Guard", "Suppress"], "slot": "offhand",
 		"desc": "Suppress costs 1 action instead of ending your turn"},
-	"feral_grip": {"name": "Feral grip", "tags": ["Close", "Strain"], "slot": "armor",
+	"feral_grip": {"name": "Feral grip", "tags": ["Close", "Strain"], "slot": "body",
 		"desc": "Every hit within 3 tiles, mutation attacks included, heals you 1 HP"},
-	"bloodletting": {"name": "Bloodletting", "tags": ["Strain", "Purge"], "slot": "gadget",
+	"bloodletting": {"name": "Bloodletting", "tags": ["Strain", "Purge"], "slot": "utility",
 		"desc": "Once a turn, when you purge an ally you take the Infection yourself and gain 1 action"},
-	"quarantine_field": {"name": "Quarantine field", "tags": ["Guard", "Purge"], "slot": "gadget",
+	"quarantine_field": {"name": "Quarantine field", "tags": ["Guard", "Purge"], "slot": "utility",
 		"desc": "Adjacent allies gain no Infection while you're hunkered"},
 	"firestarter": {"name": "Firestarter", "tags": ["Burn", "Close"], "slot": "weapon",
 		"desc": "Hits within 3 tiles set the target Burning"},
 	"pinpoint": {"name": "Pinpoint", "tags": ["Mark", "Suppress"], "slot": "ammo",
 		"desc": "Enemies you Suppress are also Marked until the end of the next turn"},
-	"overlook": {"name": "Overlook", "tags": ["Overwatch", "Guard"], "slot": "armor",
+	"overlook": {"name": "Overlook", "tags": ["Overwatch", "Guard"], "slot": "head",
 		"desc": "While you're on overwatch, adjacent allies get +10 defense"},
-	"cauterizer": {"name": "Cauterizer", "tags": ["Burn", "Guard"], "slot": "armor",
+	"cauterizer": {"name": "Cauterizer", "tags": ["Burn", "Guard"], "slot": "body",
 		"desc": "Fire tiles don't hurt you, and you get +10 defense while standing in fire"},
 }
 
@@ -375,6 +377,16 @@ static func tags_of(id: String) -> Array:
 
 static func slot_of(id: String) -> String:
 	return get_item(id).get("slot", "")
+
+
+## The soldier slots an item of this slot type can sit in, in fill order.
+static func slots_for(type: String) -> Array[String]:
+	var out: Array[String] = []
+	if type == "utility":
+		out.append_array(["utility", "utility2"])
+	else:
+		out.append(type)
+	return out
 
 
 static func rarity_of(id: String) -> String:

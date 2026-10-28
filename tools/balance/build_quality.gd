@@ -33,7 +33,7 @@ const RARITY_CAP := {1: 0, 2: 1, 3: 2}
 const RARITY_ORDER := {"common": 0, "uncommon": 1, "rare": 2}
 ## Mk II upgrades by level and act (full is "everything upgraded but one").
 const MK2 := {"lane": {2: 0, 3: 1}, "full": {2: 1, 3: 3}}
-const SLOT_ORDER: Array[String] = ["armor", "weapon", "ammo", "gadget"]
+const SLOT_ORDER: Array[String] = ["body", "head", "offhand", "weapon", "ammo", "utility", "utility2"]
 
 
 ## A run-style soldier record {kind, prog, gear, infection, hp, max_hp} with the build.

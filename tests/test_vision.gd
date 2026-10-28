@@ -172,7 +172,7 @@ func test_smart_link_shoots_marked_enemy_an_ally_sees() -> void:
 func test_motion_tracker_blips_enemies_moving_nearby() -> void:
 	var s := make_blank(_room(30, 3, 4))
 	var t := _soldier(s, "trooper", Vector2i(0, 0))
-	t.status["gear"] = {"gadget": {"id": "motion_tracker", "mk": 1}}
+	t.status["gear"] = {"utility": {"id": "motion_tracker", "mk": 1}}
 	var e := _enemy(s, "runner", Vector2i(7, 2))
 	Rules.start_mission(s)
 	assert_true(not Vision.sees_unit(s, Types.Team.PLAYER, e), "behind the wall")

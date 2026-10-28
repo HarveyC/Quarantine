@@ -68,7 +68,7 @@ func test_take_from_full_stash_swaps_without_loss() -> void:
 		Loadout.stash_add(run, "bipod" if i < 3 else "plated_rig")
 	var res := Loadout.take_from_stash(run, r, 3)
 	assert_true(not res.scrapped, "swap fits in the freed slot")
-	assert_eq(Loadout.item_at(r, "armor").id, "plated_rig", "equipped")
+	assert_eq(Loadout.item_at(r, "body").id, "plated_rig", "equipped")
 	assert_true(Loadout.stash(run).has({"id": "kevlar_vest", "mk": 1}), "vest in stash")
 
 

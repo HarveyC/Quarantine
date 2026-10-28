@@ -316,7 +316,7 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 	var t := DropTile.new()
 	t.custom_minimum_size = Vector2(0, 176)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var target_slot := _preview_id != "" and GearData.slot_of(_preview_id) == slot
+	var target_slot := _preview_id != "" and GearData.slots_for(GearData.slot_of(_preview_id)).has(slot)
 	var feeds := it != null and GearData.tags_of(it.id).any(func(x): return feeding.has(x))
 	var border := UI.BORDER
 	var bg := UI.PANEL_SOFT
@@ -373,13 +373,13 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 		t.drag_label = GearData.item_name(it.id)
 		t.drag_sub = GearData.SLOT_NAMES[slot]
 	t.can_drop = func(d) -> bool:
-		return editable and d is Dictionary and d.get("from") == "stash" and GearData.slot_of(d.id) == slot
+		return editable and d is Dictionary and d.get("from") == "stash" and GearData.slots_for(GearData.slot_of(d.id)).has(slot)
 	t.dropped = func(d) -> void: _equip_from_stash(int(d.index))
 	t.drop_hover = func(d, on: bool) -> void:
 		if on and d is Dictionary and d.get("from") == "stash":
 			_show_toast(_swap_text(r, str(d.id)))
 	t.clicked = func() -> void:
-		if editable and _held >= 0 and GearData.slot_of(Loadout.stash(run)[_held].id) == slot:
+		if editable and _held >= 0 and GearData.slots_for(GearData.slot_of(Loadout.stash(run)[_held].id)).has(slot):
 			_equip_from_stash(_held)
 	t.drag_state = func(on: bool, d) -> void: _set_preview(d.get("id", "") if on and d is Dictionary and d.get("from") == "stash" else "")
 	return t

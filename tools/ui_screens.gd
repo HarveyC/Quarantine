@@ -135,7 +135,7 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 				if i % 4 == 2:
 					RunAccess.add_random_mutation(run, r)
 				if i % 4 == 0:
-					Loadout.equip(run, r, GearData.items_with("", "uncommon", "armor")[0])
+					Loadout.equip(run, r, GearData.items_with("", "uncommon", "body")[0])
 			var kind := screen.trim_suffix("_grafts")
 			if kind != screen:   # Act 2, Rank 3: Refit and Amputate on offer
 				run.act = 2
@@ -172,7 +172,7 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 			run.phase = RunState.Phase.NODE
 			run.supplies = 140
 			for r in run.squad():
-				Loadout.equip(run, r, GearData.items_with("", "common", "armor")[0])
+				Loadout.equip(run, r, GearData.items_with("", "common", "body")[0])
 				Loadout.equip(run, r, "laser_sight")
 			NodeRules.enter(run, "depot" if screen == "depot_compare" else "event", "" if screen == "depot_compare" else "the_trial")
 			var scr: Control = NodeRules.screen("depot" if screen == "depot_compare" else "event").new()

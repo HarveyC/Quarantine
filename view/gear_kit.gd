@@ -64,14 +64,16 @@ static func dress(model: Node3D, kind: String, gear: Dictionary, pockets: Array)
 	if skels.is_empty():
 		return
 	var sk := skels[0] as Skeleton3D
-	var armor := str((gear.get("armor", {}) as Dictionary).get("id", ""))
-	if ARMOR_LOOK.has(armor):
-		for part in _armor(ARMOR_LOOK[armor], kind):
-			_attach(sk, part[0], "gear_" + part[1], part[2])
-	var gadget := str((gear.get("gadget", {}) as Dictionary).get("id", ""))
-	if GADGET_LOOK.has(gadget):
-		for part in _gadget(GADGET_LOOK[gadget]):
-			_attach(sk, part[0], "gear_" + part[1], part[2])
+	for slot in ["body", "head", "offhand"]:
+		var armor := str((gear.get(slot, {}) as Dictionary).get("id", ""))
+		if ARMOR_LOOK.has(armor):
+			for part in _armor(ARMOR_LOOK[armor], kind):
+				_attach(sk, part[0], "gear_" + part[1], part[2])
+	for slot in ["utility", "utility2"]:
+		var gadget := str((gear.get(slot, {}) as Dictionary).get("id", ""))
+		if GADGET_LOOK.has(gadget):
+			for part in _gadget(GADGET_LOOK[gadget]):
+				_attach(sk, part[0], "gear_" + part[1], part[2])
 	for i in pockets.size():
 		var p: Variant = pockets[i]
 		if p is Dictionary and int(p.get("charges", 0)) > 0:

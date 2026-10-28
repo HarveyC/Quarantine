@@ -4,7 +4,7 @@ extends "res://ui/nodes/node_screen.gd"
 
 const Icons := preload("res://ui/icons.gd")
 const GraftFigure := preload("res://ui/graft_figure.gd")
-const SLOT_LABELS := {"weapon": "Weapon mod", "ammo": "Ammo", "armor": "Armor", "gadget": "Gadget"}
+const SLOT_LABELS := GearData.SLOT_NAMES
 
 
 func _build(into: VBoxContainer) -> void:

@@ -127,7 +127,7 @@ func test_first_gear_pack_completes_every_tag() -> void:
 	for tag in GearData.TAGS:
 		var open := GearData.items_with(tag).filter(func(id): return not locked.has(id))
 		assert_true(open.size() >= GearData.SET_THRESHOLD, "%s has enough pieces for its set bonus" % tag)
-		assert_true(open.any(func(id): return GearData.slot_of(id) == "gadget"), "%s has a gadget" % tag)
+		assert_true(open.any(func(id): return GearData.slot_of(id) == "utility"), "%s has a gadget" % tag)
 	assert_true(MetaUnlocks.PACKS.gear_1.cost <= 60, "the first pack comes after a run or two")
 
 
