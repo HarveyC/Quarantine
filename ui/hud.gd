@@ -335,6 +335,8 @@ func refresh() -> void:
 			var mu := view.state.get_unit(uv.unit_id)
 			if mu != null and mu.team == Types.Team.ENEMY:
 				uv.sync_mark(mu.is_alive() and Combat.has_status(view.state, mu, "tagged"), view.player.phase_now() + 1 if view.player != null else 1)
+	if view.intents != null:   # any HUD change (a kill, a move, a shove) can change what enemies plan
+		view.intents.refresh()
 	nameplates.refresh()
 	var worst := 0
 	for u in s.living(Types.Team.PLAYER):
