@@ -26,6 +26,7 @@ const CameraRig := preload("res://view/camera_rig.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
 const ItemBeats := preload("res://view/item_beats.gd")
 const BossBeats := preload("res://view/boss_beats.gd")
+const FactionBeats := preload("res://view/faction_beats.gd")
 const ShotCamera := preload("res://view/shot_camera.gd")
 const GunFeel := preload("res://view/gun_feel.gd")
 const MeleeFx := preload("res://view/melee_beats.gd")
@@ -1332,6 +1333,7 @@ const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lun
 	"burrow", "erupt", "leap", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
 	"hook", "reel", "satchel", "firebomb", "mend",
+	"net", "designate", "sterilize", "drag", "bloom", "hush", "silence",
 	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
 
 ## Rank 2 signatures (Signatures): the sound, title and colour of each one's beat.
@@ -1434,6 +1436,8 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return beat
 		"siphon":
 			_show_heal(_uv(ev), int(ev.get("heal", 0)), int(ev.get("hp", 0)), false)
+	if FactionBeats.handles_ability(str(ev.get("ability", ""))):
+		return FactionBeats.ability_beat(self, ev)
 	if BossBeats.handles(str(ev.get("ability", ""))):
 		return BossBeats.beat(self, ev)
 	if ItemBeats.handles(ev):

@@ -305,7 +305,7 @@ static func kill(s: GameState, u: Unit) -> void:
 ## Extra legality checks, run by Rules.validate before module dispatch. "" = allowed.
 static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	if u.status.has("pinned_by"):
-		return "Pinned by a Lurker: Struggle or wait for a teammate"
+		return "Pinned: Struggle or wait for a teammate"
 	if action.has("target"):
 		var t := s.get_unit(action.get("target", -1))
 		if t != null and t.status.get("hidden", false) and u.is_enemy_of(t):
@@ -373,6 +373,7 @@ static func on_enemy_phase_start(s: GameState) -> void:
 		return
 	_resolve_telegraphs(s)
 	LanternEchoes.on_enemy_phase_start(s)
+	Choir.on_enemy_phase_start(s)
 	var src := _boss(s, "the_source")
 	if src != null and src.status.has("tether"):
 		var hit: Array[int] = []
@@ -409,6 +410,7 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			"units": victims.map(func(x: Unit) -> int: return x.id), "damage": t.damage})
 		for u in victims:
 			Rules.deal_damage(s, u, int(t.damage), src if src != null and src.is_alive() else null)
+		Recovery.after_strike(s, t, victims)
 		if int(t.get("spores", 0)) > 0 and s.phase != Types.Phase.ENDED:
 			add_spores(s, t.cells, int(t.spores), src)
 		if int(t.get("fire", 0)) > 0 and s.phase != Types.Phase.ENDED:
@@ -579,7 +581,7 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		amount = 0 if target.status.get("shield", false) else maxi(1, amount - EnemyRoster.PLATE_REDUCTION)
 		s.emit({"type": "plated", "unit": target.id, "source": source.id})
 	if source != null and target.team == Types.Team.PLAYER and source.team == Types.Team.ENEMY:
-		amount += _rally_bonus(s, source) + _stalk_bonus(s, source, target)
+		amount += _rally_bonus(s, source) + _stalk_bonus(s, source, target) + Choir.chant_bonus(s, source)
 	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:
 		amount = maxi(1, roundi(amount * float(BOSS_DAMAGE[clampi(int(s.encounter.get("squad", 4)), 1, 4)])))
 	if target.kind == "the_source" and source != null and source.team == Types.Team.PLAYER \
@@ -664,6 +666,9 @@ static func on_died(s: GameState, u: Unit) -> void:
 		for i in 2:
 			spawn(s, "runner", u.pos, u)
 	Scavengers.on_died(s, u)
+	Recovery.on_died(s, u)
+	if u.kind == "acolyte" and u.status.has("swelling") and not u.status.get("burst", false):
+		Choir.bloom(s, u)
 	if u.kind in ["bloater", "broodling"] and not u.status.get("burst", false):
 		EnemyAbilities.burst(s, u)
 	if u.team == Types.Team.ENEMY and EnemyRoster.has_affix(u, "volatile") and s.phase != Types.Phase.ENDED:

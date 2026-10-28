@@ -48,6 +48,16 @@ const ENEMIES := {
 	"hound": {"name": "Hound drone", "max_hp": 3, "aim": 75, "mobility": 8, "damage": [2, 3], "abilities": ["claw"], "melee_only": true, "infects": false, "machine": true},
 	"loader": {"name": "Loader frame", "max_hp": 9, "aim": 70, "mobility": 4, "damage": [4, 5], "abilities": ["slam", "charge"], "melee_only": true, "armour": 2, "infects": false, "machine": true},
 	"relay": {"name": "Relay", "max_hp": 8, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true, "infects": false},
+	# Halden-Voss Recovery (the company's contractors): human, hits deal damage only. They want a
+	# soldier alive (Netter holds one, Collector drags a held one off the map).
+	"netter": {"name": "Netter", "max_hp": 6, "aim": 70, "mobility": 5, "damage": [1, 2], "abilities": ["net"], "melee_only": true, "infects": false},
+	"handler": {"name": "Handler", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["designate"], "melee_only": true, "infects": false},
+	"sterilizer": {"name": "Sterilizer", "max_hp": 6, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["sterilize"], "melee_only": true, "infects": false},
+	"collector": {"name": "Collector", "max_hp": 7, "aim": 60, "mobility": 5, "damage": [1, 2], "abilities": ["claw", "drag"], "melee_only": true, "infects": false},
+	# The Choir (survivors who followed the song): their hits carry Infection like the rest of the Infected.
+	"acolyte": {"name": "Acolyte", "max_hp": 3, "aim": 0, "mobility": 6, "damage": [0, 0], "abilities": ["bloom"], "melee_only": true},
+	"cantor": {"name": "Cantor", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": [], "melee_only": true},
+	"hush": {"name": "Hush", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["hush", "silence"], "melee_only": true},
 	"broodling": {"name": "Broodling", "max_hp": 3, "aim": 0, "mobility": 3, "damage": [0, 0], "abilities": ["burst"], "melee_only": true},
 	"hive_node": {"name": "Hive node", "max_hp": 12, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
 	"egg_sac": {"name": "Egg sac", "max_hp": 4, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
