@@ -426,12 +426,6 @@ static func spawn_heading(s: GameState) -> Vector3:
 func _process(_delta: float) -> void:
 	if board != null:
 		board.tick_hazards(Time.get_ticks_msec() / 1000.0)
-		if state != null and not state.grid.roofed.is_empty():
-			var squad: Array = []
-			for u in state.units:
-				if u.team == Types.Team.PLAYER and u.is_alive() and unit_views.has(u.id):
-					squad.append((unit_views[u.id] as UnitView).cell)
-			board.open_roofs(squad)
 	if autoplay and state != null and not player.is_busy():
 		_autoplay_step()
 	if screenshot_path != "":
