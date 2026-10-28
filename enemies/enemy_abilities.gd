@@ -783,10 +783,15 @@ static func slam_line(s: GameState, u: Unit, cell: Vector2i, axis: String) -> Ar
 
 # --- helpers -------------------------------------------------------------------------------
 
+## Bosses and fixed enemies (nests, sacs, emplacements) can't be shoved off their spot.
+static func immovable(t: Unit) -> bool:
+	return EnemyRoster.is_boss(t) or UnitData.ENEMIES.get(t.kind, {}).get("static", false)
+
+
 ## Pushes `t` up to `steps` tiles along `dir` while the way is open floor. Emits a move event.
 static func knockback(s: GameState, t: Unit, dir: Vector2i, steps: int) -> void:
-	if t.kind == "the_source" or EnemyRoster.is_static(t):
-		return   # the Source and its roots are rooted in the shaft
+	if immovable(t):
+		return
 	var path: Array[Vector2i] = []
 	var c := t.pos
 	var occ := s.occupied(t.id)

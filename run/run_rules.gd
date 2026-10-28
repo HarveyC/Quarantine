@@ -9,6 +9,7 @@ const VOTE := "vote"               # + "node": id. Vote for a reachable node on 
 const CLOSE_VOTE := "close_vote"   # host only: the vote timer ran out, resolve with the votes cast.
 const REVEAL := "reveal"           # + "node": id. Spend 1 Intel to reveal a "?" node.
 const BENCH := "bench"             # host only, + "target": player, "on": bool. A player left / came back.
+const DEPLOY := "deploy"           # + "sid": a reserve recruit takes an open squad slot (map phase).
 const FIGHT_END := "fight_end"     # host only, + "outcome": RunRules.fight_outcome(state).
 
 const ROUTES := {"gear_": "GearRun", "prog_": "Progression", "node_": "NodeRules", "story_": "Story"}
@@ -153,6 +154,16 @@ static func validate(run: RunState, action: Dictionary) -> String:
 			if not run.players.has(action.get("target", -1)) or action.get("target") == run.host_player:
 				return "Can't bench that player"
 			return ""
+		DEPLOY:
+			if run.phase != RunState.Phase.MAP:
+				return "Deploy recruits between fights"
+			if run.benched.get(player, false):
+				return "Benched players don't deploy"
+			if run.squad().size() >= 4:
+				return "The squad is full"
+			if run.get_soldier(action.get("sid", -1)).get("status", "") != RunSoldier.RESERVE:
+				return "Not in reserve"
+			return ""
 		FIGHT_END:
 			if player != run.host_player:
 				return "Only the host reports a fight"
@@ -194,6 +205,11 @@ static func apply(run: RunState, action: Dictionary) -> bool:
 				run.benched.erase(action.target)
 			run.emit({"type": "bench", "player": action.target, "on": action.on})
 			_maybe_resolve_vote(run)
+		DEPLOY:
+			var rec := run.get_soldier(action.sid)
+			rec.status = RunSoldier.ACTIVE
+			rec.owner = action.player
+			run.emit({"type": "recruit_deployed", "sid": rec.id, "replaces": -1, "player": rec.owner})
 		FIGHT_END:
 			_end_fight(run, action.outcome)
 	return true
@@ -440,13 +456,14 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 	_advance(run)
 
 
-## A dead or turned soldier's owner deploys a recruit from their reserve, if they have one.
+## A dead or turned soldier is replaced by a recruit from the shared reserve, if it has one.
 static func _deploy_recruit(run: RunState, lost: Dictionary) -> void:
-	var reserve := run.reserve_of(lost.owner)
+	var reserve := run.reserve_of()
 	if reserve.is_empty() or run.squad().size() >= 4:
 		return
 	var r: Dictionary = reserve[0]
 	r.status = RunSoldier.ACTIVE
+	r.owner = lost.owner   # the shared reserve fills the slot of whoever lost a soldier
 	RunHooks.call_static("Progression", "on_recruit_deployed", [r.prog, lost.prog])
 	run.emit({"type": "recruit_deployed", "sid": r.id, "replaces": lost.id, "player": r.owner})
 

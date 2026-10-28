@@ -95,7 +95,7 @@ const PAD_NAMES := {
 const DEFAULTS := {
 	"graphics": {"window_mode": "windowed", "resolution": "1600x900", "vsync": true, "fps_cap": 0,
 		"quality": "high", "render_scale": 1.0, "show_fps": false},
-	"gameplay": {"game_speed": 1.0, "shot_cams": true, "confirm_move": true, "edge_pan": true, "camera_speed": 1.0},
+	"gameplay": {"game_speed": 1.0, "shot_cams": true, "confirm_move": true, "auto_ready": true, "edge_pan": true, "confine_mouse": true, "camera_speed": 1.0},
 	"accessibility": {"colorblind": "off", "colorblind_strength": 1.0, "ui_scale": 1.0, "text_scale": 1.0,
 		"screen_shake": 1.0},
 }
@@ -150,8 +150,16 @@ static func game_speed() -> float:
 	return float(get_value("gameplay", "game_speed"))
 
 
+static func auto_ready() -> bool:
+	return bool(get_value("gameplay", "auto_ready"))
+
+
 static func edge_pan() -> bool:
 	return bool(get_value("gameplay", "edge_pan"))
+
+
+static func confine_mouse() -> bool:
+	return bool(get_value("gameplay", "confine_mouse"))
 
 
 static func camera_speed() -> float:

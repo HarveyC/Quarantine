@@ -148,8 +148,9 @@ func soldiers_of(player: int) -> Array:
 	return squad().filter(func(r: Dictionary) -> bool: return r.owner == player)
 
 
-func reserve_of(player: int) -> Array:
-	return soldiers.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.RESERVE and r.owner == player)
+## The reserve is one pool shared by every player; `player` is kept for callers' sake.
+func reserve_of(_player := -1) -> Array:
+	return soldiers.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.RESERVE)
 
 
 ## Who gives orders to a soldier in a fight: its owner, or the host while the owner is benched.

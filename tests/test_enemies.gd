@@ -38,6 +38,38 @@ func _enemy_turn(s: GameState, u: Unit) -> void:
 	Encounter.on_unit_turn_end(s, u)
 
 
+# --- intent matches the AI -------------------------------------------------------------------
+
+## The overlay's target is the soldier the enemy then actually shoots, including after a kill or a move
+## changes who is best, and after the plan goes stale (a lone survivor, nobody left).
+func test_intent_target_follows_the_ai_decision() -> void:
+	var s := make_blank(_open(14, 6))
+	var a := _soldier(s, "trooper", Vector2i(2, 1))
+	var b := _soldier(s, "trooper", Vector2i(2, 4))
+	var f := _enemy(s, "fallen", Vector2i(10, 2))
+	s.phase = Types.Phase.TEAM
+	for round in 3:
+		var it: Dictionary = EnemyIntent._intent(s, f)
+		var plan := EnemyAI.preview(s, f)
+		if plan.has("target"):
+			assert_eq(int(it.target), int(plan.target), "intent names the planned target")
+		var seen := s.log.size()
+		_enemy_turn(s, f)
+		for e in s.log.slice(seen):
+			if e.type == "shot" and plan.get("type") == Types.SHOOT and e.get("target", -1) != -1:
+				assert_eq(int(e.target), int(it.target), "the shot lands on the shown target")
+				break
+		s.phase = Types.Phase.TEAM
+		# a kill or a step by the squad changes the pick
+		if round == 0:
+			b.hp = 0
+			b.pos = Vector2i(3, 5)
+	assert_true(EnemyIntent._intent(s, f).has("target"), "still has a target entry")
+	for u in s.living(Types.Team.PLAYER):
+		u.hp = 0
+	assert_eq(int(EnemyIntent._intent(s, f).target), -1, "no hostiles, no target")
+
+
 # --- roster -------------------------------------------------------------------------------
 
 func test_specs_make_elites_and_affixes() -> void:
@@ -1118,3 +1150,16 @@ func test_fights_are_mostly_melee_with_runners_the_staple() -> void:
 			assert_eq(top, "runner", "Runners are the most common enemy (act %d, squad %d)" % [act, squad])
 			if squad >= 2:   # a solo fight is only 1-2 enemies, so one shooter is a big share
 				assert_true(ranged * 4 <= total, "ranged are at most a quarter of enemies (act %d, squad %d)" % [act, squad])
+
+
+func test_bosses_and_fixed_enemies_cannot_be_knocked_back() -> void:
+	var s := make_blank(_open(14, 5))
+	_soldier(s, "trooper", Vector2i(2, 2))
+	var src := _enemy(s, "the_source", Vector2i(6, 2))
+	var nest := _enemy(s, "spore_nest", Vector2i(8, 2))
+	var runner := _enemy(s, "runner", Vector2i(10, 2))
+	for t in [src, nest, runner]:
+		EnemyAbilities.knockback(s, t, Vector2i(1, 0), 1)
+	assert_eq(src.pos, Vector2i(6, 2), "the Source stays on its anchor")
+	assert_eq(nest.pos, Vector2i(8, 2), "a nest stays put")
+	assert_eq(runner.pos, Vector2i(11, 2), "a runner is still shoved")
