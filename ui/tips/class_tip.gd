@@ -187,10 +187,7 @@ static func _gun_block(card: Control, kind: String, inner: float, full: bool, gu
 	v.add_child(RangeStrip.new(gun, inner))
 	if full and gun_id == "":
 		v.add_child(card.rich(str(gun.get("desc", "")), inner, 12, Styles.DIM))
-		var alts := 0
-		for g in Weapons.TABLE.values():
-			if kind in g.get("classes", []):
-				alts += 1
+		var alts := Weapons.alternates_for(kind).size()
 		if alts > 0:
 			v.add_child(Styles.caps("%d alternate gun%s to find" % [alts, "" if alts == 1 else "s"], 10, Styles.MUTED, false))
 	return v

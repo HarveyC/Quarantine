@@ -12,7 +12,7 @@ extends RefCounted
 ## see Loadout.gun), copied to `unit.status.weapon` for the mission. Units without one (enemies,
 ## quick matches) use BY_KIND.
 ##
-## Alternate gun fields: "classes" (soldier kinds that may carry it), "rarity" ("uncommon" |
+## Alternate gun fields: "classes" (the soldier kinds it was made for; any soldier may carry it, melee classes only the one-handed ones), "rarity" ("uncommon" |
 ## "rare", for draws and depot prices), "tag" (counts toward gear set bonuses), "look" (the
 ## signature gun whose feel and model it borrows in the view).
 ## Range terms replace the old flat close/long range modifiers. Distances are Euclidean
@@ -123,6 +123,8 @@ const STARTER_DAMAGE_PENALTY := 1
 const STARTER_MAG := 4
 const FOUND_PRIMARY: Array[String] = ["trooper", "marksman", "medic", "breacher", "hazmat", "vector"]
 
+const MELEE_KINDS: Array[String] = ["reaper", "warden"]
+
 const PRICES := {"uncommon": 55, "rare": 90}
 
 
@@ -168,15 +170,20 @@ static func alternates_for(kind: String, rarity: String = "") -> Array[String]:
 	var out: Array[String] = []
 	for id in TABLE:
 		var g: Dictionary = TABLE[id]
-		if g.get("classes", []).has(kind) and (rarity == "" or g.rarity == rarity):
+		if is_alternate(id) and can_carry(kind, id) and (rarity == "" or g.rarity == rarity):
 			out.append(id)
 	out.sort()
 	return out
 
 
+## Guns are universal gear: any soldier may carry any alternate, except that the melee
+## classes hold only one-handed pistols (their model has one free hand, see view/melee_kit.gd).
 static func can_carry(kind: String, id: String) -> bool:
-	return id == "" or id == id_for(kind) or TABLE.get(id, {}).get("classes", []).has(kind) \
-		or (id == START_GUN and starts_on_sidearm(kind))
+	if id == "" or id == id_for(kind) or (id == START_GUN and starts_on_sidearm(kind)):
+		return true
+	if not is_alternate(id):
+		return false
+	return not MELEE_KINDS.has(kind) or look_of(id) in ["sidearm", "revolver"]
 
 
 ## True for classes that start a run on the sidearm and have to find their signature gun.

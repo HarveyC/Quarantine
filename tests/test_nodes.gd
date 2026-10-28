@@ -332,7 +332,7 @@ func test_depot_stock_and_buy() -> void:
 	assert_true(Loadout.pockets(run.get_soldier(2)).any(func(p): return p != null and p.id == bought), "in pocket")
 
 
-func test_depot_sells_guns_for_the_right_class() -> void:
+func test_depot_sells_guns_to_anyone_but_melee_classes() -> void:
 	var run := _run()
 	run.supplies = 300
 	var ns := NodeRules.enter(run, "depot")
@@ -340,7 +340,10 @@ func test_depot_sells_guns_for_the_right_class() -> void:
 	ns.stock[2].price = Weapons.price("battle_rifle")
 	var trooper := _s(run, "trooper")
 	var breacher := _s(run, "breacher")
-	assert_true(NodeRules.validate(run, {"type": "node_buy", "player": breacher.owner, "index": 2, "soldier": breacher.id}).contains("can't use it"), "wrong class")
+	assert_eq(NodeRules.validate(run, {"type": "node_buy", "player": breacher.owner, "index": 2, "soldier": breacher.id}), "", "guns are universal")
+	var reaper := _s(run, "reaper")
+	if not reaper.is_empty():
+		assert_true(NodeRules.validate(run, {"type": "node_buy", "player": reaper.owner, "index": 2, "soldier": reaper.id}).contains("can't use it"), "melee classes hold pistols only")
 	assert_true(_act(run, "node_buy", trooper.owner, {"index": 2, "soldier": trooper.id}), "buy gun")
 	assert_eq(Loadout.gun(trooper), "battle_rifle", "carried at once")
 	assert_eq(run.supplies, 300 - 55, "Uncommon gun price")

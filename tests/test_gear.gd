@@ -345,7 +345,7 @@ func test_gun_cards_pick_and_swap() -> void:
 	run.gear.offers[1] = {"source": "skirmish", "cards": [{"kind": "gun", "id": "battle_rifle", "rarity": "uncommon", "tags": ["Suppress"]}]}
 	var wrong: Dictionary = run.soldiers[3]
 	run.gear.offers[4] = {"source": "skirmish", "cards": [{"kind": "gun", "id": "battle_rifle", "rarity": "uncommon", "tags": ["Suppress"]}]}
-	assert_eq(GearRun.validate(run, {"type": "gear_pick", "player": 1, "soldier": 4, "card": 0}), "Wrong class for that gun", "class lock")
+	assert_eq(GearRun.validate(run, {"type": "gear_pick", "player": 1, "soldier": 4, "card": 0}), "", "guns are universal")
 	assert_true(GearRun.apply(run, {"type": "gear_pick", "player": 0, "soldier": 1, "card": 0}), "take the gun")
 	assert_eq(Loadout.gun(r), "battle_rifle", "carried at once")
 	assert_eq(Loadout.gun_id(r), "battle_rifle", "fires it")
