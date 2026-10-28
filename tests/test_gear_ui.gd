@@ -84,7 +84,7 @@ func test_client_takes_from_stash_while_viewing_teammate() -> void:
 	tile.clicked.call()
 	assert_eq(scr._sid, mine[0].id, "jumped to the client's own soldier")
 	assert_eq(scr._held, idx, "item held")
-	var slot_tile = scr._slots.get_children().filter(func(c): return c.can_drop.call({"from": "stash", "id": "concussion_launcher", "index": idx}))[0]
+	var slot_tile = scr.slot_tiles().filter(func(c): return c.can_drop.call({"from": "stash", "id": "concussion_launcher", "index": idx}))[0]
 	slot_tile.clicked.call()
 	assert_eq(s.sent.back().player, 1, "action sent as the client")
 	assert_eq(Loadout.item_at(run.get_soldier(mine[0].id), "utility").id, "concussion_launcher", "equipped")
@@ -132,7 +132,7 @@ func test_dragging_marks_sources_and_drop_targets() -> void:
 	assert_true(src.modulate.a < 1.0, "source tile dims")
 	var valid := 0
 	var faded := 0
-	for t in scr._slots.get_children():
+	for t in scr.slot_tiles():
 		t._mark_drag(data)
 		if t.can_drop.call(data):
 			valid += 1
@@ -142,10 +142,10 @@ func test_dragging_marks_sources_and_drop_targets() -> void:
 			assert_true(t.modulate.a < 1.0, "other slots fade")
 	assert_eq(valid, 2, "both utility slots take a gadget")
 	assert_true(faded > 0, "the rest fade")
-	for t in scr._slots.get_children():
+	for t in scr.slot_tiles():
 		t._unmark_drag()
 		assert_eq(t.modulate.a, 1.0, "restored")
-	var slot: Control = scr._slots.get_children().filter(func(t): return t.can_drop.call(data))[0]
+	var slot: Control = scr.slot_tiles().filter(func(t): return t.can_drop.call(data))[0]
 	slot._drop_data(Vector2.ZERO, data)
 	assert_eq(Loadout.item_at(run.get_soldier(scr._sid), "utility").id, "concussion_launcher", "dropped and equipped")
 	scr.free()
