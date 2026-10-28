@@ -13,7 +13,7 @@ static func can_swing(s: GameState, w: Unit) -> bool:
 	if not w.is_alive() or w.status.get("stunned", false) or EnemyRoster.is_static(w):
 		return false
 	if w.team == Types.Team.PLAYER:
-		return SOLDIER_MELEE.has(w.kind)
+		return SOLDIER_MELEE.has(w.kind) or w.abilities.has("lunge") or w.abilities.has("bash")
 	return UnitData.is_melee_only(w.kind) and w.damage.y > 0
 
 
@@ -36,7 +36,7 @@ static func resolve(s: GameState, mover: Unit, swingers: Array[Unit]) -> void:
 			return
 		w.status["pb_phase"] = Combat.phase_index(s)
 		if w.team == Types.Team.PLAYER:
-			ClassAbilities.strike(s, w, mover, "bash" if w.kind == "warden" else "lunge", {"parting": true})
+			ClassAbilities.strike(s, w, mover, "bash" if w.abilities.has("bash") and not w.abilities.has("lunge") else "lunge", {"parting": true})
 			continue
 		var odds := Combat.melee_chance(s, w, mover)
 		var r := Combat.resolve_roll(s.rng.randi_range(1, 100), odds)

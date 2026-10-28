@@ -8,8 +8,8 @@ extends RefCounted
 ## Rule effects are keyed by item id in GearFx.
 
 ## Soldier slots. Items declare a slot TYPE (`slot_of`); "utility" fits either utility slot.
-const SLOTS: Array[String] = ["head", "body", "offhand", "weapon", "ammo", "utility", "utility2"]
-const SLOT_NAMES := {"head": "Head", "body": "Body", "offhand": "Offhand", "weapon": "Weapon mod", "ammo": "Ammo",
+const SLOTS: Array[String] = ["head", "body", "offhand", "melee", "weapon", "ammo", "utility", "utility2"]
+const SLOT_NAMES := {"head": "Head", "body": "Body", "offhand": "Offhand", "melee": "Melee", "weapon": "Weapon mod", "ammo": "Ammo",
 	"utility": "Utility", "utility2": "Utility"}
 const POCKETS := 2
 const STASH_SIZE := 4
@@ -266,6 +266,13 @@ const ITEMS := {
 	"blood_clock": {"name": "Blood clock", "tag": "Close", "slot": "weapon", "rarity": "rare",
 		"desc": "Once a turn, a kill within 3 tiles cuts your signature ability's cooldown by 1",
 		"desc_mk2": "Once a turn, a kill within 3 tiles cuts your signature ability's cooldown by 2"},
+	# Melee weapons: any soldier can carry one; it grants the matching strike ability
+	"reaper_blade": {"name": "Reaper blade", "tag": "Close", "slot": "melee", "rarity": "uncommon",
+		"desc": "Grants the Lunge ability",
+		"desc_mk2": "Grants the Lunge ability"},
+	"trench_maul": {"name": "Trench maul", "tag": "Guard", "slot": "melee", "rarity": "uncommon",
+		"desc": "Grants the Shield Bash ability",
+		"desc_mk2": "Grants the Shield Bash ability"},
 	# Signature rigs: any soldier can carry a class signature (GearRun.apply_to_unit grants the ability)
 	"sig_lockdown": {"name": "Lockdown rig", "tag": "Overwatch", "slot": "utility", "rarity": "rare",
 		"desc": "Grants the Lockdown ability",
@@ -414,9 +421,11 @@ static func slots_for(type: String) -> Array[String]:
 	return out
 
 
-## The class signature ability a signature rig grants, or "".
+## The ability a signature rig or melee weapon grants, or "".
 static func signature_of(id: String) -> String:
-	return id.trim_prefix("sig_") if id.begins_with("sig_") else ""
+	if id.begins_with("sig_"):
+		return id.trim_prefix("sig_")
+	return {"reaper_blade": "lunge", "trench_maul": "bash"}.get(id, "")
 
 
 static func rarity_of(id: String) -> String:
