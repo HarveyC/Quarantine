@@ -151,7 +151,7 @@ func _build() -> void:
 	_sub.size_flags_vertical = Control.SIZE_SHRINK_END
 	name_row.add_child(_sub)
 	left.add_child(name_row)
-	left.add_child(UI.caps("Gun", 13, UI.DIM))
+	left.add_child(UI.caps("Weapons", 13, UI.DIM))
 	_guns = HBoxContainer.new()
 	_guns.add_theme_constant_override("separation", 12)
 	left.add_child(_guns)
@@ -401,7 +401,7 @@ func _gun_tile(r: Dictionary, id: String) -> Control:
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(sp)
 	var rar: String = g.get("rarity", "")
-	head.add_child(UI.caps(GearData.RARITY_NAMES[rar] if rar != "" else "Signature", 12, UI.rarity_color(rar) if rar != "" else UI.DIM))
+	head.add_child(UI.caps(GearData.RARITY_NAMES[rar] if rar != "" else "Class gun", 12, UI.rarity_color(rar) if rar != "" else UI.DIM))
 	v.add_child(head)
 	v.add_child(UI.caps(g.name, 19))
 	if g.get("tag", "") != "":
