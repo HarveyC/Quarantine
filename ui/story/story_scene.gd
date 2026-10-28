@@ -169,7 +169,7 @@ func _speak(who: String, text: String) -> float:
 	var s := get_node_or_null("/root/Soundscape")
 	if s == null or who == "":
 		return 0.0
-	return s.say(who, text)
+	return s.say(who, text, {"scene": true})
 
 
 func _finish() -> void:

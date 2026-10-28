@@ -103,3 +103,16 @@ func test_breakup_positions() -> void:
 	assert_eq(d.size(), 1)
 	assert_true(d[0] > 0.8, "the last word drops out")
 	assert_true(VoicePlayer.dropouts(clean, -1).is_empty(), "a clean line has no dropouts")
+
+
+func test_radio_chatter_does_not_cut_a_cutscene_line() -> void:
+	var vp: Node = VoicePlayer.new()
+	vp._ready()   # not in the tree (it is not live yet), so nothing really plays: stand in for a line mid-speech
+	vp._scene_line = true
+	vp._queue.append(Babble.make("Contact.", "medic", ""))
+	var bark: String = StoryData.BARKS.values()[0][0]
+	assert_eq(vp.say("MAJOR OKAFOR", bark), 0.0, "a bark waits for the cutscene line")
+	assert_eq(vp._queue.size(), 1, "the cutscene line is untouched")
+	vp._scene_line = false
+	assert_true(vp.say("MAJOR OKAFOR", bark) > 0.0, "with no cutscene line up a bark speaks")
+	vp.free()

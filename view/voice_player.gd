@@ -21,6 +21,7 @@ var _t := 0.0
 var _drop_until := -1.0
 var _db := 0.0
 var _streams := {}
+var _scene_line := false   # the line being spoken is a cutscene caption
 
 
 func _ready() -> void:
@@ -39,7 +40,10 @@ func _ready() -> void:
 ## line has no voice.
 ##   radio: a soldier speaks over the squad comms (click in and out)
 ##   dropouts: positions (0..1 through the spoken words) where the signal breaks up
+##   scene: a cutscene caption; radio chatter and barks never cut one off
 func say(speaker: String, text: String, opts := {}) -> float:
+	if not opts.get("scene", false) and _scene_line and is_speaking():
+		return 0.0
 	var parts: Array[AudioStream] = []
 	var voice := VoiceLines.voice_of(speaker)
 	if voice != "":
@@ -67,6 +71,7 @@ func say(speaker: String, text: String, opts := {}) -> float:
 		if b != null:
 			parts.append(b)
 	stop()
+	_scene_line = opts.get("scene", false)
 	_queue = parts
 	_drops.clear()
 	for f in opts.get("dropouts", []):
