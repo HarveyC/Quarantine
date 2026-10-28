@@ -442,7 +442,10 @@ func _reserve_card() -> Control:
 			b.text = "Deploy"
 			b.custom_minimum_size = Vector2(0, 22)
 			b.add_theme_font_size_override("font_size", 12)
-			Styles.style_button(b, "secondary", 10)
+			b.flat = true
+			b.focus_mode = Control.FOCUS_NONE
+			for k in ["font_color", "font_hover_color", "font_pressed_color"]:
+				b.add_theme_color_override(k, Styles.AMBER)
 			b.pressed.connect(func() -> void:
 				session.submit_run({"type": RunRules.DEPLOY, "player": session.local_players()[0], "sid": r.id}))
 			line.add_child(b)
