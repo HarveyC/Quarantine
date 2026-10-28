@@ -284,7 +284,7 @@ func test_stragglers_split_and_carrier() -> void:
 	_choose(run, 0, "take")
 	_choose(run, 1, "take")
 	assert_eq(run.reserve_of().size(), 4, "one each into the shared reserve")
-	var carriers: Array = (run.reserve_of(0) + run.reserve_of(1)).filter(func(r): return r.get("hidden_carrier", false))
+	var carriers: Array = run.reserve_of().filter(func(r): return r.get("hidden_carrier", false))
 	assert_eq(carriers.size(), 1, "exactly one carrier")
 
 
