@@ -303,6 +303,7 @@ func _build_overlays() -> void:
 
 # --- updates -----------------------------------------------------------------
 
+var _last_left := {}   # player -> actions left as of the last refresh
 var _auto_readied := {}   # player -> turn auto ready already fired
 
 
@@ -637,7 +638,10 @@ func _auto_ready() -> void:
 			if u.team == Types.Team.PLAYER and u.owner_player == p and u.is_alive() and not u.ai_controlled:
 				any = true
 				left += u.actions_left
-		if any and left == 0:
+		# Only fires on the refresh that sees the last action go, never on a turn that starts empty.
+		var before: int = _last_left.get(p, 0)
+		_last_left[p] = left
+		if any and left == 0 and before > 0:
 			_auto_readied[p] = s.turn
 			_on_ready_toggled(p, true)
 
