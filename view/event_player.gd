@@ -968,6 +968,9 @@ func _beat_damage(ev: Dictionary) -> Dictionary:
 		_hit_from[uv.unit_id] = src.position
 	uv.flash(Palette.DANGER)
 	view.fx.floating_text(_head(uv), "-%d" % int(ev.get("amount", 0)), Color("ff6b4f"), 72 if in_cinematic else 64)
+	var cause := str(ev.get("cause", ""))
+	if cause != "":
+		view.fx.floating_text(_head(uv) + Vector3(0, 0.55, 0), cause.to_upper(), Color("ff6b4f").lightened(0.3), 34)
 	if uv.dying:   # already falling: the number floats up over the body without holding the turn
 		return {"dur": 0.15}
 	return {"dur": 0.6 if in_cinematic else 0.4}

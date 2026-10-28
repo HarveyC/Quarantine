@@ -365,6 +365,11 @@ static func open_doors_along(s: GameState, from: Vector2i, path: Array[Vector2i]
 
 
 ## Central damage entry point: every module deals damage through here.
+## Name of whatever is dealing damage right now when the blow has no beat of its own (a reflect,
+## a cloud tick); shown under the number so no death goes unexplained.
+static var cause := ""
+
+
 static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = null) -> void:
 	if not target.is_alive():
 		return
@@ -378,7 +383,7 @@ static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = 
 	amount = Kit.modify_incoming(s, target, amount, source)
 	amount = GearFx.aegis_hold(s, target, amount)
 	target.hp = max(0, target.hp - amount)
-	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1})
+	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1, "cause": cause})
 	if intercepted:
 		GearFx.aegis_return(s, target, source, amount)
 	if source != null and source.is_enemy_of(target):

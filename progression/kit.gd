@@ -488,7 +488,9 @@ static func after_damage(s: GameState, target: Unit, amount: int, source: Unit) 
 		s.emit({"type": "mutation", "unit": target.id, "mutation": "bloom", "units": near.map(func(x: Unit) -> int: return x.id)})
 		for o in near:
 			if o.is_enemy_of(target):
+				Rules.cause = "Bloom"
 				Rules.deal_damage(s, o, 2, target)
+				Rules.cause = ""
 			elif is_soldier(o):
 				Infection.add(s, o, 5)
 
@@ -513,7 +515,9 @@ static func _bleed_tick(s: GameState, team: int) -> void:
 		else:
 			u.status.erase("k_bleed")
 		s.emit({"type": "bleed", "unit": u.id, "damage": 1})
+		Rules.cause = "Bleed"
 		Rules.deal_damage(s, u, 1, s.get_unit(int(u.status.get("k_bleed_by", -1))))
+		Rules.cause = ""
 		if s.phase == Types.Phase.ENDED:
 			return
 
@@ -529,7 +533,9 @@ static func after_melee(s: GameState, attacker: Unit, target: Unit, dmg: int) ->
 	if awake(target, "barbed_hide"):
 		back += 2
 	if back > 0:
+		Rules.cause = "Barbed hide" if awake(target, "barbed_hide") else "Brawler"
 		Rules.deal_damage(s, attacker, back, target)
+		Rules.cause = ""
 
 
 ## Hold the Line: a soldier next to a hunkered Hold the Line holder counts as hunkered too.

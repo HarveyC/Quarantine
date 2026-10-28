@@ -54,7 +54,9 @@ static func on_phase_start(s: GameState, ending: int) -> void:
 static func burst_tick(s: GameState, z: Dictionary, u: Unit) -> void:
 	var owner := s.get_unit(int(z.get("owner", -1)))
 	if owner != null and owner.is_enemy_of(u):
+		Rules.cause = "Spore burst"
 		Rules.deal_damage(s, u, BURST_DAMAGE, owner)
+		Rules.cause = ""
 	elif Kit.is_soldier(u):
 		Infection.add(s, u, SPORE_GAIN)
 
