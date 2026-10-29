@@ -18,10 +18,14 @@ const GunModels := preload("res://view/gun_models.gd")
 const BODY := {"hooker": "spitter", "sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker",
 	"cutter": "runner", "torchman": "fallen", "fence": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
-	"hound": "runner", "loader": "brute", "relay": "shrieker", "breaker": "brute"}
+	"hound": "runner", "loader": "brute", "relay": "shrieker", "breaker": "brute",
+	"netter": "fallen", "handler": "fallen", "sterilizer": "fallen", "collector": "fallen",
+	"acolyte": "runner", "cantor": "shrieker", "hush": "shrieker"}
 const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95,
 	"shieldman": 1.1, "overwatcher": 1.0, "emplacement": 1.0,
-	"hound": 0.8, "loader": 1.2, "relay": 0.7, "breaker": 1.7}
+	"hound": 0.8, "loader": 1.2, "relay": 0.7, "breaker": 1.7,
+	"netter": 1.05, "handler": 0.95, "sterilizer": 1.1, "collector": 1.15,
+	"acolyte": 0.85, "cantor": 1.0, "hush": 0.95}
 ## Props a boss drops at a phase change: kind -> {phase: [prop names]}.
 const SHED := {"breaker": {2: ["plate_front"], 3: ["skirts"]}}
 ## Role tints: kind -> {role: lighten (+) or darken (-) amount}.
@@ -41,6 +45,10 @@ const TINT := {
 	"loader": {"body": -0.25, "skin": -0.25},
 	"relay": {"body": -0.3, "skin": -0.3, "flesh": -0.3},
 	"breaker": {"body": -0.45, "skin": -0.45, "flesh": -0.4},
+	"netter": {"body": 0.3}, "handler": {"body": 0.1, "rags": -0.15}, "sterilizer": {"body": 0.4},
+	"collector": {"body": -0.1, "rags": 0.1},
+	"acolyte": {"body": 0.35, "skin": 0.3, "rags": 0.3}, "cantor": {"body": 0.45, "skin": 0.4, "flesh": 0.2},
+	"hush": {"body": -0.3, "skin": 0.3, "flesh": -0.1},
 }
 
 

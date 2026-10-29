@@ -62,6 +62,22 @@ const SOURCE_REMEMBERS := ["SOURCE", "You came back. I remember the fire."]
 ## The Source's extra boss line when the last wave burned it.
 const SOURCE_BURNED := ["SOURCE", "Last time, you burned me. I grew back."]
 
+## What the Source says by aspect (SourceBoss.ASPECTS): in its boss intro, when the core opens
+## ("open"), when a root grows back ("regrow") and when the shaft gives way ("collapse"). Captions
+## only until these are recorded (not in VoiceLines.templates).
+const SOURCE_ASPECT_LINES := {
+	"hunger": {"intro": ["SOURCE", "You carry so much of me already. Bring me the rest."],
+		"open": "Closer. Let me hold what is already mine.",
+		"collapse": "There is nothing left to hold you up."},
+	"remembers": {"intro": ["SOURCE", "I kept every name. Listen, they are calling you."],
+		"open": "Hear them? They remember you too.",
+		"collapse": "Come down. They are waiting."},
+	"regrown": {"intro": ["SOURCE", "You cannot burn what grows back."],
+		"open": "Cut me down. I have done this before.",
+		"regrow": "Again. I am not finished.",
+		"collapse": "Roots are patient. So am I."},
+}
+
 const BOSS_SCENES := {
 	"brood_mother": {"title": "The Brood Mother", "sub": "She nests in the breach", "lines": [
 		["OKAFOR", "That's what has been feeding on the camps."],

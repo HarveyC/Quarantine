@@ -38,6 +38,7 @@ func _init() -> void:
 	boss_hp = float(args.get("bosshp", 1.0))
 	boss_kind = str(args.get("boss", ""))
 	build_level = str(args.get("build", "none"))
+	aspect_override = str(args.get("aspect", ""))
 	PartingBlow.enabled = not args.has("nopb")
 	SquadBot.skip_signatures = args.has("nosig")
 	SquadBot.skip_gear = args.has("nogear")
@@ -56,6 +57,7 @@ var boss_kind := ""   # boss= forces the act's boss (else the seed rolls it)
 var boss_hp := 1.0   # bosshp= scales the boss's health on top of FightBuilder's (for tuning)
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
 var build_level := "none"       # build= (see build_quality.gd)
+var aspect_override := ""       # aspect=hunger|remembers|regrown for Source boss fights
 
 
 func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, seed: int, rank: int,
@@ -75,6 +77,9 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		"modifiers": {"boss_health_mult": boss_hp} if boss_hp != 1.0 else {}}
 	if boss_kind != "":
 		spec["boss"] = boss_kind
+	if aspect_override != "":
+		spec["aspect"] = aspect_override
+		spec["echo_names"] = ["Reyes", "Osei"]
 	var built := FightBuilder.build(spec)
 	var enemies: Array = built.enemies
 	var enc: Dictionary = built.encounter

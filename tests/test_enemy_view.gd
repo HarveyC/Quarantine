@@ -392,3 +392,46 @@ func test_soldier_on_a_collapsing_tile_drops_with_it() -> void:
 	_drain(v)
 	assert_true(absf(v.view_for(u.id).position.y - Board.cell_to_world(raised).y) < 0.05, "and level with the floor once it falls")
 	v.free()
+
+
+## The Source's aspects through the view: the banner naming it, Hunger's pull in phase 1, Remembers' named
+## Echoes rising before the core opens, and Regrown's root growing back with its own banner.
+func test_the_source_aspects_play_through_the_view() -> void:
+	var seen := {}
+	var watch := func(v: MissionView) -> void:
+		v.player.beat_finished.connect(func(ev: Dictionary) -> void:
+			var t := str(ev.get("type", ""))
+			if t == "ability":
+				seen[str(ev.ability)] = int(seen.get(str(ev.ability), 0)) + 1
+			elif t == "boss_aspect":
+				seen["aspect:" + str(ev.aspect)] = 1
+			elif t in ["boss_phase", "spawned"]:
+				var k := t + ":" + str(ev.get("phase", ev.get("kind", "")))
+				seen[k] = int(seen.get(k, 0)) + 1)
+	for aspect in SourceBoss.ASPECTS:
+		seen.clear()
+		var spec := {"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 4, "squad": 2, "players": 2,
+			"boss": "the_source", "aspect": aspect, "echo_names": ["Osei"]}
+		var v := _view_for_fight(spec)
+		watch.call(v)
+		_drain(v)
+		_watch(v, 3, {})
+		assert_true(seen.get("aspect:" + aspect, 0) >= 1, "%s: the banner names the aspect" % aspect)
+		match aspect:
+			"hunger":
+				assert_true(seen.get("pull", 0) >= 1, "Hunger pulls before the core opens")
+			"remembers":
+				assert_true(v.state.living(Types.Team.ENEMY).any(func(u): return u.display_name == "Echo of Osei"), "an Echo wearing a fallen name")
+				assert_true(seen.get("spawned:fallen", 0) >= 1, "it rises on screen")
+			"regrown":
+				var src := _boss_of(v, "the_source")
+				var soldier: Unit = v.state.living(Types.Team.PLAYER)[0]
+				for r in v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "source_root"):
+					Rules.deal_damage(v.state, r, 99, soldier)
+				_drain(v)
+				_watch(v, SourceBoss.REGROWN_WINDOW[2] + 1, {})
+				assert_true(seen.get("boss_phase:1", 0) >= 1, "the roots grow back, with a banner")
+				assert_true(seen.get("spawned:source_root", 0) >= 1, "and the root rises")
+				assert_eq(int(src.status.boss_phase), 1, "closed again")
+		assert_true(_no_bare_labels(v), "%s: every beat has its own animation" % aspect)
+		v.free()
