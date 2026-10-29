@@ -9,6 +9,9 @@ extends RefCounted
 ##   Weaver    a Shrieker with glowing strands trailing from both hands
 ##   Director  Hale's frame in a long white coat with a headset and a data slate (Halden-Voss Recovery)
 ##   Collector a Sharpshooter's body with a net launcher across the chest and a winch drum on the back
+##   Breaker   the Act 1 boss: a big Brute frame in demolition plate, a wrecking ram for a fist and
+##             hazard stripes. Its front plate falls off in phase 2 and its side skirts in phase 3
+##             (SHED, see UnitView.shed_part).
 ## Bone frames (rest pose): spine bones +Y up the spine, +Z the chest, -Z the back;
 ## hand/forearm bones +Y toward the fingers.
 
@@ -17,15 +20,17 @@ const GunModels := preload("res://view/gun_models.gd")
 const BODY := {"hooker": "spitter", "sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker",
 	"cutter": "runner", "torchman": "fallen", "fence": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
-	"hound": "runner", "loader": "brute", "relay": "shrieker",
+	"hound": "runner", "loader": "brute", "relay": "shrieker", "breaker": "brute",
 	"netter": "fallen", "handler": "fallen", "sterilizer": "fallen", "collector": "fallen",
 	"acolyte": "runner", "cantor": "shrieker", "hush": "shrieker",
 	"director": "colonel_hale"}
 const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95,
 	"shieldman": 1.1, "overwatcher": 1.0, "emplacement": 1.0,
-	"hound": 0.8, "loader": 1.2, "relay": 0.7,
+	"hound": 0.8, "loader": 1.2, "relay": 0.7, "breaker": 1.7,
 	"netter": 1.05, "handler": 0.95, "sterilizer": 1.1, "collector": 1.15,
 	"acolyte": 0.85, "cantor": 1.0, "hush": 0.95}
+## Props a boss drops at a phase change: kind -> {phase: [prop names]}.
+const SHED := {"breaker": {2: ["plate_front"], 3: ["skirts"]}}
 ## Role tints: kind -> {role: lighten (+) or darken (-) amount}.
 const TINT := {
 	"hooker": {"body": -0.25, "flesh": -0.15},
@@ -42,6 +47,7 @@ const TINT := {
 	"hound": {"body": -0.3, "skin": -0.3, "flesh": -0.3},
 	"loader": {"body": -0.25, "skin": -0.25},
 	"relay": {"body": -0.3, "skin": -0.3, "flesh": -0.3},
+	"breaker": {"body": -0.45, "skin": -0.45, "flesh": -0.4},
 	"netter": {"body": 0.3}, "handler": {"body": 0.1, "rags": -0.15}, "sterilizer": {"body": 0.4},
 	"collector": {"body": -0.1, "rags": 0.1},
 	"acolyte": {"body": 0.35, "skin": 0.3, "rags": 0.3}, "cantor": {"body": 0.45, "skin": 0.4, "flesh": 0.2},
@@ -76,6 +82,11 @@ static func dress(model: Node3D, kind: String) -> void:
 			_attach(sk, "spine_03", "satchels", _satchels())
 		"carapace":
 			_attach(sk, "spine_03", "plate_front", _plate())
+		"breaker":
+			_attach(sk, "spine_03", "plate_front", _breaker_plate())
+			_attach(sk, "spine_03", "skirts", _breaker_skirts())
+			_attach(sk, "spine_03", "stacks", _breaker_stacks())
+			_attach(sk, "lowerarm_r", "ram", _breaker_ram())
 		"stalker":
 			_attach(sk, "spine_03", "back_spines", _spines())
 		"torchman":
@@ -261,3 +272,42 @@ static func _winch() -> Mesh:
 		["lamp", "ball", Vector3(0.0, 0.2, -0.16), 0.02],
 	]
 	return GunModels.build_mesh(p, {}, {"metal": Color("4a4d50"), "strap": Color("d36a1c"), "lamp": [Color(0.55, 0.2, 0.08), Color(1.0, 0.55, 0.15)]})
+static func _breaker_plate() -> Mesh:
+	var p := [
+		["plate", "box", Vector3(0.0, 0.05, 0.24), Vector3(0.86, 0.95, 0.09)],
+		["plate", "box", Vector3(0.0, 0.58, 0.2), Vector3(0.96, 0.16, 0.12)],
+		["metal", "box", Vector3(0.0, -0.44, 0.22), Vector3(0.9, 0.08, 0.12)],
+		["lamp", "ball", Vector3(-0.34, 0.58, 0.28), 0.04],
+		["lamp", "ball", Vector3(0.34, 0.58, 0.28), 0.04],
+	]
+	for i in 5:   # hazard stripes across the plate
+		p.append(["amber", "box", Vector3(-0.32 + i * 0.16, 0.05, 0.3), Vector3(0.07, 0.9, 0.02), Vector3(0.0, 0.0, 0.6)])
+	return GunModels.build_mesh(p, {}, {"plate": Color("6a6f6b"), "metal": Color("2c2e2d")})
+
+
+static func _breaker_skirts() -> Mesh:
+	var p := []
+	for x in [-0.46, 0.46]:
+		p.append(["plate", "box", Vector3(x, 0.0, 0.0), Vector3(0.1, 0.7, 0.5)])
+		p.append(["amber", "box", Vector3(x * 1.06, 0.18, 0.0), Vector3(0.02, 0.1, 0.46)])
+	return GunModels.build_mesh(p, {}, {"plate": Color("5d625e")})
+
+
+static func _breaker_stacks() -> Mesh:
+	var p := [
+		["metal", "tube", Vector3(-0.2, 0.05, -0.2), Vector3(-0.22, 0.6, -0.26), 0.07],
+		["metal", "tube", Vector3(0.2, 0.05, -0.2), Vector3(0.22, 0.6, -0.26), 0.07],
+		["lamp", "ball", Vector3(0.0, 0.3, -0.3), 0.06],
+		["metal", "box", Vector3(0.0, 0.0, -0.24), Vector3(0.6, 0.5, 0.16)],
+	]
+	return GunModels.build_mesh(p, {}, {"metal": Color("2c2e2d")})
+
+
+static func _breaker_ram() -> Mesh:
+	var p := [
+		["metal", "tube", Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.42, 0.06), 0.1],
+		["plate", "tube", Vector3(0.0, 0.42, 0.06), Vector3(0.0, 0.72, 0.1), 0.17, 0.2],
+		["amber", "tube", Vector3(0.0, 0.5, 0.07), Vector3(0.0, 0.56, 0.08), 0.215],
+		["metal", "ball", Vector3(0.0, 0.78, 0.1), 0.19],
+	]
+	return GunModels.build_mesh(p, {}, {"plate": Color("6a6f6b"), "metal": Color("2c2e2d")})

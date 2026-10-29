@@ -35,8 +35,8 @@ func _init() -> void:
 	var seed0 := int(args.get("seed", 1))
 	var rank := int(args.get("rank", RANK_BY_ACT[act]))
 	objective_override = str(args.get("objective", ""))
-	boss_override = str(args.get("boss", ""))
 	boss_hp = float(args.get("bosshp", 1.0))
+	boss_kind = str(args.get("boss", ""))
 	build_level = str(args.get("build", "none"))
 	aspect_override = str(args.get("aspect", ""))
 	PartingBlow.enabled = not args.has("nopb")
@@ -53,9 +53,9 @@ func _init() -> void:
 	quit(0)
 
 
+var boss_kind := ""   # boss= forces the act's boss (else the seed rolls it)
 var boss_hp := 1.0   # bosshp= scales the boss's health on top of FightBuilder's (for tuning)
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
-var boss_override := ""        # boss= (a boss kind from EnemyRoster.BOSS_POOL; unset rolls it from the seed)
 var build_level := "none"       # build= (see build_quality.gd)
 var aspect_override := ""       # aspect=hunger|remembers|regrown for Source boss fights
 
@@ -75,8 +75,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var spec := {"act": act, "row": 2, "node": node, "objective": objective, "outbreak": outbreak,
 		"seed": seed, "players": kinds.size(), "squad": kinds.size(),
 		"modifiers": {"boss_health_mult": boss_hp} if boss_hp != 1.0 else {}}
-	if boss_override != "":
-		spec["boss"] = boss_override
+	if boss_kind != "":
+		spec["boss"] = boss_kind
 	if aspect_override != "":
 		spec["aspect"] = aspect_override
 		spec["echo_names"] = ["Reyes", "Osei"]

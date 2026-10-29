@@ -126,11 +126,11 @@ static func generate(spec: Dictionary) -> Grid:
 	return fb
 
 
-## The arenas `boss` fights in: those tagged for it (`@arena <name> boss=<kind>`), else the untagged ones.
+## The arenas a boss fights in: those tagged `boss=<kind>` for that boss, else the untagged ones.
 static func _arenas_for(data: Dictionary, boss: String) -> Array:
-	var tagged: Array = data.arenas.filter(func(a: Dictionary) -> bool: return boss != "" and a.get("boss", "") == boss)
-	if not tagged.is_empty():
-		return tagged
+	var own: Array = data.arenas.filter(func(a: Dictionary) -> bool: return boss != "" and a.get("boss", "") == boss)
+	if not own.is_empty():
+		return own
 	return data.arenas.filter(func(a: Dictionary) -> bool: return a.get("boss", "") == "")
 
 
@@ -209,7 +209,7 @@ static func parse(text: String) -> Dictionary:
 			var parts := line.substr(1).split(" ", false)
 			if parts[0] == "arena":
 				current = {"name": parts[1], "rows": PackedStringArray()}
-				for p in parts:
+				for p in parts:   # "@arena <name> boss=<kind>" is that boss's own arena
 					if p.begins_with("boss="):
 						current["boss"] = p.trim_prefix("boss=")
 				arenas.append(current)

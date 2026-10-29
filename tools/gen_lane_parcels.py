@@ -184,8 +184,9 @@ def streets():
 class A:
     """A 20x20 arena. P deploy, E enemy pod cells, B boss anchor (b: on an upper roof) (see maps/biome_wall.txt for glyphs)."""
 
-    def __init__(self, name):
+    def __init__(self, name, boss=""):
         self.name = name
+        self.boss = boss   # a tagged arena is only that boss's ground (MapGen._arenas_for)
         self.g = [["."] * 20 for _ in range(20)]
 
     def put(self, x, y, ch):
@@ -219,8 +220,8 @@ class A:
         return self
 
     def render(self):
-        tag = f" boss={self.boss}" if getattr(self, "boss", "") else ""
-        return "\n".join([f"@arena {self.name}{tag}"] + ["".join(r) for r in self.g])
+        head = f"@arena {self.name}" + (f" boss={self.boss}" if self.boss else "")
+        return "\n".join([head] + ["".join(r) for r in self.g])
 
 
 def brood_arena():
@@ -280,8 +281,7 @@ def source_arena():
 
 
 def director_arena():
-    a = A("rooftop_net")
-    a.boss = "director"                                  # only the Director's fight is drawn here
+    a = A("rooftop_net", "director")                     # only the Director's fight is drawn here
     a.rect(8, 1, 11, 3, "2")                             # her perch: the harbour authority's upper roof
     a.put(9, 2, "b")                                     # boss anchor on the upper roof
     a.rect(4, 4, 15, 6, "^")                             # the authority deck below it
@@ -303,8 +303,27 @@ def director_arena():
     return a
 
 
+def breaker_arena():
+    """The wall engineers' yard behind the breach: long lanes of cover for the rig to flatten, a gantry
+    on each flank to climb, and fuel barrels to turn on it."""
+    a = A("demolition_yard", "breaker")
+    a.put(10, 3, "B")
+    for x0, x1, y in [(2, 4, 6), (7, 8, 6), (11, 12, 6), (15, 17, 6), (3, 4, 10), (8, 9, 10), (12, 13, 10), (15, 16, 10), (5, 6, 13), (10, 11, 13), (14, 15, 13)]:
+        a.rect(x0, y, x1, y, "=")                       # cover rows the charge ploughs through
+    for x, y in [(6, 8), (13, 8), (9, 12), (10, 4), (3, 12), (16, 12)]:
+        a.put(x, y, "!")                                 # fuel barrels
+    for x0, sx in [(0, 4), (16, 15)]:                    # a gantry on each flank, one stair each
+        a.rect(x0, 8, x0 + 3, 11, "^").put(x0 + 1, 9, "%")
+    a.put(4, 9, "s").put(15, 9, "s")
+    a.rect(0, 0, 1, 1, "H").rect(18, 0, 19, 1, "H")      # reinforced corner piers
+    a.deploy()
+    a.pods([(3, 2), (16, 2), (2, 14), (17, 14), (6, 1), (13, 1), (1, 6), (18, 6)])
+    return a
+
+
 ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
-BOSS_ARENAS = {"port": [director_arena]}                 # arenas tagged for one boss (MapGen picks them for that boss only)
+## Further arenas a boss fights in (tagged with their boss), after the biome's default one.
+EXTRA_ARENAS = {"wall": [breaker_arena], "port": [director_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)
@@ -397,8 +416,8 @@ def build(biome):
         parts.append("")
     parts.append(PLOTS.strip("\n"))
     parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.", ARENAS[biome]().render()]
-    for make in BOSS_ARENAS.get(biome, []):
-        parts += ["", make().render()]
+    for extra in EXTRA_ARENAS.get(biome, []):
+        parts += ["", extra().render()]
     return "\n".join(parts) + "\n"
 
 

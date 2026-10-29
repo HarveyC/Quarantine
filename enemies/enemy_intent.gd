@@ -65,6 +65,11 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 		return {"icon": "hook", "label": "HOOKING", "target": int(u.status.hooked)}
 	if u.status.has("sighted"):
 		return {"icon": "snipe", "label": "AIMING", "target": int(u.status.sighted)}
+	if u.kind == "breaker" and u.status.has("charge_dir"):
+		var runs := Breaker.lanes(s, u)
+		var last: Unit = runs[-1].hit
+		return {"icon": "charge", "label": "DOUBLE CHARGE" if runs.size() > 1 else "CHARGING",
+			"target": last.id if last and u.is_enemy_of(last) else -1}
 	if u.status.has("charge_dir"):
 		var lane := EnemyAbilities.charge_lane(s, u, u.pos, u.status.charge_dir)
 		var hit: Unit = lane.hit
@@ -145,6 +150,9 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 				return {"icon": "claw", "label": "BERSERK", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 			if int(u.cooldowns.get("acid_rain", 0)) <= 1:
 				return {"icon": "strike", "label": "ACID RAIN", "target": -1}
+		"breaker":
+			if phase == 2 and int(u.cooldowns.get("debris", 0)) <= 1:
+				return {"icon": "strike", "label": "DEBRIS", "target": -1}
 		"colonel_hale":
 			var near := ColonelHale._nearest_dist(u.pos, hostiles)
 			if phase == 1:
@@ -207,7 +215,10 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 			var t := s.get_unit(int(u.status.sighted))
 			if t != null and t.is_alive():
 				out.append({"kind": "snipe", "cells": [t.pos], "unit": u.id, "turn": s.turn})
-		if u.status.has("charge_dir"):
+		if u.kind == "breaker":
+			for run in Breaker.lanes(s, u):
+				out.append({"kind": "charge", "cells": run.cells, "unit": u.id, "turn": s.turn})
+		elif u.status.has("charge_dir"):
 			var lane := EnemyAbilities.charge_lane(s, u, u.pos, u.status.charge_dir)
 			out.append({"kind": "charge", "cells": lane.cells, "unit": u.id, "turn": s.turn})
 		if u.status.has("hooked"):

@@ -35,6 +35,12 @@ const INTRO_ORDERS := [
 	["OKAFOR", "Through the breach, down the Bore. Burn the Source and come home."],
 ]
 
+## Extra briefing lines before act 1 when a given boss waits at its end, so the first act names what
+## is coming. Same shape as INTRO_ORDERS.
+const INTRO_BY_BOSS := {
+	"breaker": [["OKAFOR", "The wall crews' demolition rigs went quiet last week. One of them is moving again."]],
+}
+
 const ACT_SCENES := {
 	2: {"title": "Act II · Port Ardent", "sub": "Downtown and the Halden-Voss labs", "stage": "port", "lines": [
 		["OKAFOR", "You're past the wall. Port Ardent is ahead of you."],
@@ -83,6 +89,10 @@ const BOSS_SCENES := {
 	"brood_mother": {"title": "The Brood Mother", "sub": "She nests in the breach", "lines": [
 		["OKAFOR", "That's what has been feeding on the camps."],
 		["OKAFOR", "Break the egg sacs first. While they live, she can't be hurt."],
+	]},
+	"breaker": {"title": "The Breaker", "sub": "The wall engineers' rig", "lines": [
+		["OKAFOR", "The wall rig is running again, and nobody is driving it."],
+		["OKAFOR", "It flattens whatever is in its way. Don't stand behind anything you need."],
 	]},
 	"colonel_hale": {"title": "Colonel Hale", "sub": "Halden-Voss Recovery", "lines": [
 		["HALE", "Lantern Company. You are carrying company property."],
@@ -163,6 +173,8 @@ const BARKS := {
 		"She's marked one of you. Break her sight lines and keep that soldier moving."],
 	"director_3": ["She's calling the extraction. Kill the Collectors and keep everyone on their feet.",
 		"Cages incoming. Don't let anyone stand pinned under one."],
+	"breaker_2": ["Its plate is off. It's tearing the yard down on top of you.", "Plate's gone. Get off the high ground."],
+	"breaker_3": ["It's stripped to the frame. Two runs at once, watch both lanes.", "No more plating, and it's fast. Keep moving."],
 	"lore": ["Intel recovered."],
 }
 ## Colonel Hale's voice in his boss fight, by phase: on the company radio, then after the Bloom

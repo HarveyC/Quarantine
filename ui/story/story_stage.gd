@@ -483,6 +483,16 @@ func _set_boss() -> void:
 			_box(Vector3(4.0, 4.4, 2.6), Vector3(0, 2.2, -5.5), CONCRETE, 0.0)
 			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
 			_omni(Vector3(-3, 1, -3), Color("ff4a33"), 1.5, 8.0, true)
+		"breaker":   # the demolition yard: stacked blocks and hazard lamps, the rig lit from behind
+			col = Color("ffb347")
+			for i in 5:
+				var x := -7.0 + i * 3.5
+				_box(Vector3(2.4, 0.9 + 0.5 * float(i % 3), 1.0), Vector3(x, 0.45, -3.4 - 0.4 * float(i % 2)), CONCRETE.darkened(0.15), 0.12 * float(i - 2))
+			_box(Vector3(0.5, 7.0, 0.5), Vector3(-5.5, 3.5, -6.0), CONCRETE.darkened(0.3))
+			_box(Vector3(11.0, 0.4, 0.5), Vector3(0.0, 7.0, -6.0), CONCRETE.darkened(0.3))
+			_spot(Vector3(0, 9, 3), Vector3(0, 0, 0), col, 8.0, 16.0, 26.0)
+			_omni(Vector3(-4, 1.2, -3), Color("ff9a3d"), 2.5, 8.0, true)
+			_omni(Vector3(4, 1.2, -3), Color("ff9a3d"), 2.5, 8.0, true)
 		"the_source":
 			for i in 6:
 				var a := TAU * i / 6.0
