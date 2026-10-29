@@ -408,6 +408,25 @@ func test_killing_round_drops_the_body_at_impact() -> void:
 	v.free()
 
 
+func test_zipline_and_tunnel_moves_play_and_land() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldier := v.state.controllable_units(0)[0]
+	var uv := v.view_for(soldier.id)
+	for kind in ["zip", "cellar"]:
+		var from := soldier.pos
+		var to := from + Vector2i(6, 0)
+		v.player.enqueue({"type": "move", "unit": soldier.id, "from": from, "path": [to], "link": kind})
+		var steps := 0
+		while v.player.pending() > 0 and steps < 400:
+			v.player.advance(1.0 / 30.0)
+			steps += 1
+		v.player.flush()
+		assert_eq(uv.cell, to, "%s ends on the far cell" % kind)
+		soldier.pos = to
+	v.free()
+
+
 func test_characters_are_rigged() -> void:
 	var ModelKit := preload("res://view/model_kit.gd")
 	var SkinnedBody := preload("res://view/skinned_body.gd")

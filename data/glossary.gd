@@ -672,6 +672,27 @@ static func _build() -> Dictionary:
 		"more": ["Anyone standing on it falls when it goes."],
 		"see": ["high_ground", "rubble"],
 		"aliases": ["Scaffolds", "Scaffolding", "Catwalk"]}
+	t["zipline"] = {"name": "Zipline", "kind": "terrain", "icon": "rank", "tone": "text",
+		"line": "A cable from a roof down to the ground. Move onto the far end to slide down it, one way.",
+		"art": "",
+		"stats": [["%d" % Links.ZIP_COST, "move"], ["1 way", "direction"]],
+		"more": ["Sliding leaves no Parting blow behind."],
+		"see": ["high_ground", "parting_blow"],
+		"aliases": ["Ziplines", "Zip line"]}
+	t["cellar_tunnel"] = {"name": "Cellar tunnel", "kind": "terrain", "icon": "rank", "tone": "text",
+		"line": "A hatch that joins to another hatch across the map. Step in at one and come out of the other.",
+		"art": "",
+		"stats": [["%d" % Links.TUNNEL_COST, "moves"], ["2 way", "direction"]],
+		"more": ["Going through leaves no Parting blow behind.", "Enemies use it too."],
+		"see": ["parting_blow"],
+		"aliases": ["Cellar tunnels", "Cellar hatch", "Cellar hatches"]}
+	t["flooded_ground"] = {"name": "Flooded ground", "kind": "terrain", "icon": "alert", "tone": "text",
+		"line": "A pool of water over the floor. Wading in costs one extra step.",
+		"art": "",
+		"stats": [["+1", "move"]],
+		"more": ["Fire can't burn on it."],
+		"see": ["hazards"],
+		"aliases": ["Flooded pool", "Flooded pools"]}
 	t["actions"] = {"name": "Actions", "kind": "rule", "icon": "turn", "tone": "amber",
 		"line": "Each soldier gets %d actions in a squad phase, in any order." % Types.ACTIONS_PER_TURN,
 		"art": "",

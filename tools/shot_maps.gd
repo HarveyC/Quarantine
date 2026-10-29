@@ -1,7 +1,7 @@
 extends SceneTree
 ## Before/after renders of generated maps: the whole map from high up and a closer tactical view of
 ## the busiest corner (where most edge walls are, else the middle). HUD and fog off.
-## godot -s tools/shot_maps.gd -- out_dir tag biome:objective:seed [biome:objective:seed ...]
+## godot -s tools/shot_maps.gd -- out_dir tag biome:objective:seed[:condition] [...]
 ## Needs a real renderer (xvfb-run ... --rendering-driver opengl3).
 
 const MAIN := preload("res://scenes/main.tscn")
@@ -15,7 +15,7 @@ func _init() -> void:
 	for spec in args.slice(2):
 		var p: PackedStringArray = spec.split(":")
 		var config := MatchConfig.make(2, int(p[2]))
-		config.map_spec = {"biome": p[0], "objective": p[1], "seed": int(p[2])}
+		config.map_spec = {"biome": p[0], "objective": p[1], "seed": int(p[2]), "condition": p[3] if p.size() > 3 else "", "act": 2}
 		var s := MatchConfig.build(config)
 		Vision.disable(s)
 		var v: MissionView = MAIN.instantiate()
@@ -35,13 +35,13 @@ func _init() -> void:
 		v.camera_rig.snap()
 		for i in 30:
 			await process_frame
-		_save("%s/%s-%s-map.png" % [out, tag, p[0]])
+		_save("%s/%s-%s-%s-%s-map.png" % [out, tag, p[0], p[1], p[2]])
 		v.camera_rig._target_dist = 13.0
 		v.camera_rig.focus(_busy_spot(s.grid))
 		v.camera_rig.snap()
 		for i in 20:
 			await process_frame
-		_save("%s/%s-%s-close.png" % [out, tag, p[0]])
+		_save("%s/%s-%s-%s-%s-close.png" % [out, tag, p[0], p[1], p[2]])
 		v.queue_free()
 		await process_frame
 	quit()
