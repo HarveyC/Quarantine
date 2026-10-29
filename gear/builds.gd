@@ -13,16 +13,16 @@ extends RefCounted
 const BUILDS := {
 	"anchor": {"class": "trooper", "name": "Anchor", "tag": "Guard",
 		"perks": ["steadfast", "hold_the_line", "battle_hardened", "last_stand"],
-		"gear": ["compensator", "shock_rounds", "kevlar_vest", "deployable_cover"],
-		"grafts": {"chest": "plated_ribs"}, "mutations": {}, "gun": "pump_shotgun", "infection": 0},
+		"gear": ["compensator", "shock_rounds", "plated_ribs", "deployable_cover"],
+		"grafts": {}, "mutations": {}, "gun": "pump_shotgun", "infection": 0},
 	"spotter": {"class": "marksman", "name": "Spotter", "tag": "Mark",
 		"perks": ["hunters_mark", "expose", "deadeye", "executioner"],
-		"gear": ["laser_sight", "tracer_rounds", "ghillie_cloak", "flare_launcher"],
-		"grafts": {"head": "targeting_optic"}, "mutations": {}, "gun": "anti_materiel", "infection": 0},
+		"gear": ["laser_sight", "tracer_rounds", "targeting_optic", "flare_launcher"],
+		"grafts": {}, "mutations": {}, "gun": "anti_materiel", "infection": 0},
 	"field_surgeon": {"class": "medic", "name": "Field Surgeon", "tag": "Purge",
 		"perks": ["long_reach", "transfusion", "calm_voice", "field_surgeon"],
-		"gear": ["bayonet", "purge_canister", "filter_mask", "med_injector"],
-		"grafts": {"chest": "plated_ribs"}, "mutations": {}, "gun": "dart_rifle", "infection": 0},
+		"gear": ["bayonet", "purge_canister", "filter_mask", "med_injector", "plated_ribs"],
+		"grafts": {}, "mutations": {}, "gun": "dart_rifle", "infection": 0},
 	"door_kicker": {"class": "breacher", "name": "Door Kicker", "tag": "Close",
 		"perks": ["kick_in", "long_fuse", "frag_charge", "run_and_gun"],
 		"gear": ["bayonet", "slug_rounds", "light_harness", "grapple"],
@@ -33,23 +33,23 @@ const BUILDS := {
 		"grafts": {"arm": "servo_arm"}, "mutations": {"mutating": "kindled_spores"}, "gun": "auto_shotgun", "infection": 55},
 	"lightning_rod": {"class": "vector", "name": "Lightning Rod", "tag": "Purge",
 		"perks": ["deep_siphon", "iron_will", "open_veins", "contagion"],
-		"gear": ["bayonet", "purge_canister", "filter_mask", "med_injector"],
-		"grafts": {"chest": "plated_ribs"},
+		"gear": ["bayonet", "purge_canister", "filter_mask", "med_injector", "plated_ribs"],
+		"grafts": {},
 		"mutations": {"strain": "host_body", "critical": "martyr_strain"}, "gun": "", "infection": 80},
 	"riposte": {"class": "reaper", "name": "Riposte", "tag": "Guard",
 		"perks": ["riposte", "long_stride", "hamstring", "cleave"],
-		"gear": ["bayonet", "slug_rounds", "kevlar_vest", "deployable_cover"],
-		"grafts": {"chest": "plated_ribs", "legs": "hydraulic_legs"}, "mutations": {"mutating": "chitin_plates"},
+		"gear": ["bayonet", "slug_rounds", "plated_ribs", "deployable_cover", "riot_shield"],
+		"grafts": {"legs": "hydraulic_legs"}, "mutations": {"mutating": "chitin_plates"},
 		"gun": "", "infection": 55},
 	"hold_the_door": {"class": "warden", "name": "Hold the Door", "tag": "Guard",
 		"perks": ["tower_shield", "vigilant", "unbreakable", "last_wall"],
-		"gear": ["compensator", "shock_rounds", "plated_rig", "deployable_cover"],
-		"grafts": {"chest": "plated_ribs"}, "mutations": {}, "gun": "longslide", "infection": 0},
+		"gear": ["compensator", "shock_rounds", "plated_ribs", "deployable_cover"],
+		"grafts": {}, "mutations": {}, "gun": "longslide", "infection": 0},
 	# Not one of the easy eight: the Overwatch capstone's build.
 	"killbox": {"class": "marksman", "name": "Killbox", "tag": "Overwatch",
 		"perks": ["long_watch", "kill_zone", "high_perch", "relocate"],
-		"gear": ["killbox", "match_rounds", "ghillie_cloak", "motion_tracker"],
-		"grafts": {"head": "lattice_sight"}, "mutations": {}, "gun": "", "infection": 0},
+		"gear": ["killbox", "match_rounds", "lattice_sight", "motion_tracker"],
+		"grafts": {}, "mutations": {}, "gun": "", "infection": 0},
 }
 
 ## The eight easy builds, one per class, in class order.
@@ -69,7 +69,7 @@ static func record(id: String) -> Dictionary:
 	for item in b.gear:
 		Loadout.equip(run, rec, item)
 	if b.gun != "":
-		Loadout.of(rec)["gun"] = b.gun
+		Loadout.take_gun(rec, b.gun)
 	return rec
 
 

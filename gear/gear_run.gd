@@ -559,6 +559,11 @@ static func apply_to_unit(u: Unit, record) -> void:
 	if not docs.is_empty():
 		u.status["doctrines"] = docs.duplicate()
 	Weapons.equip_unit(u, Loadout.gun(record))
+	var worn := Grafts.worn_gear(record)
+	if not worn.is_empty():
+		var have: Dictionary = u.status.get("grafts", {})
+		have.merge(worn)
+		u.status["grafts"] = have
 	for a in Loadout.kit_abilities(record):
 		u.abilities.erase(a)
 	for e in Loadout.equipped(record):
