@@ -6,8 +6,8 @@ extends RefCounted
 const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
 
-const IDS := ["verse", "fix", "compel", "hush", "crescendo"]
-const EVENTS := ["chant", "hymn", "unhushed"]
+const IDS := ["verse", "fix", "compel", "quell", "crescendo"]
+const EVENTS := ["ring", "hymn"]
 const HUSH := Color(0.55, 0.62, 0.66)
 
 
@@ -57,7 +57,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				tv.flash(Palette.TEAL)
 			ep._sfx("mutation", -3.0)
 			return {"dur": 0.6}
-		"hush":   # the song folds over one soldier and takes their voice
+		"quell":   # the song folds over one soldier and takes their voice
 			fx.floating_text(head, "HUSH", HUSH, 48)
 			var tv: Node3D = ep._uv(ev, "target")
 			if tv != null:
@@ -79,13 +79,13 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 	return {}
 
 
-## The chant ring pressing Infection into the soldiers inside it; the hymn building; Hush wearing off.
+## The chant ring pressing Infection into the soldiers inside it; the hymn building; .
 static func event_beat(ep: Node, ev: Dictionary) -> Dictionary:
 	var view: Node = ep.view
 	var fx = view.fx
 	var uv: Node3D = ep._uv(ev)
 	match str(ev.get("type", "")):
-		"chant":
+		"ring":
 			if uv == null:
 				return {}
 			ep._focus(uv)
@@ -112,9 +112,4 @@ static func event_beat(ep: Node, ev: Dictionary) -> Dictionary:
 			fx.pulse(uv.position, Palette.TEAL, 0.7 + 0.2 * float(ev.get("charge", 0)))
 			ep._sfx("weave_hum", -4.0)
 			return {"dur": 0.5}
-		"unhushed":
-			if uv == null:
-				return {}
-			fx.floating_text(ep._head(uv), "VOICE BACK", HUSH, 36)
-			return {"dur": 0.3}
 	return {}

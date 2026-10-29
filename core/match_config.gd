@@ -105,6 +105,9 @@ static func for_fight(run: RunState, st: Dictionary) -> Dictionary:
 		"outbreak": run.outbreak, "seed": seed, "players": run.players.size(),
 		"modifiers": run.modifiers.duplicate(true), "boss": run.act_boss(),
 	}
+	if spec.boss == "the_source":
+		spec["aspect"] = RunHooks.call_static("SourceBoss", "aspect_for", [run], "")
+		spec["echo_names"] = RunHooks.call_static("SourceBoss", "echo_names", [run], [])
 	var squad: Array = []
 	for r in run.squad():
 		if r.sit_out <= 0:

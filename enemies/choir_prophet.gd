@@ -16,7 +16,7 @@ extends RefCounted
 ## OWNER: enemies workstream.
 
 ## Boss HP as a share of his 40, by squad size (FightBuilder, instead of SQUAD_BOSS_HEALTH).
-const HEALTH := {1: 0.85, 2: 0.65, 3: 1.1, 4: 1.5}
+const HEALTH := {1: 0.85, 2: 0.9, 3: 1.1, 4: 1.5}
 ## Damage each hit loses while a Cantor sings, and how many Cantors ring him.
 const GUARD := 2
 const CANTORS := {1: 1, 2: 1, 3: 2, 4: 3}
@@ -28,7 +28,6 @@ const RING_INFECTION := {1: 4, 2: 6, 3: 8}
 const VERSE_DAMAGE := 2
 const VERSE_RANGE := 14.0
 const COMPEL_ROUNDS := {1: 1, 2: 1, 3: 2, 4: 2}
-const HUSH_ROUNDS := 2
 const HYMN_MAX := 3
 const CRESCENDO_RADIUS := 10.0
 const CRESCENDO_DAMAGE := 4
@@ -40,7 +39,7 @@ const WAVE_KINDS := {1: [], 2: ["acolyte"], 3: ["acolyte", "acolyte", "cantor"],
 ## Stand-ins until the Choir faction kinds exist (the Infected sing too).
 const FALLBACK := {"cantor": "shrieker", "acolyte": "runner"}
 ## Ability ids that live here (EnemyAbilities.DEFS lists them, the rules below run them).
-const OWNS: Array[String] = ["verse", "fix", "compel", "hush", "crescendo"]
+const OWNS: Array[String] = ["verse", "fix", "compel", "quell", "crescendo"]
 const NAMES := {1: "The Choir Prophet", 2: "Prophet, Answered", 3: "Prophet, Crescendo"}
 
 
@@ -131,7 +130,7 @@ static func guards(s: GameState) -> Array:
 
 
 ## +damage when a Choir unit fights inside the chant ring while he sings.
-static func chant_bonus(s: GameState, source: Unit) -> int:
+static func ring_bonus(s: GameState, source: Unit) -> int:
 	var u := prophet(s)
 	if not singing(s, u) or source.team != Types.Team.ENEMY or EnemyRoster.is_static(source):
 		return 0
@@ -172,7 +171,7 @@ static func on_damaged(s: GameState, u: Unit) -> void:
 			"hp": u.hp, "max_hp": u.max_hp, "text": "The hymn answers!"})
 		return
 	u.status["hymn"] = 0
-	u.cooldowns["hush"] = 1
+	u.cooldowns["quell"] = 1
 	s.emit({"type": "boss_phase", "unit": u.id, "phase": 3, "boss": u.kind,
 		"hp": u.hp, "max_hp": u.max_hp, "text": "The circle closes!"})
 
@@ -190,26 +189,9 @@ static func on_enemy_phase_start(s: GameState) -> void:
 			hit.append(t.id)
 	if hit.is_empty():
 		return
-	s.emit({"type": "chant", "unit": u.id, "units": hit, "amount": amount, "radius": r})
+	s.emit({"type": "ring", "unit": u.id, "units": hit, "amount": amount, "radius": r})
 	for id in hit:
 		Infection.add(s, s.get_unit(id), amount)
-
-
-## Start of every squad phase: Hush wears off.
-static func on_team_phase_start(s: GameState) -> void:
-	for t in s.living(Types.Team.PLAYER):
-		if t.status.has("hushed"):
-			t.status.hushed = int(t.status.hushed) - 1
-			if int(t.status.hushed) <= 0:
-				t.status.erase("hushed")
-				s.emit({"type": "unhushed", "unit": t.id})
-
-
-## Why `u` cannot use `action` ("" if it can): a Hushed soldier's signature is silent.
-static func validate_hushed(u: Unit, action: Dictionary) -> String:
-	if u.status.has("hushed") and action.get("type") == Types.ABILITY and Signatures.is_signature(str(action.get("ability", ""))):
-		return "Hushed: the hymn silences the signature"
-	return ""
 
 
 ## +/- damage for a Compelled soldier's own shots: they fight the song, so their hits are halved.
@@ -240,9 +222,9 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			var t := s.get_unit(int(u.status.get("fixed", -1)))
 			if t == null or not t.is_alive() or not Combat.can_see(s, u.pos, t.pos):
 				return "Lost the target"
-		"hush":
+		"quell":
 			var t := s.get_unit(int(action.get("target", -1)))
-			if t == null or not _can_hush(s, u, t):
+			if t == null or not _can_quell(s, u, t):
 				return "Nobody to silence"
 		"crescendo":
 			if int(u.status.get("hymn", 0)) < HYMN_MAX:
@@ -267,10 +249,11 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			u.status.erase("fixed")
 			s.emit({"type": "ability", "unit": u.id, "ability": "compel", "target": t.id})
 			compel(s, t)
-		"hush":
+		"quell":
 			var t := s.get_unit(action.target)
-			t.status["hushed"] = HUSH_ROUNDS + 1
-			s.emit({"type": "ability", "unit": u.id, "ability": "hush", "target": t.id})
+			t.status["hushed"] = Combat.phase_index(s) + EnemyRoster.HUSH_PHASES
+			s.emit({"type": "ability", "unit": u.id, "ability": "quell", "target": t.id})
+			s.emit({"type": "hushed", "unit": t.id, "by": u.id})
 		"crescendo":
 			var cells := crescendo_cells(s, u)
 			u.status["hymn"] = 0
@@ -297,8 +280,8 @@ static func _can_fix(s: GameState, u: Unit, t: Unit) -> bool:
 		and not t.status.get("hidden", false) and not u.status.has("fixed") and Combat.can_see(s, u.pos, t.pos)
 
 
-static func _can_hush(s: GameState, u: Unit, t: Unit) -> bool:
-	return t.is_alive() and t.team == Types.Team.PLAYER and not t.status.has("hushed") and not t.status.get("lapsed", false) \
+static func _can_quell(s: GameState, u: Unit, t: Unit) -> bool:
+	return t.is_alive() and t.team == Types.Team.PLAYER and not Combat.has_status(s, t, "hushed") and not t.status.get("lapsed", false) \
 		and t.abilities.any(func(a: String) -> bool: return Signatures.is_signature(a)) and Combat.can_see(s, u.pos, t.pos)
 
 
@@ -349,9 +332,9 @@ static func take_turn(s: GameState, u: Unit) -> void:
 
 ## Hush (phase 3) or the fix (phases 2 and 3), whichever is ready.
 static func _special(s: GameState, u: Unit, phase: int, hostiles: Array[Unit]) -> bool:
-	if phase == 3 and int(u.cooldowns.get("hush", 0)) <= 0:
-		var h := hush_target(s, u, hostiles)
-		if h != null and EnemyBehaviours._try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "hush", "target": h.id}):
+	if phase == 3 and int(u.cooldowns.get("quell", 0)) <= 0:
+		var h := quell_target(s, u, hostiles)
+		if h != null and EnemyBehaviours._try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "quell", "target": h.id}):
 			return true
 	if phase >= 2 and not u.status.has("fixed") and int(u.cooldowns.get("fix", 0)) <= 0:
 		var t := fix_target(s, u, hostiles)
@@ -390,10 +373,10 @@ static func fix_target(s: GameState, u: Unit, hostiles: Array[Unit]) -> Unit:
 
 
 ## A soldier with a signature ready to use (the one that would hurt most to lose).
-static func hush_target(s: GameState, u: Unit, hostiles: Array[Unit]) -> Unit:
+static func quell_target(s: GameState, u: Unit, hostiles: Array[Unit]) -> Unit:
 	var best: Unit = null
 	for t in hostiles:
-		if _can_hush(s, u, t) and (best == null or t.infection > best.infection):
+		if _can_quell(s, u, t) and (best == null or t.infection > best.infection):
 			best = t
 	return best
 

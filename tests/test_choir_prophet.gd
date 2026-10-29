@@ -123,9 +123,11 @@ func test_the_chant_ring_presses_infection_into_soldiers_inside_and_empowers_the
 	Encounter.on_enemy_phase_start(s)
 	assert_eq(inside.infection, ChoirProphet.RING_INFECTION[1], "inside the ring")
 	assert_eq(outside.infection, 0, "outside it")
-	assert_eq(_events(s, "chant").size(), 1, "the ring pulses")
-	assert_eq(_events(s, "chant")[0].units, [inside.id], "on the soldier inside")
+	assert_eq(_events(s, "ring").size(), 1, "the ring pulses")
+	assert_eq(_events(s, "ring")[0].units, [inside.id], "on the soldier inside")
 	var cantor: Unit = _cantors(s)[0]
+	for other in _cantors(s).slice(1):
+		other.pos = Vector2i(19, 19)   # a Cantor's own chant lifts the others, so keep them out of it
 	assert_eq(Encounter.modify_damage(s, inside, 3, cantor), 3 + ChoirProphet.RING_DAMAGE[1], "the Choir hits harder inside it")
 	cantor.pos = Vector2i(10, 15)
 	assert_eq(Encounter.modify_damage(s, inside, 3, cantor), 3, "and no harder outside it")
@@ -262,16 +264,14 @@ func test_hush_silences_a_signature_until_it_wears_off() -> void:
 	var t := s.living(Types.Team.PLAYER)[0]
 	t.abilities.append("lockdown")
 	_enemy_turn(s, h)
-	assert_true(t.status.has("hushed"), "his Hush lands on the soldier with a signature")
-	var err := Encounter.validate(s, t, {"type": Types.ABILITY, "unit": t.id, "ability": "lockdown"})
-	assert_true(err.begins_with("Hushed"), "the signature is silent: %s" % err)
+	t.actions_left = Types.ACTIONS_PER_TURN
+	assert_true(Combat.has_status(s, t, "hushed"), "his Hush lands on the soldier with a signature")
+	assert_eq(_events(s, "hushed").size(), 1, "the Choir's own hushed event")
+	var err := Combat.validate(s, t, {"type": Types.ABILITY, "unit": t.id, "ability": "lockdown"})
+	assert_eq(err, "Hushed", "the signature is silent")
 	assert_eq(Encounter.validate(s, t, {"type": Types.OVERWATCH, "unit": t.id}), "", "everything else still works")
-	for i in ChoirProphet.HUSH_ROUNDS:
-		ChoirProphet.on_team_phase_start(s)
-		assert_true(t.status.has("hushed"), "round %d" % (i + 1))
-	ChoirProphet.on_team_phase_start(s)
-	assert_true(not t.status.has("hushed"), "wears off after two rounds")
-	assert_eq(_events(s, "unhushed").size(), 1)
+	s.turn += EnemyRoster.HUSH_PHASES / 2
+	assert_true(not Combat.has_status(s, t, "hushed"), "wears off after two rounds")
 
 
 func test_nobody_with_a_signature_means_no_hush() -> void:
@@ -281,7 +281,7 @@ func test_nobody_with_a_signature_means_no_hush() -> void:
 	for u in s.living(Types.Team.PLAYER):
 		u.abilities.assign(u.abilities.filter(func(a): return not Signatures.is_signature(a)))
 	_enemy_turn(s, h)
-	assert_true(s.living(Types.Team.PLAYER).all(func(u): return not u.status.has("hushed")))
+	assert_true(s.living(Types.Team.PLAYER).all(func(u): return not Combat.has_status(s, u, "hushed")))
 
 
 func test_the_hymn_builds_to_a_crescendo_that_cannot_see_behind_walls() -> void:
@@ -326,13 +326,13 @@ func test_every_ability_has_a_definition_and_a_phase() -> void:
 	assert_eq(names, ["verse"], "phase 1 shows only the verse")
 	_to_phase(s, h, 3)
 	names = EnemyAbilities.describe(s, h).map(func(d): return d.id)
-	assert_true(names.has("hush") and names.has("crescendo") and names.has("fix"), "phase 3 adds Hush and the Crescendo")
+	assert_true(names.has("quell") and names.has("crescendo") and names.has("fix"), "phase 3 adds Hush and the Crescendo")
 
 
 func test_the_act_pool_rolls_him_and_the_arena_is_his() -> void:
 	assert_true(EnemyRoster.BOSS_POOL[2].has("choir_prophet"), "in the Act 2 pool")
 	assert_true(StoryData.BOSS_SCENES.has("choir_prophet") and StoryData.ACT_SCENES_BY_BOSS.has("choir_prophet"), "his scenes")
-	assert_true(StoryData.SILENT_BARKS.has("choir_prophet_2") and StoryData.SILENT_BARKS.has("choir_prophet_3"), "his phase barks")
+	assert_true(StoryData.SQUAD_BARKS.has("choir_prophet_2") and StoryData.SQUAD_BARKS.has("choir_prophet_3"), "his phase barks")
 	for seed in [1, 2, 3, 4, 5, 6]:
 		var g := MapGen.generate({"biome": "port", "objective": "boss", "seed": seed, "boss": "choir_prophet"})
 		assert_eq(MapGen.last_plot, "arena")

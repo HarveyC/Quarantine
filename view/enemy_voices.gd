@@ -8,7 +8,9 @@ const VOICES := 6
 const ALIAS := {"hive_node": "", "egg_sac": "", "spore_nest": "", "source_root": "",
 	"cutter": "fallen", "torchman": "fallen", "fence": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
-	"hound": "", "loader": "", "relay": "", "choir_prophet": "shrieker"}   # machines have no voice   # the looters are people
+	"netter": "fallen", "handler": "fallen", "sterilizer": "fallen", "collector": "fallen",
+	"acolyte": "runner", "cantor": "shrieker", "hush": "shrieker",
+	"choir_prophet": "shrieker", "hound": "", "loader": "", "relay": "", "breaker": "", "coolant_valve": "", "bore_engine": ""}   # machines have no voice   # the looters are people
 ## Barks per beat type, with a volume (dB) and a chance.
 const CUES := {
 	"alerted": [0.0, 1.0], "spawned": [-3.0, 0.7], "revealed": [0.0, 1.0], "telegraph": [-2.0, 1.0],

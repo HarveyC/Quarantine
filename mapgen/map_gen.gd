@@ -41,9 +41,6 @@ const LANE_PLOT_PREFIX := "lanes_"
 const LANE_PLOT_SHARE := 0.65
 const DROP_SIGHT_CAP := 0.35              # share of walkable ground the drop zone can see on turn one
 const DROP_SIGHT_SLABS := 10              # blast walls the sight pass may add to get under the cap
-## The arena each boss fights on, by the arena's name in the biome file. A biome with several draws
-## the one its boss names (the first when the spec names no boss).
-const BOSS_ARENAS := {"brood_mother": "nest_pit", "colonel_hale": "command_post", "choir_prophet": "chorale", "the_source": "shaft_rim"}
 const BOSS_DEAD_GROUND := 3               # boss arenas keep the tighter fix-ups they were tuned on
 const BOSS_MAX_SIGHTLINE := 12
 const REINFORCE_MIN_STEPS := 6
@@ -81,11 +78,11 @@ static func generate(spec: Dictionary) -> Grid:
 	var biome := _biome_name(str(spec.get("biome", "wall")))
 	var objective := str(spec.get("objective", "skirmish"))
 	var data := _load_biome(biome)
-	if objective == "boss" and not data.arenas.is_empty():
+	var arenas := _arenas_for(data, str(spec.get("boss", "")))
+	if objective == "boss" and not arenas.is_empty():
 		var arng := RandomNumberGenerator.new()
 		arng.seed = ("%d:%s:arena" % [int(spec.get("seed", 0)), biome]).hash()
-		arng.randi()   # keeps the mirror roll below where it always fell
-		var arena := _build_arena(_arena_for(data.arenas, str(spec.get("boss", ""))), arng)
+		var arena := _build_arena(arenas[arng.randi() % arenas.size()], arng)
 		if arena != null:
 			arena.biome = biome
 			arena.objective = objective
@@ -129,11 +126,12 @@ static func generate(spec: Dictionary) -> Grid:
 	return fb
 
 
-static func _arena_for(arenas: Array, boss: String) -> Dictionary:
-	for a in arenas:
-		if a.name == BOSS_ARENAS.get(boss, ""):
-			return a
-	return arenas[0]
+## The arenas a boss fights in: those tagged `boss=<kind>` for that boss, else the untagged ones.
+static func _arenas_for(data: Dictionary, boss: String) -> Array:
+	var own: Array = data.arenas.filter(func(a: Dictionary) -> bool: return boss != "" and a.get("boss", "") == boss)
+	if not own.is_empty():
+		return own
+	return data.arenas.filter(func(a: Dictionary) -> bool: return a.get("boss", "") == "")
 
 
 ## A boss arena drawn whole in the biome file (20x20, plain glyphs; P deploy, E pod cells, B boss
@@ -211,6 +209,9 @@ static func parse(text: String) -> Dictionary:
 			var parts := line.substr(1).split(" ", false)
 			if parts[0] == "arena":
 				current = {"name": parts[1], "rows": PackedStringArray()}
+				for p in parts:   # "@arena <name> boss=<kind>" is that boss's own arena
+					if p.begins_with("boss="):
+						current["boss"] = p.trim_prefix("boss=")
 				arenas.append(current)
 			elif parts[0] == "plot":
 				var lanes := 0

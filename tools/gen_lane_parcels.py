@@ -184,8 +184,9 @@ def streets():
 class A:
     """A 20x20 arena. P deploy, E enemy pod cells, B boss anchor (b: on an upper roof) (see maps/biome_wall.txt for glyphs)."""
 
-    def __init__(self, name):
+    def __init__(self, name, boss=""):
         self.name = name
+        self.boss = boss   # a tagged arena is only that boss's ground (MapGen._arenas_for)
         self.g = [["."] * 20 for _ in range(20)]
 
     def put(self, x, y, ch):
@@ -219,7 +220,8 @@ class A:
         return self
 
     def render(self):
-        return "\n".join([f"@arena {self.name}"] + ["".join(r) for r in self.g])
+        head = f"@arena {self.name}" + (f" boss={self.boss}" if self.boss else "")
+        return "\n".join([head] + ["".join(r) for r in self.g])
 
 
 def brood_arena():
@@ -280,7 +282,7 @@ def source_arena():
 
 def chorale_arena():
     """The Choir Prophet's amphitheatre: a dais ringed by pillars, galleries either side, a lane of cover to the deploy."""
-    a = A("chorale")
+    a = A("chorale", "choir_prophet")
     a.rect(8, 4, 12, 8, ".")
     a.put(10, 6, "B")
     for x, y in [(8, 3), (12, 3), (7, 9), (13, 9)]:     # the Cantors' kneeling stones, half cover
@@ -299,9 +301,46 @@ def chorale_arena():
     return a
 
 
+def breaker_arena():
+    """The wall engineers' yard behind the breach: long lanes of cover for the rig to flatten, a gantry
+    on each flank to climb, and fuel barrels to turn on it."""
+    a = A("demolition_yard", "breaker")
+    a.put(10, 3, "B")
+    for x0, x1, y in [(2, 4, 6), (7, 8, 6), (11, 12, 6), (15, 17, 6), (3, 4, 10), (8, 9, 10), (12, 13, 10), (15, 16, 10), (5, 6, 13), (10, 11, 13), (14, 15, 13)]:
+        a.rect(x0, y, x1, y, "=")                       # cover rows the charge ploughs through
+    for x, y in [(6, 8), (13, 8), (9, 12), (10, 4), (3, 12), (16, 12)]:
+        a.put(x, y, "!")                                 # fuel barrels
+    for x0, sx in [(0, 4), (16, 15)]:                    # a gantry on each flank, one stair each
+        a.rect(x0, 8, x0 + 3, 11, "^").put(x0 + 1, 9, "%")
+    a.put(4, 9, "s").put(15, 9, "s")
+    a.rect(0, 0, 1, 1, "H").rect(18, 0, 19, 1, "H")      # reinforced corner piers
+    a.deploy()
+    a.pods([(3, 2), (16, 2), (2, 14), (17, 14), (6, 1), (13, 1), (1, 6), (18, 6)])
+    return a
+
+
+def engine_arena():
+    a = A("drill_deck", "bore_engine")
+    a.put(10, 9, "B")                                   # the drill head over the shaft
+    for cx, cy, stairs in [(10, 3, [(10, 6)]), (4, 12, [(4, 9), (7, 12)]), (16, 12, [(16, 9), (13, 12)])]:
+        a.rect(cx - 2, cy - 2, cx + 2, cy + 2, "^")     # a coolant platform, one valve each; it falls when the valve is cut
+        a.rect(cx - 1, cy - 1, cx + 1, cy + 1, "^")
+        a.put(cx - 2, cy + 2, "%").put(cx + 2, cy + 2, "%").put(cx - 2, cy - 2, "%").put(cx + 2, cy - 2, "%")
+        for sx, sy in stairs:
+            a.put(sx, sy, "s")
+    for x0, y0, x1, y1 in [(7, 7, 8, 8), (12, 7, 13, 8), (7, 10, 8, 11), (12, 10, 13, 11)]:
+        a.rect(x0, y0, x1, y1, "#")                      # piston housings around the shaft
+    for x, y in [(9, 14), (11, 14), (2, 16), (17, 16), (1, 6), (18, 6), (6, 5), (14, 5), (9, 12), (11, 12)]:
+        a.put(x, y, "=")
+    a.put(1, 9, "!").put(18, 9, "!")
+    a.deploy()
+    a.pods([(1, 1), (2, 1), (17, 1), (18, 1), (1, 13), (1, 14), (19, 13), (19, 14)])
+    return a
+
+
 ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
-## Further arenas a biome draws (a boss picks its own by name, see MapGen.BOSS_ARENAS).
-EXTRA_ARENAS = {"port": [chorale_arena]}
+## Further arenas a boss fights in (tagged with their boss), after the biome's default one.
+EXTRA_ARENAS = {"wall": [breaker_arena], "port": [chorale_arena], "bore": [engine_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)
@@ -393,7 +432,9 @@ def build(biome):
         parts.append(p.render())
         parts.append("")
     parts.append(PLOTS.strip("\n"))
-    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.", ARENAS[biome]().render()] + [f().render() for f in EXTRA_ARENAS.get(biome, [])]
+    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.", ARENAS[biome]().render()]
+    for extra in EXTRA_ARENAS.get(biome, []):
+        parts += ["", extra().render()]
     return "\n".join(parts) + "\n"
 
 

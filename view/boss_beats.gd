@@ -7,7 +7,7 @@ const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
 const ChoirBeats := preload("res://view/choir_beats.gd")
 
-const IDS := ["airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull", "rockfall"]
+const IDS := ["airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull", "rockfall", "debris", "charge", "piston", "bite"]
 const SMOKE := Color(0.62, 0.64, 0.62)
 const DUST := Color(0.5, 0.42, 0.32)
 
@@ -71,6 +71,23 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			view.camera_rig.shake(0.7)
 			ep._sfx("collapse", -4.0)
 			return {"dur": 0.9}
+		"debris":   # the rig tears rubble down on the marked tiles
+			fx.floating_text(head, "RUBBLE!", Palette.DANGER, 52)
+			for c in cells:
+				var at := Board.cell_to_world(c)
+				fx.spark_arc(uv.position + Vector3(0, 2.4, 0), at + Vector3(0, 0.3, 0), Color("6a6d70"), 0.6)
+				fx.pulse(at, Palette.DANGER, 0.8)
+			fx.crumble(uv.position, 1.0, Color("4a4d50"))
+			view.camera_rig.shake(0.6)
+			ep._sfx("collapse", -4.0)
+			return {"dur": 0.8}
+		"charge":   # a run that hit nobody: the cover it flattened and the shake say it
+			fx.floating_text(head, "CHARGE", Palette.DANGER, 48)
+			for c in ev.get("path", []):
+				fx.burst(Board.cell_to_world(c, 0.1), Vector3.UP, DUST, 4, 3.0, false, 0.07)
+			view.camera_rig.shake(0.5)
+			ep._sfx("collapse", -6.0)
+			return {"dur": 0.4}
 		"danger_close":
 			fx.floating_text(head, "DANGER CLOSE", Palette.DANGER, 56)
 			for c in cells:
@@ -94,6 +111,24 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			view.camera_rig.shake(0.8)
 			ep._sfx("mutation", -6.0)
 			return {"dur": 0.7}
+		"piston":   # the rams hammer out along the marked row or column
+			fx.floating_text(head, "PISTONS", Palette.DANGER, 44)
+			for c in cells:
+				fx.pulse(Board.cell_to_world(c), Palette.DANGER, 0.7)
+			if not cells.is_empty():
+				fx.tracer(uv.position + Vector3(0, 0.6, 0), Board.cell_to_world(cells[0], 0.3), Palette.AMBER, 0.5)
+				fx.tracer(uv.position + Vector3(0, 0.6, 0), Board.cell_to_world(cells[cells.size() - 1], 0.3), Palette.AMBER, 0.5)
+			view.camera_rig.shake(0.6)
+			ep._sfx("concrete", -2.0)
+			return {"dur": 0.6}
+		"bite":    # the jaws of the collar clamp shut round the shaft
+			fx.floating_text(head, "THE ENGINE BITES", Palette.DANGER, 52)
+			for c in cells:
+				fx.pulse(Board.cell_to_world(c), Palette.DANGER, 0.9)
+			fx.crumble(uv.position, 1.2, Color("4a4d50"))
+			view.camera_rig.shake(1.0)
+			ep._sfx("collapse", -4.0)
+			return {"dur": 0.8}
 		"pull":
 			fx.floating_text(head, "PULL", Palette.TEAL, 48)
 			var tv: Node3D = ep._uv(ev, "target")

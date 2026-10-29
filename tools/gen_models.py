@@ -479,9 +479,55 @@ def build_the_source():
     return m
 
 
+def build_bore_engine():
+    m = Model("bore_engine")
+    rnd = random.Random(41)
+    m.joint("body", (0, 0, 1.6))
+    m.add("body", cyl(2.0, 1.7, 0.7, (0, 0, 0.35), segs=20, bevel=0.05), "plate")          # the collar bolted to the rim
+    m.add("body", cyl(1.55, 1.35, 1.0, (0, 0, 1.1), segs=18, bevel=0.04), "metal")         # engine block
+    for i in range(6):                                                                      # cooling jacket ribs
+        z = 0.75 + i * 0.16
+        m.add("body", cyl(1.62, 1.62, 0.06, (0, 0, z), segs=18), "amber")
+    m.add("body", cyl(0.95, 0.0, 2.1, (0, 0, 2.9), segs=14), "metal")                      # the drill head
+    for i in range(3):                                                                      # cutting flights
+        a = i * 2.0944
+        for k in range(5):
+            z = 1.9 + k * 0.38
+            r = 0.92 - k * 0.17
+            m.add("body", box((0.5, 0.12, 0.1), (math.cos(a + k * 0.5) * r, math.sin(a + k * 0.5) * r, z), rot=(0, 0, a + k * 0.5)), "plate")
+    m.add("body", sphere(0.55, (0, 0, 1.5), (1.0, 1.0, 0.8)), "glow")                      # the core behind the armour
+    for i in range(4):                                                                      # piston arms
+        a = i * 1.5708 + 0.785
+        dx, dy = math.cos(a), math.sin(a)
+        m.add("body", tube((dx * 1.4, dy * 1.4, 1.2), (dx * 2.7, dy * 2.7, 0.45), 0.2, 0.14), "metal")
+        m.add("body", tube((dx * 2.1, dy * 2.1, 0.9), (dx * 3.0, dy * 3.0, 0.45), 0.3, 0.3), "plate")
+        m.add("body", box((0.6, 0.6, 0.5), (dx * 3.0, dy * 3.0, 0.3), rot=(0, 0, a)), "amber")
+    for i in range(3):                                                                      # coolant lines into the three valves
+        a = i * 2.0944 + 1.5708
+        m.add("body", tube((math.cos(a) * 1.5, math.sin(a) * 1.5, 1.9), (math.cos(a) * 2.2, math.sin(a) * 2.2, 0.8), 0.13), "red")
+    glow_cluster(m, "body", (0, 0, 1.2), 8, 0.5, rnd, spread=1.4, r=0.1)
+    m.joint("muzzle", (0, -1.2, 1.6), "body")
+    return m
+
+
+def build_coolant_valve():
+    m = Model("coolant_valve")
+    m.joint("body", (0, 0, 0.5))
+    m.add("body", cyl(0.5, 0.45, 0.35, (0, 0, 0.17), segs=14, bevel=0.03), "plate")
+    m.add("body", cyl(0.2, 0.2, 0.9, (0, 0, 0.7), segs=10), "red")                          # the standpipe
+    m.add("body", tube((-0.55, 0, 0.55), (0.55, 0, 0.55), 0.14), "metal")                  # the cross line
+    m.add("body", cyl(0.5, 0.5, 0.06, (0, 0, 1.2), segs=16), "amber")                       # handwheel
+    for i in range(4):
+        a = i * 0.785
+        m.add("body", box((1.0, 0.07, 0.06), (0, 0, 1.2), rot=(0, 0, a)), "amber")
+    m.add("body", sphere(0.14, (0, 0, 1.28)), "glow")                                       # the gauge lamp
+    return m
+
+
 MODELS = {
     "drifter": build_drifter, "hive_node": build_hive_node, "egg_sac": build_egg_sac,
     "spore_nest": build_spore_nest, "source_root": build_source_root, "the_source": build_the_source,
+    "bore_engine": build_bore_engine, "coolant_valve": build_coolant_valve,
 }
 
 
