@@ -7,7 +7,8 @@ const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
 const ChoirBeats := preload("res://view/choir_beats.gd")
 
-const IDS := ["airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull", "rockfall", "debris", "charge", "piston", "bite"]
+const IDS := ["airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull", "rockfall", "debris", "charge", "piston", "bite",
+	"sight", "flag", "retrieve"]
 const SMOKE := Color(0.62, 0.64, 0.62)
 const DUST := Color(0.5, 0.42, 0.32)
 
@@ -137,4 +138,30 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				fx.pulse(tv.position, Palette.TEAL)
 			ep._sfx("infect", -4.0)
 			return {"dur": 0.6}
+		"sight":   # the laser sight settles on a soldier: the lock a turn before the shot
+			fx.floating_text(head, "LOCKED", Palette.DANGER, 44)
+			var sv: Node3D = ep._uv(ev, "target")
+			if sv != null:
+				fx.tracer(uv.position + Vector3(0, 1.6, 0), sv.aim_point(), Palette.DANGER, 0.7)
+				fx.pulse(sv.position, Palette.DANGER, 0.9)
+			ep._sfx("alert", -6.0)
+			return {"dur": 0.6}
+		"flag":   # the Director tags a soldier for retrieval
+			fx.floating_text(head, "RETRIEVAL ORDER", Palette.AMBER, 48)
+			var fv: Node3D = ep._uv(ev, "target")
+			if fv != null:
+				fx.tracer(uv.position + Vector3(0, 1.6, 0), fv.aim_point(), Palette.AMBER, 0.7)
+				fx.pulse(fv.position, Palette.AMBER, 1.0)
+				fx.floating_text(ep._head(fv), "MARKED", Palette.AMBER, 44)
+			ep._sfx("alert", -4.0)
+			return {"dur": 0.8}
+		"retrieve":   # the cage is called down on the ground a turn before it lands
+			fx.floating_text(head, "RETRIEVAL CAGE", Palette.AMBER, 48)
+			for c in cells:
+				fx.pulse(Board.cell_to_world(c), Palette.AMBER, 0.9)
+			if ev.get("cell") is Vector2i:
+				var at := Board.cell_to_world(ev.cell)
+				fx.tracer(at + Vector3(0, 9.0, 0), at + Vector3(0, 0.2, 0), Palette.AMBER, 0.6)
+			ep._sfx("alert", -4.0)
+			return {"dur": 0.7}
 	return {}

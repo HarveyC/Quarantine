@@ -480,6 +480,17 @@ func _set_boss() -> void:
 			_omni(Vector3(0, 0.3, -1.0), TEAL, 6.0, 7.0, true)
 			_spores(Vector3(0, 2, -1), Vector3(5, 3, 4), TEAL, 90)
 			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), TEAL, 6.0, 16.0, 22.0)
+		"director":   # three posts on the roofs behind her, red laser lines laid across the shot
+			col = Color("e8f0ff")
+			for x in [-6.5, 6.5]:
+				_box(Vector3(3.0, 3.0, 2.2), Vector3(x, 1.5, -4.5), CONCRETE, 0.0)
+				var post := _unit("sharpshooter", -1, 0, Vector3(x, 3.0, -4.5), Vector3(0, 0, 10))
+				_white(post)
+				var beam := _box(Vector3(0.03, 0.03, 12.0), Vector3(x * 0.35, 2.6, 1.0), Color("ff3a2a"), 0.0, 4.0)
+				beam.rotation.y = -0.35 * signf(x)
+			_box(Vector3(4.0, 4.4, 2.6), Vector3(0, 2.2, -5.5), CONCRETE, 0.0)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
+			_omni(Vector3(-3, 1, -3), Color("ff4a33"), 1.5, 8.0, true)
 		"bore_engine":
 			col = Color("ffc470")
 			for i in 3:

@@ -85,6 +85,8 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 			ColonelHale.setup(s, h, squad)
 		"choir_prophet":
 			ChoirProphet.setup(s, _place(s, "choir_prophet", _marker(s, "boss", _far_spawn(s))), squad)
+		"director":
+			DirectorBoss.setup(s, _place(s, "director", _marker(s, "boss", _far_spawn(s))), squad)
 		"the_source":
 			var centre := Vector2i(s.grid.width / 2, s.grid.height / 2)
 			var src := _place(s, "the_source", _marker(s, "boss", centre))
@@ -418,6 +420,8 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			if int(t.get("infect", 0)) > 0 and u.is_alive() and u.team == Types.Team.PLAYER:
 				Infection.add(s, u, int(t.infect))
 		Recovery.after_strike(s, t, victims)
+		if t.get("capture", false) and s.phase != Types.Phase.ENDED:
+			Retrieval.after_cage(s, victims)
 		if int(t.get("spores", 0)) > 0 and s.phase != Types.Phase.ENDED:
 			add_spores(s, t.cells, int(t.spores), src)
 		if int(t.get("fire", 0)) > 0 and s.phase != Types.Phase.ENDED:
@@ -591,6 +595,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		s.emit({"type": "plated", "unit": target.id, "source": source.id})
 	if source != null and target.team == Types.Team.PLAYER and source.team == Types.Team.ENEMY:
 		amount += _rally_bonus(s, source) + _stalk_bonus(s, source, target) + Choir.chant_bonus(s, source)
+		if Retrieval.is_marked(target):
+			amount += Retrieval.MARK_DAMAGE
 	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:
 		amount = maxi(1, roundi(amount * float(BOSS_DAMAGE[clampi(int(s.encounter.get("squad", 4)), 1, 4)])))
 	if source != null and target.team == Types.Team.PLAYER:
@@ -606,6 +612,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		return ColonelHale.clamp_damage(target, amount)
 	if target.kind == "choir_prophet":
 		return ChoirProphet.clamp_damage(s, target, amount)
+	if target.kind == "director":
+		return DirectorBoss.clamp_damage(target, amount)
 	if target.kind == "the_source":
 		return SourceBoss.clamp_damage(target, amount)
 	if target.kind == "bore_engine":
@@ -665,6 +673,8 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 			ColonelHale.on_damaged(s, target)
 		"choir_prophet":
 			ChoirProphet.on_damaged(s, target)
+		"director":
+			DirectorBoss.on_damaged(s, target)
 		"the_source":
 			SourceBoss.on_damaged(s, target)
 
@@ -698,7 +708,7 @@ static func on_died(s: GameState, u: Unit) -> void:
 		return
 	if u.kind == "coolant_valve":
 		BoreEngine.on_valve_cut(s, u)
-	if u.kind in ["hive_node", "source_root", "egg_sac", "coolant_valve"] and not _any_alive(s, u.kind):
+	if u.kind in ["hive_node", "source_root", "egg_sac", "coolant_valve", "sharpshooter"] and not _any_alive(s, u.kind):
 		for o in s.living(Types.Team.ENEMY):
 			if o.status.get("tether", "") == u.kind:
 				o.status.erase("tether")

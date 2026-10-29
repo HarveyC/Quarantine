@@ -16,7 +16,7 @@ const LINE_BASE := 2.6
 const LINE_PER_CHAR := 0.045
 const BAR_H := 0.15   # letterbox height, share of the screen; captions sit in the bottom bar
 const SPEAKERS := {"OKAFOR": "Major Okafor · Cordon Command", "SOURCE": "The Source",
-	"HALE": "Colonel Hale", "HALDEN-VOSS": "Halden-Voss Recovery", "PROPHET": "The Choir Prophet"}
+	"HALE": "Colonel Hale", "HALDEN-VOSS": "Halden-Voss Recovery", "DIRECTOR": "The Director · Halden-Voss", "PROPHET": "The Choir Prophet"}
 
 var spec := {}
 var _stage: Node3D

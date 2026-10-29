@@ -29,7 +29,7 @@ const SQUAD_BOSS_HEALTH := {1: 0.35, 2: 0.4, 3: 0.6, 4: 1.0}
 const PURGE_NESTS := {1: 2, 2: 2, 3: 2, 4: 3}
 const PURGE_BUDGET_CUT := 2
 ## Boss HP as a share of its base, by squad size. Each boss module owns its table.
-const BOSS_HEALTH := {"brood_mother": BroodMother.HEALTH, "breaker": Breaker.HEALTH, "colonel_hale": ColonelHale.HEALTH, "choir_prophet": ChoirProphet.HEALTH, "the_source": SourceBoss.HEALTH, "bore_engine": BoreEngine.HEALTH}
+const BOSS_HEALTH := {"brood_mother": BroodMother.HEALTH, "breaker": Breaker.HEALTH, "colonel_hale": ColonelHale.HEALTH, "director": DirectorBoss.HEALTH, "choir_prophet": ChoirProphet.HEALTH, "the_source": SourceBoss.HEALTH, "bore_engine": BoreEngine.HEALTH}
 const HALE_ADDS := {1: [], 2: ["shieldman"], 3: ["shieldman", "overwatcher", "fallen"], 4: ["shieldman", "overwatcher", "emplacement", "sharpshooter"]}
 ## A lone soldier can't break a Lurker's pin (a teammate has to hit it), so it never meets one.
 const SOLO_BANNED: Array[String] = ["lurker"]
