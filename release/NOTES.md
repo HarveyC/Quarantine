@@ -1,5 +1,12 @@
 ## What to test in this build
 
+**A shot ends your turn again.** Move first, then shoot, like XCOM. Three new items give extra shots:
+- **Double tap:** once a turn your shot fires twice at the target.
+- **Kill chain:** a kill gives its action back, so your turn goes on.
+- **Steady hands:** if you have not moved, your first shot does not end your turn.
+
+**Tutorial and maps.** A guided tutorial for new players, plus more map variety: biome landmarks, water pools, fog and blackout lighting, ziplines and cellar tunnels.
+
 **Colony Security.** Act 2 and 3 fights can include Harrow's own guards, who are not Infected.
 - **Shieldman:** plated and shielded; a shield blocks the hit entirely. Its slam knocks you around.
 - **Overwatcher:** a sharp shot that is not slowed by your reactions.
