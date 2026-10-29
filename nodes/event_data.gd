@@ -381,21 +381,21 @@ const EVENTS := {
 		},
 	},
 	"last_seat": {
-		"title": "Last seat",
+		"title": "Last place through",
 		"acts": [1, 2, 3],
 		"requires": {"wounded_soldier": true},
 		"subject": "most_wounded",
-		"text": "A Cordon dropship on a rooftop pad, rotors already turning. The loadmaster holds up one finger. One seat left, and {subject} can barely stand.",
+		"text": "A Cordon checkpoint, the gate cranked open a hand's width. The sergeant holds up one finger. The winch is failing, and there is room for one more person to go through. {subject} can barely stand.",
 		"start": "offer",
 		"steps": {
 			"offer": {
 				"kind": "owner",
 				"prompt": "Does {subject} take the seat?",
 				"options": [
-					{"id": "offer", "label": "Put {subject} on the flight", "desc": "The squad votes on it next", "next": "vote"},
-					{"id": "stay", "label": "{subject} stays", "desc": "A civilian gets the seat. Outbreak -1", "default": true,
+					{"id": "offer", "label": "Send {subject} through the gate", "desc": "The squad votes on it next", "next": "vote"},
+					{"id": "stay", "label": "{subject} stays", "desc": "A civilian takes the place. Outbreak -1", "default": true,
 						"effects": [{"op": "outbreak", "amount": -1}],
-						"outcome": "{subject} waves the loadmaster off. A kid with a grain-co badge climbs aboard instead."},
+						"outcome": "{subject} waves the sergeant off. A kid with a grain-co badge squeezes through instead."},
 				],
 			},
 			"vote": {
@@ -404,10 +404,10 @@ const EVENTS := {
 				"options": [
 					{"id": "send", "label": "Send them home", "desc": "{subject} leaves the run. Their owner gets a fresh recruit with a perk pick",
 						"effects": [{"op": "send_home", "who": "subject"}],
-						"outcome": "{subject} is strapped in before they can argue. The dropship lifts, and the squad is one shorter."},
+						"outcome": "{subject} is pushed through before they can argue. The winch shrieks, the gate grinds shut, and the squad is one shorter."},
 					{"id": "civilian", "label": "Give it to a civilian", "desc": "Outbreak -1", "default": true,
 						"effects": [{"op": "outbreak", "amount": -1}],
-						"outcome": "A kid with a grain-co badge climbs aboard. {subject} watches the lights go."},
+						"outcome": "A kid with a grain-co badge squeezes through. {subject} watches the gate grind shut."},
 				],
 			},
 		},
