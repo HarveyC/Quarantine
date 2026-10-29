@@ -111,6 +111,10 @@ static func card(run: RunState, n: Dictionary) -> Dictionary:
 			c.tag = "Hidden"
 			c.body = "Most likely an event. Could be an ambush, a depot or survivors."
 			c.rows.append(["Intel", "Spend 1 to reveal it (you have %d)" % run.intel, Styles.TEXT])
+	if type in [RunMap.SKIRMISH, RunMap.AMBUSH, RunMap.NEST]:
+		var cond := Conditions.for_fight(int(n.seed), run.act, str(n.objective), type)
+		if cond != "":
+			c.rows.append(["Condition", "%s. %s" % [Conditions.display_name(cond), Conditions.KINDS[cond].line], Styles.TEXT])
 	c.rows.append(["Outbreak", arrival(run, n), Styles.TEAL])
 	var back := push_back(run, n)
 	if back != "":

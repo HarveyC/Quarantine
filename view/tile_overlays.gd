@@ -31,6 +31,7 @@ const KINDS := {
 	"fire": {"term": "hazard_fire", "name": "Fire", "color": FIRE, "pattern": "hatch"},
 	"spore": {"term": "hazard_spore", "name": "Spores", "color": Palette.TEAL, "pattern": "dots"},
 	"acid": {"term": "hazard_acid", "name": "Acid", "color": ACID, "pattern": "puddle"},
+	"live": {"term": "hazard_live", "name": "Live rail", "color": Color("7fd0ff"), "pattern": "cross"},
 	"smoke": {"term": "smoke", "name": "Smoke", "color": SMOKE, "pattern": "haze"},
 	"evac": {"term": "zone_evac", "name": "Gate", "color": EVAC, "pattern": "zone", "label": "GATE"},
 	"beacon": {"term": "zone_beacon", "name": "Beacon", "color": Palette.AMBER, "pattern": "zone", "label": "BEACON"},

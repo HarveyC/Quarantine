@@ -553,6 +553,13 @@ static func _build() -> Dictionary:
 		"more": ["The Infected walk through them unharmed, unless a soldier laid them: those cut for 2.", "Fire burns them away."],
 		"see": ["infection", "hazards", "hazard_fire"],
 		"aliases": ["Spore", "Spore cloud", "Spore tiles"]}
+	t["hazard_live"] = {"name": "Live rail", "kind": "hazard", "icon": "danger", "tone": Color("7fd0ff"),
+		"line": "A rail with current in it, crosshatched in pale blue. Hurts anyone who crosses it or ends a turn on it.",
+		"art": "tile", "art_ctx": {"overlay": "live"},
+		"stats": [["%d" % Hazards.KINDS.live.damage, "damage"], ["all", "teams"]],
+		"more": ["It never goes out.", "Appears with the Live rails condition."],
+		"see": ["hazards"],
+		"aliases": ["Live rails", "Electrified rail"]}
 	t["hazard_acid"] = {"name": "Acid", "kind": "hazard", "icon": "danger", "tone": TileOverlays.ACID,
 		"line": "Yellow-green puddles. Hurts anyone who crosses it or ends a turn in it.",
 		"art": "tile", "art_ctx": {"overlay": "acid"},
