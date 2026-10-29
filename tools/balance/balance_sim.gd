@@ -36,6 +36,7 @@ func _init() -> void:
 	var rank := int(args.get("rank", RANK_BY_ACT[act]))
 	objective_override = str(args.get("objective", ""))
 	boss_hp = float(args.get("bosshp", 1.0))
+	boss_kind = str(args.get("boss", ""))
 	build_level = str(args.get("build", "none"))
 	aspect_override = str(args.get("aspect", ""))
 	PartingBlow.enabled = not args.has("nopb")
@@ -52,6 +53,7 @@ func _init() -> void:
 	quit(0)
 
 
+var boss_kind := ""   # boss= forces the act's boss (else the seed rolls it)
 var boss_hp := 1.0   # bosshp= scales the boss's health on top of FightBuilder's (for tuning)
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
 var build_level := "none"       # build= (see build_quality.gd)
@@ -73,6 +75,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var spec := {"act": act, "row": 2, "node": node, "objective": objective, "outbreak": outbreak,
 		"seed": seed, "players": kinds.size(), "squad": kinds.size(),
 		"modifiers": {"boss_health_mult": boss_hp} if boss_hp != 1.0 else {}}
+	if boss_kind != "":
+		spec["boss"] = boss_kind
 	if aspect_override != "":
 		spec["aspect"] = aspect_override
 		spec["echo_names"] = ["Reyes", "Osei"]
@@ -83,7 +87,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		enemies = Array(enemy_override.split(","))
 		enc = {}
 	var config := {"map": MatchConfig.MAP, "squad": squad, "enemies": enemies, "encounter": enc, "seed": seed,
-		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak}}
+		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak,
+			"boss": str(enc.get("boss", ""))}}
 	var s := MatchConfig.build(config)
 	if guns != "":
 		var gl := guns.split(",")

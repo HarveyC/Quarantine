@@ -211,6 +211,59 @@ func _no_bare_labels(v: MissionView) -> bool:
 	return not v.player.generic_log.any(func(x): return str(x).begins_with("ability:"))
 
 
+## The Breaker through the view: marked charge lanes and cover flattened, the plate splitting off on
+## the model, rubble marked on a soldier up high, then two lanes at once.
+func test_the_breaker_three_phases_play_through_the_view() -> void:
+	var v := _view_for_fight({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 5, "squad": 2, "players": 2, "boss": "breaker"}, "breaker")
+	_drain(v)
+	var b := _boss_of(v, "breaker")
+	var bv = v.view_for(b.id)
+	var plate: Node = bv._model.find_child("plate_front", true, false)
+	assert_true(plate != null and plate.visible, "the rig wears its front plate")
+	var seen := {}
+	var lanes_drawn := 0
+	for turn in 4:
+		_watch(v, 1, seen)
+		v.intents.refresh()
+		if b.status.has("charge_dir") and v.intents.get_child_count() > 0:
+			lanes_drawn += 1
+	assert_true(lanes_drawn >= 1, "its wound-up lane is drawn in red")
+	assert_true(seen.get("charge", 0) >= 1, "it charges")
+	# The plate splits off.
+	var soldier: Unit = v.state.living(Types.Team.PLAYER)[0]
+	Rules.deal_damage(v.state, b, 999, soldier)
+	_drain(v)
+	assert_eq(int(b.status.boss_phase), 2, "phase 2")
+	assert_true(seen.get("boss_phase:2", 0) >= 1 and not plate.visible, "the plate is gone from the model")
+	# A soldier on a raised tile draws rubble.
+	var high: Unit = v.state.living(Types.Team.PLAYER)[0]
+	high.pos = Encounter.free_cell(v.state, b.pos + Vector2i(0, 5))
+	v.state.grid.set_level(high.pos, 1)
+	v.view_for(high.id).set_cell(high.pos)
+	b.cooldowns.erase("debris")
+	_watch(v, 4, seen)
+	assert_true(seen.get("debris", 0) >= 1, "it tears rubble down")
+	assert_true(seen.get("strike:debris", 0) >= 1 and seen.get("red_tiles", 0) >= 1, "marked in red, then it lands")
+	# Stripped to the frame.
+	Rules.deal_damage(v.state, b, 999, soldier)
+	_drain(v)
+	assert_eq(int(b.status.boss_phase), 3, "phase 3")
+	var skirts: Node = bv._model.find_child("skirts", true, false)
+	assert_true(skirts != null and not skirts.visible, "the side skirts come off too")
+	var double := false
+	for turn in 5:
+		_watch(v, 1, seen)
+		double = double or b.status.has("charge_dir2")
+		if double:
+			v.intents.refresh()
+			assert_true(v.intents.get_child_count() > 0, "both lanes are drawn")
+			break
+	assert_true(double, "two lanes are marked at once")
+	assert_true(seen.get("boss_phase:3", 0) >= 1 and _no_bare_labels(v), "every Breaker ability has a beat of its own")
+	assert_true(not v.player.is_busy(), "queue drained")
+	v.free()
+
+
 ## Colonel Hale through the view: air support from his post with marked strikes and smoke, the
 ## Bloom taking him (banner beat, stomps and charges), then hurled wreckage and danger close.
 func test_colonel_hale_three_phases_play_through_the_view() -> void:
