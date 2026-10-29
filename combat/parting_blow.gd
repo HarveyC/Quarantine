@@ -22,6 +22,8 @@ static func provoked(s: GameState, mover: Unit, from: Vector2i, to: Vector2i) ->
 	var out: Array[Unit] = []
 	if not enabled or mover.status.get("careful", false):
 		return out
+	if maxi(absi(to.x - from.x), absi(to.y - from.y)) > 1:
+		return out   # a zipline or a cellar tunnel slips free
 	for w in s.units:
 		if w != mover and w.is_enemy_of(mover) and can_swing(s, w) \
 				and int(w.status.get("pb_phase", -1)) != Combat.phase_index(s) \

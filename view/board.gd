@@ -139,6 +139,7 @@ func build(g: Grid) -> void:
 	_build_roofs()
 	_build_zones()
 	_build_water()
+	_build_links()
 	_build_perimeter()
 	_build_lights()
 	_hover = _brackets(Palette.overlay(Color(1, 1, 1, 0.9)), 0.46, 0.2)
@@ -163,6 +164,44 @@ func _build_water() -> void:
 		var glint := Palette.box(Vector3(0.5, 0.01, 0.12), sheen)
 		glint.position = cell_to_world(c, 0.0) + Vector3(float(h % 5) / 10.0 - 0.2, 0.06, float((h >> 3) % 5) / 10.0 - 0.2)
 		layer.add_child(glint)
+
+
+## Zipline cables with a post at each end, and cellar hatches (a dark plate in an amber frame).
+func _build_links() -> void:
+	if grid.links.is_empty():
+		return
+	var layer := _layer("Links")
+	var steel := Palette.mat(Color("8c97a0"), 0.5)
+	var cable := Palette.emissive(Palette.AMBER, 0.8)
+	var dark := Palette.overlay(Color(0.02, 0.02, 0.03, 0.92))
+	var mark := Palette.overlay(Color(Palette.AMBER, 0.55))
+	for l in grid.links:
+		var ends: Array = [l.a, l.b]
+		if l.kind == "zip":
+			var top: Array[Vector3] = []
+			for c in ends:
+				var base := cell_to_world(c)
+				var post := Palette.box(Vector3(0.08, 1.3, 0.08), steel)
+				post.position = base + Vector3(0, 0.65, 0)
+				layer.add_child(post)
+				var plate := Palette.box(Vector3(0.9, 0.02, 0.9), mark)
+				plate.position = base + Vector3(0, 0.03, 0)
+				layer.add_child(plate)
+				top.append(base + Vector3(0, 1.25, 0))
+			var span: Vector3 = top[1] - top[0]
+			var line := Palette.box(Vector3(0.035, 0.035, span.length()), cable)
+			line.transform = Transform3D(Basis.looking_at(span.normalized(), Vector3.UP), (top[0] + top[1]) * 0.5)
+			layer.add_child(line)
+		else:
+			for c in ends:
+				var base := cell_to_world(c)
+				var hatch := Palette.box(Vector3(0.82, 0.03, 0.82), dark)
+				hatch.position = base + Vector3(0, 0.035, 0)
+				layer.add_child(hatch)
+				for side in [Vector3(0.43, 0, 0), Vector3(-0.43, 0, 0), Vector3(0, 0, 0.43), Vector3(0, 0, -0.43)]:
+					var bar := Palette.box(Vector3(0.06 if side.x != 0 else 0.92, 0.05, 0.06 if side.z != 0 else 0.92), cable)
+					bar.position = base + side + Vector3(0, 0.05, 0)
+					layer.add_child(bar)
 
 
 ## Four L-shaped corner marks round a cell (the hover cursor, aimed cells). `half` is the

@@ -106,6 +106,7 @@ static func generate(spec: Dictionary) -> Grid:
 				dg.objective = objective
 				last_plot = "district"
 				_apply_condition(dg, spec)
+				_apply_links(dg, spec)
 				return dg
 		push_warning("MapGen: no valid district for %s (%s), trying the plots" % [spec, last_reject])
 	for attempt in MAX_TRIES:
@@ -122,6 +123,7 @@ static func generate(spec: Dictionary) -> Grid:
 			g.objective = objective
 			last_plot = str(plot_of.get("name", ""))
 			_apply_condition(g, spec)
+			_apply_links(g, spec)
 			return g
 	push_warning("MapGen: no valid layout for %s, using the fallback map" % [spec])
 	var fb := Grid.load_file(FALLBACK_MAP)
@@ -138,6 +140,13 @@ static func _apply_condition(g: Grid, spec: Dictionary) -> void:
 	var crng := RandomNumberGenerator.new()
 	crng.seed = ("%d:%s:condition" % [int(spec.get("seed", 0)), cond]).hash()
 	Conditions.shape(g, cond, crng)
+
+
+## Ziplines and cellar tunnels on fight maps (never on boss arenas, which are authored).
+static func _apply_links(g: Grid, spec: Dictionary) -> void:
+	var lrng := RandomNumberGenerator.new()
+	lrng.seed = ("%d:%s:links" % [int(spec.get("seed", 0)), str(spec.get("objective", ""))]).hash()
+	Links.place(g, lrng)
 
 
 ## The arenas a boss fights in: those tagged `boss=<kind>` for that boss, else the untagged ones.

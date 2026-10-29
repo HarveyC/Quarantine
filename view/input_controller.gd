@@ -424,6 +424,12 @@ func tile_terms(c: Vector2i) -> Array:
 		out.append("ladder")
 	elif g.is_stairs(c):
 		out.append("stairs")
+	for l in g.links:
+		if l.a == c or (l.both and l.b == c) or (l.b == c and l.kind == "zip"):
+			out.append("zipline" if l.kind == "zip" else "cellar_tunnel")
+			break
+	if g.water.has(c):
+		out.append("flooded_ground")
 	if g.is_fragile(c):
 		out.append("scaffold")
 	if g.is_volatile(c):

@@ -549,6 +549,8 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 	var shoved: bool = ev.get("knockback", false)
 	if ev.get("tunnel", false):
 		return _tunnel_beat(ev, uv, cells, pts, seen)
+	if ev.has("link"):
+		return _link_beat(ev, uv, pts, seen)
 	if ev.get("leap", false) and not uv.is_soldier:
 		return _leap_move_beat(ev, uv, cells, pts)
 	if shoved:
@@ -571,6 +573,35 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 		if not seen.is_empty():
 			uv.visible = bool(seen[seen.size() - 1])
 	return {"dur": STEP_TIME * steps * (0.6 if shoved else 1.0), "update": update, "finish": finish}
+
+
+## A zipline slide (the unit rides a short sagging arc) or a cellar tunnel (it sinks out of sight at one hatch
+## and climbs out of the other).
+func _link_beat(ev: Dictionary, uv: UnitView, pts: Array[Vector3], seen: Array) -> Dictionary:
+	var last: Vector2i = ev.path[0]
+	var zip: bool = ev.link == "zip"
+	if not seen.is_empty() and not seen.has(true):
+		uv.set_cell(last)
+		uv.visible = false
+		return {}
+	uv.set_moving(false)
+	uv.set_aim(0.0)
+	uv.face_towards(pts[1])
+	var update := func(t: float) -> void:
+		if zip:
+			var p := pts[0].lerp(pts[1], t)
+			p.y = lerpf(pts[0].y, pts[1].y, t) + sin(t * PI) * 0.35
+			uv.position = p
+		elif t < 0.45:
+			uv.position = pts[0] + Vector3(0, -1.8 * t / 0.45, 0)
+		else:
+			uv.position = pts[1] + Vector3(0, -1.8 * (1.0 - minf(1.0, (t - 0.55) / 0.45)) if t > 0.55 else -1.8, 0)
+		if enemy_phase and uv.visible:
+			view.camera_rig.focus(uv.position)
+	var finish := func() -> void:
+		uv.set_cell(last)
+		uv.set_moving(false)
+	return {"dur": 0.7 if zip else 1.0, "update": update, "finish": finish}
 
 
 ## A burrowed enemy digs along its trail: the body stays underground and a heaving mound of dirt
