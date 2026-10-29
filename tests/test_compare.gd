@@ -75,14 +75,14 @@ func test_duplicate_shows_the_mk2_upgrade() -> void:
 	assert_true(d.stats.is_empty(), "Mk II changes no flat stat")
 
 
-func test_gun_keeps_the_old_one_as_a_spare() -> void:
+func test_gun_sends_the_old_one_to_the_stash() -> void:
 	var run := _run()
 	var r := _trooper(run)
 	if r.kind != "trooper":
 		return
-	Loadout.unlock_primary(r)   # runs start on the sidearm; this is a soldier who has found their class gun
+	Loadout.take_gun(r, Weapons.id_for("trooper"))   # runs start on the sidearm; this is a soldier who has found their class gun
 	var d := GearCompare.compare(run, r, {"kind": "gun", "id": "battle_rifle"})
-	assert_eq(d.swaps[0].fate, "spare", "old gun kept")
+	assert_eq(d.swaps[0].fate, "stash", "old gun kept in the stash")
 	assert_eq(d.swaps[0].old.id, Weapons.id_for("trooper"), "the signature gun is in hand now")
 	var dmg := _row(d, "damage")
 	assert_eq(dmg.to.x - dmg.from.x, 1, "+1 damage")

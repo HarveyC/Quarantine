@@ -108,9 +108,9 @@ static func _apply(after: Dictionary, c: Dictionary, st: Dictionary) -> Dictiona
 			return _apply_gear(after, id, st)
 		"gun":
 			var s := {"kind": "gun", "slot": "gun", "slot_name": "Gun", "icon": "weapon",
-				"old": gun_side(Loadout.gun_id(after)), "new": gun_side(id), "mode": "carry", "fate": "spare"}
-			if Loadout.owns_gun(after, id) and id != Weapons.id_for(str(after.get("kind", ""))):
-				s.fate = "owned"
+				"old": gun_side(Loadout.gun_id(after)), "new": gun_side(id), "mode": "replace", "fate": "owned"}
+			if not Loadout.owns_gun(after, id):
+				s.fate = _to_stash(st, "stash", "scrap")
 			Loadout.take_gun(after, id)
 			return s
 		"perk":

@@ -161,6 +161,19 @@ static func look_of(id: String) -> String:
 	return TABLE.get(id, {}).get("look", id)
 
 
+## Guns a soldier can hold as gear: every gun but the Spitter's acid.
+static func is_item(id: String) -> bool:
+	return TABLE.has(id) and id != "spit"
+
+
+## A gun as a gear item (GearData.get_item): it sits in the Gun slot and moves through the stash like any other gear.
+static func item_def(id: String) -> Dictionary:
+	var g: Dictionary = TABLE[id]
+	var tag := str(g.get("tag", ""))
+	return {"id": id, "name": g.name, "slot": "gun", "rarity": str(g.get("rarity", "common")), "tag": tag,
+		"tags": [tag] if tag != "" else [], "desc": str(g.get("desc", "")), "desc_mk2": str(g.get("desc", ""))}
+
+
 static func is_alternate(id: String) -> bool:
 	return TABLE.get(id, {}).has("classes")
 
