@@ -121,7 +121,7 @@ func _buy_actions(i: int) -> Array:
 			["service", "armorer"]:
 				for rec in run.soldiers_of(p):
 					for it in Loadout.equipped(rec):
-						if it.mk >= 2:
+						if it.mk >= 2 or it.slot == "gun":
 							continue
 						var a := base.duplicate()
 						a.soldier = rec.id
@@ -224,6 +224,8 @@ func _services() -> Control:
 	for p in local_players():
 		for rec in run.soldiers_of(p):
 			for it in Loadout.equipped(rec):
+				if it.slot == "gun":
+					continue
 				var a := _entry("%s · %s  +%d" % [GearData.item_name(it.id), rec.name, Depot.sell_price(it.id)],
 					{"type": "node_sell", "player": p, "soldier": rec.id, "slot": it.slot}, it.slot)
 				var b := NodeUi.button(a.text, a.ok, false, a.reason, it.slot)

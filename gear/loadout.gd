@@ -2,10 +2,10 @@ class_name Loadout
 extends RefCounted
 ## A soldier's equipment, kept on their run record as `record.gear` (plain data, so it
 ## serializes for saves and network sync):
-##   {"slots": {"head", "body", "offhand", "weapon", "ammo", "utility", "utility2": {"id", "mk"} | null},
-##    "pockets": [{"id", "charges"} | null, ...],
-##    "gun": weapon id carried ("" = the class's signature gun), "guns": [alternate gun ids owned]}
-## Guns live in combat/weapons.gd; an alternate gun's tag counts like a gear item's.
+##   {"slots": {"head", "body", "offhand", "melee", "gun", "weapon", "ammo", "utility", "utility2": {"id", "mk"} | null},
+##    "pockets": [{"id", "charges"} | null, ...], "primary": bool (ranged soldiers: found their class gun)}
+## Guns live in combat/weapons.gd and are gear: the one in the Gun slot is the one fired, spares
+## ride in the stash, and a gun's tag counts like a gear item's.
 ## The squad stash lives in `run.gear.stash` as an Array of {"id", "mk"} (GearRun owns it).
 ## Every rule about duplicates, Mk II and the stash is here, so other modules call these
 ## functions instead of writing the dictionaries.
@@ -19,7 +19,7 @@ static func make() -> Dictionary:
 		slots[slot] = null
 	var pockets := []
 	pockets.resize(GearData.POCKETS)
-	return {"slots": slots, "pockets": pockets, "gun": "", "guns": []}
+	return {"slots": slots, "pockets": pockets}
 
 
 ## The record's loadout, created on first use.
@@ -27,6 +27,7 @@ static func of(record) -> Dictionary:
 	if record.get("gear") == null or (record.gear is Dictionary and record.gear.is_empty()):
 		record["gear"] = make()
 	_migrate(record.gear)
+	_fill_gun(record)
 	return record.gear
 
 
@@ -35,6 +36,13 @@ static func _migrate(g: Dictionary) -> void:
 	for slot in GearData.SLOTS:
 		if not g.slots.has(slot):
 			g.slots[slot] = null
+	# Saves from before guns were gear kept the carried gun in "gun" and the spares in "guns".
+	if g.has("gun") or g.has("guns"):
+		var old := str(g.get("gun", ""))
+		if old != "" and g.slots.gun == null:
+			g.slots.gun = {"id": old, "mk": 1}
+		g.erase("gun")
+		g.erase("guns")
 	for old in ["armor", "gadget"]:
 		if not g.slots.has(old):
 			continue
@@ -47,15 +55,25 @@ static func _migrate(g: Dictionary) -> void:
 			g.slots[s] = it
 
 
+## A soldier always holds a gun: an empty Gun slot takes their class gun.
+static func _fill_gun(record) -> void:
+	var g: Dictionary = record.gear
+	if g.slots.get("gun") == null:
+		g.slots["gun"] = {"id": Weapons.id_for(str(record.get("kind", ""))), "mk": 1}
+
+
 static func item_at(record, slot: String):
 	return of(record).slots.get(slot)
 
 
-## Every equipped item as {"slot", "id", "mk"}, in slot order.
+## Every equipped gear item as {"slot", "id", "mk"}, in slot order. The gun is not listed:
+## it is always there (see `gun_id`) and has its own rules.
 static func equipped(record) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var g := of(record)
 	for slot in GearData.SLOTS:
+		if slot == "gun":
+			continue
 		var it = g.slots.get(slot)
 		if it != null:
 			out.append({"slot": slot, "id": it.id, "mk": it.mk})
@@ -80,37 +98,29 @@ static func gear_tags(record) -> Dictionary:
 	for e in equipped(record):
 		for t in GearData.tags_of(e.id):
 			out[t] = out.get(t, 0) + 1
-	var gt := Weapons.tag_of(gun(record))
+	var gt := Weapons.tag_of(gun_id(record))
 	if gt != "":
 		out[gt] = out.get(gt, 0) + 1
 	return out
 
 
-# --- Guns ------------------------------------------------------------------------------
+# --- Guns ---------------------------------------------------------------------------------
 
-## The alternate gun the soldier carries, or "" for their class's signature gun.
+## The gun the soldier carries when it is not their class gun, or "" for the class gun.
 static func gun(record) -> String:
-	return str(of(record).get("gun", ""))
+	var id := gun_id(record)
+	return "" if id == Weapons.id_for(str(record.get("kind", ""))) else id
 
 
-## The weapon id the soldier fires: their alternate gun or the class signature.
+## The weapon id the soldier fires: whatever sits in their Gun slot.
 static func gun_id(record) -> String:
-	var g := gun(record)
-	return g if g != "" else Weapons.id_for(str(record.get("kind", "")))
+	var it = of(record).slots.get("gun")
+	return str(it.id) if it != null else Weapons.id_for(str(record.get("kind", "")))
 
 
-## Alternate guns the soldier owns (the signature gun is always theirs too).
-static func guns(record) -> Array:
-	var g := of(record)
-	if not g.get("guns") is Array:
-		g["guns"] = []
-	return g.guns
-
-
+## True when the soldier carries `id` (spares in the stash are not theirs yet).
 static func owns_gun(record, id: String) -> bool:
-	if id == "" or id == Weapons.id_for(str(record.get("kind", ""))):
-		return has_primary(record)
-	return guns(record).has(id)
+	return id == "" or gun_id(record) == id
 
 
 ## False while a ranged soldier is still on the starting sidearm. Records without the flag
@@ -125,50 +135,37 @@ static func start_on_sidearm(record) -> void:
 		return
 	var g := of(record)
 	g["primary"] = false
-	g["gun"] = Weapons.START_GUN
-	if not guns(record).has(Weapons.START_GUN):
-		guns(record).append(Weapons.START_GUN)
+	g.slots["gun"] = {"id": Weapons.START_GUN, "mk": 1}
 
 
-## The soldier finds their class gun and carries it. The sidearm stays owned.
-static func unlock_primary(record) -> void:
-	of(record)["primary"] = true
-	set_gun(record, "")
-
-
-## Adds an alternate gun to the soldier's kit and carries it. False if they can't use it.
-static func add_gun(record, id: String, carry: bool = true) -> bool:
-	if not Weapons.is_alternate(id) or not Weapons.can_carry(str(record.get("kind", "")), id):
+## Takes a gun found on a run and carries it; the gun it replaces goes to the stash when
+## `run` is given (and is dropped for a throwaway record, as in previews and the balance sim).
+## False if the soldier can't use it.
+static func take_gun(record, id: String, run = null) -> bool:
+	if not Weapons.is_item(id) or not Weapons.can_carry(str(record.get("kind", "")), id):
 		return false
-	if not guns(record).has(id):
-		guns(record).append(id)
-	if carry:
-		set_gun(record, id)
-	return true
-
-
-## Takes a gun found on a run: the class gun (the primary) or an alternate. False if they can't use it.
-static func take_gun(record, id: String) -> bool:
 	if id == Weapons.id_for(str(record.get("kind", ""))):
-		unlock_primary(record)
+		of(record)["primary"] = true
+	if gun_id(record) == id:
 		return true
-	return add_gun(record, id)
-
-
-## Carries `id` (an owned alternate, or "" / the signature id for the signature gun).
-static func set_gun(record, id: String) -> bool:
-	if id == Weapons.id_for(str(record.get("kind", ""))):
-		id = ""
-	if not owns_gun(record, id):
-		return false
-	of(record)["gun"] = id
+	if run != null:
+		equip(run, record, id)
+	else:
+		of(record).slots["gun"] = {"id": id, "mk": 1}
 	return true
 
 
-## Alternate guns this soldier could still be offered (their class's, not yet owned).
+## Throwaway helper for sims and previews: carries `id` with no stash involved.
+static func add_gun(record, id: String, carry: bool = true) -> bool:
+	if not carry:
+		return Weapons.is_item(id) and Weapons.can_carry(str(record.get("kind", "")), id)
+	return take_gun(record, id)
+
+
+## Alternate guns this soldier could still be offered (not the one in their hands).
 static func gun_pool(record, rarity: String = "") -> Array[String]:
-	var have := guns(record)
-	return Weapons.alternates_for(str(record.get("kind", "")), rarity).filter(func(id): return not have.has(id))
+	var have := gun_id(record)
+	return Weapons.alternates_for(str(record.get("kind", "")), rarity).filter(func(id): return id != have)
 
 
 ## How picking `id` would land: "upgrade" (duplicate -> Mk II), "equip" (empty slot),
@@ -178,7 +175,7 @@ static func preview_equip(record, id: String) -> Dictionary:
 	for slot in options:
 		var held = item_at(record, slot)
 		if held != null and held.id == id:
-			return {"mode": "upgrade" if held.mk < 2 else "stash", "slot": slot}
+			return {"mode": "upgrade" if held.mk < 2 and slot != "gun" else "stash", "slot": slot}
 	for slot in options:
 		if item_at(record, slot) == null:
 			return {"mode": "equip", "slot": slot}
@@ -194,6 +191,8 @@ static func equip(run, record, id: String, mk: int = 1) -> Dictionary:
 		mk = 2
 	var p := preview_equip(record, id)
 	var g := of(record)
+	if id == Weapons.id_for(str(record.get("kind", ""))):
+		g["primary"] = true
 	var hp_before := gear_max_hp(record)
 	var res := {"mode": p.mode, "slot": p.slot, "displaced": null, "scrapped": false}
 	match p.mode:
@@ -215,7 +214,7 @@ static func equip(run, record, id: String, mk: int = 1) -> Dictionary:
 ## Moves the item in `slot` to the stash. False if the slot is empty or the stash is full.
 static func unequip(run, record, slot: String) -> bool:
 	var it = item_at(record, slot)
-	if it == null or stash_full(run):
+	if it == null or slot == "gun" or stash_full(run):
 		return false
 	var hp_before := gear_max_hp(record)
 	stash_add(run, it.id, it.mk)
@@ -228,7 +227,7 @@ static func unequip(run, record, slot: String) -> bool:
 ## Armorer / reward upgrade of the item in `slot` to Mk II. False if empty or already Mk II.
 static func upgrade(record, slot: String) -> bool:
 	var it = item_at(record, slot)
-	if it == null or it.mk >= 2:
+	if it == null or it.mk >= 2 or slot == "gun":
 		return false
 	var hp_before := gear_max_hp(record)
 	it.mk = 2

@@ -8,8 +8,8 @@ extends RefCounted
 ## Rule effects are keyed by item id in GearFx.
 
 ## Soldier slots. Items declare a slot TYPE (`slot_of`); "utility" fits either utility slot.
-const SLOTS: Array[String] = ["head", "body", "offhand", "melee", "weapon", "ammo", "utility", "utility2"]
-const SLOT_NAMES := {"head": "Head", "body": "Body", "offhand": "Offhand", "melee": "Melee", "weapon": "Weapon mod", "ammo": "Ammo",
+const SLOTS: Array[String] = ["head", "body", "offhand", "melee", "gun", "weapon", "ammo", "utility", "utility2"]
+const SLOT_NAMES := {"head": "Head", "body": "Body", "offhand": "Offhand", "melee": "Melee", "gun": "Gun", "weapon": "Weapon mod", "ammo": "Ammo",
 	"utility": "Utility", "utility2": "Utility"}
 const POCKETS := 2
 const STASH_SIZE := 4
@@ -378,7 +378,7 @@ const CLASS_LANES := {
 
 
 static func exists(id: String) -> bool:
-	return ITEMS.has(id) or PROTOTYPES.has(id)
+	return ITEMS.has(id) or PROTOTYPES.has(id) or Weapons.is_item(id)
 
 
 ## Item or Prototype entry, with `rarity` and `tags` filled in for both kinds.
@@ -394,6 +394,8 @@ static func get_item(id: String) -> Dictionary:
 		p["desc_mk2"] = p.desc
 		p["id"] = id
 		return p
+	if Weapons.is_item(id):
+		return Weapons.item_def(id)
 	return {}
 
 
