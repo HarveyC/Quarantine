@@ -11,7 +11,8 @@ const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
 	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
-	"collector", "brood_mother", "colonel_hale", "director", "the_source"]
+	"netter", "handler", "sterilizer", "collector", "acolyte", "cantor", "hush",
+	"brood_mother", "colonel_hale", "director", "the_source"]
 
 
 static func handles(s: GameState, u: Unit) -> bool:
@@ -37,14 +38,16 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 	if u.kind == "the_source":
 		SourceBoss.take_turn(s, u)
 		return true
+	if u.kind == "collector" and Recovery.collector_turn(s, u):
+		return true
 	if u.status.has("swelling"):
-		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "burst"})
+		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "bloom" if u.kind == "acolyte" else "burst"})
 		return true
 	if u.status.has("charge_dir"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "charge"})
 		return true
 	if u.status.has("pinning"):
-		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "drag" if u.kind == "collector" else "maul"})
+		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "maul"})
 		return true
 	if u.status.has("leap_cell"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "leap"})
@@ -64,6 +67,11 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 		if _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "reel"}):
 			return true
 		u.status.erase("hooked")
+		s.emit({"type": "lock_lost", "unit": u.id})
+	if u.status.has("hushing"):
+		if _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "silence"}):
+			return true
+		u.status.erase("hushing")
 		s.emit({"type": "lock_lost", "unit": u.id})
 	if u.status.has("sighted"):
 		if _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "snipe"}):
@@ -99,9 +107,15 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"fence": return Scavengers.fence(s, u, hostiles)
 		"shieldman": return rush(s, u, hostiles, "slam")
 		"overwatcher": return Security.overwatcher(s, u)
-		"collector": return Retrieval.collector(s, u, hostiles)
 		"hound": return rush(s, u, Automata.hound_targets(hostiles), "claw")
 		"loader": return rush(s, u, hostiles, "slam")
+		"netter": return Recovery.netter(s, u, hostiles)
+		"handler": return Recovery.handler(s, u, hostiles)
+		"sterilizer": return Recovery.sterilizer(s, u, hostiles)
+		"collector": return rush(s, u, hostiles, "claw")
+		"acolyte": return rush(s, u, hostiles, "bloom")
+		"cantor": return Choir.cantor(s, u, hostiles)
+		"hush": return Choir.hush(s, u, hostiles)
 	return {}
 
 
@@ -110,6 +124,7 @@ static func end_turn(s: GameState, u: Unit) -> void:
 	var hostiles := EnemyAI._hostiles(s, u)
 	if u.status.get("plate", false):
 		_face(s, u, hostiles)
+	Choir.end_turn(s, u, hostiles)
 	if u.kind in ["bloater", "broodling"] and not u.status.has("swelling") and EnemyAI.is_alerted(u):
 		var need := 1 if u.kind == "broodling" else 2
 		if _adjacent(s, u.pos, hostiles) >= need:

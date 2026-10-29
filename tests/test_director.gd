@@ -86,27 +86,15 @@ func test_the_mark_goes_to_the_most_infected_and_hurts() -> void:
 	assert_eq(after, before + Retrieval.MARK_DAMAGE, "enemy hits on the marked soldier deal extra")
 
 
-func test_a_collector_drags_its_captive_to_the_lane_and_takes_them() -> void:
+func test_a_collector_hold_counts_as_netted() -> void:
 	var s := make_blank(_open(14, 14))
 	var victim := _soldier(s, "trooper", Vector2i(7, 9))
 	_soldier(s, "marksman", Vector2i(2, 12))
 	s.grid.enemy_spawns.assign([Vector2i(7, 2)])
-	s.encounter["squad"] = 4
 	var c := s.add_unit(EnemyRoster.make("collector"), Vector2i(7, 8))
 	c.status["alerted"] = true
-	c.status["pinning"] = victim.id
-	victim.status["pinned_by"] = c.id
-	Retrieval.apply(s, c, {"ability": "drag"})
-	assert_eq(c.pos, Vector2i(7, 8) + Vector2i(0, -Retrieval.DRAG_STEPS[4]), "the Collector hauls toward the lane")
-	assert_true(victim.pos.distance_to(c.pos) <= 1.5, "the captive comes along")
-	assert_true(victim.is_alive(), "not yet taken")
-	c.pos = Vector2i(7, 3)
-	victim.pos = Vector2i(7, 4)
-	c.status["pinning"] = victim.id
-	Retrieval.apply(s, c, {"ability": "drag"})
-	assert_true(not victim.is_alive(), "taken at the lane")
-	assert_true(not c.is_alive(), "and the Collector slips away")
-	assert_eq(s.log.filter(func(e): return e.type == "taken").size(), 1, "a taken event")
+	Recovery.hold(s, c, victim)
+	assert_true(Recovery.netted(s, victim), "a Collector's hold counts as netted")
 
 
 func test_the_cage_takes_a_pinned_soldier_and_only_hurts_a_free_one() -> void:
@@ -114,9 +102,8 @@ func test_the_cage_takes_a_pinned_soldier_and_only_hurts_a_free_one() -> void:
 	var d: Unit = _of(s, "director")[0]
 	var pinned: Unit = s.living(Types.Team.PLAYER)[0]
 	var free: Unit = s.living(Types.Team.PLAYER)[1]
-	var c := s.add_unit(EnemyRoster.make("collector"), Encounter.free_cell(s, pinned.pos + Vector2i(0, -1)))
-	c.status["pinning"] = pinned.id
-	pinned.status["pinned_by"] = c.id
+	var c := s.add_unit(EnemyRoster.make("netter"), Encounter.free_cell(s, pinned.pos + Vector2i(0, -1)))
+	Recovery.hold(s, c, pinned)
 	s.turn = 1
 	Retrieval.apply(s, d, {"ability": "retrieve", "cell": Retrieval.cage_cell(s, pinned)})
 	Retrieval.apply(s, d, {"ability": "retrieve", "cell": free.pos})

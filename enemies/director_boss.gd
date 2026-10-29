@@ -3,12 +3,12 @@ extends RefCounted
 ## The Act 2 boss fight, "the Retrieval". The Halden-Voss Director wants one soldier alive and stays out of
 ## reach on the roofs while her contractors do the taking. Three phases, each gated so no single hit skips one:
 ##   1 Posts (100-67%): roof snipers cover her (she takes no damage while one lives) and every round
-##     she locks a soldier's lane and fires on the lock she laid last round. Collectors arrive from turn 3
-##     to pin a soldier and drag them to an exit lane. Break sight lines, kill the posts, free the pinned.
+##     she locks a soldier's lane and fires on the lock she laid last round. Recovery Netters and Collectors arrive from turn 3
+##     to hold a soldier and drag them to the map edge. Break sight lines, kill the posts, free the netted.
 ##   2 Mark (67-33%): a second team lands on the roofs and covers her again. She marks the most Infected
-##     soldier (+1 damage from every enemy hit, her shots ignore their cover, the Collectors go for them).
+##     soldier (+1 damage from every enemy hit, her shots ignore their cover, the cage follows them).
 ##   3 Extraction (33-0%): no more cover. She drops retrieval cages on the marked soldier (on a pinned one,
-##     who cannot step out, the cage takes them), the Collectors haul faster, and she keeps moving and smoking.
+##     who cannot step out, the cage takes them), and she keeps moving and smoking.
 ## Encounter, EnemyBehaviours and FightBuilder call in here. OWNER: enemies workstream.
 
 ## Boss HP as a share of her 34, by squad size (FightBuilder, instead of SQUAD_BOSS_HEALTH).
@@ -23,8 +23,8 @@ const EXPOSED := 2              # soldiers who can see her before she looks for 
 const FALL_BACK := 3
 const WAVE_FIRST := {1: 5, 2: 3, 3: 3, 4: 3}   # a lone soldier gets longer before the first Collector
 const WAVE_EVERY := 4
-## Collectors per wave, by squad size.
-const WAVE_KINDS := {1: ["collector"], 2: ["collector"], 3: ["collector", "collector"], 4: ["collector", "collector"]}
+## Recovery adds per wave, by squad size: Netters to hold a soldier and Collectors to drag them off.
+const WAVE_KINDS := {1: ["netter"], 2: ["netter", "collector"], 3: ["netter", "netter", "collector"], 4: ["netter", "netter", "collector"]}
 
 
 static func setup(s: GameState, d: Unit, squad: int) -> void:

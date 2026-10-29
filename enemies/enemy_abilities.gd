@@ -66,13 +66,25 @@ const DEFS := {
 	"danger_close": {"name": "Danger close", "targeting": "none", "cost": 1, "cooldown": 3,
 		"desc": "Calls an airstrike on his own position: 4 damage in a 5x5 next enemy phase, hits his own adds too."},
 	"flag": {"name": "Retrieval mark", "targeting": "none", "cost": 1, "cooldown": 2, "phases": [2, 3],
-		"desc": "Marks the most Infected soldier for retrieval: every enemy hit on them deals +1 damage, her shots ignore their cover and the Collectors go for them first."},
+		"desc": "Marks the most Infected soldier for retrieval: every enemy hit on them deals +1 damage, her shots ignore their cover and her cage comes down on them."},
 	"retrieve": {"name": "Retrieval", "targeting": "cell", "cost": 1, "cooldown": 2, "phases": [3],
-		"desc": "Drops a retrieval cage on a 3x3 that lands next enemy phase: 5 damage, and a soldier a Collector has pinned is taken."},
-	"drag": {"name": "Drag", "targeting": "none", "cost": -1, "cooldown": 0,
-		"desc": "Hauls the pinned soldier toward the nearest exit lane. At the lane they are taken. Hit the Collector to free them."},
+		"desc": "Drops a retrieval cage on a 3x3 that lands next enemy phase: 5 damage, and a soldier a Netter or Collector holds is taken."},
 	"lash": {"name": "Lash", "targeting": "cell", "cost": 1, "cooldown": 0, "phases": [1, 3],
 		"desc": "Roots lash a 3x3 next enemy phase: 3 damage and spores. Aims at the highest ground."},
+	"net": {"name": "Net", "targeting": "unit", "cost": -1, "cooldown": 0,
+		"desc": "Melee hit on an adjacent soldier that pins them in a containment net until a teammate hits the Netter or they struggle free."},
+	"designate": {"name": "Designate", "targeting": "unit", "cost": 1, "cooldown": 0,
+		"desc": "Marks the most Infected soldier in sight. Halden-Voss Recovery gets +20 aim against them until the Handler dies."},
+	"sterilize": {"name": "Sterilize", "targeting": "cell", "cost": -1, "cooldown": 2,
+		"desc": "Flame cone that burns next enemy phase: 2 damage to everything in it, burns spores and cleanses a soldier of 25 Infection."},
+	"drag": {"name": "Drag", "targeting": "unit", "cost": -1, "cooldown": 0,
+		"desc": "Takes a netted soldier and hauls them 2 tiles toward the nearest map edge. A soldier dragged off the edge is lost."},
+	"bloom": {"name": "Bloom", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Bursts in a 5x5: every soldier in it gains 30 Infection and the ground is left in spores."},
+	"hush": {"name": "Hush", "targeting": "unit", "cost": -1, "cooldown": 2,
+		"desc": "Locks onto a soldier it can see. Next turn it silences their class abilities for two rounds unless line of sight breaks or it is suppressed."},
+	"silence": {"name": "Silence", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Silences the locked soldier's class abilities and signature for two rounds."},
 }
 ## Hale's abilities by phase (ColonelHale): radio and air support, then the Brute, then the wreck.
 const HALE_PHASES := {
@@ -125,6 +137,8 @@ static func _phase_ok(u: Unit, id: String) -> bool:
 	if u.kind == "colonel_hale":
 		return HALE_PHASES[clampi(phase, 1, 3)].has(id)
 	var need: int = DEFS[id].get("phase", 0)
+	if id == "pull" and u.kind == "the_source" and SourceBoss.pulls_in_phase_1(u):
+		return true
 	if DEFS[id].has("phases"):
 		return DEFS[id].phases.has(phase)
 	return need == 0 or need == phase
@@ -138,6 +152,10 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		return "Not in this phase"
 	if int(u.cooldowns.get(id, 0)) > 0:
 		return "On cooldown"
+	if Recovery.handles(id):
+		return Recovery.validate(s, u, action)
+	if Choir.handles(id):
+		return Choir.validate(s, u, action)
 	var def: Dictionary = DEFS[id]
 	if Retrieval.handles(id):
 		return Retrieval.validate(s, u, action)
@@ -273,6 +291,8 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 		Retrieval.apply(s, u, action)
 		return
 	match id:
+		"net", "designate", "sterilize", "drag": Recovery.apply(s, u, action)
+		"bloom", "hush", "silence": Choir.apply(s, u, action)
 		"slam": _slam(s, u, s.get_unit(action.target))
 		"leap": _leap(s, u)
 		"drift":

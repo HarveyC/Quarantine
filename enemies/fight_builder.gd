@@ -128,6 +128,9 @@ static func build(spec: Dictionary) -> Dictionary:
 		enc["boss"] = boss
 		if boss == "colonel_hale":
 			enemies.append_array(HALE_ADDS[squad])
+		if boss == "the_source" and str(spec.get("aspect", "")) != "":
+			enc["aspect"] = str(spec.aspect)
+			enc["echo_names"] = spec.get("echo_names", [])
 		var share: Dictionary = BOSS_HEALTH[boss]
 		var mult := float(mods.get("boss_health_mult", 1.0)) * float(share[squad])
 		if mult != 1.0:

@@ -7,7 +7,7 @@ const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
 
 const IDS := ["airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull", "rockfall",
-	"sight", "flag", "retrieve", "drag"]
+	"sight", "flag", "retrieve"]
 const SMOKE := Color(0.62, 0.64, 0.62)
 const DUST := Color(0.5, 0.42, 0.32)
 
@@ -126,11 +126,4 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				fx.tracer(at + Vector3(0, 9.0, 0), at + Vector3(0, 0.2, 0), Palette.AMBER, 0.6)
 			ep._sfx("alert", -4.0)
 			return {"dur": 0.7}
-		"drag":   # the Collector hauls its captive toward the lane
-			fx.floating_text(head, "DRAGGING", Palette.DANGER, 44)
-			var dv: Node3D = ep._uv(ev, "target")
-			if dv != null:
-				fx.tracer(uv.position + Vector3(0, 0.9, 0), dv.aim_point(), Palette.DANGER, 0.4)
-			ep._sfx("claw", -6.0)
-			return {"dur": 0.4}
 	return {}

@@ -20,24 +20,26 @@ const COST := {"runner": 1, "spitter": 1, "fallen": 2, "bloater": 2, "lurker": 2
 	"hooker": 2, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3,
 	"cutter": 2, "torchman": 2, "fence": 2,
 	"shieldman": 2, "overwatcher": 2, "emplacement": 2,
-	"hound": 1, "loader": 3, "relay": 2}
+	"hound": 1, "loader": 3, "relay": 2,
+	"netter": 2, "handler": 2, "sterilizer": 2, "collector": 3, "acolyte": 1, "cantor": 2, "hush": 2}
 ## First act an enemy appears in as a regular.
 const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "leaper": 1, "brute": 2, "lurker": 2,
 	"drifter": 2, "sharpshooter": 2, "shrieker": 3, "burrower": 3,
 	"hooker": 1, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3,
 	"cutter": 1, "torchman": 1, "fence": 2,
 	"shieldman": 2, "overwatcher": 2, "emplacement": 2,
-	"hound": 3, "loader": 3, "relay": 3}
+	"hound": 3, "loader": 3, "relay": 3,
+	"netter": 2, "handler": 2, "sterilizer": 2, "collector": 3, "acolyte": 2, "cantor": 2, "hush": 3}
 ## Each act's signature enemies are twice as likely to be bought there, so acts feel different:
 ## act 1 the cordon (Fallen, Leaper), act 2 the port (Drifter, Sharpshooter, Brute), act 3 the bore.
 const SIGNATURE := {1: ["fallen", "leaper", "cutter", "torchman"], 2: ["drifter", "sharpshooter", "brute", "sapper", "carapace", "fence", "shieldman", "overwatcher", "emplacement"],
 	3: ["burrower", "shrieker", "lurker", "stalker", "weaver", "hound", "loader", "relay"]}
 ## Ranged enemies: they shoot or spit from a distance. Fights are built mostly from melee infected
 ## that rush the squad; ranged kinds are supporting threats (FightBuilder caps their share).
-const RANGED: Array[String] = ["spitter", "fallen", "sharpshooter", "hooker", "overwatcher"]
+const RANGED: Array[String] = ["spitter", "fallen", "sharpshooter", "hooker", "overwatcher", "handler", "sterilizer", "hush"]
 ## How often a kind is bought in each act relative to the others (1 when missing). The Runner is
 ## the staple infected, the most common enemy at any budget; later acts lean on their signatures.
-const WEIGHT := {"runner": {1: 3, 2: 2, 3: 2}}
+const WEIGHT := {"runner": {1: 3, 2: 3, 3: 3}}
 ## First act an enemy can be an elite in.
 const ELITE_FROM_ACT := {"brute": 1, "lurker": 1, "fallen": 1, "leaper": 1, "bloater": 2, "shrieker": 2,
 	"sharpshooter": 2, "burrower": 3, "hooker": 2, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3,
@@ -81,6 +83,30 @@ const CROSSFIRE_DAMAGE := 3
 const CROSSFIRE_CONE := 0.8   # dot product with the facing: about 37 degrees either side
 ## Automata (enemies/automata.gd).
 const RELAY_RANGE := 8
+## Halden-Voss Recovery (enemies/recovery.gd).
+const DESIGNATE_RANGE := 9
+const DESIGNATE_AIM := 20          # aim bonus Recovery gets against the designated soldier
+const STERILIZE_RANGE := 5
+const STERILIZE_LENGTH := 4
+const STERILIZE_DAMAGE := 2
+const STERILIZE_CLEANSE := 25      # Infection a soldier loses to the flame, one tier step
+const DRAG_STEPS := 2
+## The Choir (enemies/choir.gd).
+const BLOOM_RADIUS := 2
+const BLOOM_INFECTION := 30
+const CHANT_RADIUS := 3
+const CHANT_DAMAGE := 1
+const CHANT_INFECTION := 10
+const HUSH_RANGE := 8
+const HUSH_PHASES := 4             # two full rounds of the soldier's turns
+## Which faction a kind fights for, for the boss dispatch that weights an Act's faction.
+const FACTIONS := {
+	"scavengers": ["cutter", "torchman", "fence"],
+	"security": ["shieldman", "overwatcher", "emplacement"],
+	"automata": ["hound", "loader", "relay"],
+	"recovery": ["netter", "handler", "sterilizer", "collector"],
+	"choir": ["acolyte", "cantor", "hush"],
+}
 const BOSSES: Array[String] = ["brood_mother", "colonel_hale", "director", "the_source"]
 const BOSS_OF_ACT := {1: "brood_mother", 2: "colonel_hale", 3: "the_source"}
 ## The bosses an act can roll, in a fixed order (a boss node's seed picks one). A new boss joins

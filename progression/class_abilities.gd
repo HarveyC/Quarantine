@@ -119,6 +119,8 @@ static func targets_for(s: GameState, u: Unit, id: String) -> Array[int]:
 
 
 static func _extra_error(s: GameState, u: Unit, id: String) -> String:
+	if Combat.has_status(s, u, "hushed") and not ABILITIES[id].get("any", false):
+		return "Hushed"
 	if Signatures.is_signature(id):
 		return Signatures.extra_error(s, u, id)
 	if id == "squad_order" and u.status.get("k_squad_order", false):
