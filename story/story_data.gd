@@ -111,6 +111,11 @@ const BOSS_SCENES := {
 		["OKAFOR", "That's what has been feeding on the camps."],
 		["OKAFOR", "Break the egg sacs first. While they live, she can't be hurt."],
 	]},
+	"broker": {"title": "The Broker", "sub": "Harrow's biggest looter", "lines": [
+		["SQUAD", "That's the Broker. He has been stripping the cordon dead for months."],
+		["BROKER", "Whatever you carry, I have already priced it."],
+		["BROKER", "Set it down and walk away. Or I take it from you."],
+	]},
 	"breaker": {"title": "The Breaker", "sub": "The wall engineers' rig", "lines": [
 		["OKAFOR", "The wall rig is running again, and nobody is driving it."],
 		["OKAFOR", "It flattens whatever is in its way. Don't stand behind anything you need."],
@@ -229,6 +234,9 @@ const SQUAD_BARKS := {
 	"bore_engine_2": ["Valve's gone! Get off that platform, it's dropping.", "One down. The deck won't hold where that valve was."],
 	"bore_engine_open": ["Last valve! The core's open, hit it now!", "It's bare. Everything you've got, right now."],
 	"bore_engine_sealed": ["It sealed again. Cut the valves before the next window.", "The core shut. Valves are growing back, go!"],
+	"broker_2": ["He's taken your best kit and he's making for the gate. Hit him, he'll drop it.",
+		"He's running with your gear. Cut him off before he reaches the gate."],
+	"broker_3": ["He's torched what he carried. Finish him before he torches you.", "Cornered. He's burning everything. Put him down."],
 }
 ## Colonel Hale's voice in his boss fight, by phase: on the company radio, then after the Bloom
 ## takes him (phase 2). Heard, not captioned.

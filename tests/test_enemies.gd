@@ -463,8 +463,8 @@ func test_every_outbreak_point_counts() -> void:
 	var want := {0: 0, 2: 1, 3: 2, 5: 3, 6: 4, 8: 5, 9: 6, 14: 6}
 	for o in want:
 		assert_eq(FightBuilder.outbreak_budget(o), want[o], "budget at Outbreak %d" % o)
-	var boss := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 5, "seed": 2})
-	var boss_hi := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 2})
+	var boss := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 5, "seed": 2, "boss": "brood_mother"})
+	var boss_hi := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 2, "boss": "brood_mother"})
 	assert_eq(boss.enemies.size(), boss_hi.enemies.size(), "bosses only follow the stage")
 
 

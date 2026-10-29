@@ -280,6 +280,26 @@ def source_arena():
     return a
 
 
+def broker_arena():
+    a = A("salvage_yard", "broker")
+    a.put(10, 4, "B")
+    for x, y in [(8, 5), (12, 5), (10, 6), (9, 3), (11, 3)]:
+        a.put(x, y, "=")                                # the Broker's crate nest, half cover all round
+    a.rect(1, 7, 5, 8, "#").rect(14, 7, 17, 8, "#")     # container rows, a wide lane between them
+    a.rect(1, 2, 3, 3, "#").rect(16, 2, 18, 3, "#")
+    a.rect(1, 11, 4, 14, "^").put(2, 12, "%").put(5, 13, "s")   # a gantry for height, one stair
+    a.rect(15, 11, 18, 14, "#")                         # stacked containers on the gate side
+    a.put(19, 10, "X")                                  # the exit gate
+    a.rect(16, 10, 18, 10, ".")
+    for x, y in [(15, 9), (15, 10), (17, 9)]:
+        a.put(x, y, "!")                                # fuel drums on the way to the gate
+    for x, y in [(7, 10), (12, 12), (9, 13), (5, 5), (14, 5)]:
+        a.put(x, y, "=")
+    a.deploy()
+    a.pods([(3, 5), (4, 5), (15, 5), (16, 5), (8, 1), (11, 1), (6, 9), (13, 9)])
+    return a
+
+
 def chorale_arena():
     """The Choir Prophet's amphitheatre: a dais ringed by pillars, galleries either side, a lane of cover to the deploy."""
     a = A("chorale", "choir_prophet")
@@ -391,7 +411,7 @@ def wake_arena():
 
 ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
 ## Further arenas a boss fights in (tagged with their boss), after the biome's default one.
-EXTRA_ARENAS = {"wall": [breaker_arena], "port": [director_arena, chorale_arena], "bore": [engine_arena, wake_arena]}
+EXTRA_ARENAS = {"wall": [breaker_arena, broker_arena], "port": [director_arena, chorale_arena], "bore": [engine_arena, wake_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)

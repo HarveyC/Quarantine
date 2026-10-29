@@ -5,7 +5,7 @@ extends SceneTree
 ##   godot --headless -s tools/balance/balance_sim.gd -- squad=trooper,medic act=1 node=skirmish n=50
 ##
 ## Args: squad (comma classes), act (1-3), node (skirmish|nest|boss), objective (default skirmish/boss), outbreak, n (fights),
-## bosshp (multiplies boss health), seed (first seed), enemies (comma enemy specs: overrides FightBuilder), rank (default by act),
+## boss (forces a boss kind, e.g. broker), bosshp (multiplies boss health), seed (first seed), enemies (comma enemy specs: overrides FightBuilder), rank (default by act),
 ## tag (free text echoed in every line), guns (comma weapon ids lined up with squad; "-" keeps
 ## the signature gun), order (a DeployOrders id every soldier deploys with, e.g. bloom_cache;
 ## "none" or unset means no starting gear), build (none|scattered|lane|full: gear, perks, mutations and

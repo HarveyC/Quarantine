@@ -141,15 +141,17 @@ static func _build_arena(arena: Dictionary, rng: RandomNumberGenerator) -> Grid:
 	var flip := rng.randf() < 0.5
 	for r in arena.rows:
 		# B and b mark the boss anchor on the ground and on an upper roof; both are floor in the grid.
-		var row: String = r.replace("B", ".").replace("b", "2")
+		var row: String = r.replace("B", ".").replace("b", "2").replace("X", ".")
 		rows.append(row.reverse() if flip else row)
 	var g := Grid.from_rows(rows)
 	var deploy: Array[Vector2i] = []
 	var pods: Array[Vector2i] = []
 	var boss := Vector2i(-1, -1)
+	var exits: Array[Vector2i] = []
 	for y in g.height:
 		for x in g.width:
 			match arena.rows[y][(g.width - 1 - x) if flip else x]:
+				"X": exits.append(Vector2i(x, y))
 				"P": deploy.append(Vector2i(x, y))
 				"E": pods.append(Vector2i(x, y))
 				"B", "b": boss = Vector2i(x, y)
@@ -159,7 +161,7 @@ static func _build_arena(arena: Dictionary, rng: RandomNumberGenerator) -> Grid:
 	deploy.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
 	var dist := _distance_map(g, deploy)
 	var back := _can_return(g, [deploy[0]])
-	for c in pods + [boss]:
+	for c in pods + [boss] + exits:
 		if not dist.has(c) or not back.has(c):
 			last_reject = "arena cell %s unreachable" % c
 			return null
@@ -172,6 +174,7 @@ static func _build_arena(arena: Dictionary, rng: RandomNumberGenerator) -> Grid:
 	for k in MARKER_KEYS:
 		markers[k] = []
 	markers.boss.append(boss)
+	markers.exit.assign(exits)
 	g.player_spawns.assign(deploy)
 	g.enemy_spawns.assign(pods)
 	markers.reinforce.assign(_reinforce_cells(g, "boss", dist, markers))

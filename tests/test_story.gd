@@ -55,7 +55,9 @@ func test_echo_joins_a_fight_as_a_named_turned_enemy() -> void:
 	RunRules.start_run(run)
 	_settle(run)
 	run.fights_won = 1
-	var plain := MatchConfig.for_fight(RunRules.new_run(1, 21), {"kind": RunMap.SKIRMISH, "objective": "extract", "seed": 99})
+	var plain_run := RunRules.new_run(1, 21)
+	plain_run.map = run.map   # the same map, so the same boss and faction pack
+	var plain := MatchConfig.for_fight(plain_run, {"kind": RunMap.SKIRMISH, "objective": "extract", "seed": 99})
 	var cfg := MatchConfig.for_fight(run, {"kind": RunMap.SKIRMISH, "objective": "extract", "seed": 99})
 	assert_eq(cfg.echo.get("key", ""), "w7_3", "the echo is in this fight")
 	assert_eq(cfg.enemies.size(), plain.enemies.size() - 1, "the echo takes one enemy's place")

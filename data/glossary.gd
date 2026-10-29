@@ -995,6 +995,12 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 			"A stolen item does nothing for its owner while it is away."],
 		"see": ["overwatch"],
 		"labels": ["Fleeing"]}
+	t["haul"] = {"name": "Haul", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "At two thirds health the Broker lifts each soldier's best item and runs for the gate. A hit shakes one back.",
+		"art": "", "stats": [["1", "item per soldier"], ["1", "item back per hit"]],
+		"more": ["At the gate, or at one third health, whatever he still holds burns for the rest of the fight.",
+			"Builds that lean on one item lose it here. Overlapping pieces carry on."],
+		"labels": ["Haul"]}
 	t["loot"] = {"name": "Loot", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
 		"line": "A Fence carries a sack of colony supplies and leaves the map once the fight runs long.",
 		"art": "", "stats": [["+%d" % EnemyRoster.FENCE_SUPPLIES, "Supplies"], ["%d" % EnemyRoster.FENCE_LEAVES_TURN, "turn it leaves"]],
@@ -1110,6 +1116,7 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 		"shieldman": ["A {riot_shield} turns every shot from the front. Flank it.", ["riot_shield"]],
 		"overwatcher": ["Holds its post and is {watchful}. Do not cross its view in the open.", ["watchful"]],
 		"emplacement": ["A sandbag gun that never moves. Its {crossfire} cone hits everyone in it.", ["crossfire"]],
+		"broker": ["Harrow's biggest looter. His {haul} takes the squad's best gear and runs for the gate.", ["haul", "firebomb"]],
 		"cutter": ["Human looter. Its hit will {snatch} an item, then it runs.", ["snatch"]],
 		"torchman": ["Lobs a {firebomb}. Its fuel tank burns when it dies.", ["firebomb"]],
 		"fence": ["Hangs back with the {loot} and leaves the map. Kill it in time.", ["loot"]],
