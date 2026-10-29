@@ -82,7 +82,7 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			var cells := EnemyAbilities.square(s.grid, action.cell, 1)
 			s.emit({"type": "ability", "unit": u.id, "ability": "retrieve", "cell": action.cell, "cells": cells})
 			Encounter.add_telegraph(s, {"kind": "retrieval", "cells": cells, "turn": s.turn + 1,
-				"damage": CAGE_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "capture": true})
+				"damage": CAGE_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "capture": true, "foes_only": true})
 
 
 ## Where a cage lands to catch `t`: on a pinned soldier (who cannot step out), else on `t`.

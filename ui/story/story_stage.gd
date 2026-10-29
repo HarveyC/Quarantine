@@ -483,6 +483,13 @@ func _set_boss() -> void:
 			_box(Vector3(4.0, 4.4, 2.6), Vector3(0, 2.2, -5.5), CONCRETE, 0.0)
 			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
 			_omni(Vector3(-3, 1, -3), Color("ff4a33"), 1.5, 8.0, true)
+		"bore_engine":
+			col = Color("ffc470")
+			for i in 3:
+				var a := TAU * i / 3.0 + 1.5708
+				_unit("coolant_valve", -1, 0, Vector3(cos(a) * 4.5, 0, sin(a) * 4.5 - 1.0), Vector3(0, 0, -1))
+			_omni(Vector3(0, 3, 0), Color("ff7a33"), 7.0, 16.0, true)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 6.0, 16.0, 22.0)
 		"breaker":   # the demolition yard: stacked blocks and hazard lamps, the rig lit from behind
 			col = Color("ffb347")
 			for i in 5:

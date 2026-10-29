@@ -17,6 +17,8 @@ const MODELS := {
 	"spore_nest": preload("res://assets/models/spore_nest.glb"),
 	"source_root": preload("res://assets/models/source_root.glb"),
 	"the_source": preload("res://assets/models/the_source.glb"),
+	"bore_engine": preload("res://assets/models/bore_engine.glb"),
+	"coolant_valve": preload("res://assets/models/coolant_valve.glb"),
 }
 ## Skinned characters (assets/characters, built by tools/build_characters.py from CC0
 ## Quaternius bodies and animations, see view/skinned_body.gd). Kinds listed here use

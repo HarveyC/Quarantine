@@ -63,6 +63,12 @@ const ACT_SCENES_BY_BOSS := {
 		["DIRECTOR", "Lantern Company. Your blood work is under contract. Stay exactly where you are."],
 		["SQUAD", "Command's gone quiet. We keep moving."],
 	]},
+	"bore_engine": {"title": "Act III · The Bore", "sub": "Nine kilometres down", "stage": "bore", "lines": [
+		["SQUAD", "No radio this deep. Just the glow."],
+		["", "Something below is turning over. The whole shaft hums with it."],
+		["SQUAD", "That is the drill. Somebody started it."],
+		["SOURCE", "You came."],
+	]},
 }
 ## Act 3's second line when an earlier wave has reached the Source.
 const SOURCE_REMEMBERS := ["SOURCE", "You came back. I remember the fire."]
@@ -101,6 +107,11 @@ const BOSS_SCENES := {
 	"director": {"title": "The Director", "sub": "Halden-Voss Recovery", "lines": [
 		["DIRECTOR", "I don't need all of you. I need one of you, breathing."],
 		["DIRECTOR", "My team will do the lifting. Please don't make it hard."],
+	]},
+	"bore_engine": {"title": "The Bore Engine", "sub": "The drill that cut the shaft", "lines": [
+		["", "The drill head wakes. The platform shudders under every boot."],
+		["SQUAD", "Coolant lines. Three valves ring the shaft. Cut them and the core opens."],
+		["SQUAD", "It won't stay open long. Be ready when it does."],
 	]},
 	"the_source": {"title": "The Source", "sub": "The bottom of the Bore", "lines": [
 		["SOURCE", "I know all of your names."],
@@ -176,6 +187,13 @@ const BARKS := {
 	"breaker_2": ["Its plate is off. It's tearing the yard down on top of you.", "Plate's gone. Get off the high ground."],
 	"breaker_3": ["It's stripped to the frame. Two runs at once, watch both lanes.", "No more plating, and it's fast. Keep moving."],
 	"lore": ["Intel recovered."],
+}
+## Boss fight lines spoken by a soldier of the squad (act 3 has no radio), same keys as the boss lines
+## in BARKS. They are mask babble at play time, so they need no recorded clips.
+const SQUAD_BARKS := {
+	"bore_engine_2": ["Valve's gone! Get off that platform, it's dropping.", "One down. The deck won't hold where that valve was."],
+	"bore_engine_open": ["Last valve! The core's open, hit it now!", "It's bare. Everything you've got, right now."],
+	"bore_engine_sealed": ["It sealed again. Cut the valves before the next window.", "The core shut. Valves are growing back, go!"],
 }
 ## Colonel Hale's voice in his boss fight, by phase: on the company radio, then after the Bloom
 ## takes him (phase 2). Heard, not captioned.

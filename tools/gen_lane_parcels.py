@@ -321,9 +321,28 @@ def breaker_arena():
     return a
 
 
+def engine_arena():
+    a = A("drill_deck", "bore_engine")
+    a.put(10, 9, "B")                                   # the drill head over the shaft
+    for cx, cy, stairs in [(10, 3, [(10, 6)]), (4, 12, [(4, 9), (7, 12)]), (16, 12, [(16, 9), (13, 12)])]:
+        a.rect(cx - 2, cy - 2, cx + 2, cy + 2, "^")     # a coolant platform, one valve each; it falls when the valve is cut
+        a.rect(cx - 1, cy - 1, cx + 1, cy + 1, "^")
+        a.put(cx - 2, cy + 2, "%").put(cx + 2, cy + 2, "%").put(cx - 2, cy - 2, "%").put(cx + 2, cy - 2, "%")
+        for sx, sy in stairs:
+            a.put(sx, sy, "s")
+    for x0, y0, x1, y1 in [(7, 7, 8, 8), (12, 7, 13, 8), (7, 10, 8, 11), (12, 10, 13, 11)]:
+        a.rect(x0, y0, x1, y1, "#")                      # piston housings around the shaft
+    for x, y in [(9, 14), (11, 14), (2, 16), (17, 16), (1, 6), (18, 6), (6, 5), (14, 5), (9, 12), (11, 12)]:
+        a.put(x, y, "=")
+    a.put(1, 9, "!").put(18, 9, "!")
+    a.deploy()
+    a.pods([(1, 1), (2, 1), (17, 1), (18, 1), (1, 13), (1, 14), (19, 13), (19, 14)])
+    return a
+
+
 ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
 ## Further arenas a boss fights in (tagged with their boss), after the biome's default one.
-EXTRA_ARENAS = {"wall": [breaker_arena], "port": [director_arena]}
+EXTRA_ARENAS = {"wall": [breaker_arena], "port": [director_arena], "bore": [engine_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)

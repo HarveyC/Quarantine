@@ -12,7 +12,7 @@ const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
 	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
 	"netter", "handler", "sterilizer", "collector", "acolyte", "cantor", "hush",
-	"brood_mother", "breaker", "colonel_hale", "director", "the_source"]
+	"brood_mother", "breaker", "colonel_hale", "director", "the_source", "bore_engine"]
 
 
 static func handles(s: GameState, u: Unit) -> bool:
@@ -40,6 +40,9 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 		return true
 	if u.kind == "the_source":
 		SourceBoss.take_turn(s, u)
+		return true
+	if u.kind == "bore_engine":
+		BoreEngine.take_turn(s, u)
 		return true
 	if u.kind == "collector" and Recovery.collector_turn(s, u):
 		return true
