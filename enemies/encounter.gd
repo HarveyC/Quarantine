@@ -87,7 +87,8 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 			var centre := Vector2i(s.grid.width / 2, s.grid.height / 2)
 			var src := _place(s, "the_source", _marker(s, "boss", centre))
 			var offsets: Array[Vector2i] = [Vector2i(0, -4), Vector2i(-4, 3), Vector2i(4, 3)]
-			for i in SOURCE_ROOTS[squad]:
+			SourceBoss.setup(s, src, str(enc.get("aspect", "")), enc.get("echo_names", []))
+			for i in SourceBoss.roots_for(squad, SourceBoss.aspect_of(src), SOURCE_ROOTS[squad]):
 				var root := _place(s, "source_root", src.pos + offsets[i])
 				root.status["spawner"] = {"kinds": ["runner", "spitter"], "every": 3 + slower, "next": 2 + i, "i": i}
 			src.status["alerted"] = true
@@ -304,7 +305,7 @@ static func kill(s: GameState, u: Unit) -> void:
 ## Extra legality checks, run by Rules.validate before module dispatch. "" = allowed.
 static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	if u.status.has("pinned_by"):
-		return "Pinned by a Lurker: Struggle or wait for a teammate"
+		return "Pinned: Struggle or wait for a teammate"
 	if action.has("target"):
 		var t := s.get_unit(action.get("target", -1))
 		if t != null and t.status.get("hidden", false) and u.is_enemy_of(t):
@@ -371,12 +372,13 @@ static func on_enemy_phase_start(s: GameState) -> void:
 	if s.encounter.is_empty():
 		return
 	_resolve_telegraphs(s)
+	Choir.on_enemy_phase_start(s)
 	var src := _boss(s, "the_source")
 	if src != null and src.status.has("tether"):
 		var hit: Array[int] = []
 		for u in s.living(Types.Team.PLAYER):
 			hit.append(u.id)
-		var amount: int = SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)]
+		var amount: int = SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)] + SourceBoss.pulse_bonus(s, src)
 		s.emit({"type": "source_pulse", "unit": src.id, "units": hit, "amount": amount})
 		for id in hit:
 			Infection.add(s, s.get_unit(id), amount)
@@ -407,6 +409,7 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			"units": victims.map(func(x: Unit) -> int: return x.id), "damage": t.damage})
 		for u in victims:
 			Rules.deal_damage(s, u, int(t.damage), src if src != null and src.is_alive() else null)
+		Recovery.after_strike(s, t, victims)
 		if int(t.get("spores", 0)) > 0 and s.phase != Types.Phase.ENDED:
 			add_spores(s, t.cells, int(t.spores), src)
 		if int(t.get("fire", 0)) > 0 and s.phase != Types.Phase.ENDED:
@@ -498,7 +501,7 @@ static func on_enemy_phase_end(s: GameState) -> void:
 
 ## The Source fight: spore zones grow one ring inward from the map edge every turn.
 static func _spread_spore_ring(s: GameState, src: Unit) -> void:
-	var ring := s.turn - 1
+	var ring := s.turn - 1 + SourceBoss.ring_head(src)
 	var last := ring
 	if int(src.status.get("boss_phase", 1)) >= 3:   # the collapse: the ring runs two rings ahead each turn
 		ring += s.turn - int(src.status.get("phase3_turn", s.turn))
@@ -577,7 +580,7 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		amount = 0 if target.status.get("shield", false) else maxi(1, amount - EnemyRoster.PLATE_REDUCTION)
 		s.emit({"type": "plated", "unit": target.id, "source": source.id})
 	if source != null and target.team == Types.Team.PLAYER and source.team == Types.Team.ENEMY:
-		amount += _rally_bonus(s, source) + _stalk_bonus(s, source, target)
+		amount += _rally_bonus(s, source) + _stalk_bonus(s, source, target) + Choir.chant_bonus(s, source)
 	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:
 		amount = maxi(1, roundi(amount * float(BOSS_DAMAGE[clampi(int(s.encounter.get("squad", 4)), 1, 4)])))
 	if target.kind == "the_source" and source != null and source.team == Types.Team.PLAYER \
@@ -662,6 +665,9 @@ static func on_died(s: GameState, u: Unit) -> void:
 		for i in 2:
 			spawn(s, "runner", u.pos, u)
 	Scavengers.on_died(s, u)
+	Recovery.on_died(s, u)
+	if u.kind == "acolyte" and u.status.has("swelling") and not u.status.get("burst", false):
+		Choir.bloom(s, u)
 	if u.kind in ["bloater", "broodling"] and not u.status.get("burst", false):
 		EnemyAbilities.burst(s, u)
 	if u.team == Types.Team.ENEMY and EnemyRoster.has_affix(u, "volatile") and s.phase != Types.Phase.ENDED:

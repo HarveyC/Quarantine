@@ -16,6 +16,7 @@ const ICON_TEXT := {
 	"scream": "SCREAM", "spawn": "SPAWN", "strike": "AIRSTRIKE", "pull": "PULL", "pulse": "PULSE",
 	"hide": "HIDE", "seek": "SEEK", "dormant": "zz", "pinning": "MAUL", "leap": "LEAP",
 	"snipe": "AIMING", "drop": "DROP", "hook": "HOOK", "satchel": "SATCHEL", "firebomb": "FIREBOMB", "mend": "MEND",
+	"net": "NET", "designate": "DESIGNATE", "flame": "STERILIZE", "drag": "DRAG", "bloom": "BLOOM", "chant": "CHANT", "hush": "HUSH",
 }
 
 var view: Node
@@ -109,6 +110,15 @@ func refresh() -> void:
 		var bb: Node3D = view.view_for(pair[1])
 		if ba != null and bb != null and ba.visible and bb.visible:
 			_line(ba.position + Vector3(0, 1.2, 0), bb.position + Vector3(0, 1.2, 0), _m_exit, 0.04)
+	for c in EnemyIntent.chants(s):
+		var chant_ring := Palette.ring(EnemyRoster.CHANT_RADIUS - 0.08, EnemyRoster.CHANT_RADIUS, _m_tether)
+		chant_ring.position = Board.cell_to_world(c.cell, 0.04)
+		add_child(chant_ring)
+	for pair in EnemyIntent.designations(s):
+		var ha: Node3D = view.view_for(pair[0])
+		var hb: Node3D = view.view_for(pair[1])
+		if ha != null and hb != null and ha.visible and hb.visible:
+			_line(ha.position + Vector3(0, 1.4, 0), hb.position + Vector3(0, 1.4, 0), _m_line, 0.05)
 	for pair in EnemyIntent.links(s):
 		var wa: Node3D = view.view_for(pair[0])
 		var wb: Node3D = view.view_for(pair[1])
