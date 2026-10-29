@@ -138,11 +138,31 @@ func build(g: Grid) -> void:
 	_build_tiles()
 	_build_roofs()
 	_build_zones()
+	_build_water()
 	_build_perimeter()
 	_build_lights()
 	_hover = _brackets(Palette.overlay(Color(1, 1, 1, 0.9)), 0.46, 0.2)
 	_hover.visible = false
 	add_child(_hover)
+
+
+## Flooded cells (Grid.water): a shallow translucent pool over the floor with a paler sheen on top.
+func _build_water() -> void:
+	if grid.water.is_empty():
+		return
+	var layer := _layer("Water")
+	var pool := Palette.overlay(Color(0.2, 0.42, 0.62, 0.62))
+	var sheen := Palette.overlay(Color(0.55, 0.78, 0.95, 0.18))
+	var cells: Array = grid.water.keys()
+	cells.sort()
+	for c in cells:
+		var plate := Palette.box(Vector3(1.0, 0.04, 1.0), pool)
+		plate.position = cell_to_world(c, 0.0) + Vector3(0, 0.03, 0)
+		layer.add_child(plate)
+		var h := _hash(c)
+		var glint := Palette.box(Vector3(0.5, 0.01, 0.12), sheen)
+		glint.position = cell_to_world(c, 0.0) + Vector3(float(h % 5) / 10.0 - 0.2, 0.06, float((h >> 3) % 5) / 10.0 - 0.2)
+		layer.add_child(glint)
 
 
 ## Four L-shaped corner marks round a cell (the hover cursor, aimed cells). `half` is the
@@ -455,7 +475,7 @@ func _build_edges(look: Dictionary, trim: Material, hazard: Material, crack_mat:
 		_tiles.add_child(post)
 
 
-const HAZARD_COLORS := {"fire": TileOverlays.FIRE, "spore": Palette.TEAL, "acid": TileOverlays.ACID, "smoke": TileOverlays.SMOKE}
+const HAZARD_COLORS := {"fire": TileOverlays.FIRE, "spore": Palette.TEAL, "acid": TileOverlays.ACID, "smoke": TileOverlays.SMOKE, "live": Color("7fd0ff")}
 
 
 ## Draws (or redraws) hazard `kind` on `cells`. Each kind has its own floor pattern and props

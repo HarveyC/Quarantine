@@ -11,12 +11,32 @@ extends RefCounted
 ## The grid of the last build, kept for dev scripts that draw layouts that failed validation.
 static var last_grid: Grid
 
-const SIZE := 28
-const COLUMNS := 3
+const SIZE := 28                          # the default footprint's side; see FOOTPRINTS
 const MIN_BLOCK_W := 6
 const MIN_BLOCK_H := 5
 const CROSS_STREET := 2
-const DEPLOY_TOP := 21                    # the landing yard fills rows 21 to 27 of the middle column
+const LANDING_H := 7                      # the landing yard fills the bottom rows of its column
+## Map footprints: size, number of block columns and which column holds the landing yard.
+## "far" is the walking distance an extract zone must be at least, so long maps send you across them.
+const FOOTPRINTS := {
+	"square": {"w": 28, "h": 28, "cols": 3, "land": 1, "far": 14, "hi": 27},
+	"corner": {"w": 28, "h": 28, "cols": 3, "land": 0, "far": 20, "hi": 34},
+	"wide": {"w": 38, "h": 22, "cols": 4, "land": 0, "far": 26, "hi": 46},
+	"long": {"w": 46, "h": 18, "cols": 4, "land": 0, "far": 32, "hi": 56},
+	"tall": {"w": 20, "h": 38, "cols": 2, "land": 1, "far": 22, "hi": 50},
+}
+## Footprint weights per objective: extract wants a run across the map, hold a compact one,
+## rescue a narrow warren of rooms.
+const FOOTPRINT_WEIGHTS := {
+	"extract": {"long": 3, "wide": 3, "corner": 2, "square": 1},
+	"escort": {"long": 3, "wide": 3, "corner": 2, "square": 1},
+	"hold": {"square": 4, "corner": 1, "wide": 1},
+	"rescue": {"tall": 4, "square": 1, "corner": 1},
+	"hack": {"wide": 3, "square": 2, "corner": 1, "long": 1},
+	"demolish": {"wide": 2, "square": 2, "corner": 1, "long": 1, "tall": 1},
+	"samples": {"wide": 2, "square": 2, "corner": 1, "long": 1, "tall": 1},
+}
+const DEFAULT_WEIGHTS := {"square": 3, "corner": 2, "wide": 2, "long": 1, "tall": 1}
 const POD_DIST := Vector2i(8, 24)         # walking distance from the drop zone for pod cells
 const MAX_PODS := 5
 
@@ -33,6 +53,9 @@ const LOTS := {
 }
 ## Each biome has one signature lot that always shows up at least twice.
 const SIGNATURE := {"wall": "tents", "port": "containers", "bore": "rockmass"}
+## One landmark per biome that every district map holds, and a skybridge tower that raises the ceiling.
+const SETPIECE := {"wall": "checkpoint", "port": "gantry", "bore": "gallery"}
+const TOWER_CHANCE := 0.5            # a map also gets a skybridge tower
 const ROOF_CHANCE := 0.55            # share of intact buildings that get a roof
 const SHUT_DOOR_CHANCE := 0.5
 const WINDOW_CHANCE := 0.3
@@ -50,33 +73,51 @@ class Ctx:
 	var pod_cells: Array[Vector2i] = []
 	var deploy: Array[Vector2i] = []
 	var landing := Rect2i()
+	var footprint := {}
+	var kind_name := "square"
+	var width := SIZE
+	var height := SIZE
 
 
 static func build(biome: String, objective: String, rng: RandomNumberGenerator) -> Dictionary:
 	var c := Ctx.new()
 	c.biome = biome
 	c.rng = rng
+	c.kind_name = _pick_footprint(objective, rng)
+	c.footprint = FOOTPRINTS[c.kind_name]
+	c.width = c.footprint.w
+	c.height = c.footprint.h
+	var cols: int = c.footprint.cols
+	var land: int = c.footprint.land
 	c.g = Grid.new()
-	c.g.width = SIZE
-	c.g.height = SIZE
-	c.g.tiles.resize(SIZE * SIZE)
+	c.g.width = c.width
+	c.g.height = c.height
+	c.g.tiles.resize(c.width * c.height)
 	c.g.tiles.fill(Types.Tile.FLOOR)
 
-	var street_w: Array[int] = [rng.randi_range(2, 3), rng.randi_range(2, 3)]
-	var left := _split(SIZE - street_w[0] - street_w[1], COLUMNS, MIN_BLOCK_W, rng)
+	var street_w: Array[int] = []
+	for i in cols - 1:
+		street_w.append(rng.randi_range(2, 3))
+	var street_sum := 0
+	for sw in street_w:
+		street_sum += sw
+	var left := _split(c.width - street_sum, cols, MIN_BLOCK_W, rng)
 	var blocks: Array[Rect2i] = []
+	var landing_top := c.height - LANDING_H
 	var x := 0
-	for i in COLUMNS:
+	for i in cols:
 		var x1 := x + left[i] - 1
-		if i == 1:
-			c.landing = Rect2i(x, DEPLOY_TOP, left[i], SIZE - DEPLOY_TOP)
-			blocks.append_array(_column(x, x1, 0, DEPLOY_TOP - CROSS_STREET - 1, [1, 1, 2][rng.randi() % 3], rng))
+		if i == land:
+			c.landing = Rect2i(x, landing_top, left[i], LANDING_H)
+			blocks.append_array(_column(x, x1, 0, landing_top - CROSS_STREET - 1, [1, 1, 2][rng.randi() % 3], rng))
 		else:
-			blocks.append_array(_column(x, x1, 0, SIZE - 1, [2, 2, 3][rng.randi() % 3], rng))
-		x = x1 + 1 + (street_w[i] if i < COLUMNS - 1 else 0)
+			blocks.append_array(_column(x, x1, 0, c.height - 1, [2, 2, 3][rng.randi() % 3], rng))
+		x = x1 + 1 + (street_w[i] if i < cols - 1 else 0)
 
 	_landing_yard(c)
 	var kinds: Array = LOTS[biome].duplicate()
+	if c.kind_name == "tall":
+		kinds.append_array(["rowhouses", "rowhouses", "barracks"])   # a warren of rooms
 	var types: Array[String] = []
 	for b in blocks:
 		types.append(kinds[rng.randi() % kinds.size()])
@@ -89,6 +130,7 @@ static func build(biome: String, objective: String, rng: RandomNumberGenerator) 
 			if idx.is_empty():
 				break
 			types[idx[rng.randi() % idx.size()]] = want
+	_force_setpiece(c, blocks, types)
 	for i in blocks.size():
 			_fill_block(c, blocks[i], types[i])
 	_street_props(c)
@@ -107,6 +149,20 @@ static func build(biome: String, objective: String, rng: RandomNumberGenerator) 
 
 # ---------------------------------------------------------------- layout
 
+## A footprint for this objective, weighted; the rng stream is the map's own.
+static func _pick_footprint(objective: String, rng: RandomNumberGenerator) -> String:
+	var weights: Dictionary = FOOTPRINT_WEIGHTS.get(objective, DEFAULT_WEIGHTS)
+	var total := 0
+	for k in weights:
+		total += weights[k]
+	var roll := rng.randi_range(0, total - 1)
+	for k in weights:
+		roll -= weights[k]
+		if roll < 0:
+			return k
+	return "square"
+
+
 static func _split(total: int, n: int, minimum: int, rng: RandomNumberGenerator) -> Array[int]:
 	var out: Array[int] = []
 	for i in n:
@@ -118,7 +174,11 @@ static func _split(total: int, n: int, minimum: int, rng: RandomNumberGenerator)
 
 ## One column of blocks from y0 to y1, `streets` two-tile cross streets between them.
 static func _column(x0: int, x1: int, y0: int, y1: int, streets: int, rng: RandomNumberGenerator) -> Array[Rect2i]:
-	var heights := _split((y1 - y0 + 1) - CROSS_STREET * streets, streets + 1, MIN_BLOCK_H, rng)
+	var rows := y1 - y0 + 1
+	if rows < MIN_BLOCK_H:
+		return []
+	streets = clampi(streets, 0, (rows - MIN_BLOCK_H) / (MIN_BLOCK_H + CROSS_STREET))
+	var heights := _split(rows - CROSS_STREET * streets, streets + 1, MIN_BLOCK_H, rng)
 	var out: Array[Rect2i] = []
 	var y := y0
 	for h in heights:
@@ -217,13 +277,19 @@ static func _open_sides(c: Ctx, lot: Rect2i, r: Rect2i) -> String:
 
 static func _landing_yard(c: Ctx) -> void:
 	var r := c.landing
-	_ring(c, r, WALL, "S")
+	var edge_sides := "S"
+	if r.position.x == 0:
+		edge_sides += "W"
+	if _x1(r) == c.width - 1:
+		edge_sides += "E"
+	_ring(c, r, WALL, edge_sides)
 	# A three-wide gate to the north street and a doorway in each side wall.
 	var gate := c.rng.randi_range(1, maxi(1, r.size.x - 4))
 	for i in range(gate, gate + 3):
 		_set_edge(c, _side_key(r, "N", i), Grid.EDGE_NONE)
 	for side in ["W", "E"]:
-		_set_edge(c, _side_key(r, side, c.rng.randi_range(1, r.size.y - 2)), DOOR)
+		if not edge_sides.contains(side):
+			_set_edge(c, _side_key(r, side, c.rng.randi_range(1, r.size.y - 2)), DOOR)
 	var cx := r.position.x + r.size.x / 2
 	var bottom := _y1(r)
 	c.deploy.append_array(_scatter(c.rng, _rect_cells(Rect2i(r.position.x + 1, bottom - 3, maxi(r.size.x - 2, 2), 4)), 4, 2))
@@ -262,17 +328,34 @@ static func _rect_cells(r: Rect2i) -> Array[Vector2i]:
 	return out
 
 
+## The biome's landmark goes in the biggest block that fits it; a skybridge tower in half the maps.
+static func _force_setpiece(c: Ctx, blocks: Array[Rect2i], types: Array[String]) -> void:
+	var order: Array[int] = []
+	for i in blocks.size():
+		order.append(i)
+	order.sort_custom(func(a: int, b: int) -> bool: return blocks[a].size.x * blocks[a].size.y > blocks[b].size.x * blocks[b].size.y)
+	var want: Array[String] = [SETPIECE[c.biome]]
+	if c.rng.randf() < TOWER_CHANCE:
+		want.append("tower")
+	for kind in want:
+		for i in order:
+			if blocks[i].size.x >= 9 and blocks[i].size.y >= 6 and not types[i] in SETPIECE.values() and types[i] != "tower":
+				types[i] = kind
+				break
+
+
 static func _fill_block(c: Ctx, b: Rect2i, kind: String) -> void:
 	var w := b.size.x
 	var h := b.size.y
-	if kind != "plaza" and w >= 11 and h >= 7 and c.rng.randf() < 0.6:
+	var whole := kind in SETPIECE.values() or kind == "tower"
+	if not whole and kind != "plaza" and w >= 11 and h >= 7 and c.rng.randf() < 0.6:
 		var a := c.rng.randi_range(b.position.x + 5, _x1(b) - 5)
 		var gap := c.rng.randi_range(1, 2)
 		_fill_lot(c, Rect2i(b.position.x, b.position.y, a - b.position.x, h), kind)
 		var other: Array = LOTS[c.biome]
 		_fill_lot(c, Rect2i(a + gap, b.position.y, _x1(b) - a - gap + 1, h), other[c.rng.randi() % other.size()])
 		return
-	if kind != "plaza" and h >= 11 and w >= 7 and c.rng.randf() < 0.5:
+	if not whole and kind != "plaza" and h >= 11 and w >= 7 and c.rng.randf() < 0.5:
 		var a2 := c.rng.randi_range(b.position.y + 4, _y1(b) - 4)
 		var gap2 := c.rng.randi_range(1, 2)
 		_fill_lot(c, Rect2i(b.position.x, b.position.y, w, a2 - b.position.y), kind)
@@ -316,6 +399,10 @@ static func _fill_lot(c: Ctx, lot: Rect2i, kind: String) -> void:
 				_building(c, lot, lot, {"depth": 1})
 		"rooftop": _rooftop(c, lot)
 		"plaza": _plaza(c, lot)
+		"checkpoint": _checkpoint(c, lot)
+		"gantry": _gantry(c, lot)
+		"gallery": _gallery(c, lot)
+		"tower": _tower(c, lot)
 	_claim(c, lot)
 
 
@@ -723,6 +810,136 @@ static func _plaza(c: Ctx, lot: Rect2i) -> void:
 	c.places.append({"kind": "square", "cells": _open_cells(c, lot)})
 
 
+# ---------------------------------------------------------------- set pieces
+
+## The Wall: a cordon line across the lot with a three-wide gate, sandbag chicanes on both sides and drum stacks
+## behind the wall. Enemies hold the far side.
+static func _checkpoint(c: Ctx, lot: Rect2i) -> void:
+	var rng := c.rng
+	var x0 := lot.position.x
+	var x1 := _x1(lot)
+	var line := lot.position.y + lot.size.y / 2
+	var gate := rng.randi_range(x0 + 2, x1 - 4)
+	for x in range(x0, x1 + 1):
+		if x < gate or x > gate + 2:
+			_set_edge(c, [x, line - 1, 1], WALL)
+	for x in [gate - 2, gate - 1, gate + 3, gate + 4]:
+		if x >= x0 and x <= x1:
+			_put(c, Vector2i(x, line), Types.Tile.LOW)
+	var drums: Array[Vector2i] = []
+	for x in [gate - 3, gate + 5]:
+		var cell := Vector2i(x, line - 2)
+		if x >= x0 and x <= x1 and _is_free(c, cell):
+			_put(c, cell, Types.Tile.LOW)   # drum stacks: MapGen may turn one into a fuel barrel
+			drums.append(cell)
+	var far: Array[Vector2i] = []
+	for cell in _cells(Rect2i(x0, lot.position.y, lot.size.x, line - lot.position.y)):
+		if _is_free(c, cell) and not drums.has(cell):
+			far.append(cell)
+	var near: Array[Vector2i] = []
+	for cell in _cells(Rect2i(x0, line, lot.size.x, _y1(lot) - line + 1)):
+		if _is_free(c, cell) and c.g.tile(cell) == Types.Tile.FLOOR:
+			near.append(cell)
+	c.places.append({"kind": "camp", "cells": far})
+	c.places.append({"kind": "yard", "cells": near})
+	_claim(c, lot)
+
+
+## Port Ardent: a gantry, two raised platforms joined by a fragile catwalk. Stairs at both ends; an
+## explosive brings the catwalk down.
+static func _gantry(c: Ctx, lot: Rect2i) -> void:
+	var rng := c.rng
+	var w := lot.size.x
+	var row := lot.position.y + rng.randi_range(1, maxi(1, lot.size.y - 5))
+	var pw := 3
+	var left := Rect2i(lot.position.x, row, pw, 3)
+	var right := Rect2i(_x1(lot) - pw + 1, row, pw, 3)
+	for plat in [left, right]:
+		for cell in _cells(plat):
+			c.g.set_level(cell, 1)
+			c.g.fragile[cell] = true
+			c.reserved[cell] = true
+		var stairs := Vector2i(plat.position.x + 1, _y1(plat) + 1)
+		_put(c, stairs, Types.Tile.FLOOR)
+		c.g.stairs[stairs] = true
+		c.reserved[stairs] = true
+	for x in range(left.position.x + pw, right.position.x):
+		var cell := Vector2i(x, row + 1)
+		c.g.set_level(cell, 1)
+		c.g.fragile[cell] = true
+		c.reserved[cell] = true
+	# Stacked containers on the rest of the lot give the platforms something to cover behind.
+	for y in range(lot.position.y, _y1(lot) + 1):
+		if absi(y - (row + 1)) >= 3 and y != _y1(lot):
+			for x in range(lot.position.x + 4, _x1(lot) - 3, 7):
+				for dx in 4:
+					var cell := Vector2i(x + dx, y)
+					if x + dx < _x1(lot) - 2 and _is_free(c, cell) and not c.reserved.has(cell) and (y - lot.position.y) % 3 != 2:
+						_put(c, cell, Types.Tile.WALL)
+	var open: Array[Vector2i] = []
+	for cell in _cells(lot):
+		if _is_free(c, cell) and not c.reserved.has(cell):
+			open.append(cell)
+	c.places.append({"kind": "apron", "cells": open})
+	_claim(c, lot)
+
+
+## The Bore: a mine gallery. Two rock walls with arches every few tiles, timber and rubble in the aisle.
+static func _gallery(c: Ctx, lot: Rect2i) -> void:
+	var rng := c.rng
+	var along_x := lot.size.x >= lot.size.y
+	var length := lot.size.x if along_x else lot.size.y
+	var depth := lot.size.y if along_x else lot.size.x
+	var aisle0 := depth / 2 - 1
+	var arch := rng.randi_range(1, 3)
+	for a in length:
+		for b in depth:
+			var cell := Vector2i(lot.position.x + a, lot.position.y + b) if along_x else Vector2i(lot.position.x + b, lot.position.y + a)
+			var in_aisle := b >= aisle0 and b < aisle0 + 3
+			if in_aisle:
+				continue
+			var is_arch := (a + arch) % 6 < 2 and (b == aisle0 - 1 or b == aisle0 + 3)
+			if not is_arch:
+				_put(c, cell, Types.Tile.WALL)
+	for k in 3:
+		var a := rng.randi_range(2, length - 3)
+		var cell := Vector2i(lot.position.x + a, lot.position.y + aisle0 + rng.randi_range(0, 2)) if along_x else Vector2i(lot.position.x + aisle0 + rng.randi_range(0, 2), lot.position.y + a)
+		if _is_free(c, cell):
+			_put(c, cell, Types.Tile.LOW)
+	c.places.append({"kind": "cut", "cells": _open_cells(c, lot)})
+	_claim(c, lot)
+
+
+## A tower block with two storeys: stairs to the first roof, a second roof at the far end and a bridge between
+## a pair of raised roofs on the first level. Brings level 2 into more maps.
+static func _tower(c: Ctx, lot: Rect2i) -> void:
+	var rng := c.rng
+	var w := lot.size.x
+	var h := lot.size.y
+	var roof := Rect2i(lot.position.x + 1, lot.position.y, w - 2, mini(h - 1, 4))
+	for cell in _cells(roof):
+		c.g.set_level(cell, 1)
+		c.reserved[cell] = true
+	var stairs := Vector2i(roof.position.x + rng.randi_range(0, roof.size.x - 1), _y1(roof) + 1)
+	_put(c, stairs, Types.Tile.FLOOR)
+	c.g.stairs[stairs] = true
+	c.reserved[stairs] = true
+	# Upper roofs on both ends of the first roof, each reached by its own stairs, joined by a skybridge of low walls on the first level.
+	for end in [roof.position.x, _x1(roof) - 2]:
+		var top := Rect2i(end, roof.position.y, 3, 2)
+		for cell in _cells(top):
+			c.g.set_level(cell, 2)
+		var up := Vector2i(end + 1, roof.position.y + 2)
+		c.g.set_level(up, 1)
+		c.g.stairs[up] = true
+		c.reserved[up] = true
+		_put(c, Vector2i(end, roof.position.y + 1), Types.Tile.LOW)
+	for x in range(roof.position.x + 3, _x1(roof) - 2):
+		_put(c, Vector2i(x, roof.position.y), Types.Tile.LOW)
+	c.places.append({"kind": "apron", "cells": _open_cells(c, lot)})
+	_claim(c, lot)
+
+
 # ---------------------------------------------------------------- streets
 
 ## Parked or wrecked vehicles along the curb: two cells of half cover against a wall.
@@ -731,7 +948,7 @@ static func _street_props(c: Ctx) -> void:
 	var tries := 0
 	while placed < 6 and tries < 200:
 		tries += 1
-		var p := Vector2i(c.rng.randi_range(1, SIZE - 4), c.rng.randi_range(1, SIZE - 4))
+		var p := Vector2i(c.rng.randi_range(1, c.width - 4), c.rng.randi_range(1, c.height - 4))
 		var pair: Array[Vector2i] = [p, p + (Vector2i(1, 0) if c.rng.randf() < 0.5 else Vector2i(0, 1))]
 		var ok := true
 		for cell in pair:
@@ -770,12 +987,13 @@ static func _centre(cells: Array) -> Vector2:
 
 ## Enemy pods start inside places far enough from the drop zone: rooms, yards, camps, rock cuts.
 static func _place_pods(c: Ctx) -> Array:
-	var dist := c.g.reachable(c.deploy[0], SIZE * SIZE)
+	var dist := c.g.reachable(c.deploy[0], c.width * c.height)
+	var pod_hi := POD_DIST.y if maxi(c.width, c.height) < MapGen.HUGE_SIDE else 34
 	var cands: Array = []
 	for place in c.places:
 		var cells: Array[Vector2i] = []
 		for cell in place.cells:
-			if dist.has(cell) and dist[cell] >= POD_DIST.x and dist[cell] <= POD_DIST.y and not c.reserved.has(cell) \
+			if dist.has(cell) and dist[cell] >= POD_DIST.x and dist[cell] <= pod_hi and not c.reserved.has(cell) \
 					and c.g.tile(cell) == Types.Tile.FLOOR and not _near_door(c, cell):
 				cells.append(cell)
 		if cells.size() >= 3 and place.kind != "apron":
@@ -808,10 +1026,10 @@ static func _place_pods(c: Ctx) -> Array:
 
 ## Marks the objective's cells. False (with last_reject set) when the map has no room for them.
 static func _place_objective(c: Ctx, objective: String, pods: Array, markers: Dictionary) -> bool:
-	var dist := c.g.reachable(c.deploy[0], SIZE * SIZE)
+	var dist := c.g.reachable(c.deploy[0], c.width * c.height)
 	match objective:
 		"extract", "escort":
-			var spot := _free_block(c, dist, 2, 14, 27, 40)
+			var spot := _free_block(c, dist, 2, c.footprint.far, c.footprint.hi, 40)
 			if spot.x < 0:
 				MapGen.last_reject = "no room for the evac zone"
 				return false
@@ -849,7 +1067,13 @@ static func _place_objective(c: Ctx, objective: String, pods: Array, markers: Di
 		"demolish", "hack", "samples":
 			var key: String = MapGen.SITE_MARKER[objective]
 			var used2: Array[Vector2i] = []
-			for k in 3:
+			if objective == "hack":
+				# Relays sit on separate rooftops when the map has enough of them.
+				var roofs := _roof_sites(c, dist, 3)
+				for cell in roofs:
+					markers[key].append(cell)
+				used2.assign(roofs)
+			for k in 3 - used2.size():
 				var place3 := _far_place(c, dist, 8, 27, markers, 6, used2)
 				if place3.is_empty():
 					MapGen.last_reject = "no room for sites"
@@ -889,6 +1113,26 @@ static func _far_place(c: Ctx, dist: Dictionary, lo: int, hi: int, markers: Dict
 	return {"cells": ordered}
 
 
+## `n` reachable roof cells (level 1 or higher, open floor) at least 6 apart, or [] when there are fewer.
+static func _roof_sites(c: Ctx, dist: Dictionary, n: int) -> Array[Vector2i]:
+	var cells: Array = []
+	for cell in dist:
+		if dist[cell] >= 8 and c.g.level(cell) >= 1 and c.g.tile(cell) == Types.Tile.FLOOR and not c.pod_cells.has(cell) \
+				and not c.g.stairs.has(cell) and not c.g.ladders.has(cell) and not _near_pod(c, cell, 4):
+			cells.append(cell)
+	cells.sort()   # Vector2 order, so the pick below does not depend on dictionary order
+	_shuffle(cells, c.rng)
+	var out: Array[Vector2i] = []
+	for cell in cells:
+		if out.size() >= n:
+			break
+		if out.all(func(o: Vector2i) -> bool: return maxi(absi(o.x - cell.x), absi(o.y - cell.y)) >= 6):
+			out.append(cell)
+	if out.size() < n:
+		out.clear()
+	return out
+
+
 static func _near_pod(c: Ctx, cell: Vector2i, gap: int) -> bool:
 	return c.pod_cells.any(func(p: Vector2i) -> bool: return maxi(absi(p.x - cell.x), absi(p.y - cell.y)) < gap)
 
@@ -905,8 +1149,8 @@ static func _block_cells(origin: Vector2i, n: int) -> Array[Vector2i]:
 ## `hi` steps from the drop zone, picked at random from the candidates; (-1, -1) when there is none.
 static func _free_block(c: Ctx, dist: Dictionary, n: int, lo: int, hi: int, _tries: int) -> Vector2i:
 	var spots: Array[Vector2i] = []
-	for y in SIZE - n + 1:
-		for x in SIZE - n + 1:
+	for y in c.height - n + 1:
+		for x in c.width - n + 1:
 			var origin := Vector2i(x, y)
 			var ok := true
 			for cell in _block_cells(origin, n):

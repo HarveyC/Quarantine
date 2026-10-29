@@ -487,6 +487,9 @@ func _beat_team_phase(ev: Dictionary) -> Dictionary:
 		uv.set_statuses(false, false)
 		if uv.guard:
 			uv.set_guard(false)
+	if turn == 1 and view.state.grid.condition != "":
+		var cond: Dictionary = Conditions.KINDS.get(view.state.grid.condition, {})
+		view.hud.toast("%s: %s" % [cond.get("name", ""), cond.get("line", "")])
 	if turn == 1 and concealed:
 		view.hud.banner("SQUAD CONCEALED", Palette.STEALTH)
 		_sfx("sting_squad", -4.0)

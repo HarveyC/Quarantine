@@ -275,6 +275,15 @@ func _build_environment() -> void:
 	env.adjustment_brightness = 1.0
 	env.adjustment_contrast = 1.12
 	env.adjustment_saturation = 0.82
+	match state.grid.condition:
+		"fog":   # a bank of pale fog over the whole map
+			env.fog_light_color = Color("5d6b6c")
+			env.fog_density = 0.07
+			env.volumetric_fog_density = 0.07
+			env.volumetric_fog_albedo = Color("b4c0bb")
+		"blackout":   # lights out: the board only shows what the lamps reach
+			env.ambient_light_energy *= 0.4
+			env.tonemap_exposure = 0.8
 	GameSettings.apply_environment(env)   # the quality preset drops the costly effects
 	var we := WorldEnvironment.new()
 	we.environment = env

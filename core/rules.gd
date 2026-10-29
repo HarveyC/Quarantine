@@ -233,6 +233,7 @@ static func run_enemy_phase(s: GameState) -> void:
 	s.phase = Types.Phase.ENEMY
 	s.emit({"type": "enemy_phase", "turn": s.turn})
 	Encounter.on_enemy_phase_start(s)
+	Conditions.on_enemy_phase_start(s)
 	Kit.on_enemy_phase_start(s)
 	for u in s.living(Types.Team.ENEMY):
 		if s.phase == Types.Phase.ENDED:

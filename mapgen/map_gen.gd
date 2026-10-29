@@ -29,6 +29,8 @@ const SITE_MARKER := {"demolish": "charge", "hack": "relay", "samples": "sample"
 const POD_STEPS := Vector2i(6, 20)        # walking distance from the drop zone: every pod cell >= x, each pod's nearest cell <= y
 const GRAND_WIDTH := 26                   # maps this wide or wider (5x5 plots are 28x28) get GRAND_POD_MAX
 const GRAND_POD_MAX := 27
+const HUGE_SIDE := 36                     # long and tall district footprints reach pods further out
+const HUGE_POD_MAX := 36
 const EVAC_MIN_STEPS := 12
 const OBJECTIVE_MIN_STEPS := 5            # civilians, nests, hive
 const FULL_COVER := Vector2(0.03, 0.24)   # share of all tiles
@@ -103,6 +105,7 @@ static func generate(spec: Dictionary) -> Grid:
 				dg.biome = biome
 				dg.objective = objective
 				last_plot = "district"
+				_apply_condition(dg, spec)
 				return dg
 		push_warning("MapGen: no valid district for %s (%s), trying the plots" % [spec, last_reject])
 	for attempt in MAX_TRIES:
@@ -118,12 +121,23 @@ static func generate(spec: Dictionary) -> Grid:
 			g.biome = biome
 			g.objective = objective
 			last_plot = str(plot_of.get("name", ""))
+			_apply_condition(g, spec)
 			return g
 	push_warning("MapGen: no valid layout for %s, using the fallback map" % [spec])
 	var fb := Grid.load_file(FALLBACK_MAP)
 	fb.biome = biome
 	fb.objective = "skirmish"
 	return fb
+
+
+## Lays a run fight's map condition (spec "condition", see Conditions) on a finished map.
+static func _apply_condition(g: Grid, spec: Dictionary) -> void:
+	var cond := str(spec.get("condition", ""))
+	if cond == "":
+		return
+	var crng := RandomNumberGenerator.new()
+	crng.seed = ("%d:%s:condition" % [int(spec.get("seed", 0)), cond]).hash()
+	Conditions.shape(g, cond, crng)
 
 
 ## The arenas a boss fights in: those tagged `boss=<kind>` for that boss, else the untagged ones.
@@ -760,7 +774,10 @@ static func _validate(g: Grid, objective: String, dist: Dictionary, deploy: Arra
 		var nearest := 1 << 30
 		for c in pod:
 			nearest = mini(nearest, dist[c])
-		if nearest < POD_STEPS.x or nearest > (GRAND_POD_MAX if g.width >= GRAND_WIDTH else POD_STEPS.y):
+		var pod_max := GRAND_POD_MAX if g.width >= GRAND_WIDTH else POD_STEPS.y
+		if maxi(g.width, g.height) >= HUGE_SIDE:
+			pod_max = HUGE_POD_MAX
+		if nearest < POD_STEPS.x or nearest > pod_max:
 			last_reject = "pod distance %d" % nearest
 			return false
 	for c in markers.evac:
