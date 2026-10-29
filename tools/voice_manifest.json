@@ -45,13 +45,78 @@
 		"voice": "hale_turned"
 	},
 	{
+		"file": "hv_02283fd9fa.ogg",
+		"text": "I don't need all of you. I need one of you, breathing.",
+		"voice": "hv"
+	},
+	{
 		"file": "hv_09c10c3a8f.ogg",
 		"text": "Sample secured. Your contracts are complete.",
 		"voice": "hv"
 	},
 	{
+		"file": "hv_2888f1a230.ogg",
+		"text": "You are making this harder than it is.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_30a69eb444.ogg",
+		"text": "My team will do the lifting. Please don't make it hard.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_5da9c55b9c.ogg",
+		"text": "Lantern Company. Your blood work is under contract. Stay exactly where you are.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_6005de6d52.ogg",
+		"text": "Collectors, the nearest one. Gently.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_716698149d.ogg",
+		"text": "Hold your positions. Nobody touches the carriers.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_86fbe33c7a.ogg",
+		"text": "Lantern Company. Please stay where you are.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_87136ac886.ogg",
+		"text": "Cage the marked carrier. Now.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_984aa1c79e.ogg",
+		"text": "Extraction is called. Everyone clear the lane.",
+		"voice": "hv"
+	},
+	{
 		"file": "hv_a87eb208ca.ogg",
 		"text": "The colony was never the product.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_aa4dd0c66b.ogg",
+		"text": "Posts, lock your lanes.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_ae046bbfac.ogg",
+		"text": "Mark the warm one. The most Infected, I want that one.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_b33ce265e7.ogg",
+		"text": "I only need one. One will do.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_b9a90e348e.ogg",
+		"text": "Second team, take the roofs.",
 		"voice": "hv"
 	},
 	{
@@ -635,6 +700,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_7140cf4376.ogg",
+		"text": "That's the last post. She has no cover. Go.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_734ffceeba.ogg",
 		"text": "Sato",
 		"voice": "okafor"
@@ -642,6 +712,11 @@
 	{
 		"file": "okafor_743942eb54.ogg",
 		"text": "fifty-four's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_75072b758f.ogg",
+		"text": "She's marked one of you. Break her sight lines and keep that soldier moving.",
 		"voice": "okafor"
 	},
 	{
@@ -740,6 +815,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_8946033a79.ogg",
+		"text": "You're past the wall. Port Ardent's harbour lights are on.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_896e67823d.ogg",
 		"text": "twenty's",
 		"voice": "okafor"
@@ -747,6 +827,11 @@
 	{
 		"file": "okafor_89a0476e8a.ogg",
 		"text": "twenty-three",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_8af025b8fe.ogg",
+		"text": "Nobody here turned them on. A Halden-Voss recovery team is on the docks. They are not here for the Infected.",
 		"voice": "okafor"
 	},
 	{
@@ -885,6 +970,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_aafda4dd29.ogg",
+		"text": "She's calling the extraction. Kill the Collectors and keep everyone on their feet.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_ab389edaab.ogg",
 		"text": "twenty",
 		"voice": "okafor"
@@ -965,6 +1055,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_b858bd824e.ogg",
+		"text": "Her snipers are down. She's exposed. Hit her now.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_b8a9f715db.ogg",
 		"text": "two",
 		"voice": "okafor"
@@ -1002,6 +1097,11 @@
 	{
 		"file": "okafor_bf571e9909.ogg",
 		"text": "Ferreira's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_c2373da4c4.ogg",
+		"text": "A second team is on the roofs. Clear them again, and watch who she marks.",
 		"voice": "okafor"
 	},
 	{
@@ -1157,6 +1257,11 @@
 	{
 		"file": "okafor_e0001e4aaf.ogg",
 		"text": "Whatever is holding this district, it's right there.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_e039312ffc.ogg",
+		"text": "Cages incoming. Don't let anyone stand pinned under one.",
 		"voice": "okafor"
 	},
 	{

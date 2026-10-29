@@ -267,7 +267,7 @@ func test_the_breaker_three_phases_play_through_the_view() -> void:
 ## Colonel Hale through the view: air support from his post with marked strikes and smoke, the
 ## Bloom taking him (banner beat, stomps and charges), then hurled wreckage and danger close.
 func test_colonel_hale_three_phases_play_through_the_view() -> void:
-	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 5, "squad": 2, "players": 2}, "colonel_hale")   # his escort has its own tests
+	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 5, "squad": 2, "players": 2, "boss": "colonel_hale"}, "colonel_hale")   # his escort has its own tests
 	_drain(v)
 	var h := _boss_of(v, "colonel_hale")
 	var hv = v.view_for(h.id)
@@ -296,6 +296,43 @@ func test_colonel_hale_three_phases_play_through_the_view() -> void:
 	_watch(v, 6, seen)
 	assert_true(seen.get("hurl", 0) + seen.get("danger_close", 0) >= 1, "the wreck throws what it has left")
 	assert_true(_no_bare_labels(v), "every Hale ability has a beat of its own")
+	assert_true(not v.player.is_busy(), "queue drained")
+	v.free()
+
+
+## The Director through the view: her lock and snipe from the roofs, the second team and the retrieval
+## mark, the cage, then a Collector dragging a pinned soldier to the lane and taking them.
+func test_the_director_three_phases_play_through_the_view() -> void:
+	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 5, "squad": 2, "players": 2, "boss": "director"}, "director")
+	_drain(v)
+	var d := _boss_of(v, "director")
+	var seen := {}
+	_watch(v, 3, seen)
+	assert_true(seen.get("sight", 0) >= 1, "she locks a soldier")
+	var any_soldier: Unit = v.state.living(Types.Team.PLAYER)[0]
+	d.status.erase("tether")
+	Rules.deal_damage(v.state, d, 999, any_soldier)
+	_drain(v)
+	assert_eq(int(d.status.boss_phase), 2, "phase 2")
+	assert_true(seen.get("boss_phase:2", 0) >= 1, "the second team banner played")
+	_watch(v, 3, seen)
+	assert_true(seen.get("flag", 0) >= 1, "she marks a soldier")
+	d.status.erase("tether")
+	Rules.deal_damage(v.state, d, 999, any_soldier)
+	_drain(v)
+	assert_eq(int(d.status.boss_phase), 3, "phase 3")
+	assert_true(seen.get("boss_phase:3", 0) >= 1, "the extraction banner played")
+	_watch(v, 4, seen)
+	assert_true(seen.get("retrieve", 0) >= 1, "she drops the cage")
+	assert_true(seen.get("strike:retrieval", 0) >= 1 and seen.get("red_tiles", 0) >= 1, "marked in red, then landed")
+	# Recovery's Netter holds a soldier and a Collector drags them off the map.
+	var victim: Unit = v.state.living(Types.Team.PLAYER)[0]
+	var c := Encounter._place(v.state, "collector", Encounter.free_cell(v.state, victim.pos + Vector2i(1, 0)))
+	Recovery.hold(v.state, c, victim)
+	Recovery.apply(v.state, c, {"ability": "drag", "target": victim.id})
+	_drain(v)
+	assert_true(seen.get("drag", 0) >= 1, "the drag shows")
+	assert_true(_no_bare_labels(v), "every Director ability has a beat of its own")
 	assert_true(not v.player.is_busy(), "queue drained")
 	v.free()
 

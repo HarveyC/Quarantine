@@ -280,6 +280,29 @@ def source_arena():
     return a
 
 
+def director_arena():
+    a = A("rooftop_net", "director")                     # only the Director's fight is drawn here
+    a.rect(8, 1, 11, 3, "2")                             # her perch: the harbour authority's upper roof
+    a.put(9, 2, "b")                                     # boss anchor on the upper roof
+    a.rect(4, 4, 15, 6, "^")                             # the authority deck below it
+    a.put(9, 4, "S").put(10, 4, "S")                     # stairs from the deck up to her perch
+    a.put(5, 5, "%").put(14, 5, "%").put(7, 6, "%").put(12, 6, "%")
+    a.put(9, 7, "s").put(10, 7, "s")                     # the open stair down to the street
+    a.rect(1, 9, 3, 12, "^")                             # west and east wing roofs: two more posts
+    a.rect(16, 9, 18, 12, "^")
+    a.put(2, 10, "%").put(17, 10, "%")
+    a.put(4, 10, "/").put(15, 10, "/")                   # ladders up from the street
+    a.put(2, 8, "s").put(17, 8, "s")                     # stairs from the north lane up to the wings
+    a.rect(6, 9, 7, 12, "#").rect(12, 9, 13, 12, "#")    # containers either side of the street
+    a.rect(1, 14, 2, 14, "#").rect(17, 14, 18, 14, "#")
+    for x, y in [(4, 8), (15, 8), (9, 11), (10, 13), (3, 16), (16, 16), (5, 14), (14, 14)]:
+        a.put(x, y, "=")
+    a.put(8, 14, "!").put(12, 15, "!")
+    a.deploy()
+    a.pods([(3, 6), (16, 6), (5, 12), (14, 12), (9, 9), (10, 9), (1, 5), (18, 5)])
+    return a
+
+
 def breaker_arena():
     """The wall engineers' yard behind the breach: long lanes of cover for the rig to flatten, a gantry
     on each flank to climb, and fuel barrels to turn on it."""
@@ -319,7 +342,7 @@ def engine_arena():
 
 ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
 ## Further arenas a boss fights in (tagged with their boss), after the biome's default one.
-EXTRA_ARENAS = {"wall": [breaker_arena], "bore": [engine_arena]}
+EXTRA_ARENAS = {"wall": [breaker_arena], "port": [director_arena], "bore": [engine_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)

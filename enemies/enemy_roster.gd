@@ -107,14 +107,14 @@ const FACTIONS := {
 	"recovery": ["netter", "handler", "sterilizer", "collector"],
 	"choir": ["acolyte", "cantor", "hush"],
 }
-const BOSSES: Array[String] = ["brood_mother", "breaker", "colonel_hale", "the_source", "bore_engine"]
+const BOSSES: Array[String] = ["brood_mother", "breaker", "colonel_hale", "director", "the_source", "bore_engine"]
 const BOSS_OF_ACT := {1: "brood_mother", 2: "colonel_hale", 3: "the_source"}
 ## The bosses an act can roll, in a fixed order (a boss node's seed picks one). A new boss joins
 ## its act's pool here once its module, arena, intro scene and view beats are in.
-const BOSS_POOL := {1: ["brood_mother", "breaker"], 2: ["colonel_hale"], 3: ["the_source", "bore_engine"]}
+const BOSS_POOL := {1: ["brood_mother", "breaker"], 2: ["colonel_hale", "director"], 3: ["the_source", "bore_engine"]}
 ## Regular enemies an act leans on when that boss waits at its end (twice as likely, like the Act
 ## signatures), so the Act foreshadows the boss. A new boss lists its faction's kinds here.
-const BOSS_PACK := {"breaker": ["hound", "loader"]}
+const BOSS_PACK := {"breaker": ["hound", "loader"], "director": ["sharpshooter", "overwatcher"]}
 const ARMOURED_REDUCTION := 2
 const ELITE_HP_MULT := 2
 
