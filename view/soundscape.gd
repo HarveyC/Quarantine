@@ -361,7 +361,7 @@ static func boss_mix(info: Dictionary, boss: String) -> Array:
 	var high := clampf(0.3 + float(info.get("boss_hurt", 0.0)) * 1.4, 0.0, 1.0)
 	if int(info.get("boss_phase", 1)) >= 2 or info.get("low_hp", false):
 		high = 1.0
-	var bloom := 1.0 if boss == "the_source" else _bloom_level(info)
+	var bloom := 1.0 if boss in ["the_source", "lantern_echoes"] else _bloom_level(info)
 	return [1.0, high, bloom]
 
 

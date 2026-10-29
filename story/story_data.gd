@@ -74,6 +74,11 @@ const ACT_SCENES_BY_BOSS := {
 		["SQUAD", "That is the drill. Somebody started it."],
 		["SOURCE", "You came."],
 	]},
+	"lantern_echoes": {"title": "Act III · The Bore", "sub": "A hall of lanterns", "stage": "bore", "lines": [
+		["SQUAD", "No radio this deep. Just the glow."],
+		["SOURCE", "You came."],
+		["SQUAD", "There are lanterns down here. Hundreds of them, still lit."],
+	]},
 }
 ## Act 3's second line when an earlier wave has reached the Source.
 const SOURCE_REMEMBERS := ["SOURCE", "You came back. I remember the fire."]
@@ -127,6 +132,19 @@ const BOSS_SCENES := {
 		["SOURCE", "I know all of your names."],
 		["SOURCE", "Cut my roots, and then we will talk."],
 	]},
+	"lantern_echoes": {"title": "The Lantern Echoes", "sub": "The Wake, under the Bore", "lines": [
+		["SOURCE", "I know all of your names."],
+		["SQUAD", "That's our people. They're wearing our faces."],
+		["SQUAD", "It's not hunting us. It's calling us by name."],
+	]},
+}
+## Extra ending lines when the Lantern Echoes were the last fight, spoken after the ending's first
+## line. The Echoes were the Source learning to say Lantern Company's names, so each ending reads
+## them its own way.
+const ENDING_AFTER_ECHOES := {
+	"burn": ["", "Every lantern in the Wake goes out at once. Nobody says a name."],
+	"sample": ["", "The sample hums in the case, very softly, in the voices of the dead."],
+	"carry": ["SQUAD", "Those weren't traps. It's been practising how to talk to us."],
 }
 
 const ENDINGS := {
@@ -201,6 +219,11 @@ const BARKS := {
 ## Boss fight lines spoken by a soldier of the squad (act 3 has no radio), same keys as the boss lines
 ## in BARKS. They are mask babble at play time, so they need no recorded clips.
 const SQUAD_BARKS := {
+	"lantern_echoes_2": ["That's one of ours, getting back up.",
+		"The Source took the body. Put it down before it spreads."],
+	"lantern_echoes_3": ["That's the last of them. It's wearing someone's face.",
+		"Only one left, and it knows every move we have."],
+	"lantern_echoes_open": ["Nothing left to shield it. Hit it now."],
 	"choir_prophet_2": ["He's fixed on someone. Break his line of sight or get them cleansed.", "That's a link on {name}'s head. Cut it before it lands."],
 	"choir_prophet_3": ["The circle is closing. Find solid cover before the hymn peaks.", "Every third bar he stops singing and the whole room hurts. Hide, then hit him."],
 	"bore_engine_2": ["Valve's gone! Get off that platform, it's dropping.", "One down. The deck won't hold where that valve was."],
@@ -293,3 +316,4 @@ static func garble(text: String, salt: int = 0) -> String:
 			continue
 		out.append(words[i])
 	return " ".join(out)
+

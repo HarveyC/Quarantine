@@ -428,6 +428,66 @@ func test_the_source_three_phases_play_through_the_view() -> void:
 	v.free()
 
 
+## The Lantern Echoes through the view: the Echoes fight with their class kit and say so on screen,
+## the Last Echo is shielded, a fallen Echo falls to spores, the Source takes the body and the husk
+## pulses, then the Last Echo wears the weakest soldier.
+func test_the_lantern_echoes_play_through_the_view() -> void:
+	var fight := FightBuilder.build({"act": 3, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 4, "squad": 3, "players": 1, "boss": "lantern_echoes"})
+	var config := MatchConfig.make(1, 99)
+	config["enemies"] = []
+	config["encounter"] = fight.encounter
+	config["map_spec"] = {"biome": "bore", "objective": "boss", "seed": 4, "act": 3, "boss": "lantern_echoes"}
+	config["squad"] = [{"kind": "trooper", "player": 0}, {"kind": "medic", "player": 0}, {"kind": "breacher", "player": 0}]
+	var v: MissionView = MAIN.instantiate()
+	v.start(MatchConfig.build(config))
+	_drain(v)
+	var boss := _boss_of(v, "lantern_echoes")
+	var seen := {}
+	v.player.beat_finished.connect(func(ev: Dictionary) -> void:
+		var t := str(ev.get("type", ""))
+		if t in ["echo_fell", "echo_taken", "immune", "source_pulse", "boss_phase", "died"]:
+			var k := t + ":" + str(ev.get("phase", ev.get("reason", "")))
+			seen[k] = int(seen.get(k, 0)) + 1
+		elif t == "ability":
+			seen["ability:" + str(ev.ability)] = int(seen.get("ability:" + str(ev.ability), 0)) + 1)
+	var soldier: Unit = v.state.living(Types.Team.PLAYER)[0]
+	assert_eq(LanternEchoes.echoes(v.state).size(), 3, "an Echo per soldier")
+	# The Echoes stride in and use the squad's own kit.
+	_watch(v, 4, seen)
+	var signatures := 0
+	for id in ["lockdown", "quarantine_field", "bring_down", "suppress", "stim", "breach"]:
+		signatures += int(seen.get("ability:" + id, 0)) + int(seen.get(id, 0))
+	var echo_overwatch := v.state.log.filter(func(e): return e.type == "overwatch" and v.state.get_unit(e.unit).status.get("lantern_echo", false)).size()
+	assert_true(signatures + echo_overwatch >= 1, "the Echoes use their class kit (%d)" % (signatures + echo_overwatch))
+	# The Last Echo is shielded while they stand.
+	Rules.deal_damage(v.state, boss, 5, soldier)
+	_drain(v)
+	assert_true(seen.get("immune:echoes", 0) >= 1, "its shield plays on screen")
+	assert_eq(boss.hp, boss.max_hp, "and holds")
+	# The first Echo falls: spores, a banner, and the Source takes the body.
+	var first: Unit = LanternEchoes.echoes(v.state)[0]
+	var fv = v.view_for(first.id)
+	Rules.deal_damage(v.state, first, 999, soldier)
+	_drain(v)
+	assert_true(seen.get("echo_fell:", 0) >= 1, "it falls to spores")
+	assert_true(fv._sink > 0.0, "and the floor takes the body")
+	assert_eq(int(boss.status.boss_phase), 2, "phase 2")
+	assert_true(seen.get("boss_phase:2", 0) >= 1, "with its banner")
+	_watch(v, 1, seen)
+	assert_true(seen.get("echo_taken:", 0) >= 1 and LanternEchoes.taken(v.state).size() >= 1, "the husk rises on screen")
+	_watch(v, 1, seen)
+	assert_true(seen.get("source_pulse:", 0) >= 1, "and pulses Infection")
+	# The rest fall: the husk collapses and the Last Echo takes the weakest soldier's shape.
+	for e in LanternEchoes.echoes(v.state):
+		Rules.deal_damage(v.state, e, 999, soldier)
+	_drain(v)
+	assert_eq(int(boss.status.boss_phase), 3, "phase 3")
+	assert_true(seen.get("boss_phase:3", 0) >= 1, "its banner")
+	assert_eq(LanternEchoes.taken(v.state).size(), 0, "the husks are gone")
+	_watch(v, 2, seen)
+	assert_true(_no_bare_labels(v), "every Echo ability has a beat of its own")
+
+
 ## The Bore Engine through the view: pistons marked then landing, a cut valve venting and its platform
 ## falling, the jaws, the core opening with a countdown, and sealing again with valves regrown.
 func test_the_bore_engine_plays_pistons_valves_window_and_reseal_through_the_view() -> void:

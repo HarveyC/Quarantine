@@ -173,7 +173,7 @@ func test_the_arena_is_drawn_for_the_engine_and_valves_sit_on_its_platforms() ->
 	var arenas: Array = MapGen.parse(FileAccess.get_file_as_string("res://maps/biome_bore.txt")).arenas
 	var own: Array = MapGen._arenas_for({"arenas": arenas}, "bore_engine")
 	assert_eq(own.size(), 1, "one arena is tagged for the Engine")
-	assert_eq(MapGen._arenas_for({"arenas": arenas}, "the_source").size(), arenas.size() - own.size(), "the Source keeps the other arenas")
+	assert_eq(MapGen._arenas_for({"arenas": arenas}, "the_source").size(), arenas.filter(func(a): return a.get("boss", "") == "").size(), "the Source keeps the other arenas")
 	for seed in [1, 2, 3, 4, 5, 6]:
 		var g := MapGen.generate({"biome": "bore", "objective": "boss", "seed": seed, "boss": "bore_engine"})
 		assert_eq(MapGen.last_plot, "arena")

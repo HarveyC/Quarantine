@@ -156,6 +156,10 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 					"clear": counter.cover += 1
 		elif ev.type == "level_changed":
 			counter.roofs += 1
+		if ev.type in ["ability", "hunker", "overwatch"] and s.get_unit(int(ev.get("unit", -1))) != null \
+				and s.get_unit(int(ev.unit)).status.get("lantern_echo", false):
+			var key := "echo:" + str(ev.get("ability", ev.type))
+			boss_acts[key] = int(boss_acts.get(key, 0)) + 1
 		if boss_ids.has(int(ev.get("unit", -1))):
 			if ev.type == "ability":
 				boss_acts[str(ev.ability)] = int(boss_acts.get(str(ev.ability), 0)) + 1

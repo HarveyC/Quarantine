@@ -21,7 +21,7 @@ const FOG_EVENTS := ["start", "team_phase", "enemy_phase", "died", "spawned", "d
 	"deployable_end", "cover_destroyed", "level_changed", "ability", "gear", "mutation", "turned",
 	"lapse", "recover", "revealed_area", "fell", "mission_end"]
 ## Events of an unseen enemy that still play (you hear it die).
-const ALWAYS_SHOWN := ["died", "concealment_lost", "move", "telegraph", "reinforcements_incoming", "boss_phase", "boss_aspect", "boss_defeated"]
+const ALWAYS_SHOWN := ["died", "concealment_lost", "move", "telegraph", "reinforcements_incoming", "boss_phase", "boss_aspect", "boss_defeated", "echo_fell", "echo_taken"]
 
 const SHADER := """
 shader_type spatial;
