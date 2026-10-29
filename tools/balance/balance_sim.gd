@@ -88,7 +88,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		enc = {}
 	var config := {"map": MatchConfig.MAP, "squad": squad, "enemies": enemies, "encounter": enc, "seed": seed,
 		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak,
-			"boss": str(enc.get("boss", ""))}}
+			"boss": str(enc.get("boss", "")), "condition": Conditions.for_fight(seed, act, objective, node)}}
 	var s := MatchConfig.build(config)
 	if guns != "":
 		var gl := guns.split(",")
