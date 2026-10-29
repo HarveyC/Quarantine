@@ -933,7 +933,7 @@ func test_shoot_cycles_onto_a_fuel_barrel() -> void:
 	v.player.flush()
 	var shots: Array = s.log.filter(func(ev): return ev.type == "barrel_shot")
 	assert_eq(shots.size(), 1, "one Shoot at the barrel")
-	assert_eq(u.actions_left, 1, "a shot costs one action")
+	assert_eq(u.actions_left, 0, "it ended the turn")
 	assert_eq(not shots[0].hit, s.grid.is_volatile(cell), "the barrel went up only on a hit")
 	v.free()
 

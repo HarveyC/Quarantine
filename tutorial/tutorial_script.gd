@@ -52,7 +52,7 @@ const STEPS: Array[Dictionary] = [
 	{"id": "fog", "title": "Fog of war", "cells": SCOUT_CELLS,
 		"text": "Dark ground is unknown. The squad shares what each soldier sees. Scout ahead to a marked tile."},
 	{"id": "shoot", "title": "Hit chance", "hud": "aim", "keys": ["1"], "visual": "actions",
-		"text": "Press Shoot to aim: the panel shows your odds and why. A shot costs 1 action and doesn't end your turn."},
+		"text": "Press Shoot to aim: the panel shows your odds and why. A shot ends your turn, so move first."},
 	{"id": "high_ground", "title": "High ground", "cells": ROOF_CELLS, "visual": "height",
 		"text": "Climb the ladder. From a roof you get +10 aim and +2 sight, and targets lose a step of cover."},
 	{"id": "overwatch", "title": "Overwatch", "hud": "overwatch", "keys": ["2", "Space"],

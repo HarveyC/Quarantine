@@ -52,7 +52,7 @@ Rules for parallel work:
 ## Actions
 
 `{"type": Types.MOVE, "unit": id, "to": Vector2i}` costs 1 action, range `unit.mobility` (8-way, no corner cutting).
-`SHOOT` (`"target": id`) costs a soldier 1 action (an enemy's shot ends its turn); `OVERWATCH`, `HUNKER` end the unit's turn.
+`SHOOT` (`"target": id`), `OVERWATCH`, `HUNKER` end the unit's turn (gear such as Slipstream, Steady hands and Kill chain can give an action back).
 `ABILITY` (`"ability": id`, optional `"target"`/`"cell"`) and `MUTATION` (`"mutation": id`, ...) cost is defined by their module. `STRUGGLE` (no extra keys) is only legal for a soldier pinned by a Lurker: it costs no actions, once per team phase, and throws the Lurker off `Encounter.STRUGGLE_CHANCE`% of the time.
 
 ## Events

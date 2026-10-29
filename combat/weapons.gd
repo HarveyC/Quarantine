@@ -62,7 +62,7 @@ const TABLE := {
 		"desc": "+2 damage, +20% crit, no range penalty to 16 tiles. -20 aim at 3 tiles or less, -1 movement. Pierce: the round carries on and hits the next enemy in line for half damage."},
 	"scout_carbine": {"name": "Scout carbine", "mag": 6, "classes": ["marksman", "medic"], "rarity": "uncommon", "tag": "Close",
 		"look": "pdw", "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3, "crit": 10, "trait": "skirmish",
-		"desc": "+10% crit, +10 aim within 3 tiles. Skirmisher: after a move of 3 or more tiles, your first shot this turn costs no action."},
+		"desc": "+10% crit, +10 aim within 3 tiles. Skirmisher: after a move of 3 or more tiles, your first shot this turn doesn't end your turn."},
 	"flechette_smg": {"name": "Flechette SMG", "mag": 8, "classes": ["medic", "vector", "breacher"], "rarity": "uncommon", "tag": "Close",
 		"look": "pdw", "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 6, "graze": 20, "trait": "spread", "also": "barbs",
 		"desc": "+25 aim within 3 tiles, falls off fast past 5. Spread: wider graze band. Barbs: a hit leaves a barb, and a barbed enemy that moves takes 1 damage per barb."},
@@ -355,7 +355,7 @@ static func after_hit(s: GameState, u: Unit, t: Unit, dmg: int, crit: bool) -> v
 		s.emit({"type": "perk", "unit": u.id, "perk": "recoil", "target": t.id})
 
 
-## Skirmisher: after a move of SKIRMISH_STEPS or more, the first shot each turn costs no action.
+## Skirmisher: after a move of SKIRMISH_STEPS or more, the first shot each turn doesn't end your turn.
 static func skirmish_free(s: GameState, u: Unit) -> bool:
 	if not has_trait(u, "skirmish") or int(u.status.get("gear_moved_turn", -1)) != s.turn \
 			or int(u.status.get("gear_move_len", 0)) < SKIRMISH_STEPS or int(u.status.get("w_skirmish_turn", -1)) == s.turn:
