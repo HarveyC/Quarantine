@@ -31,7 +31,6 @@ var _col_l: VBoxContainer
 var _col_r: VBoxContainer
 var _figure: Control
 var _pockets: HBoxContainer
-var _grafts: HBoxContainer
 var _tags: VBoxContainer
 var _stash_row: HBoxContainer
 var _stash_title: Label
@@ -175,10 +174,6 @@ func _build() -> void:
 	_pockets = HBoxContainer.new()
 	_pockets.add_theme_constant_override("separation", 10)
 	left.add_child(_pockets)
-	left.add_child(UI.caps("Grafts", 13, UI.DIM))
-	_grafts = HBoxContainer.new()
-	_grafts.add_theme_constant_override("separation", 18)
-	left.add_child(_grafts)
 	left.add_child(UI.caps("Build", 13, UI.DIM))
 	_build_box = VBoxContainer.new()
 	_build_box.add_theme_constant_override("separation", 4)
@@ -230,7 +225,7 @@ func _refresh() -> void:
 	_build_squad_bar()
 	# Take the old tiles out now: queued for deletion they still count toward the size, and the
 	# FitBox would zoom the next soldier out to fit both. Then fit the new content from full size.
-	for n in [_col_l, _col_r, _pockets, _grafts, _tags, _stash_row, _build_box]:
+	for n in [_col_l, _col_r, _pockets, _tags, _stash_row, _build_box]:
 		for c in n.get_children():
 			n.remove_child(c)
 			c.queue_free()
@@ -247,11 +242,12 @@ func _refresh() -> void:
 		_col_l.add_child(_slot_tile(r, slot, feeding))
 	for slot in RIGHT_SLOTS:
 		_col_r.add_child(_slot_tile(r, slot, feeding))
+	_col_r.add_child(_graft_tile(r, "arm"))
+	_col_l.add_child(_graft_tile(r, "legs"))
 	_figure.setup(_lit_parts(r))
 	var ps := Loadout.pockets(r)
 	for i in ps.size():
 		_pockets.add_child(_pocket_tile(ps[i]))
-	_build_grafts(r)
 	_build_tags(r)
 	_build_stash(r)
 	_build_summary(r)
@@ -259,7 +255,7 @@ func _refresh() -> void:
 
 ## Slot tiles on screen, in no particular order (the tests and the drop checks walk them).
 func slot_tiles() -> Array:
-	return _col_l.get_children() + _col_r.get_children()
+	return (_col_l.get_children() + _col_r.get_children()).filter(func(c): return c is DropTile)
 
 
 ## Which body parts of the figure have something on them.
@@ -267,6 +263,9 @@ func _lit_parts(r: Dictionary) -> Dictionary:
 	var out := {}
 	for part in PARTS:
 		out[part] = PARTS[part].any(func(slot): return Loadout.item_at(r, slot) != null)
+	var grafts := Grafts.of(r)
+	out["arms"] = out.arms or grafts.has("arm")
+	out["legs"] = out.legs or grafts.has("legs")
 	return out
 
 
@@ -604,38 +603,44 @@ func _build_summary(r: Dictionary) -> void:
 
 
 ## The body diagram and one line per slot: the part's name in its path colour, or open.
-func _build_grafts(r: Dictionary) -> void:
+## An Arm or Legs graft as a slot of the same kind as the gear around it. Grafts are for life:
+## they come from the hospital, the depot and nests, not from the stash.
+func _graft_tile(r: Dictionary, slot: String) -> Control:
 	var g := Grafts.of(r)
-	var locked := g.is_empty() and Grafts.eligible_error(run, r) not in ["", "Every slot is grafted"]
-	var fig := GraftFigure.new(Vector2(52, 78))
-	fig.setup(g, "", locked)
-	_grafts.add_child(fig)
-	if locked:
-		var why := UI.text("Body grafts open in Act %d, from Rank %d: a Machine Refit at the hospital or depot, or a Bloom part from nests." % [
-			GraftData.FROM_ACT, GraftData.FROM_RANK], 13, UI.FAINT, 420)
-		why.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		_grafts.add_child(why)
-		return
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 4)
-	grid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	for slot in GraftData.SLOTS:
-		grid.add_child(UI.caps(GraftData.SLOT_NAMES[slot], 12, UI.FAINT))
-		var id: String = g.get(slot, "")
-		var l := UI.label(GraftData.name_of(id) if id != "" else "Open", 15, GraftFigure.path_color(id) if id != "" else UI.FAINT, "bold" if id != "" else "body")
-		if id != "":
-			l.tooltip_text = GraftData.get_def(id).desc
-			Tips.term(l, "graft")
-			l.mouse_filter = Control.MOUSE_FILTER_PASS
-		grid.add_child(l)
-	_grafts.add_child(grid)
-	var floor_at := Grafts.floor_of(g)
-	if floor_at > 0:
-		var fl := UI.label("Infection floor %d" % floor_at, 13, UI.TEAL)
-		fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		_grafts.add_child(fl)
+	var id: String = g.get(slot, "")
+	var t := PanelContainer.new()
+	t.custom_minimum_size = Vector2(0, 84)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.add_theme_stylebox_override("panel", UI.box(UI.PANEL_SOFT, UI.BORDER, 1, 0, 14))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	var head := HBoxContainer.new()
+	head.add_child(UI.label("%s GRAFT" % GraftData.SLOT_NAMES[slot].to_upper(), 11, UI.FAINT, "mono"))
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(sp)
+	if id != "":
+		head.add_child(UI.caps("Bloom" if GraftData.is_bloom(id) else "Machine", 12, GraftFigure.path_color(id)))
+	v.add_child(head)
+	if id != "":
+		v.add_child(UI.caps(GraftData.name_of(id), 20, GraftFigure.path_color(id)))
+		var tip: String = GraftData.get_def(id).desc
+		var floor_at := Grafts.floor_of(g)
+		if GraftData.is_bloom(id) and floor_at > 0:
+			tip += "\nInfection floor %d" % floor_at
+		t.tooltip_text = "%s\n%s" % [GraftData.name_of(id), tip]
+		Tips.term(t, "graft")
+	else:
+		v.add_child(UI.caps("Open", 20, UI.FAINT))
+		var err := Grafts.eligible_error(run, r)
+		t.tooltip_text = err if err != "" and err != "Every slot is grafted" else "A Machine Refit at the hospital or depot, or a Bloom part from nests."
+		if err.begins_with("Grafts open") or err.begins_with("Needs Rank"):
+			v.add_child(UI.label("Act %d, Rank %d" % [GraftData.FROM_ACT, GraftData.FROM_RANK], 13, UI.FAINT))
+	for n in v.find_children("*", "Control", true, false):
+		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.add_child(v)
+	return t
 
 
 func _bonus_line(text: String, col: Color) -> Control:

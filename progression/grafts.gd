@@ -18,8 +18,28 @@ static func _prog(record: Dictionary) -> Dictionary:
 	return record.prog if record.has("prog") else record
 
 
+## Every part the soldier wears, {slot: id}: the Arm and Legs grafts, plus a head or chest part
+## worn as gear in the Head and Body slots.
 static func of(record: Dictionary) -> Dictionary:
-	return _prog(record).get("grafts", {})
+	var g: Dictionary = _prog(record).get("grafts", {})
+	if record.has("prog"):
+		g = g.duplicate()
+		g.merge(worn_gear(record))
+	return g
+
+
+## The head and chest parts a soldier wears as gear, {graft slot: id}.
+static func worn_gear(record: Dictionary) -> Dictionary:
+	var out := {}
+	for part in GEAR_SLOTS:
+		var it = Loadout.item_at(record, GEAR_SLOTS[part])
+		if it != null and GraftData.GEAR_GRAFTS.has(it.id):
+			out[part] = it.id
+	return out
+
+
+## Graft slot -> the gear slot that wears it, for the head and chest parts.
+const GEAR_SLOTS := {"head": "head", "chest": "body"}
 
 
 static func of_unit(u: Unit) -> Dictionary:
