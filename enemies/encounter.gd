@@ -78,6 +78,8 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 	match str(enc.get("boss", "")):
 		"brood_mother":
 			BroodMother.setup(s, _place(s, "brood_mother", _marker(s, "boss", _far_spawn(s))), squad)
+		"broker":
+			Broker.setup(s, _place(s, "broker", _marker(s, "boss", _far_spawn(s))), squad)
 		"colonel_hale":
 			var h := _place(s, "colonel_hale", ColonelHale.post_near(s.grid, _marker(s, "boss", _far_spawn(s))))
 			ColonelHale.setup(s, h, squad)
@@ -583,6 +585,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		amount = ceili(amount * CARRIER_BONUS)
 	if target.kind == "brood_mother":
 		return BroodMother.clamp_damage(target, amount)
+	if target.kind == "broker":
+		return Broker.clamp_damage(target, amount)
 	if target.kind == "colonel_hale":
 		return ColonelHale.clamp_damage(target, amount)
 	if target.kind == "the_source":
@@ -636,6 +640,8 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 	match target.kind:
 		"brood_mother":
 			BroodMother.on_damaged(s, target)
+		"broker":
+			Broker.on_damaged(s, target)
 		"colonel_hale":
 			ColonelHale.on_damaged(s, target)
 		"the_source":

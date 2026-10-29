@@ -61,6 +61,11 @@ const BOSS_SCENES := {
 		["OKAFOR", "That's what has been feeding on the camps."],
 		["OKAFOR", "Break the egg sacs first. While they live, she can't be hurt."],
 	]},
+	"broker": {"title": "The Broker", "sub": "Harrow's biggest looter", "lines": [
+		["SQUAD", "That's the Broker. He has been stripping the cordon dead for months."],
+		["BROKER", "Whatever you carry, I have already priced it."],
+		["BROKER", "Set it down and walk away. Or I take it from you."],
+	]},
 	"colonel_hale": {"title": "Colonel Hale", "sub": "Halden-Voss Recovery", "lines": [
 		["HALE", "Lantern Company. You are carrying company property."],
 		["HALE", "Stand down and we'll take you home. In jars."],
@@ -131,6 +136,12 @@ const BARKS := {
 		"She's under you somewhere. Move when the ground cracks."],
 	"brood_mother_3": ["She's lost it. No more sacs. Finish her.", "She's coming straight at you. Put her down."],
 	"lore": ["Intel recovered."],
+}
+## Boss radio lines with no recorded clips yet: captions only, so they stay out of the voice manifest.
+const CAPTION_BARKS := {
+	"broker_2": ["He's taken your best kit and he's making for the gate. Hit him, he'll drop it.",
+		"He's running with your gear. Cut him off before he reaches the gate."],
+	"broker_3": ["He's torched what he carried. Finish him before he torches you.", "Cornered. He's burning everything. Put him down."],
 }
 ## Colonel Hale's voice in his boss fight, by phase: on the company radio, then after the Bloom
 ## takes him (phase 2). Heard, not captioned.

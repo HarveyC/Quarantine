@@ -184,8 +184,9 @@ def streets():
 class A:
     """A 20x20 arena. P deploy, E enemy pod cells, B boss anchor (b: on an upper roof) (see maps/biome_wall.txt for glyphs)."""
 
-    def __init__(self, name):
+    def __init__(self, name, boss=""):
         self.name = name
+        self.boss = boss
         self.g = [["."] * 20 for _ in range(20)]
 
     def put(self, x, y, ch):
@@ -219,11 +220,11 @@ class A:
         return self
 
     def render(self):
-        return "\n".join([f"@arena {self.name}"] + ["".join(r) for r in self.g])
+        return "\n".join([f"@arena {self.name} {self.boss}".rstrip()] + ["".join(r) for r in self.g])
 
 
 def brood_arena():
-    a = A("nest_pit")
+    a = A("nest_pit", "brood_mother")
     a.ring(10, 9, 4.7, 6.3, "~")                        # fragile rim: the burrow phase drops it
     a.put(10, 9, "B")
     for x, y in [(3, 4), (4, 4), (15, 4), (16, 4), (2, 14), (3, 14), (16, 14), (17, 14), (9, 1), (10, 1)]:
@@ -239,7 +240,7 @@ def brood_arena():
 
 
 def hale_arena():
-    a = A("command_post")
+    a = A("command_post", "colonel_hale")
     a.rect(5, 2, 14, 7, "^")                            # the command deck
     a.rect(8, 2, 11, 4, "2")                            # his post, one storey higher
     a.put(9, 5, "S").put(10, 5, "S")                    # stairs from the deck up to the post
@@ -261,7 +262,7 @@ def hale_arena():
 
 
 def source_arena():
-    a = A("shaft_rim")
+    a = A("shaft_rim", "the_source")
     pads = [(10, 2), (15, 4), (16, 12), (3, 12), (4, 4)]
     for cx, cy in pads:
         a.rect(cx - 1, cy - 1, cx + 1, cy + 1, "^").put(cx, cy, "%")
@@ -278,7 +279,27 @@ def source_arena():
     return a
 
 
-ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
+def broker_arena():
+    a = A("salvage_yard", "broker")
+    a.put(10, 4, "B")
+    for x, y in [(8, 5), (12, 5), (10, 6), (9, 3), (11, 3)]:
+        a.put(x, y, "=")                                # the Broker's crate nest, half cover all round
+    a.rect(1, 7, 5, 8, "#").rect(14, 7, 17, 8, "#")     # container rows, a wide lane between them
+    a.rect(1, 2, 3, 3, "#").rect(16, 2, 18, 3, "#")
+    a.rect(1, 11, 4, 14, "^").put(2, 12, "%").put(5, 13, "s")   # a gantry for height, one stair
+    a.rect(15, 11, 18, 14, "#")                         # stacked containers on the gate side
+    a.put(19, 10, "X")                                  # the exit gate
+    a.rect(16, 10, 18, 10, ".")
+    for x, y in [(15, 9), (15, 10), (17, 9)]:
+        a.put(x, y, "!")                                # fuel drums on the way to the gate
+    for x, y in [(7, 10), (12, 12), (9, 13), (5, 5), (14, 5)]:
+        a.put(x, y, "=")
+    a.deploy()
+    a.pods([(3, 5), (4, 5), (15, 5), (16, 5), (8, 1), (11, 1), (6, 9), (13, 9)])
+    return a
+
+
+ARENAS = {"wall": [brood_arena, broker_arena], "port": [hale_arena], "bore": [source_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)
@@ -370,7 +391,7 @@ def build(biome):
         parts.append(p.render())
         parts.append("")
     parts.append(PLOTS.strip("\n"))
-    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.", ARENAS[biome]().render()]
+    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.", "\n\n".join(f().render() for f in ARENAS[biome])]
     return "\n".join(parts) + "\n"
 
 

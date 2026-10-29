@@ -29,7 +29,9 @@ const SQUAD_BOSS_HEALTH := {1: 0.35, 2: 0.4, 3: 0.6, 4: 1.0}
 const PURGE_NESTS := {1: 2, 2: 2, 3: 2, 4: 3}
 const PURGE_BUDGET_CUT := 2
 ## Boss HP as a share of its base, by squad size. Each boss module owns its table.
-const BOSS_HEALTH := {"brood_mother": BroodMother.HEALTH, "colonel_hale": ColonelHale.HEALTH, "the_source": SourceBoss.HEALTH}
+const BOSS_HEALTH := {"brood_mother": BroodMother.HEALTH, "broker": Broker.HEALTH, "colonel_hale": ColonelHale.HEALTH, "the_source": SourceBoss.HEALTH}
+## The Broker's convoy on the field when the fight starts (more arrive as waves, see Broker.WAVE_KINDS).
+const BROKER_ADDS := {1: [], 2: ["cutter"], 3: ["cutter", "cutter"], 4: ["cutter", "cutter", "torchman"]}
 const HALE_ADDS := {1: [], 2: ["shieldman"], 3: ["shieldman", "overwatcher", "fallen"], 4: ["shieldman", "overwatcher", "emplacement", "sharpshooter"]}
 ## A lone soldier can't break a Lurker's pin (a teammate has to hit it), so it never meets one.
 const SOLO_BANNED: Array[String] = ["lurker"]
@@ -128,6 +130,8 @@ static func build(spec: Dictionary) -> Dictionary:
 		enc["boss"] = boss
 		if boss == "colonel_hale":
 			enemies.append_array(HALE_ADDS[squad])
+		if boss == "broker":
+			enemies.append_array(BROKER_ADDS[squad])
 		var share: Dictionary = BOSS_HEALTH[boss]
 		var mult := float(mods.get("boss_health_mult", 1.0)) * float(share[squad])
 		if mult != 1.0:

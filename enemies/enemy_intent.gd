@@ -117,6 +117,13 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 				return {"icon": "claw", "label": "BERSERK", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 			if int(u.cooldowns.get("acid_rain", 0)) <= 1:
 				return {"icon": "strike", "label": "ACID RAIN", "target": -1}
+		"broker":
+			if phase == 2:
+				return {"icon": "hide", "label": "RUNNING", "target": -1}
+			if phase == 3:
+				if int(u.cooldowns.get("firebomb", 0)) <= 1:
+					return {"icon": "satchel", "label": "FIREBOMB", "target": -1}
+				return {"icon": "claw", "label": "CORNERED", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 		"colonel_hale":
 			var near := ColonelHale._nearest_dist(u.pos, hostiles)
 			if phase == 1:
@@ -179,6 +186,19 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 			var h := s.get_unit(int(u.status.hooked))
 			if h != null and h.is_alive():
 				out.append({"kind": "hook", "cells": EnemyAbilities.line_cells(u.pos, h.pos), "unit": u.id, "turn": s.turn})
+		if u.kind == "broker" and int(u.status.get("boss_phase", 1)) == 2:
+			out.append({"kind": "exit", "cells": Broker.exit_cells(s, u), "unit": u.id, "turn": s.turn})
+	return out
+
+
+## [broker id, soldier id] for each item the Broker is carrying off, seen by the squad.
+static func hoards(s: GameState) -> Array:
+	var out: Array = []
+	for u in s.living(Types.Team.ENEMY):
+		if u.kind != "broker" or not Vision.sees_unit(s, Types.Team.PLAYER, u):
+			continue
+		for loot in u.status.get("hoard", []):
+			out.append([u.id, int(loot.unit)])
 	return out
 
 

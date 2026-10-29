@@ -957,7 +957,7 @@ CCSRR
 CCDRR
 
 ; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.
-@arena shaft_rim
+@arena shaft_rim the_source
 ....................
 .EE......^^^.....EE.
 .........^%^~~......

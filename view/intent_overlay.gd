@@ -29,6 +29,7 @@ var _m_ripple: StandardMaterial3D
 var _m_ghost: StandardMaterial3D
 var _m_blip: StandardMaterial3D
 var _m_plate: StandardMaterial3D
+var _m_exit: StandardMaterial3D
 var _m_rally: StandardMaterial3D
 var _blips: Array[Node3D] = []
 
@@ -45,6 +46,7 @@ func _ready() -> void:
 	_m_ghost = Palette.overlay(Color(Palette.DANGER, 0.22))
 	_m_blip = Palette.overlay(Color(Palette.DANGER, 0.7))
 	_m_plate = Palette.overlay(Color(Palette.AMBER, 0.3))
+	_m_exit = Palette.overlay(Color(Palette.AMBER, 0.45))
 	_m_rally = Palette.overlay(Color(Palette.AMBER, 0.35))
 
 
@@ -63,7 +65,11 @@ func refresh() -> void:
 	for d in EnemyIntent.dangers(s):
 		var dig: bool = d.kind == "trail"
 		for c in d.cells:
-			_tile(c, _m_trail if dig else _m_danger, 0.022)
+			_tile(c, _m_trail if dig else (_m_exit if d.kind == "exit" else _m_danger), 0.022)
+		if d.kind == "exit" and not d.cells.is_empty():
+			var gate := Palette.label3d("EXIT", 46, Palette.AMBER)
+			gate.position = Board.cell_to_world(d.cells[d.cells.size() / 2], 1.4)
+			add_child(gate)
 		if d.kind == "erupt" and not d.cells.is_empty():   # the boss itself is underground and unlabelled
 			var q := Palette.label3d("ERUPTS", 46, Palette.DANGER)
 			q.position = Board.cell_to_world(d.cells[d.cells.size() / 2], 1.4)
@@ -98,6 +104,11 @@ func refresh() -> void:
 		var ring := Palette.ring(EnemyRoster.RALLY_RADIUS - 0.08, EnemyRoster.RALLY_RADIUS, _m_rally)
 		ring.position = Board.cell_to_world(r.cell, 0.04)
 		add_child(ring)
+	for pair in EnemyIntent.hoards(s):   # amber threads from the Broker to the soldiers whose items he holds
+		var ba: Node3D = view.view_for(pair[0])
+		var bb: Node3D = view.view_for(pair[1])
+		if ba != null and bb != null and ba.visible and bb.visible:
+			_line(ba.position + Vector3(0, 1.2, 0), bb.position + Vector3(0, 1.2, 0), _m_exit, 0.04)
 	for pair in EnemyIntent.links(s):
 		var wa: Node3D = view.view_for(pair[0])
 		var wb: Node3D = view.view_for(pair[1])

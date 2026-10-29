@@ -11,7 +11,7 @@ const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
 	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
-	"brood_mother", "colonel_hale", "the_source"]
+	"brood_mother", "broker", "colonel_hale", "the_source"]
 
 
 static func handles(s: GameState, u: Unit) -> bool:
@@ -27,6 +27,9 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 		return true
 	if u.kind == "brood_mother":
 		BroodMother.take_turn(s, u)
+		return true
+	if u.kind == "broker":
+		Broker.take_turn(s, u)
 		return true
 	if u.kind == "colonel_hale":
 		ColonelHale.take_turn(s, u)

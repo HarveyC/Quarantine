@@ -6,7 +6,7 @@ extends RefCounted
 const VOICES := 6
 ## Kinds with no voice of their own (static props) map to "", others could share a voice here.
 const ALIAS := {"hive_node": "", "egg_sac": "", "spore_nest": "", "source_root": "",
-	"cutter": "fallen", "torchman": "fallen", "fence": "fallen",
+	"cutter": "fallen", "torchman": "fallen", "fence": "fallen", "broker": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
 	"hound": "", "loader": "", "relay": ""}   # machines have no voice   # the looters are people
 ## Barks per beat type, with a volume (dB) and a chance.

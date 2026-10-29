@@ -462,8 +462,8 @@ func test_every_outbreak_point_counts() -> void:
 	var want := {0: 0, 2: 1, 3: 2, 5: 3, 6: 4, 8: 5, 9: 6, 14: 6}
 	for o in want:
 		assert_eq(FightBuilder.outbreak_budget(o), want[o], "budget at Outbreak %d" % o)
-	var boss := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 5, "seed": 2})
-	var boss_hi := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 2})
+	var boss := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 5, "seed": 2, "boss": "brood_mother"})
+	var boss_hi := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 2, "boss": "brood_mother"})
 	assert_eq(boss.enemies.size(), boss_hi.enemies.size(), "bosses only follow the stage")
 
 
@@ -713,7 +713,7 @@ func test_brood_mother_phases_and_death_ends_fight() -> void:
 
 func test_brood_mother_health_scales_with_squad() -> void:
 	for squad in [1, 2, 4]:
-		var enc: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3,
+		var enc: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3, "boss": "brood_mother",
 			"players": squad, "squad": squad}).encounter
 		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(BroodMother.HEALTH[squad])) < 0.001,
 			"health share for %d soldiers" % squad)

@@ -472,6 +472,15 @@ func _set_boss() -> void:
 				_box(Vector3(2.5, 1.2, 1.0), Vector3(x, 0.6, -2.0), CONCRETE, 0.3 * signf(x))
 			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
 			_omni(Vector3(-4, 1, -4), Color("ff4a33"), 2.0, 8.0, true)
+		"broker":
+			col = SODIUM
+			for x in [-6.0, 6.0]:   # his haul: crate stacks either side, lamps hung over them
+				_box(Vector3(2.2, 1.2, 1.4), Vector3(x, 0.6, -2.4), Color("3a3226"), 0.2 * signf(x))
+				_box(Vector3(1.5, 1.0, 1.2), Vector3(x * 0.95, 1.7, -2.4), Color("4a3d2a"), -0.25 * signf(x))
+				_omni(Vector3(x * 0.8, 2.6, -1.6), SODIUM, 3.0, 7.0, true)
+			_unit("cutter", -1, 0, Vector3(-3.0, 0, -1.2), Vector3(0, 0, 1))
+			_unit("cutter", -1, 0, Vector3(3.0, 0, -1.2), Vector3(0, 0, 1))
+			_spot(Vector3(0, 8, 4), Vector3(0, 0, 0), SODIUM, 6.0, 15.0, 24.0)
 		"the_source":
 			for i in 6:
 				var a := TAU * i / 6.0

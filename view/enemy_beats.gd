@@ -18,7 +18,7 @@ const ELITE_SCALE := 1.2
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
 	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell",
-	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled"]
+	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled", "burned", "exit_marked"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -185,6 +185,23 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			if uv != null:
 				fx.floating_text(head.call(uv), "SLIPPED AWAY", Color(0.8, 0.82, 0.8), 40)
 			return {"dur": 0.3}
+		"burned":   # the Broker torches his hoard: those items are gone for the fight
+			for id in ev.get("units", []):
+				var bv: Node3D = view.view_for(int(id))
+				if bv != null:
+					fx.floating_text(head.call(bv), "ITEM BURNED", Palette.DANGER, 52)
+					fx.explosion(bv.position, 0, "frag")
+			if uv != null:
+				fx.burst(uv.aim_point(), Vector3.UP, Color(1.0, 0.5, 0.15), 24, 3.5, true, 0.06)
+			view.camera_rig.shake(0.8)
+			ep._sfx("collapse", -2.0)
+			return {"dur": 0.9}
+		"exit_marked":   # the gate he is running for
+			var gate := Board.cell_to_world(ev.cell, 1.6)
+			fx.pulse(Board.cell_to_world(ev.cell, 0.1), Palette.AMBER, 1.2)
+			fx.floating_text(gate, "EXIT", Palette.AMBER, 56, 1.6)
+			ep._sfx("alert", -4.0)
+			return {"dur": 0.5}
 		"loot":
 			if uv != null:
 				fx.floating_text(head.call(uv), "LOOT +%d" % int(ev.get("supplies", 0)), Palette.AMBER, 48)
@@ -225,12 +242,13 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			if uv != null:
 				ep._focus(uv)
 				uv.scale *= 1.15
-				if uv.has_method("set_bloom"):
+				var human: bool = not EnemyRoster.infects(view.state.get_unit(int(ev.get("unit", -1))))   # looters and soldiers are not Infected
+				if uv.has_method("set_bloom") and not human:
 					uv.set_bloom(0.5 * int(ev.get("phase", 2)))
 				if ev.has("max_hp"):
 					uv.max_hp = int(ev.max_hp)
 					uv.set_hp(int(ev.get("hp", 0)))
-				fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.TEAL, 30, 4.0, true, 0.06)
+				fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.AMBER if human else Palette.TEAL, 30, 4.0, true, 0.06)
 			view.hud.banner(str(ev.get("text", "THE BOSS CHANGES")).to_upper(), Palette.DANGER)
 			view.camera_rig.shake(1.2)
 			ep._sfx("mutation")
@@ -291,6 +309,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"recovered": return "%s gets the item back" % who.call("unit")
 		"stalled": return "%s loses its signal and stalls" % who.call("unit")
 		"fled": return "%s slips off the map%s" % [who.call("unit"), " with the loot" if ev.get("loot", false) else ""]
+		"burned": return "[color=#%s]%d item%s burned for the rest of the fight[/color]" % [red, int(ev.get("count", 0)), "" if int(ev.get("count", 0)) == 1 else "s"]
+		"exit_marked": return "%s is running for the exit gate" % who.call("unit")
 		"loot": return "%s drops its loot (+%d Supplies)" % [who.call("unit"), int(ev.get("supplies", 0))]
 		"stalked": return "[color=#%s]%s is cut off and takes a stalker's bonus hit[/color]" % [red, who.call("target")]
 		"boss_defeated": return "[b]%s is defeated[/b]" % name_of.call(int(ev.get("unit", -1)))

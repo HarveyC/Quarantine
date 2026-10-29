@@ -69,7 +69,7 @@ func test_hidden_lurker_is_not_drawn_until_revealed() -> void:
 ## The Brood Mother's phase 2 through the real view: she walks up and claws, dives with a visible
 ## sink, the dig trail and eruption tiles are drawn, and she bursts up out of the floor again.
 func test_brood_mother_phase_2_plays_burrow_trail_and_eruption() -> void:
-	var v := _view_for_fight({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 4, "squad": 2, "players": 2})
+	var v := _view_for_fight({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 4, "boss": "brood_mother", "squad": 2, "players": 2})
 	_drain(v)
 	var s: GameState = v.state
 	var bm: Unit = s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "brood_mother")[0]
@@ -128,7 +128,7 @@ func test_brood_mother_phase_2_plays_burrow_trail_and_eruption() -> void:
 
 ## Berserk Brood Mother: crouches (telegraph), springs in an arc and lands with her own beat.
 func test_berserk_brood_mother_leap_plays_through_the_view() -> void:
-	var v := _view_for_fight({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 4, "squad": 2, "players": 2})
+	var v := _view_for_fight({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 4, "boss": "brood_mother", "squad": 2, "players": 2})
 	_drain(v)
 	var s: GameState = v.state
 	var bm: Unit = s.living(Types.Team.ENEMY).filter(func(u): return u.kind == "brood_mother")[0]
@@ -275,6 +275,56 @@ func test_the_source_three_phases_play_through_the_view() -> void:
 	_watch(v, 2, seen)
 	assert_true(seen.get("strike:collapse", 0) >= 1 and seen.get("level_changed:", 0) >= 1, "the floor falls")
 	assert_true(_no_bare_labels(v), "every Source ability has a beat of its own")
+	v.free()
+
+
+## The Broker through the view: Cutters lift items, then at two thirds he takes each soldier's best
+## item with the exit gate marked and amber threads to the owners, a hit shakes one loose, and at the
+## gate (or one third) the rest burns.
+func test_the_broker_haul_plays_through_the_view() -> void:
+	var v := _view_for_fight({"act": 1, "node": "boss", "objective": "boss", "outbreak": 3, "seed": 5, "squad": 2, "players": 2, "boss": "broker"}, "broker")
+	_drain(v)
+	var b := _boss_of(v, "broker")
+	var seen := {}
+	v.player.beat_finished.connect(func(ev: Dictionary) -> void:
+		var t := str(ev.get("type", ""))
+		if t in ["stolen", "recovered", "burned", "exit_marked"]:
+			seen[t] = int(seen.get(t, 0)) + 1)
+	var soldiers: Array = v.state.living(Types.Team.PLAYER)
+	for sol in soldiers:
+		sol.status["gear"] = {"a": {"id": "tracer_rounds", "mk": 1}, "b": {"id": "filter_mask", "mk": 2}}
+	_watch(v, 2, seen)
+	assert_eq(int(b.status.boss_phase), 1, "phase 1: he holds back while the Cutters work")
+	Rules.deal_damage(v.state, b, 999, soldiers[0])
+	_drain(v)
+	assert_eq(int(b.status.boss_phase), 2, "phase 2")
+	assert_true(seen.get("boss_phase:2", 0) >= 1 and seen.get("exit_marked", 0) == 1, "the banner and the gate")
+	assert_eq(seen.get("stolen", 0), soldiers.size(), "one item lifted per soldier, on screen")
+	assert_eq(b.status.hoard.size(), soldiers.size(), "he carries them")
+	assert_true(EnemyIntent.hoards(v.state).size() == soldiers.size() or not Vision.sees_unit(v.state, Types.Team.PLAYER, b), "threads to the owners while he is in sight")
+	v.intents.refresh()
+	assert_true(EnemyIntent.dangers(v.state).any(func(d): return d.kind == "exit"), "the exit lane is marked")
+	# A hit shakes one loose.
+	Rules.deal_damage(v.state, b, 1, soldiers[0])
+	_drain(v)
+	assert_eq(seen.get("recovered", 0), 1, "one item comes back")
+	assert_eq(b.status.hoard.size(), soldiers.size() - 1, "and the hoard is a piece lighter")
+	# He reaches the gate and torches what is left.
+	b.pos = Encounter.free_cell(v.state, b.status.exit)
+	v.view_for(b.id).set_cell(b.pos)
+	_watch(v, 2, seen)
+	assert_eq(int(b.status.boss_phase), 3, "cornered at the gate")
+	assert_eq(seen.get("burned", 0), 1, "the loot burn plays")
+	assert_true(b.status.hoard.is_empty(), "nothing left to carry")
+	var lost := 0
+	for sol in soldiers:
+		lost += sol.status.get("burned", []).size()
+		assert_true(GearFx.mk(sol, "filter_mask") == 0 or not sol.status.get("burned", []).has("filter_mask"), "a burned item stays disabled")
+	assert_true(lost >= 1, "at least one item burned for the fight")
+	_watch(v, 5, seen)
+	assert_true(seen.get("firebomb", 0) >= 1 or seen.get("slam", 0) >= 1, "the cornered Broker fights")
+	assert_true(_no_bare_labels(v), "every Broker ability has a beat of its own")
+	assert_true(not v.player.is_busy(), "queue drained")
 	v.free()
 
 

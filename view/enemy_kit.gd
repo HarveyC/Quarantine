@@ -13,10 +13,10 @@ extends RefCounted
 const GunModels := preload("res://view/gun_models.gd")
 
 const BODY := {"hooker": "spitter", "sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker",
-	"cutter": "runner", "torchman": "fallen", "fence": "fallen",
+	"cutter": "runner", "torchman": "fallen", "fence": "fallen", "broker": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
 	"hound": "runner", "loader": "brute", "relay": "shrieker"}
-const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95,
+const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95, "broker": 1.35,
 	"shieldman": 1.1, "overwatcher": 1.0, "emplacement": 1.0,
 	"hound": 0.8, "loader": 1.2, "relay": 0.7}
 ## Role tints: kind -> {role: lighten (+) or darken (-) amount}.
@@ -29,6 +29,7 @@ const TINT := {
 	"cutter": {"body": 0.15, "rags": 0.1},
 	"torchman": {"body": -0.1},
 	"fence": {"body": 0.1, "rags": 0.2},
+	"broker": {"body": 0.2, "rags": 0.25},
 	"shieldman": {"body": 0.2},
 	"overwatcher": {"body": -0.2},
 	"emplacement": {"body": 0.1},
@@ -68,6 +69,8 @@ static func dress(model: Node3D, kind: String) -> void:
 			_attach(sk, "spine_03", "back_spines", _spines())
 		"torchman":
 			_attach(sk, "spine_03", "fuel_tank", _tank())
+		"broker":
+			_attach(sk, "spine_03", "haul_pack", _haul_pack())
 		"shieldman":
 			_attach(sk, "spine_03", "riot_shield", _shield())
 		"emplacement":
@@ -135,6 +138,21 @@ static func _satchels() -> Mesh:
 		["lamp", "ball", Vector3(-0.08, 0.08, 0.265), 0.025],
 	]
 	return GunModels.build_mesh(p, {}, {"leather": Color("3a3228"), "lamp": [Color(0.55, 0.2, 0.08), Color(1.0, 0.55, 0.15)]})
+
+
+## The Broker's haul: crates and rolled tarps stacked high on his back, a lamp hanging off the top.
+static func _haul_pack() -> Mesh:
+	var p := [
+		["crate", "box", Vector3(0.0, 0.02, -0.25), Vector3(0.5, 0.36, 0.3)],
+		["crate", "box", Vector3(-0.1, 0.34, -0.25), Vector3(0.36, 0.3, 0.26), Vector3(0.0, 0.2, 0.0)],
+		["crate", "box", Vector3(0.14, 0.58, -0.23), Vector3(0.26, 0.22, 0.22), Vector3(0.0, -0.3, 0.0)],
+		["tarp", "tube", Vector3(-0.28, 0.0, -0.4), Vector3(0.28, 0.0, -0.4), 0.07],
+		["strap", "box", Vector3(0.0, 0.02, -0.1), Vector3(0.54, 0.04, 0.04)],
+		["strap", "box", Vector3(0.0, 0.2, -0.1), Vector3(0.54, 0.04, 0.04)],
+		["lamp", "ball", Vector3(0.12, 0.74, -0.18), 0.04],
+	]
+	return GunModels.build_mesh(p, {}, {"crate": Color("4a3d2a"), "tarp": Color("5a5a48"), "strap": Color("23201b"),
+		"lamp": [Color(0.55, 0.3, 0.08), Color(1.0, 0.7, 0.2)]})
 
 
 static func _tank() -> Mesh:

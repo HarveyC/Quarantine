@@ -112,7 +112,7 @@ const TABLE := {
 const BY_KIND := {
 	"trooper": "rifle", "marksman": "dmr", "medic": "pdw", "breacher": "shotgun",
 	"hazmat": "lmg", "vector": "carbine", "reaper": "sidearm", "warden": "revolver",
-	"fallen": "rifle", "colonel_hale": "rifle", "sharpshooter": "dmr", "spitter": "spit",
+	"fallen": "rifle", "broker": "sidearm", "colonel_hale": "rifle", "sharpshooter": "dmr", "spitter": "spit",
 }
 
 
