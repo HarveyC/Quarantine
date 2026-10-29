@@ -140,6 +140,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_076f0f56ec.ogg",
+		"text": "He's running with your gear. Cut him off before he reaches the gate.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_094d90c768.ogg",
 		"text": "eleven's",
 		"voice": "okafor"
@@ -317,6 +322,11 @@
 	{
 		"file": "okafor_27b8eb6240.ogg",
 		"text": "fifty's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_281c04ef7d.ogg",
+		"text": "He's torched what he carried. Finish him before he torches you.",
 		"voice": "okafor"
 	},
 	{
@@ -527,6 +537,11 @@
 	{
 		"file": "okafor_45becc00ca.ogg",
 		"text": "forty-eight's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_47a2676ca9.ogg",
+		"text": "He's taken your best kit and he's making for the gate. Hit him, he'll drop it.",
 		"voice": "okafor"
 	},
 	{
@@ -840,6 +855,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_8c5703338b.ogg",
+		"text": "Cornered. He's burning everything. Put him down.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_8cb8ea05b2.ogg",
 		"text": "Moreau's",
 		"voice": "okafor"
@@ -947,6 +967,11 @@
 	{
 		"file": "okafor_a2aeac37f9.ogg",
 		"text": "seven's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_a4a95fa1f9.ogg",
+		"text": "That's the Broker. He has been stripping the cordon dead for months.",
 		"voice": "okafor"
 	},
 	{
