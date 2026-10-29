@@ -11,7 +11,7 @@ const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
 	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
-	"brood_mother", "colonel_hale", "the_source"]
+	"collector", "brood_mother", "colonel_hale", "director", "the_source"]
 
 
 static func handles(s: GameState, u: Unit) -> bool:
@@ -31,6 +31,9 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 	if u.kind == "colonel_hale":
 		ColonelHale.take_turn(s, u)
 		return true
+	if u.kind == "director":
+		DirectorBoss.take_turn(s, u)
+		return true
 	if u.kind == "the_source":
 		SourceBoss.take_turn(s, u)
 		return true
@@ -41,7 +44,7 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "charge"})
 		return true
 	if u.status.has("pinning"):
-		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "maul"})
+		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "drag" if u.kind == "collector" else "maul"})
 		return true
 	if u.status.has("leap_cell"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "leap"})
@@ -96,6 +99,7 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"fence": return Scavengers.fence(s, u, hostiles)
 		"shieldman": return rush(s, u, hostiles, "slam")
 		"overwatcher": return Security.overwatcher(s, u)
+		"collector": return Retrieval.collector(s, u, hostiles)
 		"hound": return rush(s, u, Automata.hound_targets(hostiles), "claw")
 		"loader": return rush(s, u, hostiles, "slam")
 	return {}

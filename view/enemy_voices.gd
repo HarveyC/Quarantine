@@ -6,7 +6,7 @@ extends RefCounted
 const VOICES := 6
 ## Kinds with no voice of their own (static props) map to "", others could share a voice here.
 const ALIAS := {"hive_node": "", "egg_sac": "", "spore_nest": "", "source_root": "",
-	"cutter": "fallen", "torchman": "fallen", "fence": "fallen",
+	"cutter": "fallen", "torchman": "fallen", "fence": "fallen", "collector": "fallen", "director": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
 	"hound": "", "loader": "", "relay": ""}   # machines have no voice   # the looters are people
 ## Barks per beat type, with a volume (dB) and a chance.
@@ -18,7 +18,8 @@ const CUES := {
 const MIN_GAP := 0.3
 ## Bosses who talk: a spoken line from StoryData.HALE_BARKS for the phase, on these beats only
 ## (never on moves, shots or the idle chatter), at least TALK_GAP seconds apart.
-const TALKERS := {"colonel_hale": ["alerted", "revealed", "boss_phase", "ability", "telegraph"]}
+const TALKERS := {"colonel_hale": ["alerted", "revealed", "boss_phase", "ability", "telegraph"],
+	"director": ["alerted", "revealed", "boss_phase", "ability", "telegraph"]}
 const TALK_GAP := 6.0
 const HURT_GAP := 0.5
 
@@ -98,6 +99,9 @@ static func talk_lines(kind: String, phase: int) -> Array[String]:
 		var p := 2 if phase >= 2 else 1
 		for t in StoryData.HALE_BARKS[p]:
 			out.append(VoiceLines.clip("hale_turned" if p == 2 else "hale", t))
+	elif kind == "director":
+		for t in StoryData.DIRECTOR_BARKS[clampi(phase, 1, 3)]:
+			out.append(VoiceLines.clip("hv", t))
 	return out
 
 

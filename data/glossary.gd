@@ -448,7 +448,7 @@ static func _build() -> Dictionary:
 		"stats": [["1", "HP a turn"], ["%d" % ClassAbilities.BLEED_TURNS, "turns"]],
 		"see": []}
 	t["pinned"] = {"name": "Pinned", "kind": "status", "icon": "pinned", "tone": "danger",
-		"line": "A Lurker has the soldier down: no actions until it lets go, and it mauls every turn.",
+		"line": "A Lurker or Collector has the soldier down: no actions until it lets go, and it mauls every turn.",
 		"art": "",
 		"stats": [["0", "actions"], ["%d%%" % Encounter.STRUGGLE_CHANCE, "struggle free"]],
 		"more": ["The pinned soldier can Struggle once a turn to try to throw it off.",
@@ -914,6 +914,7 @@ static func _build() -> Dictionary:
 		t["node_" + type] = {"name": n[0], "kind": "map node", "icon": n[1], "tone": n[2], "line": n[3],
 			"art": "intel" if type == RunMap.UNKNOWN else "", "stats": n[4], "see": ["outbreak"], "scan": false}
 	_add_enemy_terms(t)
+	_add_director_terms(t)
 	_add_rules_terms(t)
 	return t
 
@@ -1026,6 +1027,44 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 		"carapace": ["Slow Infected with a bone {plate} over its front. Flank it.", ["plate"]],
 		"stalker": ["Frozen while any soldier can see it. Unseen, it hunts the soldier who strayed.", ["watched"]],
 		"weaver": ["Threads to a wounded Infected and {mend|mends} it. Kill it first.", ["mend"]],
+	}
+	for kind in cards:
+		var st: Dictionary = UnitData.ENEMIES[kind]
+		t["enemy_" + kind] = {"name": st.name, "kind": "enemy", "icon": "enemy", "tone": "danger",
+			"line": cards[kind][0], "art": "",
+			"stats": [["%d" % int(st.max_hp), "HP"], ["%d-%d" % [int(st.damage[0]), int(st.damage[1])] if int(st.damage[1]) > 0 else "0", "damage"]],
+			"more": [], "see": cards[kind][1]}
+
+
+## Cards for the Act 2 boss Halden-Voss Recovery: the Director, its Collectors and the retrieval mechanics.
+static func _add_director_terms(t: Dictionary) -> void:
+	t["retrieval_mark"] = {"name": "Retrieval mark", "kind": "status", "icon": "tag", "tone": "danger",
+		"line": "The Director has flagged this soldier for retrieval. Collectors go for them first.",
+		"art": "", "stats": [["+%d" % Retrieval.MARK_DAMAGE, "damage taken"], ["0", "cover vs the Director"]],
+		"more": ["Every enemy hit on the marked soldier deals extra damage.",
+			"The Director's shots ignore their cover.",
+			"Stay close to the squad: a {pinned} soldier is taken to the lane."],
+		"see": ["pinned", "cover"],
+		"labels": ["Marked for retrieval"]}
+	t["retrieval"] = {"name": "Retrieval cage", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "A red 3x3 the Director calls down. Next enemy phase it hurts every soldier inside.",
+		"art": "", "stats": [["%d" % Retrieval.CAGE_DAMAGE, "damage"], ["3x3", "cage"]],
+		"more": ["A soldier a Collector has {pinned} is taken the moment the cage lands.",
+			"Step off the red tiles, or free the soldier first.",
+			"It is aimed where a pinned soldier lies, else on the marked soldier."],
+		"see": ["pinned"],
+		"labels": ["Retrieval", "Caged"]}
+	t["drag"] = {"name": "Drag", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "A Collector hauls the soldier it has pinned toward the nearest lane. At the lane, the soldier is taken.",
+		"art": "", "stats": [["%d-%d" % [Retrieval.DRAG_STEPS[1], Retrieval.DRAG_STEPS[4]], "tiles a round"], ["Gone", "if taken"]],
+		"more": ["Kill the Collector, or Struggle free, before it reaches the lane.",
+			"A teammate who hits the Collector frees them at once.",
+			"A taken soldier is lost for the run."],
+		"see": ["pinned"],
+		"labels": ["Dragging"]}
+	var cards := {
+		"director": ["Calls a second team, {retrieval_mark|marks} a soldier and snipes from the roofs. Its posts keep it untouchable.", ["retrieval_mark"]],
+		"collector": ["Pins a soldier and {drag|drags} them to the lane.", ["drag"]],
 	}
 	for kind in cards:
 		var st: Dictionary = UnitData.ENEMIES[kind]

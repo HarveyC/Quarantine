@@ -14,7 +14,7 @@ extends RefCounted
 const DIR := "res://audio/voice/"
 ## Caption speaker -> voice. Bark captions are upper case and spelled out.
 const VOICES := {"OKAFOR": "okafor", "MAJOR OKAFOR": "okafor", "SOURCE": "source", "HALE": "hale",
-	"HALDEN-VOSS": "hv"}
+	"HALDEN-VOSS": "hv", "DIRECTOR": "hv"}
 ## Voices that come over Okafor's radio: the line gets a key-up click and a release.
 const RADIO := ["okafor"]
 ## Highest wave number with a recorded number.
@@ -59,6 +59,9 @@ static func templates() -> Array:
 	for phase in StoryData.HALE_BARKS:
 		for t in StoryData.HALE_BARKS[phase]:
 			out.append(["hale_turned" if phase >= 2 else "hale", t])
+	for phase in StoryData.DIRECTOR_BARKS:
+		for t in StoryData.DIRECTOR_BARKS[phase]:
+			out.append(["hv", t])
 	var seen := {}
 	for e in out:
 		var key := "%s|%s" % e

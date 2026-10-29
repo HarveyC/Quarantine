@@ -50,7 +50,14 @@ const ACT_SCENES := {
 ## An act's transition scene when a given boss waits at its end, same shape as ACT_SCENES (lines,
 ## title, sub, stage). It replaces the act's default scene, so the story foreshadows the boss.
 ## A new boss adds its entry here and in BOSS_SCENES; bosses without one use ACT_SCENES.
-const ACT_SCENES_BY_BOSS := {}
+const ACT_SCENES_BY_BOSS := {
+	"director": {"title": "Act II · Port Ardent", "sub": "Downtown and the Halden-Voss labs", "stage": "port", "lines": [
+		["OKAFOR", "You're past the wall. Port Ardent's harbour lights are on."],
+		["OKAFOR", "Nobody here turned them on. A Halden-Voss recovery team is on the docks. They are not here for the Infected."],
+		["DIRECTOR", "Lantern Company. Your blood work is under contract. Stay exactly where you are."],
+		["SQUAD", "Command's gone quiet. We keep moving."],
+	]},
+}
 ## Act 3's second line when an earlier wave has reached the Source.
 const SOURCE_REMEMBERS := ["SOURCE", "You came back. I remember the fire."]
 ## The Source's extra boss line when the last wave burned it.
@@ -64,6 +71,10 @@ const BOSS_SCENES := {
 	"colonel_hale": {"title": "Colonel Hale", "sub": "Halden-Voss Recovery", "lines": [
 		["HALE", "Lantern Company. You are carrying company property."],
 		["HALE", "Stand down and we'll take you home. In jars."],
+	]},
+	"director": {"title": "The Director", "sub": "Halden-Voss Recovery", "lines": [
+		["DIRECTOR", "I don't need all of you. I need one of you, breathing."],
+		["DIRECTOR", "My team will do the lifting. Please don't make it hard."],
 	]},
 	"the_source": {"title": "The Source", "sub": "The bottom of the Bore", "lines": [
 		["SOURCE", "I know all of your names."],
@@ -130,6 +141,12 @@ const BARKS := {
 	"brood_mother_2": ["She's tunnelling! Watch the ground and get off the roofs.",
 		"She's under you somewhere. Move when the ground cracks."],
 	"brood_mother_3": ["She's lost it. No more sacs. Finish her.", "She's coming straight at you. Put her down."],
+	# The Director: "director_open" when her snipers are down, then one line per phase.
+	"director_open": ["Her snipers are down. She's exposed. Hit her now.", "That's the last post. She has no cover. Go."],
+	"director_2": ["A second team is on the roofs. Clear them again, and watch who she marks.",
+		"She's marked one of you. Break her sight lines and keep that soldier moving."],
+	"director_3": ["She's calling the extraction. Kill the Collectors and keep everyone on their feet.",
+		"Cages incoming. Don't let anyone stand pinned under one."],
 	"lore": ["Intel recovered."],
 }
 ## Colonel Hale's voice in his boss fight, by phase: on the company radio, then after the Bloom
@@ -138,6 +155,13 @@ const HALE_BARKS := {
 	1: ["Suppress them. Nobody leaves.", "Recovery team, move up.", "Take the carriers alive. The rest is optional.",
 		"Lantern Company. You are carrying company property.", "Keep them pinned. I want those samples intact."],
 	2: ["Stand down. Stand down. Come home.", "It's warm down here. Why is it so warm.", "Company property. All of it. All of us."],
+}
+## The Director's voice in her boss fight, by phase (the company radio, cool and polite). Heard, not captioned.
+const DIRECTOR_BARKS := {
+	1: ["Hold your positions. Nobody touches the carriers.", "Posts, lock your lanes.", "Lantern Company. Please stay where you are.",
+		"Collectors, the nearest one. Gently."],
+	2: ["Mark the warm one. The most Infected, I want that one.", "Second team, take the roofs.", "You are making this harder than it is."],
+	3: ["Extraction is called. Everyone clear the lane.", "Cage the marked carrier. Now.", "I only need one. One will do."],
 }
 ## In act 2 Okafor's signal breaks up: words are dropped for "--".
 const STATIC_EVERY := 4

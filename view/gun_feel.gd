@@ -128,7 +128,7 @@ static func body_impact(kind: String, is_squad: bool) -> String:
 		return "impact_chitin"
 	if kind in ["bloater", "spitter", "broodling", "drifter", "weaver"]:
 		return "impact_ichor"
-	if kind in ["fallen", "sharpshooter", "colonel_hale", "sapper"]:
+	if kind in ["fallen", "sharpshooter", "colonel_hale", "sapper", "director", "collector"]:
 		return "impact_human"
 	return "impact_flesh"
 

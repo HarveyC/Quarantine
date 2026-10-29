@@ -65,6 +65,12 @@ const DEFS := {
 		"desc": "Hurls wreckage onto a 3x3 that lands next enemy phase: 4 damage, smashes cover and roofs."},
 	"danger_close": {"name": "Danger close", "targeting": "none", "cost": 1, "cooldown": 3,
 		"desc": "Calls an airstrike on his own position: 4 damage in a 5x5 next enemy phase, hits his own adds too."},
+	"flag": {"name": "Retrieval mark", "targeting": "none", "cost": 1, "cooldown": 2, "phases": [2, 3],
+		"desc": "Marks the most Infected soldier for retrieval: every enemy hit on them deals +1 damage, her shots ignore their cover and the Collectors go for them first."},
+	"retrieve": {"name": "Retrieval", "targeting": "cell", "cost": 1, "cooldown": 2, "phases": [3],
+		"desc": "Drops a retrieval cage on a 3x3 that lands next enemy phase: 5 damage, and a soldier a Collector has pinned is taken."},
+	"drag": {"name": "Drag", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Hauls the pinned soldier toward the nearest exit lane. At the lane they are taken. Hit the Collector to free them."},
 	"lash": {"name": "Lash", "targeting": "cell", "cost": 1, "cooldown": 0, "phases": [1, 3],
 		"desc": "Roots lash a 3x3 next enemy phase: 3 damage and spores. Aims at the highest ground."},
 }
@@ -133,6 +139,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	if int(u.cooldowns.get(id, 0)) > 0:
 		return "On cooldown"
 	var def: Dictionary = DEFS[id]
+	if Retrieval.handles(id):
+		return Retrieval.validate(s, u, action)
 	if def.targeting == "unit":
 		var t := s.get_unit(action.get("target", -1))
 		if t == null or not t.is_alive():
@@ -247,13 +255,23 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	return ""
 
 
+## Actions an ability spends. The Director lays a lock and fires on it as two separate actions.
+static func _cost(u: Unit, id: String, def: Dictionary) -> int:
+	if u.kind == "director" and id in ["sight", "snipe"]:
+		return 1
+	return int(def.cost)
+
+
 static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 	var id: String = action.ability
 	var def: Dictionary = DEFS[id]
-	var cost: int = def.cost
+	var cost: int = _cost(u, id, def)
 	u.actions_left = 0 if cost < 0 else maxi(0, u.actions_left - cost)
 	if int(def.cooldown) > 0:
 		u.cooldowns[id] = def.cooldown
+	if Retrieval.handles(id):
+		Retrieval.apply(s, u, action)
+		return
 	match id:
 		"slam": _slam(s, u, s.get_unit(action.target))
 		"leap": _leap(s, u)
@@ -462,6 +480,8 @@ static func _snipe(s: GameState, u: Unit) -> void:
 	u.status.erase("sighted")
 	var dmg := s.rng.randi_range(u.damage.x, u.damage.y)
 	var cover := Elevation.adjust_cover(s, u, t, u.pos, Combat.cover_against(s.grid, t.pos, u.pos))
+	if Retrieval.is_marked(t):
+		cover = Types.Cover.NONE   # a marked soldier has nowhere to hide
 	if cover == Types.Cover.FULL:
 		dmg = maxi(1, dmg / 2)
 	s.emit({"type": "shot", "unit": u.id, "target": t.id, "hit": true, "graze": cover == Types.Cover.FULL,
