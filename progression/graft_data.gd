@@ -1,12 +1,12 @@
 class_name GraftData
 extends RefCounted
-## Grafts: late-run body-part upgrades (design: the Grafts plan). Every soldier has four slots,
-## Head, Arm, Chest and Legs. A slot takes one graft for the rest of the soldier's life, either a
+## Grafts: late-run body-part upgrades (design: the Grafts plan). Every soldier has two graft slots,
+## Arm and Legs (the head and chest parts are gear). A slot takes one graft for the rest of the soldier's life, either a
 ## Machine "Refit" (Cordon machinery: steady bonuses, slows Infection gain) or a Bloom part
 ## (strong powers that grow with Infection, sets an Infection floor). A soldier may mix paths.
 ## Rules live in Grafts; this file is data only. OWNER: progression workstream.
 
-const SLOTS: Array[String] = ["head", "arm", "chest", "legs"]
+const SLOTS: Array[String] = ["arm", "legs"]
 const SLOT_NAMES := {"head": "Head", "arm": "Arm", "chest": "Chest", "legs": "Legs"}
 const MACHINE := "machine"
 const BLOOM := "bloom"
@@ -42,25 +42,31 @@ const CLAW_DAMAGE := Vector2i(3, 5)
 const CLAW_KILL_HEAL := 1
 const LEAP_RANGE := 4
 
-const GRAFTS := {
+## Head and chest parts are gear now (GearData items worn in the Head and Body slots). Their rules
+## still run as grafts: GearRun.apply_to_unit stamps them into the unit's grafts, and Grafts.of
+## lists them, so Infection floors, Machine gain cuts and tag counts keep counting them.
+const GEAR_GRAFTS := {
 	"targeting_optic": {"name": "Targeting optic", "slot": "head", "path": MACHINE, "tag": "Mark",
 		"desc": "Each hit also Marks a second enemy within 3 tiles of the target.",
 		"look": "A large targeting lens with a range-finder in place of one mask optic"},
 	"lattice_sight": {"name": "Lattice sight", "slot": "head", "path": BLOOM, "tag": "Overwatch",
 		"desc": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers come through as +1 Intel after each fight.",
 		"look": "The mask cracked open, teal crystals growing through the visor"},
-	"servo_arm": {"name": "Servo arm", "slot": "arm", "path": MACHINE, "tag": "Suppress",
-		"desc": "The first gadget or pocket item each turn costs no action, and melee hits shove the target back a tile. Heavy guns no longer slow you.",
-		"look": "A bare servo forearm and hand, pistons showing"},
-	"bloom_limb": {"name": "Bloom limb", "slot": "arm", "path": BLOOM, "tag": "Close",
-		"desc": "Bloom Claw: strike an adjacent enemy for 3-5, +1 per Infection tier. A kill heals 1 HP.",
-		"look": "A swollen fungal limb with a long claw and glowing veins"},
 	"plated_ribs": {"name": "Plated ribs", "slot": "chest", "path": MACHINE, "tag": "Guard",
 		"desc": "A single hit can take at most 3 HP; the excess vents at the attacker. Infection from spores and Spitters is halved.",
 		"look": "An armoured ribcage plate with a second regulator and hoses"},
 	"heart_knot": {"name": "Heart knot", "slot": "chest", "path": BLOOM, "tag": "Strain",
 		"desc": "Regenerate 1 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for a turn.",
 		"look": "A pulsing knot bursting through the plate carrier"},
+}
+
+const GRAFTS := {
+	"servo_arm": {"name": "Servo arm", "slot": "arm", "path": MACHINE, "tag": "Suppress",
+		"desc": "The first gadget or pocket item each turn costs no action, and melee hits shove the target back a tile. Heavy guns no longer slow you.",
+		"look": "A bare servo forearm and hand, pistons showing"},
+	"bloom_limb": {"name": "Bloom limb", "slot": "arm", "path": BLOOM, "tag": "Close",
+		"desc": "Bloom Claw: strike an adjacent enemy for 3-5, +1 per Infection tier. A kill heals 1 HP.",
+		"look": "A swollen fungal limb with a long claw and glowing veins"},
 	"hydraulic_legs": {"name": "Hydraulic legs", "slot": "legs", "path": MACHINE, "tag": "Guard",
 		"desc": "Ending a move lower than it began drops you on an adjacent enemy for 4 damage and a stun. Ladders cost a normal step.",
 		"look": "Hydraulic braces from hip to boot"},
@@ -71,7 +77,7 @@ const GRAFTS := {
 
 
 static func get_def(id: String) -> Dictionary:
-	return GRAFTS.get(id, {})
+	return GRAFTS.get(id, GEAR_GRAFTS.get(id, {}))
 
 
 static func name_of(id: String) -> String:

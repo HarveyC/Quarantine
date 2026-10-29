@@ -39,6 +39,7 @@ VOICES = {
     "hale": ("Malcolm", ""),
     "hale_turned": ("Malcolm", ""),
     "hv": ("Beatrice", ""),
+    "prophet": ("Levi", ""),
 }
 
 
@@ -275,6 +276,16 @@ def whisper(x, seed):
     return norm(reverb(np.concatenate([pre, y]), t60=2.2, mix=0.35, seed=seed, damp=3500), 0.8)
 
 
+def prophet(x, seed):
+    """The Choir Prophet: the take, a quieter voice a fifth-ish below it (resampled, so it drifts like
+    a second singer), and a long hall tail."""
+    n = len(x)
+    low = signal.resample(x, int(n * 1.26))[:n]
+    low = np.pad(low, (0, n - len(low)))
+    y = norm(x, 0.8) + norm(lp(low, 2500), 0.35)
+    return norm(reverb(norm(bp(y, 120, 7000, 2)), t60=2.0, mix=0.3, seed=seed + "h", damp=4500), 0.85)
+
+
 def treat(voice, x, seed):
     if voice == "okafor":
         return radio_body(x, seed)
@@ -284,6 +295,8 @@ def treat(voice, x, seed):
         return radio_body(turned(x, seed), seed, drive=4.0, hiss=0.05, crush=5)
     if voice == "source":
         return whisper(x, seed)
+    if voice == "prophet":  # a hymn leader: his own voice plus a slow octave-down choir, in a big room
+        return prophet(x, seed)
     if voice == "hv":  # a clean company channel
         return norm(compress(bp(x, 180, 6000, 2)), 0.85)
     raise ValueError(voice)

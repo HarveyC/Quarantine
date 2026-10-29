@@ -9,7 +9,7 @@ const PERKS := {
 	# Trooper
 	"lockdown": ["suppress", "Suppress no longer ends your turn", [["1", "action"]]],
 	"pinned_down": ["suppress", "Suppressed enemies are slowed", [["-2", "enemy move"]]],
-	"steadfast": ["trooper", "Shoulder to Shoulder hits harder", [["+20", "ally def"]]],
+	"steadfast": ["trooper", "Misses cancel overwatch", []],
 	"return_fire": ["overwatch", "Shoot back at the first shooter", [["1", "per enemy phase"]]],
 	"hold_the_line": ["hunker", "Hunker covers the allies next to you", [["adjacent", "allies"]]],
 	"last_stand": ["health", "Survive one killing blow", [["1", "HP left"], ["1", "per fight"]]],

@@ -44,6 +44,7 @@ const ARMOR_LOOK := {
 	"mycelial_weave": "weave", "filter_mask": "filter", "hazard_liner": "hazard", "flame_coat": "coat",
 	"ember_plating": "ember", "ghillie_cloak": "ghillie", "cauterizer": "cauterizer",
 	"hold_position": "guard", "feral_grip": "feral", "overlook": "overlook",
+	"targeting_optic": "overlook", "lattice_sight": "overlook", "plated_ribs": "ballistic", "heart_knot": "bio",
 	"flash_fry": "ember", "bounty_ledger": "vest", "hair_trigger": "harness", "retaliation_plate": "ballistic",
 }
 ## Pocket items that have their own shape (anything else gets a plain pouch).
@@ -54,6 +55,7 @@ const GADGET_LOOK := {
 	"adrenal_pump": "pump", "med_injector": "injector", "containment_emitter": "emitter",
 	"deployable_cover": "cover", "spotter_flare": "spotter", "bloodletting": "vials",
 	"quarantine_field": "collar",
+	"rig_suppress": "sentry", "rig_tag": "tracker", "rig_stim": "injector", "rig_breach": "thermite", "rig_incinerate": "emitter", "rig_siphon": "vials",
 	"sig_lockdown": "sentry", "sig_deadeye": "tracker", "sig_quarantine_field": "emitter", "sig_bring_down": "thermite", "sig_flashover": "spotter", "sig_vent": "vials", "sig_death_sweep": "grapple", "sig_provoke": "pump",
 }
 

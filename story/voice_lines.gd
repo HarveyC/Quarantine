@@ -4,7 +4,7 @@ extends RefCounted
 ## tools/voice_manifest.gd writes every clip it needs to tools/voice_manifest.json for
 ## tools/gen_voices.py, and view/voice_player.gd asks plan() which clips to play for a caption.
 ##
-## Okafor, the Source, Hale and Halden-Voss speak recorded lines (audio/voice/). Soldiers speak
+## Okafor, the Source, Hale, Halden-Voss and the Choir Prophet speak recorded lines (audio/voice/). Soldiers speak
 ## in mask babble made at play time (view/babble.gd), so they need no clips.
 ##
 ## A line with {name}, {wave} or {last_wave} is cut into pieces around them; each name and
@@ -14,7 +14,7 @@ extends RefCounted
 const DIR := "res://audio/voice/"
 ## Caption speaker -> voice. Bark captions are upper case and spelled out.
 const VOICES := {"OKAFOR": "okafor", "MAJOR OKAFOR": "okafor", "SOURCE": "source", "HALE": "hale",
-	"HALDEN-VOSS": "hv", "DIRECTOR": "hv"}
+	"HALDEN-VOSS": "hv", "DIRECTOR": "hv", "PROPHET": "prophet"}
 ## Voices that come over Okafor's radio: the line gets a key-up click and a release.
 const RADIO := ["okafor"]
 ## Highest wave number with a recorded number.
@@ -52,6 +52,10 @@ static func templates() -> Array:
 		add_scene.call(StoryData.BOSS_SCENES[k].lines)
 	for k in StoryData.ENDINGS:
 		add_scene.call(StoryData.ENDINGS[k].lines)
+	for aspect in StoryData.SOURCE_ASPECT_LINES:
+		for k in StoryData.SOURCE_ASPECT_LINES[aspect]:
+			var l: Variant = StoryData.SOURCE_ASPECT_LINES[aspect][k]
+			out.append(["source", l[1] if l is Array else l])
 	for k in StoryData.BARKS:
 		for t in StoryData.BARKS[k]:
 			out.append(["okafor", t])

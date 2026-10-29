@@ -499,7 +499,7 @@ static func _run_effects(run, ns: Dictionary, effects: Array, ctx: Dictionary) -
 						RunAccess.add_supplies(run, Weapons.PRICES.uncommon / 2)
 						ns.results.append("%s already carries everything in there; the rest is sold on." % rec.name)
 						continue
-					Loadout.take_gun(rec, id)
+					Loadout.take_gun(rec, id, run)
 					ns.results.append("%s takes the %s." % [rec.name, Weapons.gun_name(id)])
 					RunAccess.emit(run, {"type": "gun_gained", "sid": rec.id, "gun": id})
 			"modifier":

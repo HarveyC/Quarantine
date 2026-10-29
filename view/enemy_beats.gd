@@ -21,7 +21,7 @@ const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroye
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
 	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell",
 	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled", "boss_aspect",
-	"valve_cut", "core_open", "core_sealed", "burned", "exit_marked"]
+	"valve_cut", "core_open", "core_sealed", "echo_fell", "echo_taken", "burned", "exit_marked"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -237,7 +237,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			return {"dur": 0.4}
 		"immune":
 			if uv != null:
-				fx.floating_text(head.call(uv), "IMMUNE", Color(0.8, 0.82, 0.8), 48)
+				fx.floating_text(head.call(uv), "ECHOES SHIELD IT" if ev.get("reason", "") == "echoes" else "IMMUNE", Color(0.8, 0.82, 0.8), 48)
 				fx.pulse(uv.position, Palette.TEAL)
 			return {"dur": 0.4}
 		"untethered":
@@ -268,6 +268,27 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			view.camera_rig.shake(1.2)
 			ep._sfx("plate_clang" if str(ev.get("boss", "")) == "breaker" else "mutation")
 			return {"dur": 1.4}
+		"echo_fell":   # an Echo (or husk) collapses into spores and the floor takes the body
+			if uv != null:
+				var at := uv.position + Vector3(0, 0.3, 0)
+				fx.burst(at, Vector3.UP, Palette.TEAL, 22, 3.0, true, 0.05)
+				fx.puff(at, Palette.TEAL_DIM, 1.4, 1.2, 0.8)
+				fx.floating_text(head.call(uv), "FALLS TO SPORES", Palette.TEAL, 44)
+				uv.set_sink(1.0)
+			ep._sfx("sting_enemy", -6.0)
+			_refresh_overlay(view)
+			return {"dur": 0.8}
+		"echo_taken":   # the Source takes the fallen body: a teal thread from the Last Echo to the husk
+			var boss_view: Node3D = view.view_for(int(ev.get("boss", -1)))
+			if uv != null:
+				uv.visible = true
+				ep._focus(uv)
+				fx.floating_text(head.call(uv), "TAKEN", Palette.TEAL, 52)
+				fx.burst(uv.position + Vector3(0, 0.6, 0), Vector3.UP, Palette.TEAL, 18, 3.0, true, 0.05)
+				if boss_view != null:
+					fx.tracer(boss_view.position + Vector3(0, 1.4, 0), uv.position + Vector3(0, 1.0, 0), Palette.TEAL, 0.8)
+			ep._sfx("mutation", -4.0)
+			return {"dur": 1.0}
 		"boss_aspect":
 			if uv != null:
 				ep._focus(uv)
@@ -349,7 +370,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"struggle": return "%s struggles free" % who.call("unit") if ev.get("freed", false) \
 			else "[color=#%s]%s struggles but %s holds on[/color]" % [red, who.call("unit"), who.call("by")]
 		"regenerate": return "%s regenerates %d" % [who.call("unit"), int(ev.get("healed", 0))]
-		"immune": return "%s is immune (tethered)" % who.call("unit")
+		"immune": return "%s is shielded by its Echoes" % who.call("unit") if ev.get("reason", "") == "echoes" \
+			else "%s is immune (tethered)" % who.call("unit")
 		"untethered": return "%s is no longer tethered" % who.call("unit")
 		"boss_phase": return "[color=#%s]%s[/color]" % [red, str(ev.get("text", "The boss changes"))]
 		"burrowed": return "%s burrows underground" % who.call("unit")
@@ -366,6 +388,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"exit_marked": return "%s is running for the exit gate" % who.call("unit")
 		"loot": return "%s drops its loot (+%d Supplies)" % [who.call("unit"), int(ev.get("supplies", 0))]
 		"stalked": return "[color=#%s]%s is cut off and takes a stalker's bonus hit[/color]" % [red, who.call("target")]
+		"echo_fell": return "[color=#%s]%s collapses into spores[/color]" % [red, who.call("unit")]
+		"echo_taken": return "[color=#%s]The Source takes the body: %s rises[/color]" % [red, who.call("unit")]
 		"boss_aspect": return "[color=#%s]The Source: %s. %s[/color]" % [red, str(ev.get("text", "")), SourceBoss.ASPECT_RULES.get(str(ev.get("aspect", "")), "")]
 		"valve_cut": return "[color=#%s]%s is cut (%d left)[/color]" % [red, who.call("unit"), int(ev.get("left", 0))]
 		"core_open": return "[color=#%s]The core is open for %d more turn%s[/color]" % [red, int(ev.get("left", 0)), "" if int(ev.get("left", 0)) == 1 else "s"]

@@ -1370,6 +1370,16 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "prophet_4500c478fd.ogg",
+		"text": "It is not a disease. It is a conversation. Stop shouting.",
+		"voice": "prophet"
+	},
+	{
+		"file": "prophet_c1f7382a3c.ogg",
+		"text": "Come inside the circle. There is no one left outside to hurt you.",
+		"voice": "prophet"
+	},
+	{
 		"file": "source_0e6fc146d3.ogg",
 		"text": "Quinn",
 		"voice": "source"
@@ -1430,8 +1440,18 @@
 		"voice": "source"
 	},
 	{
+		"file": "source_29cd38bed6.ogg",
+		"text": "Closer. Let me hold what is already mine.",
+		"voice": "source"
+	},
+	{
 		"file": "source_29e7549cfd.ogg",
 		"text": "Come down to me,",
+		"voice": "source"
+	},
+	{
+		"file": "source_3138f99f44.ogg",
+		"text": "You carry so much of me already. Bring me the rest.",
 		"voice": "source"
 	},
 	{
@@ -1450,6 +1470,11 @@
 		"voice": "source"
 	},
 	{
+		"file": "source_42b774f732.ogg",
+		"text": "You cannot burn what grows back.",
+		"voice": "source"
+	},
+	{
 		"file": "source_430f293c7e.ogg",
 		"text": "Every one of you is already part of me. Come down.",
 		"voice": "source"
@@ -1457,6 +1482,11 @@
 	{
 		"file": "source_4bd761d4cf.ogg",
 		"text": "Tanaka",
+		"voice": "source"
+	},
+	{
+		"file": "source_4f1bb76d31.ogg",
+		"text": "There is nothing left to hold you up.",
 		"voice": "source"
 	},
 	{
@@ -1495,6 +1525,11 @@
 		"voice": "source"
 	},
 	{
+		"file": "source_8d2860bd3e.ogg",
+		"text": "I kept every name. Listen, they are calling you.",
+		"voice": "source"
+	},
+	{
 		"file": "source_9459b92017.ogg",
 		"text": "Adeyemi",
 		"voice": "source"
@@ -1512,6 +1547,11 @@
 	{
 		"file": "source_a18ae8d5d6.ogg",
 		"text": "I can feel you,",
+		"voice": "source"
+	},
+	{
+		"file": "source_a3e98451e7.ogg",
+		"text": "Come down. They are waiting.",
 		"voice": "source"
 	},
 	{
@@ -1535,13 +1575,28 @@
 		"voice": "source"
 	},
 	{
+		"file": "source_b3b235658e.ogg",
+		"text": "Cut me down. I have done this before.",
+		"voice": "source"
+	},
+	{
 		"file": "source_b9fca8911e.ogg",
 		"text": "Castillo",
 		"voice": "source"
 	},
 	{
+		"file": "source_c0f94ffc2d.ogg",
+		"text": "Hear them? They remember you too.",
+		"voice": "source"
+	},
+	{
 		"file": "source_c4449d26bf.ogg",
 		"text": "Iyer",
+		"voice": "source"
+	},
+	{
+		"file": "source_c8497077c4.ogg",
+		"text": "Roots are patient. So am I.",
 		"voice": "source"
 	},
 	{
@@ -1557,6 +1612,11 @@
 	{
 		"file": "source_d4d104f306.ogg",
 		"text": "Petrov",
+		"voice": "source"
+	},
+	{
+		"file": "source_d7b891c061.ogg",
+		"text": "Again. I am not finished.",
 		"voice": "source"
 	},
 	{

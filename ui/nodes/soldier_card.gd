@@ -211,6 +211,8 @@ func _gear_row() -> Control:
 	flow.add_child(NodeUi.chip("weapon", Weapons.gun_name(gun).to_upper(), gun_col, 12, g.get("desc", "")))
 	var preview: Dictionary = delta.get("gear", {})
 	for it in Loadout.equipped(rec):
+		if it.slot == "gun":
+			continue
 		var col: Color = GearData.RARITY_COLORS.get(GearData.rarity_of(it.id), NodeUi.DIM)
 		var tip := "%s%s\n%s" % [GearData.item_name(it.id), " Mk II" if it.mk >= 2 else "", GearData.desc(it.id, it.mk)]
 		var gone: bool = preview.get("slot", "") == it.slot and preview.get("mode", "") in ["replace", "remove"]

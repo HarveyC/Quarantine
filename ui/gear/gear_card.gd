@@ -210,7 +210,7 @@ func _build_gun(v: VBoxContainer) -> void:
 		if p.unlocks:
 			b.add_child(UI.text("Set bonus: " + GearData.TAG_INFO[p.tag].bonus, 14, UI.AMBER, W - 70, "bold"))
 	var now := Weapons.gun_name(Loadout.gun_id(record))
-	v.add_child(UI.text("Replaces the %s in hand. You keep it, and can swap back from the loadout." % now, 13, UI.FAINT, W - 40))
+	v.add_child(UI.text("Replaces the %s in hand. It goes to the stash, and you can swap back from the loadout." % now, 13, UI.FAINT, W - 40))
 
 
 func _build_power(v: VBoxContainer) -> void:

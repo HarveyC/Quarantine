@@ -606,6 +606,22 @@ func _probes() -> Dictionary:
 		return _expect(safe and _term(Combat.hit_chance(x.s, x.foe, x.u), "Cauterizer") == -10, "fire hurts or no defense")
 	p["reaper_blade"] = func(x): return _expect(x.u.abilities.has("lunge"), "Lunge not granted")
 	p["trench_maul"] = func(x): return _expect(x.u.abilities.has("bash"), "Bash not granted")
+	p["targeting_optic"] = func(x):
+		var b := _add(x.s, "runner", Types.Team.ENEMY, x.foe.pos + Vector2i(1, 0))
+		Grafts.after_shot(x.s, x.u, x.foe)
+		return _expect(Combat.has_status(x.s, b, "tagged"), "neighbour not painted")
+	p["lattice_sight"] = func(x): return _expect(Vision.sense_radius(x.u) == GraftData.LATTICE_RADIUS, "no sense radius")
+	p["plated_ribs"] = func(x):
+		var hp: int = x.u.hp
+		Rules.deal_damage(x.s, x.u, 7, x.foe)
+		return _expect(x.u.hp == hp - GraftData.RIBS_CAP, "hit not capped")
+	p["heart_knot"] = func(x):
+		x.u.infection = 55
+		x.u.hp = x.u.max_hp - 2
+		Kit.on_team_phase_start(x.s)
+		return _expect(x.u.hp == x.u.max_hp - 1, "no regeneration")
+	for rig in ["suppress", "tag", "stim", "breach", "incinerate", "siphon"]:
+		p["rig_" + rig] = func(x): return _expect(x.u.abilities.has(rig), "%s not granted" % rig)
 	for sig in ["lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]:
 		p["sig_" + sig] = func(x): return _expect(x.u.abilities.has(sig), "%s not granted" % sig)
 	return p

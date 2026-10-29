@@ -68,6 +68,7 @@ const ENEMIES := {
 	"broker": {"name": "The Broker", "max_hp": 30, "aim": 70, "mobility": 5, "damage": [2, 3], "abilities": ["firebomb", "slam"], "infects": false},
 	"breaker": {"name": "The Breaker", "max_hp": 40, "aim": 70, "mobility": 4, "damage": [4, 6], "abilities": ["slam", "charge", "debris"], "melee_only": true, "plate": true, "infects": false},
 	"colonel_hale": {"name": "Colonel Hale", "max_hp": 36, "aim": 70, "mobility": 5, "damage": [3, 5], "abilities": ["airstrike", "flashbang", "smoke_screen", "slam", "charge", "stomp", "hurl", "danger_close"]},
+	"lantern_echoes": {"name": "The Last Echo", "max_hp": 30, "aim": 65, "mobility": 0, "damage": [1, 2], "abilities": []},
 	"choir_prophet": {"name": "The Choir Prophet", "max_hp": 40, "aim": 70, "mobility": 0, "damage": [3, 4], "abilities": ["verse", "fix", "compel", "quell", "crescendo"]},
 	"director": {"name": "The Director", "max_hp": 34, "aim": 85, "mobility": 5, "damage": [3, 5], "abilities": ["sight", "snipe", "smoke_screen", "flag", "retrieve"], "infects": false},
 	"coolant_valve": {"name": "Coolant valve", "max_hp": 8, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true, "infects": false, "machine": true},

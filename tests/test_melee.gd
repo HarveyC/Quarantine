@@ -107,15 +107,6 @@ func test_bloodlust_refunds_an_action_once_per_turn_and_feeds() -> void:
 	assert_eq(_of(ev, "perk", "perk", "bloodlust").size(), 1, "one bloodlust event")
 
 
-func test_low_profile_penalises_overwatch_on_a_reaper() -> void:
-	var s := _state()
-	var r := _add(s, "reaper", Types.Team.PLAYER, Vector2i(2, 2))
-	var e := _add(s, "fallen", Types.Team.ENEMY, Vector2i(8, 2))
-	var normal: int = Combat.hit_chance(s, e, r, e.pos, false).hit
-	var reaction: int = Combat.hit_chance(s, e, r, e.pos, true).hit
-	assert_eq(normal - reaction, Combat.REACTION_PENALTY + Kit.LOW_PROFILE, "reaction -15 and Low Profile -15")
-
-
 func test_cleave_hits_every_adjacent_enemy() -> void:
 	var s := _state()
 	var r := _add(s, "reaper", Types.Team.PLAYER, Vector2i(1, 2), ["cleave"])

@@ -8,8 +8,8 @@ extends RefCounted
 ## Rule effects are keyed by item id in GearFx.
 
 ## Soldier slots. Items declare a slot TYPE (`slot_of`); "utility" fits either utility slot.
-const SLOTS: Array[String] = ["head", "body", "offhand", "melee", "weapon", "ammo", "utility", "utility2"]
-const SLOT_NAMES := {"head": "Head", "body": "Body", "offhand": "Offhand", "melee": "Melee", "weapon": "Weapon mod", "ammo": "Ammo",
+const SLOTS: Array[String] = ["head", "body", "offhand", "melee", "gun", "weapon", "ammo", "utility", "utility2"]
+const SLOT_NAMES := {"head": "Head", "body": "Body", "offhand": "Offhand", "melee": "Melee", "gun": "Gun", "weapon": "Weapon mod", "ammo": "Ammo",
 	"utility": "Utility", "utility2": "Utility"}
 const POCKETS := 2
 const STASH_SIZE := 4
@@ -273,6 +273,38 @@ const ITEMS := {
 	"trench_maul": {"name": "Trench maul", "tag": "Guard", "slot": "melee", "rarity": "uncommon",
 		"desc": "Grants the Shield Bash ability",
 		"desc_mk2": "Grants the Shield Bash ability"},
+	# Head and chest grafts are plain gear: their rules run through Grafts (see GraftData.GEAR_GRAFTS).
+	"targeting_optic": {"name": "Targeting optic", "tag": "Mark", "slot": "head", "rarity": "rare",
+		"desc": "Each hit also Marks a second enemy within 3 tiles of the target.",
+		"desc_mk2": "Each hit also Marks a second enemy within 3 tiles of the target."},
+	"lattice_sight": {"name": "Lattice sight", "tag": "Overwatch", "slot": "head", "rarity": "rare",
+		"desc": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers come through as +1 Intel after each fight.",
+		"desc_mk2": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers come through as +1 Intel after each fight."},
+	"plated_ribs": {"name": "Plated ribs", "tag": "Guard", "slot": "body", "rarity": "rare",
+		"desc": "A single hit can take at most 3 HP; the excess vents at the attacker. Infection from spores and Spitters is halved.",
+		"desc_mk2": "A single hit can take at most 3 HP; the excess vents at the attacker. Infection from spores and Spitters is halved."},
+	"heart_knot": {"name": "Heart knot", "tag": "Strain", "slot": "body", "rarity": "rare",
+		"desc": "Regenerate 1 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for a turn.",
+		"desc_mk2": "Regenerate 1 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for a turn."},
+	# Class rigs: the active a class starts with, as gear any soldier can swap in or out.
+	"rig_suppress": {"name": "Suppression rig", "tag": "Suppress", "slot": "utility", "rarity": "common",
+		"desc": "Grants the Suppress ability",
+		"desc_mk2": "Grants the Suppress ability"},
+	"rig_tag": {"name": "Spotter rig", "tag": "Mark", "slot": "utility", "rarity": "common",
+		"desc": "Grants the Mark ability",
+		"desc_mk2": "Grants the Mark ability"},
+	"rig_stim": {"name": "Stim rig", "tag": "Purge", "slot": "utility", "rarity": "common",
+		"desc": "Grants the Stim ability",
+		"desc_mk2": "Grants the Stim ability"},
+	"rig_breach": {"name": "Breaching rig", "tag": "Close", "slot": "utility", "rarity": "common",
+		"desc": "Grants the Breach ability",
+		"desc_mk2": "Grants the Breach ability"},
+	"rig_incinerate": {"name": "Incinerator rig", "tag": "Burn", "slot": "utility", "rarity": "common",
+		"desc": "Grants the Incinerate ability",
+		"desc_mk2": "Grants the Incinerate ability"},
+	"rig_siphon": {"name": "Siphon rig", "tag": "Strain", "slot": "utility", "rarity": "common",
+		"desc": "Grants the Siphon ability",
+		"desc_mk2": "Grants the Siphon ability"},
 	# Signature rigs: any soldier can carry a class signature (GearRun.apply_to_unit grants the ability)
 	"sig_lockdown": {"name": "Lockdown rig", "tag": "Overwatch", "slot": "utility", "rarity": "rare",
 		"desc": "Grants the Lockdown ability",
@@ -369,6 +401,12 @@ const DOCTRINES := {
 	"serum_cache": {"name": "Serum cache", "desc": "+1 Serum sample per soldier after each boss"},
 }
 
+## What a soldier of each class starts a run carrying: the active that used to be the class's own.
+const CLASS_KIT := {
+	"trooper": ["rig_suppress"], "marksman": ["rig_tag"], "medic": ["rig_stim"], "breacher": ["rig_breach"],
+	"hazmat": ["rig_incinerate"], "vector": ["rig_siphon"], "reaper": ["reaper_blade"], "warden": ["trench_maul"],
+}
+
 ## Natural tag lanes per class (starting kit and the "on build" card before a soldier has tags).
 const CLASS_LANES := {
 	"trooper": ["Guard", "Suppress"], "marksman": ["Mark", "Overwatch"], "medic": ["Purge", "Guard"],
@@ -378,7 +416,7 @@ const CLASS_LANES := {
 
 
 static func exists(id: String) -> bool:
-	return ITEMS.has(id) or PROTOTYPES.has(id)
+	return ITEMS.has(id) or PROTOTYPES.has(id) or Weapons.is_item(id)
 
 
 ## Item or Prototype entry, with `rarity` and `tags` filled in for both kinds.
@@ -394,6 +432,8 @@ static func get_item(id: String) -> Dictionary:
 		p["desc_mk2"] = p.desc
 		p["id"] = id
 		return p
+	if Weapons.is_item(id):
+		return Weapons.item_def(id)
 	return {}
 
 
@@ -423,8 +463,8 @@ static func slots_for(type: String) -> Array[String]:
 
 ## The ability a signature rig or melee weapon grants, or "".
 static func signature_of(id: String) -> String:
-	if id.begins_with("sig_"):
-		return id.trim_prefix("sig_")
+	if id.begins_with("sig_") or id.begins_with("rig_"):
+		return id.substr(4)
 	return {"reaper_blade": "lunge", "trench_maul": "bash"}.get(id, "")
 
 

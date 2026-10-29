@@ -499,8 +499,11 @@ static func ending_spec(run: RunState) -> Dictionary:
 		if cast[i].sid == run.story.get("carrier", -1):
 			carrier = i
 			name = "%s %s" % [UnitData.SOLDIERS[cast[i].kind].name, cast[i].name]
+	var lines: Array = e.lines.duplicate()
+	if run.act >= 3 and run.act_boss() == "lantern_echoes" and StoryData.ENDING_AFTER_ECHOES.has(id):
+		lines.insert(1, StoryData.ENDING_AFTER_ECHOES[id])   # the Echoes colour how the run ends
 	var raw: Array = []
-	for l in e.lines:
+	for l in lines:
 		# the carrier says their own last words
 		raw.append([name, l[1]] if id == "carry" and l[0] == "SQUAD" and name != "" else l)
 	return {"stage": e.stage, "title": e.title, "sub": e.sub, "lines": _lines(run, raw, {"name": name}),

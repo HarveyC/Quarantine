@@ -177,7 +177,7 @@ static func validate(run, ns: Dictionary, action: Dictionary) -> String:
 			var rec = _own(run, player, action.get("soldier", -1))
 			if rec == null:
 				return "pick one of your soldiers"
-			if Loadout.item_at(rec, action.get("slot", "")) == null:
+			if Loadout.item_at(rec, action.get("slot", "")) == null or action.get("slot", "") == "gun":
 				return "nothing in that slot"
 			return ""
 		"node_reroll":
@@ -198,7 +198,7 @@ static func apply(run, ns: Dictionary, action: Dictionary) -> void:
 				["gear", _]:
 					Loadout.equip(run, rec, entry.id)
 				["gun", _]:
-					Loadout.add_gun(rec, entry.id)
+					Loadout.take_gun(rec, entry.id, run)
 				["consumable", _]:
 					Loadout.add_consumable(rec, entry.id)
 				["graft", _]:

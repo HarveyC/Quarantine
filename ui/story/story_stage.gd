@@ -465,7 +465,22 @@ func _set_boss() -> void:
 	var kind := boss if boss != "" else "brood_mother"
 	var size := ModelKit.size_of(kind)
 	var col := TEAL
+	var echoed := false
 	match kind:
+		"lantern_echoes":
+			echoed = true
+			kind = String(cast[0].kind) if not cast.is_empty() else "trooper"   # the Last Echo wears a soldier of the squad
+			size = 1.2
+			for i in 5:   # hanging lanterns, each one a name
+				var lx := -5.5 + 2.75 * i
+				_box(Vector3(0.22, 0.34, 0.22), Vector3(lx, 3.2 + 0.4 * (i % 2), -3.5), SODIUM, 0.0, 3.0)
+				_omni(Vector3(lx, 3.0, -3.5), SODIUM, 1.4, 6.0, true)
+			var shown := cast.slice(0, 4)
+			for i in shown.size():   # the Echoes stand behind it in formation, in the squad's classes
+				var a := PI * (0.2 + 0.6 * (i + 0.5) / shown.size())
+				_unit(String(shown[i].kind), -1, 100, Vector3(cos(a) * 3.6, 0, -sin(a) * 2.6 - 1.0), Vector3(0, 0, 10), true)
+			_omni(Vector3(0, 3, 0), TEAL, 6.0, 14.0, true)
+			_spores(Vector3(0, 2, -1), Vector3(7, 3, 5), TEAL, 90)
 		"colonel_hale":
 			col = Color("e8f0ff")
 			for x in [-6.0, 6.0]:
@@ -530,7 +545,7 @@ func _set_boss() -> void:
 			_growth(Vector3(-3, 0, -3), 7, 1.6)
 			_growth(Vector3(3.5, 0, -2.5), 6, 1.4)
 			_spores(Vector3(0, 2, -1), Vector3(6, 3, 5))
-	_unit(kind, -1, 0, Vector3.ZERO, Vector3(0, 0, 10))
+	_unit(kind, -1, 100 if echoed else 0, Vector3.ZERO, Vector3(0, 0, 10), echoed)
 	_omni(Vector3(0, 0.4, 2.5), col, 3.0, 8.0, true)
 	_omni(Vector3(0, 4.0, -4.0), col, 4.0, 12.0)
 	var h := 1.7 * size

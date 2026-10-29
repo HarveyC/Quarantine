@@ -378,12 +378,40 @@ def engine_arena():
     a.put(1, 9, "!").put(18, 9, "!")
     a.deploy()
     a.pods([(1, 1), (2, 1), (17, 1), (18, 1), (1, 13), (1, 14), (19, 13), (19, 14)])
+
+    return a
+
+
+def wake_arena():
+    """The Lantern Echoes' ground: a ruined memorial hall under the Bore. The Last Echo waits on
+    the dais at the north end (upper roof, one stair up); the nave between is pews (half cover)
+    and one full-cover pillar; the side galleries are the high ground the Echoes' Bring Down and
+    Deadeye are drawn to."""
+    a = A("lantern_wake", "lantern_echoes")
+    a.rect(6, 1, 13, 5, "^")                            # the dais
+    a.rect(9, 1, 10, 2, "2")                            # the Last Echo's seat, one storey higher
+    a.put(9, 3, "S").put(10, 3, "S")                    # stairs up to the seat
+    a.put(7, 3, "%").put(12, 3, "%").put(7, 5, "%").put(12, 5, "%")
+    a.put(10, 1, "b")                                   # boss anchor on the upper roof
+    a.put(9, 6, "s").put(10, 6, "s")                    # the stairs down into the nave
+    a.rect(9, 10, 10, 11, "#")                          # the lantern pillar at the nave's heart
+    for x, y in [(3, 9), (4, 9), (5, 9), (14, 9), (15, 9), (16, 9),     # pews, two ranks either side
+                 (6, 12), (7, 12), (12, 12), (13, 12), (3, 13), (4, 13), (15, 13), (16, 13),
+                 (8, 8), (11, 8), (8, 14), (11, 14)]:
+        a.put(x, y, "=")
+    for x0 in (1, 16):                                  # the galleries: a perch each side, one stair
+        a.rect(x0, 5, x0 + 2, 7, "^").put(x0 + 1, 6, "%")
+    a.put(4, 6, "s").put(15, 6, "s")
+    a.rect(1, 11, 1, 13, "#").rect(18, 11, 18, 13, "#")
+    a.put(5, 15, "!").put(14, 15, "!")                  # fuel for the brave
+    a.deploy()
+    a.pods([(2, 2), (3, 2), (16, 2), (17, 2), (2, 9), (17, 9), (5, 11), (14, 11)])
     return a
 
 
 ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
 ## Further arenas a boss fights in (tagged with their boss), after the biome's default one.
-EXTRA_ARENAS = {"wall": [breaker_arena, broker_arena], "port": [director_arena, chorale_arena], "bore": [engine_arena]}
+EXTRA_ARENAS = {"wall": [breaker_arena, broker_arena], "port": [director_arena, chorale_arena], "bore": [engine_arena, wake_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)

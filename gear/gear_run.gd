@@ -17,7 +17,6 @@ extends RefCounted
 ##   gear_doctrine    {"doctrine": id}  vote after an act boss                               REWARD
 ##   gear_stash_take  {"soldier", "index"}  equip a stash item (swapped-out item takes its place)  MAP/REWARD
 ##   gear_unequip     {"soldier", "slot"}   move an item to the stash                        MAP/REWARD
-##   gear_gun         {"soldier", "gun"}    carry an owned gun ("" = class signature)        MAP/REWARD
 ## `player` -1 acts for anyone (only reachable from tests; RunRules rejects it).
 
 const SKIP_SUPPLIES := 10
@@ -26,7 +25,7 @@ const CACHE_SUPPLIES := 25
 ## still on the sidearm; the third offer always does.
 const PRIMARY_CHANCE := [50, 85, 100]
 const CARD_WEIGHTS := {"gear": 37, "gun": 8, "perk": 15, "mutation": 15, "consumable": 15, "cache": 10}
-const ACTION_TYPES: Array[String] = ["gear_pick", "gear_doctrine", "gear_stash_take", "gear_unequip", "gear_gun"]
+const ACTION_TYPES: Array[String] = ["gear_pick", "gear_doctrine", "gear_stash_take", "gear_unequip"]
 ## Odds (percent) that a gun card from act 2 on is Rare rather than Uncommon.
 const RARE_GUN_CHANCE := 35
 const HAZARD_PAY := 10
@@ -155,6 +154,7 @@ static func has_pending(run) -> bool:
 ## A soldier at run start: ranged classes begin on the sidearm.
 static func start_soldier(record) -> void:
 	Loadout.start_on_sidearm(record)
+	Loadout.give_class_kit(record)
 
 
 ## Before the first fight each soldier picks 1 of 3 deployment orders (1 of 4 with the Field kit
@@ -447,7 +447,7 @@ static func validate(run, action: Dictionary) -> String:
 			if card.kind == "gear" and action.get("to_stash", false) and Loadout.stash_full(run):
 				return "Stash is full"
 			return _card_error(r, card)
-		"gear_stash_take", "gear_unequip", "gear_gun":
+		"gear_stash_take", "gear_unequip":
 			# Between fights: on the map, at rewards, and at node screens (open the loadout there).
 			if not _phase_is(run, ["MAP", "REWARD", "NODE"]):
 				return "Change gear between fights"
@@ -456,13 +456,12 @@ static func validate(run, action: Dictionary) -> String:
 			var i := int(action.get("index", -1))
 			if i < 0 or i >= Loadout.stash(run).size():
 				return "No such stash item"
-			return ""
-		"gear_gun":
-			if not Loadout.owns_gun(r, str(action.get("gun", ""))):
-				return "Not one of their guns"
+			var held: String = str(Loadout.stash(run)[i].id)
+			if Weapons.is_item(held) and not Weapons.can_carry(str(r.get("kind", "")), held):
+				return "They can't use that gun"
 			return ""
 		"gear_unequip":
-			if Loadout.item_at(r, str(action.get("slot", ""))) == null:
+			if Loadout.item_at(r, str(action.get("slot", ""))) == null or action.get("slot", "") == "gun":
 				return "Nothing equipped there"
 			if Loadout.stash_full(run):
 				return "Stash is full"
@@ -489,7 +488,6 @@ static func apply(run, action: Dictionary) -> bool:
 		"gear_pick": _pick(run, r, action)
 		"gear_stash_take": Loadout.take_from_stash(run, r, int(action.index))
 		"gear_unequip": Loadout.unequip(run, r, str(action.slot))
-		"gear_gun": Loadout.set_gun(r, str(action.gun))
 	return true
 
 
@@ -534,7 +532,7 @@ static func _grant(run, r, card: Dictionary, to_stash: bool) -> void:
 		"consumable":
 			Loadout.add_consumable(r, card.id, int(card.get("charges", GearData.CONSUMABLE_CHARGES)))
 		"gun":
-			Loadout.take_gun(r, card.id)
+			Loadout.take_gun(r, card.id, run)
 		"cache":
 			add_supplies(run, int(card.get("supplies", CACHE_SUPPLIES)), "Supply cache")
 
@@ -561,6 +559,13 @@ static func apply_to_unit(u: Unit, record) -> void:
 	if not docs.is_empty():
 		u.status["doctrines"] = docs.duplicate()
 	Weapons.equip_unit(u, Loadout.gun(record))
+	var worn := Grafts.worn_gear(record)
+	if not worn.is_empty():
+		var have: Dictionary = u.status.get("grafts", {})
+		have.merge(worn)
+		u.status["grafts"] = have
+	for a in Loadout.kit_abilities(record):
+		u.abilities.erase(a)
 	for e in Loadout.equipped(record):
 		var sig := GearData.signature_of(e.id)
 		if sig != "" and not u.abilities.has(sig):

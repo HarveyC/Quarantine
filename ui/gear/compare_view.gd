@@ -63,6 +63,8 @@ static func kit(box: VBoxContainer, rec: Dictionary, inner: float, who_color := 
 	var gun := GearCompare.gun_side(Loadout.gun_id(rec))
 	box.add_child(_kit_row("weapon", "Gun", gun, Loadout.gun(rec) != "", inner))
 	for slot in GearData.SLOTS:
+		if slot == "gun":
+			continue
 		var it = Loadout.item_at(rec, slot)
 		box.add_child(_kit_row(slot, GearData.SLOT_NAMES[slot], GearCompare.gear_side(it.id, int(it.mk)) if it != null else {}, true, inner))
 	var ps := Loadout.pockets(rec)
