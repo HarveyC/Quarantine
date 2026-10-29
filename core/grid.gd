@@ -20,6 +20,12 @@ var biome := ""
 var markers := {}
 ## Set by MapGen: the fight's objective ("skirmish", "extract", ...); "" for handmade maps.
 var objective := ""
+## Set by MapGen for run fights (see Conditions): the fight's map condition ("" for none) and the
+## flooded cells it laid down (set). Wading into a flooded cell costs one extra step and fire cannot burn on it.
+var condition := ""
+var water := {}
+## Live rail cells (set) laid by the Live rails condition; Conditions.setup turns them into hazards.
+var rails := {}
 ## High ground: level per cell (0 ground, 1 roof, 2 upper roof), row-major like `tiles`.
 ## Empty = all ground. Change it in a fight only through Elevation.set_level so the view hears about it.
 var levels := PackedByteArray()
@@ -189,6 +195,7 @@ func to_dict() -> Dictionary:
 	return {"width": width, "height": height, "tiles": tiles.duplicate(),
 		"player_spawns": player_spawns.duplicate(), "enemy_spawns": enemy_spawns.duplicate(),
 		"biome": biome, "markers": markers.duplicate(true), "objective": objective,
+		"condition": condition, "water": water.keys(), "rails": rails.keys(),
 		"levels": levels.duplicate(), "ladders": ladders.keys(), "stairs": stairs.keys(), "fragile": fragile.keys(),
 		"wear": wear.duplicate(), "volatile": volatile.keys(), "hard": hard.keys(), "rubble": rubble.duplicate(),
 		"edges": edges.duplicate(), "edge_wear": edge_wear.duplicate(), "roofed": roofed.keys()}
@@ -204,6 +211,11 @@ static func from_dict(d: Dictionary) -> Grid:
 	g.biome = d.get("biome", "")
 	g.markers = d.get("markers", {}).duplicate(true)
 	g.objective = d.get("objective", "")
+	g.condition = d.get("condition", "")
+	for c in d.get("water", []):
+		g.water[c] = true
+	for c in d.get("rails", []):
+		g.rails[c] = true
 	g.levels = d.get("levels", PackedByteArray())
 	for c in d.get("ladders", []):
 		g.ladders[c] = true
@@ -456,6 +468,7 @@ func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_lev
 	var to := from + d
 	if not is_walkable(to) or blocked.has(to):
 		return -1
+	var wade := 1 if water.has(to) else 0
 	var diagonal := d.x != 0 and d.y != 0
 	if diagonal:
 		var a := from + Vector2i(d.x, 0)
@@ -464,8 +477,8 @@ func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_lev
 			return -1
 		if not ignore_levels and (level(a) != level(from) or level(b) != level(from) or level(to) != level(from)):
 			return -1
-		return 1
-	var extra := 0
+		return 1 + wade
+	var extra := wade
 	match edge(from, d):
 		EDGE_WALL: return -1
 		EDGE_WINDOW, EDGE_LOW: extra = VAULT_COST

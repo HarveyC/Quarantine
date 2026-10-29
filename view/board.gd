@@ -455,7 +455,7 @@ func _build_edges(look: Dictionary, trim: Material, hazard: Material, crack_mat:
 		_tiles.add_child(post)
 
 
-const HAZARD_COLORS := {"fire": TileOverlays.FIRE, "spore": Palette.TEAL, "acid": TileOverlays.ACID, "smoke": TileOverlays.SMOKE}
+const HAZARD_COLORS := {"fire": TileOverlays.FIRE, "spore": Palette.TEAL, "acid": TileOverlays.ACID, "smoke": TileOverlays.SMOKE, "live": Color("7fd0ff")}
 
 
 ## Draws (or redraws) hazard `kind` on `cells`. Each kind has its own floor pattern and props

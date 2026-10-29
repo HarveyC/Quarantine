@@ -19,6 +19,8 @@ const KINDS := {
 	"acid": {"name": "Acid", "damage": 1, "infection": 0, "ignores": [], "replaces": ["spore"], "avoid": 3.0},
 	# Smoke grenade: harmless. Anyone standing in it gets SMOKE_DEFENSE (GearFx) and can't be
 	# spotted by a dormant Infected (Concealment.detects).
+	# Live rail (map condition): a rail with current in it, hurts anyone who crosses or ends a move on it.
+	"live": {"name": "Live rail", "damage": 2, "infection": 0, "ignores": [], "replaces": [], "avoid": 5.0},
 	"smoke": {"name": "Smoke", "damage": 0, "infection": 0, "ignores": [Types.Team.PLAYER, Types.Team.ENEMY], "replaces": [], "avoid": 0.0},
 }
 const PERMANENT := -1
@@ -35,7 +37,7 @@ static func add(s: GameState, cells: Array, kind: String, turns: int, source_id:
 	assert(KINDS.has(kind), "unknown hazard kind " + kind)
 	var changed: Array[Vector2i] = []
 	for c in cells:
-		if not s.grid.is_walkable(c):
+		if not s.grid.is_walkable(c) or (kind == "fire" and s.grid.water.has(c)):
 			continue
 		var cur: Dictionary = s.hazards.get(c, {})
 		if not cur.is_empty():

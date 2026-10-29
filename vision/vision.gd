@@ -62,7 +62,7 @@ static func sight(s: GameState, u: Unit) -> int:
 	if r <= 0:
 		return 0
 	r += HIGH_GROUND_BONUS * height(s, u)
-	return r + int(u.status.get("sight_bonus", 0))
+	return maxi(2, r + int(u.status.get("sight_bonus", 0)) + Conditions.sight_mod(s, u))
 
 
 ## True if `u` adds to its team's vision.

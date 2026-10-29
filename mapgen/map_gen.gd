@@ -105,6 +105,7 @@ static func generate(spec: Dictionary) -> Grid:
 				dg.biome = biome
 				dg.objective = objective
 				last_plot = "district"
+				_apply_condition(dg, spec)
 				return dg
 		push_warning("MapGen: no valid district for %s (%s), trying the plots" % [spec, last_reject])
 	for attempt in MAX_TRIES:
@@ -120,12 +121,23 @@ static func generate(spec: Dictionary) -> Grid:
 			g.biome = biome
 			g.objective = objective
 			last_plot = str(plot_of.get("name", ""))
+			_apply_condition(g, spec)
 			return g
 	push_warning("MapGen: no valid layout for %s, using the fallback map" % [spec])
 	var fb := Grid.load_file(FALLBACK_MAP)
 	fb.biome = biome
 	fb.objective = "skirmish"
 	return fb
+
+
+## Lays a run fight's map condition (spec "condition", see Conditions) on a finished map.
+static func _apply_condition(g: Grid, spec: Dictionary) -> void:
+	var cond := str(spec.get("condition", ""))
+	if cond == "":
+		return
+	var crng := RandomNumberGenerator.new()
+	crng.seed = ("%d:%s:condition" % [int(spec.get("seed", 0)), cond]).hash()
+	Conditions.shape(g, cond, crng)
 
 
 ## The arenas a boss fights in: those tagged `boss=<kind>` for that boss, else the untagged ones.

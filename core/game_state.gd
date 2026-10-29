@@ -18,6 +18,8 @@ var log: Array[Dictionary] = []
 var objective := {}                 # fight objective progress, owned by Objectives
 ## Fight-level state owned by Encounter (enemies/): waves, spawners, spore zones, telegraphs, boss.
 var encounter := {}
+## Map condition events (see Conditions): {"kind", "events": [{turn, kind}]}, {} when the fight has none.
+var condition := {}
 var hazards := {}                   # cell -> {"kind", "turns", "source", "spare"}, owned by Hazards
 ## Fog of war owned by Vision (vision/): explored cells, exposed attackers, last seen, blips, reveals.
 var vision := {}
@@ -87,7 +89,7 @@ func to_dict() -> Dictionary:
 		"players": players.duplicate(), "ready": ready.duplicate(), "next_id": _next_id,
 		"encounter": encounter.duplicate(true),
 		"hazards": hazards.duplicate(true), "objective": objective.duplicate(true),
-		"zones": zones.duplicate(true),
+		"zones": zones.duplicate(true), "condition": condition.duplicate(true),
 		"vision": vision.duplicate(true),
 	}
 
@@ -110,6 +112,7 @@ static func from_dict(d: Dictionary) -> GameState:
 	s.vision = d.get("vision", {}).duplicate(true)
 	s.objective = d.get("objective", {}).duplicate(true)
 	s.zones = d.get("zones", []).duplicate(true)
+	s.condition = d.get("condition", {}).duplicate(true)
 	return s
 
 
