@@ -116,6 +116,10 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return _c("An enemy defused the charge", Palette.DANGER)
 		"charge_blown":
 			return _c("Charge detonated", Palette.AMBER)
+		"gate_winching":
+			return _c("Working the winch, %d more turn" % int(ev.get("left", 1)), Palette.AMBER)
+		"gate_open":
+			return _c("The gate is open. Everyone through", Palette.AMBER)
 		"relay_hacking":
 			return _c("Hacking the relay, %d more turn" % int(ev.get("left", 1)), Palette.AMBER)
 		"relay_hacked":

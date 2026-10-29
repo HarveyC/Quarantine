@@ -971,7 +971,7 @@ func test_objective_zones_are_labelled_on_the_map() -> void:
 	assert_eq(b.zones(), ["evac"] as Array[String])
 	assert_eq(b.zone_at(Vector2i(4, 1)), "evac")
 	var label: Label3D = b._fixed.find_child("ZoneLabel", true, false)
-	assert_true(label != null and label.text == "EVAC", "the evac pad is named on the map")
+	assert_true(label != null and label.text == "GATE", "the gate is named on the map")
 	assert_true(b.active_overlays().has("evac"), "and listed in the map key")
 	b.free()
 

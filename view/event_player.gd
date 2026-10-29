@@ -2045,6 +2045,14 @@ func _beat_charge_blown(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.0}
 
 
+func _beat_gate_winching(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "WINCH", Palette.AMBER, "alert", false)
+
+
+func _beat_gate_open(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "GATE OPEN", TileOverlays.color("evac"))
+
+
 func _beat_relay_hacking(ev: Dictionary) -> Dictionary:
 	return _site_beat(ev, "HACKING", Palette.AMBER, "radio", false)
 
