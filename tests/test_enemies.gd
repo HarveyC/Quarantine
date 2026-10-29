@@ -452,7 +452,8 @@ func test_fight_builder_respects_budget_cap_and_pool() -> void:
 				for e in f.enemies:
 					var p := EnemyRoster.parse(e)
 					if not p.elite:
-						assert_true(EnemyRoster.FROM_ACT[p.kind] <= act, "%s not in act %d" % [p.kind, act])
+						var packed: bool = EnemyRoster.BOSS_POOL[act].any(func(b: String) -> bool: return EnemyRoster.pack_of(b).has(p.kind))   # a boss's faction joins early
+						assert_true(EnemyRoster.FROM_ACT[p.kind] <= act or packed, "%s not in act %d" % [p.kind, act])
 	var a := FightBuilder.build({"act": 2, "node": "skirmish", "outbreak": 5, "seed": 9})
 	var b := FightBuilder.build({"act": 2, "node": "skirmish", "outbreak": 5, "seed": 9})
 	assert_eq(a, b, "deterministic")
@@ -713,7 +714,7 @@ func test_brood_mother_phases_and_death_ends_fight() -> void:
 
 func test_brood_mother_health_scales_with_squad() -> void:
 	for squad in [1, 2, 4]:
-		var enc: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3,
+		var enc: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3, "boss": "brood_mother",
 			"players": squad, "squad": squad}).encounter
 		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(BroodMother.HEALTH[squad])) < 0.001,
 			"health share for %d soldiers" % squad)

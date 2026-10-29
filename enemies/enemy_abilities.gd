@@ -25,6 +25,8 @@ const DEFS := {
 		"desc": "Lobs acid onto a 3x3 that lands next enemy phase: 3 damage and a spore patch for 2 turns."},
 	"rockfall": {"name": "Rockfall", "targeting": "none", "cost": -1, "cooldown": 0,
 		"desc": "Throws up a spray of rocks onto marked tiles that land next enemy phase: 2 damage each, smashes cover. Move off a marked tile to dodge."},
+	"debris": {"name": "Debris", "targeting": "none", "cost": 1, "cooldown": 2, "phases": [2],
+		"desc": "Tears rubble down on marked tiles that land next enemy phase: 2 damage, smashes cover and brings raised ground down. Aims at soldiers on high ground, else the best-covered."},
 	"airstrike": {"name": "Airstrike", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
 		"desc": "Calls a 3x3 airstrike that lands next enemy phase: 4 damage and destroys half cover."},
 	"flashbang": {"name": "Flashbang", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
@@ -105,6 +107,7 @@ const STRIKE_DAMAGE := 4
 const ACID_RAIN_DAMAGE := 3
 const ACID_RAIN_RANGE := 10.0
 const ROCK_DAMAGE := 2
+const DEBRIS_DAMAGE := 2
 const PULL_STEPS := 2
 const LEAP_RANGE := 5
 const LEAP_DAMAGE := 4
@@ -343,6 +346,11 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cells": rocks})
 			Encounter.add_telegraph(s, {"kind": "rockfall", "cells": rocks, "turn": s.turn + 1,
 				"damage": ROCK_DAMAGE, "source": u.id, "smash": true, "unit": u.id})
+		"debris":
+			var rubble: Array = action.get("cells", [])
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cells": rubble})
+			Encounter.add_telegraph(s, {"kind": "debris", "cells": rubble, "turn": s.turn + 1,
+				"damage": DEBRIS_DAMAGE, "source": u.id, "smash": true, "drop": true, "unit": u.id})
 		"hurl":
 			var cells := square(s.grid, action.cell, 1)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
@@ -421,6 +429,10 @@ static func _charge(s: GameState, u: Unit) -> void:
 		if s.grid.tile(c) == Types.Tile.LOW:
 			smashed.append(c)
 		path.append(c)
+	if u.kind == "breaker":   # the rig flattens the cover on both sides of its lane too
+		for c in Breaker.swath(s.grid, path):
+			if s.grid.tile(c) == Types.Tile.LOW and not smashed.has(c):
+				smashed.append(c)
 	var from := u.pos
 	if not smashed.is_empty():
 		# Ploughs through the cover in its lane first (a fuel barrel in the way goes off).
@@ -434,7 +446,7 @@ static func _charge(s: GameState, u: Unit) -> void:
 		Rules.open_doors_along(s, from, path, u)
 		u.pos = path[-1]
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": path})
-		if u.kind == "colonel_hale":   # the Brute's run shakes every roof along its lane down
+		if u.kind == "colonel_hale" or (u.kind == "breaker" and int(u.status.get("boss_phase", 1)) >= 3):   # the run shakes every roof along its lane down
 			var shaken := {}
 			for c in path:
 				for n in square(s.grid, c, 1):

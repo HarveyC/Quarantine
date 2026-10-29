@@ -205,7 +205,7 @@ func test_scene_specs() -> void:
 	var run := RunRules.new_run(1, 51)
 	var intro := Director.intro_spec(run)
 	assert_eq(intro.title, "Wave %d" % StoryData.FIRST_WAVE, "wave title")
-	assert_eq(intro.lines.size(), StoryData.INTRO_OPENERS.first.size() + StoryData.INTRO_ORDERS.size(), "full first briefing")
+	assert_eq(intro.lines.size(), StoryData.INTRO_OPENERS.first.size() + StoryData.INTRO_ORDERS.size() + StoryData.INTRO_BY_BOSS.get(run.act_boss(), []).size(), "full first briefing")
 	assert_eq(intro.cast.size(), 4, "the squad is in the shot")
 	run.story.source_reached = true
 	assert_eq(Director.act_spec(run, 3).lines[1], StoryData.SOURCE_REMEMBERS, "the Source remembers")

@@ -186,7 +186,7 @@ class A:
 
     def __init__(self, name, boss=""):
         self.name = name
-        self.boss = boss   # arena only for this boss kind; untagged arenas serve every boss of the biome
+        self.boss = boss   # a tagged arena is only that boss's ground (MapGen._arenas_for)
         self.g = [["."] * 20 for _ in range(20)]
 
     def put(self, x, y, ch):
@@ -280,6 +280,24 @@ def source_arena():
     return a
 
 
+def breaker_arena():
+    """The wall engineers' yard behind the breach: long lanes of cover for the rig to flatten, a gantry
+    on each flank to climb, and fuel barrels to turn on it."""
+    a = A("demolition_yard", "breaker")
+    a.put(10, 3, "B")
+    for x0, x1, y in [(2, 4, 6), (7, 8, 6), (11, 12, 6), (15, 17, 6), (3, 4, 10), (8, 9, 10), (12, 13, 10), (15, 16, 10), (5, 6, 13), (10, 11, 13), (14, 15, 13)]:
+        a.rect(x0, y, x1, y, "=")                       # cover rows the charge ploughs through
+    for x, y in [(6, 8), (13, 8), (9, 12), (10, 4), (3, 12), (16, 12)]:
+        a.put(x, y, "!")                                 # fuel barrels
+    for x0, sx in [(0, 4), (16, 15)]:                    # a gantry on each flank, one stair each
+        a.rect(x0, 8, x0 + 3, 11, "^").put(x0 + 1, 9, "%")
+    a.put(4, 9, "s").put(15, 9, "s")
+    a.rect(0, 0, 1, 1, "H").rect(18, 0, 19, 1, "H")      # reinforced corner piers
+    a.deploy()
+    a.pods([(3, 2), (16, 2), (2, 14), (17, 14), (6, 1), (13, 1), (1, 6), (18, 6)])
+    return a
+
+
 def engine_arena():
     a = A("drill_deck", "bore_engine")
     a.put(10, 9, "B")                                   # the drill head over the shaft
@@ -299,7 +317,9 @@ def engine_arena():
     return a
 
 
-ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": [source_arena, engine_arena]}
+ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
+## Further arenas a boss fights in (tagged with their boss), after the biome's default one.
+EXTRA_ARENAS = {"wall": [breaker_arena], "bore": [engine_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)
@@ -391,9 +411,9 @@ def build(biome):
         parts.append(p.render())
         parts.append("")
     parts.append(PLOTS.strip("\n"))
-    fns = ARENAS[biome] if isinstance(ARENAS[biome], list) else [ARENAS[biome]]
-    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases. `boss=<kind>` arenas are only used for that boss."]
-    parts += [fn().render() + "\n" for fn in fns]
+    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.", ARENAS[biome]().render()]
+    for extra in EXTRA_ARENAS.get(biome, []):
+        parts += ["", extra().render()]
     return "\n".join(parts) + "\n"
 
 

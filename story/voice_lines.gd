@@ -41,6 +41,8 @@ static func templates() -> Array:
 	for k in StoryData.INTRO_OPENERS:
 		add_scene.call(StoryData.INTRO_OPENERS[k])
 	add_scene.call(StoryData.INTRO_ORDERS)
+	for k in StoryData.INTRO_BY_BOSS:
+		add_scene.call(StoryData.INTRO_BY_BOSS[k])
 	for k in StoryData.ACT_SCENES:
 		add_scene.call(StoryData.ACT_SCENES[k].lines)
 	for k in StoryData.ACT_SCENES_BY_BOSS:
