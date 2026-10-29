@@ -12,51 +12,59 @@ extends RefCounted
 const MAP := "res://maps/tutorial.txt"
 const SEED := 4242
 
-## Where the lessons point. Cells match maps/tutorial.txt.
-const MOVE_CELLS: Array[Vector2i] = [Vector2i(7, 18), Vector2i(8, 18)]
-const COVER_CELLS: Array[Vector2i] = [Vector2i(1, 17), Vector2i(2, 17)]
-const SCOUT_CELLS: Array[Vector2i] = [Vector2i(4, 15), Vector2i(5, 15), Vector2i(11, 15), Vector2i(12, 15)]
-const ROOF_CELLS: Array[Vector2i] = [Vector2i(10, 12), Vector2i(10, 11), Vector2i(11, 11), Vector2i(12, 11),
-	Vector2i(10, 10), Vector2i(12, 10), Vector2i(10, 9), Vector2i(11, 9), Vector2i(12, 9)]
-const NEST_CELL := Vector2i(7, 4)
+## Where the lessons point. Cells match maps/tutorial.txt (Sector Nine, the yard behind the Wall).
+const MOVE_CELLS: Array[Vector2i] = [Vector2i(8, 20), Vector2i(9, 20), Vector2i(10, 20)]
+const COVER_CELLS: Array[Vector2i] = [Vector2i(3, 21), Vector2i(4, 21), Vector2i(15, 21), Vector2i(16, 21)]
+const SCOUT_CELLS: Array[Vector2i] = [Vector2i(8, 16), Vector2i(9, 16), Vector2i(10, 16), Vector2i(11, 16)]
+const ROOF_CELLS: Array[Vector2i] = [Vector2i(4, 14), Vector2i(4, 13), Vector2i(3, 13), Vector2i(5, 13),
+	Vector2i(3, 12), Vector2i(4, 12), Vector2i(5, 12), Vector2i(2, 10), Vector2i(3, 10), Vector2i(4, 10), Vector2i(5, 10)]
+## The wall into the compound (a Demo charge or a barrel blast brings it down) and the barrels by it.
+const WALL_CELLS: Array[Vector2i] = [Vector2i(9, 7), Vector2i(10, 7)]
+const BARREL_CELLS: Array[Vector2i] = [Vector2i(6, 8), Vector2i(15, 8)]
+const NEST_CELL := Vector2i(10, 2)
 ## The Runner for the fog lesson appears at the first of these the squad can't see.
-const SCOUT_SPAWNS: Array[Vector2i] = [Vector2i(5, 8), Vector2i(4, 7), Vector2i(10, 7), Vector2i(12, 6), Vector2i(7, 2)]
-const WAVE_CELLS: Array[Vector2i] = [Vector2i(5, 1), Vector2i(10, 1)]
-## The fuel barrel the last Runner lesson points at (a Shoot target like any enemy).
-const BARREL_CELL := Vector2i(13, 6)
+const SCOUT_SPAWNS: Array[Vector2i] = [Vector2i(8, 10), Vector2i(7, 11), Vector2i(15, 11), Vector2i(16, 10), Vector2i(10, 9)]
+const WAVE_CELLS: Array[Vector2i] = [Vector2i(5, 8), Vector2i(14, 9)]
 ## A hidden spore nest walled into the corner: a fight with no enemies left is won, so this
 ## keeps the training open between lessons. It dies when the last lesson is done.
-const ANCHOR_CELL := Vector2i(15, 0)
+const ANCHOR_CELL := Vector2i(19, 0)
 ## Infection the infection lesson tops a soldier up to (Exposed: Adrenal Surge wakes).
 const LESSON_INFECTION := 30
 ## The overwatch lesson moves on after this many enemy phases even if no reaction shot fired.
 const OVERWATCH_PHASES := 2
+## The squad: a Trooper and a Breacher, named so the radio and the log read like a real run.
+const SQUAD_KINDS: Array[String] = ["trooper", "breacher"]
+const SQUAD_NAMES: Array[String] = ["Reyes", "Mbeki"]
 
-## Each lesson: `id`, `title`, `text` (one or two short lines), and what the overlay points at:
-## `cells` (marked on the floor), `hud` (a HUD piece: ready / aim / overwatch / mutation /
-## roster), `keys` (keycaps to show). `info` lessons wait for Continue; `visual` adds a small
-## diagram to the card.
+## Each lesson: `id` (also the key of its radio line in StoryData.TRAINING_LINES), `title`,
+## `text` (the task, one or two short lines), and what the overlay points at: `cells` (marked on
+## the floor), `hud` (a HUD piece: ready / aim / overwatch / mutation / rig / roster), `keys`
+## (keycaps to show). `info` lessons wait for Continue; `visual` adds a small diagram to the card.
 const STEPS: Array[Dictionary] = [
-	{"id": "welcome", "title": "Basic training", "info": true, "keys": ["W A S D", "Q E", "Wheel"],
-		"text": "Lantern Company drill. Pan the camera with WASD, turn it with Q and E, zoom with the wheel."},
+	{"id": "brief", "title": "Sector Nine", "info": true, "keys": ["W A S D", "Q E", "Wheel"],
+		"text": "Pan the camera with WASD, turn it with Q and E, zoom with the wheel."},
 	{"id": "move", "title": "Move", "cells": MOVE_CELLS, "keys": ["LMB"],
-		"text": "Click a soldier, then a marked tile. A move costs 1 of your 2 actions."},
+		"text": "Click a soldier, click a marked tile, then click it again to confirm. A move costs 1 of your 2 actions."},
 	{"id": "cover", "title": "Take cover", "cells": COVER_CELLS, "visual": "cover",
-		"text": "Shields on a tile edge show cover. Half cover stops some shots, full cover stops more. Get your other soldier behind the wall."},
+		"text": "Shields on a tile edge show cover. Half cover stops some shots, full cover stops more. Get a soldier behind the sandbags."},
 	{"id": "ready", "title": "Team phase", "hud": "ready", "keys": ["Space"],
 		"text": "Everyone moves in any order, then presses Ready. Enemies act once every player is ready."},
 	{"id": "fog", "title": "Fog of war", "cells": SCOUT_CELLS,
 		"text": "Dark ground is unknown. The squad shares what each soldier sees. Scout ahead to a marked tile."},
-	{"id": "shoot", "title": "Hit chance", "hud": "aim", "keys": ["1"],
-		"text": "Contact. Press Shoot to aim: the panel shows your odds and why. Drop the Runner."},
+	{"id": "shoot", "title": "Hit chance", "hud": "aim", "keys": ["1"], "visual": "actions",
+		"text": "Press Shoot to aim: the panel shows your odds and why. A shot costs 1 action and doesn't end your turn."},
 	{"id": "high_ground", "title": "High ground", "cells": ROOF_CELLS, "visual": "height",
 		"text": "Climb the ladder. From a roof you get +10 aim and +2 sight, and targets lose a step of cover."},
 	{"id": "overwatch", "title": "Overwatch", "hud": "overwatch", "keys": ["2", "Space"],
-		"text": "Runners incoming. Overwatch fires at the first enemy that moves in sight. Set it, then Ready."},
-	{"id": "clear", "title": "Finish them", "cells": [BARREL_CELL], "keys": ["1", "Tab"],
-		"text": "Clear the Runners. The red fuel barrel is a target too: Shoot, then Tab to it. A hit blows everything next to it."},
+		"text": "Overwatch fires at the first enemy that moves in sight. Set it, then press Ready."},
+	{"id": "parting_blow", "title": "Parting blow", "hud": "disengage", "visual": "reach",
+		"text": "Leaving a melee fighter's reach gives it a free strike. Use Disengage to back away up to 2 tiles for 1 action."},
+	{"id": "rig", "title": "Rigs", "hud": "suppress", "visual": "rig",
+		"text": "Use Suppress from the action bar. The Trooper's passive, Covering Fire, also suppresses on every miss."},
+	{"id": "breach", "title": "Open the wall", "cells": WALL_CELLS, "visual": "wall",
+		"text": "Place the Breacher's Demo charge on the wall, or Shoot a fuel barrel beside it. Walls break to rubble, then floor."},
 	{"id": "concealment", "title": "Concealment", "info": true, "visual": "stealth",
-		"text": "In the field most missions start Concealed. Red tiles near unaware Infected give you away, and so does any shot. Set overwatch first, then open fire."},
+		"text": "Most missions start Concealed. Red tiles near unaware Infected give you away, and so does any shot."},
 	{"id": "infection", "title": "Infection", "hud": "mutation",
 		"text": "Bites raise Infection. At 25 a mutation wakes. Use Adrenal Surge, the teal button, for a third action."},
 	{"id": "turning", "title": "Turning", "info": true, "visual": "tiers",
@@ -71,6 +79,8 @@ var _entered_turn := 0
 var _enemy_phases := 0
 var _reaction := false
 var _mutation := false
+var _disengaged := false
+var _suppressed := false
 var _continued := false
 var _anchor := -1
 var _nest := -1
@@ -80,8 +90,15 @@ var dosed := -1
 
 static func squad() -> Array:
 	var out: Array = []
-	for k in ["trooper", "marksman"]:
-		out.append({"kind": k, "player": 0, "prog": Progression.quick_play_record(k)})
+	for i in SQUAD_KINDS.size():
+		var k := SQUAD_KINDS[i]
+		var rec := {"id": i + 1, "kind": k, "name": SQUAD_NAMES[i], "gear": {},
+			"prog": Progression.quick_play_record(k)}
+		Loadout.give_class_kit(rec)
+		if k == "breacher":
+			Loadout.add_consumable(rec, "demo_charge", 1)
+		out.append({"kind": k, "player": 0, "sid": rec.id, "name": rec.name, "hp": UnitData.SOLDIERS[k].max_hp,
+			"infection": 0, "prog": rec.prog, "gear": rec.gear})
 	return out
 
 
@@ -115,6 +132,14 @@ func observe(s: GameState, ev: Dictionary) -> void:
 			var u := s.get_unit(int(ev.get("unit", -1)))
 			if u != null and u.team == Types.Team.PLAYER:
 				_mutation = true
+		"move":
+			var m := s.get_unit(int(ev.get("unit", -1)))
+			if m != null and m.team == Types.Team.PLAYER and m.status.get("careful", false):
+				_disengaged = true
+		"ability":
+			var a := s.get_unit(int(ev.get("unit", -1)))
+			if a != null and a.team == Types.Team.PLAYER and str(ev.get("ability", "")) == "suppress":
+				_suppressed = true
 		"enemy_phase":
 			_enemy_phases += 1
 
@@ -147,7 +172,7 @@ func update(s: GameState) -> bool:
 
 func _done(s: GameState) -> bool:
 	match str(current().get("id", "")):
-		"welcome", "concealment", "turning":
+		"brief", "concealment", "turning":
 			return _continued
 		"move":
 			return _squad_on(s, MOVE_CELLS)
@@ -158,12 +183,18 @@ func _done(s: GameState) -> bool:
 		"fog":
 			return _mobile_enemies(s).any(func(u: Unit) -> bool: return Vision.sees_unit(s, Types.Team.PLAYER, u)) \
 				or _mobile_enemies(s).is_empty()
-		"shoot", "clear":
+		"shoot":
 			return _mobile_enemies(s).is_empty()
 		"high_ground":
 			return _squad(s).any(func(u: Unit) -> bool: return s.grid.level(u.pos) > 0)
 		"overwatch":
 			return _reaction or _enemy_phases >= OVERWATCH_PHASES or _mobile_enemies(s).is_empty()
+		"parting_blow":
+			return _disengaged or _mobile_enemies(s).is_empty()
+		"rig":
+			return _suppressed
+		"breach":
+			return WALL_CELLS.any(func(c: Vector2i) -> bool: return s.grid.tile(c) != Types.Tile.WALL)
 		"infection":
 			return _mutation
 		"nest":
@@ -196,6 +227,20 @@ func _enter(s: GameState) -> void:
 			for c in WAVE_CELLS:
 				Encounter.spawn(s, "runner", c)
 			Vision.refresh(s)
+		"parting_blow":
+			_patch_up(s)
+			_disengaged = false
+			var near := _squad(s)[0] if not _squad(s).is_empty() else null
+			if near != null:
+				Encounter.spawn(s, "runner", near.pos + Vector2i(0, -1))
+			Vision.refresh(s)
+		"rig":
+			_patch_up(s)
+			_suppressed = false
+			var gunner := _soldier_of(s, "trooper")
+			if gunner != null:
+				Encounter.spawn(s, "runner", _visible_cell_from(s, gunner))
+			Vision.refresh(s)
 		"infection":
 			_patch_up(s)
 			_mutation = false
@@ -206,12 +251,32 @@ func _enter(s: GameState) -> void:
 					Infection.add(s, u, LESSON_INFECTION - u.infection)
 
 
-## The soldier the infection lesson doses: one with actions left if there is one.
+## The soldier the infection lesson doses: the Trooper, whose Exposed mutation (Adrenal Surge) is
+## a button. Whoever is left if the Trooper is down.
 func lesson_soldier(s: GameState) -> Unit:
-	var best: Unit = null
+	var trooper := _soldier_of(s, "trooper")
+	if trooper != null:
+		return trooper
+	var squad := _squad(s)
+	return squad[0] if not squad.is_empty() else null
+
+
+func _soldier_of(s: GameState, kind: String) -> Unit:
 	for u in _squad(s):
-		if best == null or (u.actions_left > 0 and best.actions_left <= 0):
-			best = u
+		if u.kind == kind:
+			return u
+	return null
+
+
+## A free cell in `u`'s sight about six tiles out, where the rig lesson's Runner appears.
+func _visible_cell_from(s: GameState, u: Unit) -> Vector2i:
+	var best := u.pos + Vector2i(0, -6)
+	for dy in range(-7, -3):
+		for dx in [0, -2, 2, -4, 4]:
+			var c: Vector2i = u.pos + Vector2i(dx, dy)
+			if s.grid.in_bounds(c) and s.grid.is_walkable(c) and s.unit_at(c) == null \
+					and Vision.cell_visible(s, Types.Team.PLAYER, c):
+				return c
 	return best
 
 

@@ -479,6 +479,19 @@ static func _build() -> Dictionary:
 		"more": ["Only offered while a melee fighter is next to you."],
 		"see": ["parting_blow"],
 		"aliases": ["Disengaged"]}
+	t["rig"] = {"name": "Rig", "kind": "gear", "icon": "weapon", "tone": "amber",
+		"line": "Utility gear that gives an action. Any soldier can carry any rig.",
+		"art": "",
+		"stats": [],
+		"more": ["Take the rig off and the action goes with it."],
+		"see": [],
+		"aliases": ["Rigs", "Utility slot"]}
+	t["covering_fire"] = {"name": "Covering Fire", "kind": "passive", "icon": "suppress", "tone": "amber",
+		"line": "The Trooper's passive: every miss still {suppress|suppresses} the target, whatever gun you fire.",
+		"art": "",
+		"stats": [],
+		"more": [],
+		"see": ["suppress"]}
 	t["ammo"] = {"name": "Ammo", "kind": "resource", "icon": "reload", "tone": "amber",
 		"line": "Your gun holds a few rounds. Each shot spends one, and an empty gun can't shoot or watch.",
 		"art": "magazine",

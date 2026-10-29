@@ -54,8 +54,11 @@ func _show_step() -> void:
 	var buttons: Array = [["skip", "Skip training", false]]
 	if st.get("info", false):
 		buttons.append(["next", "Continue", true])
+	var line: String = StoryData.TRAINING_LINES.get(st.id, "")
 	card.show_card("Training  %d / %d" % [d.step + 1, TutorialScript.STEPS.size()], st.title, st.text,
-		st.get("keys", []), st.get("visual", ""), buttons, d.step, TutorialScript.STEPS.size())
+		st.get("keys", []), st.get("visual", ""), buttons, d.step, TutorialScript.STEPS.size(),
+		"Major Okafor", line)
+	_say("OKAFOR", line)
 	markers.set_cells(_cells(st))
 	if not markers.cells.is_empty() and view.camera_rig != null:
 		view.camera_rig.focus(markers.world_center())
@@ -70,9 +73,15 @@ func _show_complete() -> void:
 	Onboarding.mark_training_done()
 	markers.set_cells([])
 	pointer.clear()
-	card.show_card("Training complete", "Ready for the Wall",
-		"That's the drill. Runs add gear, ranks, mutations and harder Infected. Good luck, Lantern.",
-		[], "", [["menu", "Main menu", false], ["run", "Start a solo run", true]])
+	card.show_card("Training complete", "Ready for the Wall", "",
+		[], "", [["menu", "Main menu", false], ["run", "Start a solo run", true]], 0, 0,
+		"Major Okafor", StoryData.TRAINING_LINES.end)
+	var line_len := _say("OKAFOR", StoryData.TRAINING_LINES.end)
+	# The nest answers: the Source, once, a moment after the radio clicks off.
+	get_tree().create_timer(line_len + 0.8).timeout.connect(func() -> void:
+		if _complete:
+			card.set_radio("Source", StoryData.TRAINING_LINES.whisper, Styles.TEAL)
+			_say("SOURCE", StoryData.TRAINING_LINES.whisper))
 
 
 ## The nest lesson marks wherever the nest is; the others use their fixed cells.
@@ -86,6 +95,9 @@ func _on_pressed(id: String) -> void:
 			session.proceed()
 		"skip":
 			Onboarding.mark_training_done()
+			var sc := get_node_or_null("/root/Soundscape")
+			if sc != null:
+				sc.stop_speech()
 			skip_requested.emit()
 		"menu":
 			finished.emit(false)
@@ -114,6 +126,14 @@ func _process(delta: float) -> void:
 	_aim_pointer()
 
 
+## Speaks a radio line through the Soundscape; its length in seconds, 0 when unvoiced or silent.
+func _say(who: String, text: String) -> float:
+	var sc := get_node_or_null("/root/Soundscape")
+	if sc == null or text == "":
+		return 0.0
+	return sc.say(who, text, {"radio": who == "OKAFOR", "scene": true})
+
+
 func _place_card() -> void:
 	var vp := size if size != Vector2.ZERO else get_viewport_rect().size
 	card.reset_size()
@@ -136,8 +156,10 @@ func _aim_pointer() -> void:
 	match hud:
 		"ready":
 			target = view.hud.action_bar.ready_button()
-		"overwatch", "mutation":
+		"overwatch", "mutation", "disengage":
 			target = view.hud.action_bar.find_button(hud)
+		"suppress":
+			target = view.hud.action_bar.find_button("ability:suppress")
 		"aim":
 			if view.input.mode == InputController.Mode.SHOOT and view.hud.target_panel.visible:
 				target = view.hud.target_panel

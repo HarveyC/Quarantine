@@ -155,8 +155,23 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_0cf44935a2.ogg",
+		"text": "Your class action rides in the Utility slot, as a rig. Any soldier can carry any rig. Trooper, lay down some suppression.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_0cf63a04cc.ogg",
+		"text": "Sandbags either side of the gate. Get behind them. Cover is the only armour you can count on.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_0d196b89b3.ogg",
 		"text": "twenty-six's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_0d3b6eda78.ogg",
+		"text": "Out in the field you will start unseen. Unaware Infected spot you up close, and any shot gives you away. Set a watch first, then open fire.",
 		"voice": "okafor"
 	},
 	{
@@ -390,6 +405,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_2fec9f23e6.ogg",
+		"text": "Remember where the line is. At fifty you can lapse. At one hundred you turn, and I can not talk you back. Stims, hospitals and serum will.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_2ffd56bc4e.ogg",
 		"text": "forty-four's",
 		"voice": "okafor"
@@ -417,6 +437,11 @@
 	{
 		"file": "okafor_30d1ef7099.ogg",
 		"text": "twenty-eight",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_32eff15d7d.ogg",
+		"text": "Feel that? The Bloom is answering. Use it. It wants you to.",
 		"voice": "okafor"
 	},
 	{
@@ -570,6 +595,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_4ec0ce1c77.ogg",
+		"text": "Lantern Company, Okafor. Welcome to Sector Nine, the yard behind the Wall. Six waves trained here before you. Some of them are still out in it.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_4ef0ea6610.ogg",
 		"text": "thirty-seven's",
 		"voice": "okafor"
@@ -577,6 +607,16 @@
 	{
 		"file": "okafor_4ef1ab9bbd.ogg",
 		"text": "Rook's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_515ed75273.ogg",
+		"text": "The compound is sealed. Breacher, put a charge on that wall. Or light the fuel drums beside it. Either one opens the door.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_5230fed68b.ogg",
+		"text": "That is the nest. Burn it out and you are done.",
 		"voice": "okafor"
 	},
 	{
@@ -705,6 +745,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_6ecb2582e2.ogg",
+		"text": "Trooper, Breacher, form up on the marked plates. Pick your tile, then confirm it. Out here you only move once you mean it.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_6f5de84e35.ogg",
 		"text": "eighteen's",
 		"voice": "okafor"
@@ -750,6 +795,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_77fd0f7c49.ogg",
+		"text": "That warehouse roof sees the whole yard. Take the ladder. Height is aim, and sight.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_784812c419.ogg",
 		"text": "It flattens whatever is in its way. Don't stand behind anything you need.",
 		"voice": "okafor"
@@ -785,6 +835,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_83fe297fde.ogg",
+		"text": "Another Runner, right on top of you. Do not just turn your back. Leave its reach and it takes a free bite. Back away carefully instead.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_84249807ef.ogg",
 		"text": "Halden-Voss got its sample. Their shuttle left this morning. Nobody told us where.",
 		"voice": "okafor"
@@ -792,6 +847,11 @@
 	{
 		"file": "okafor_8484ed6ecb.ogg",
 		"text": "Halloran's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_84d2962901.ogg",
+		"text": "That is the drill, Lantern. Go and get some sleep. Tomorrow it is live.",
 		"voice": "okafor"
 	},
 	{
@@ -1100,6 +1160,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_ba169d6009.ogg",
+		"text": "The squad phase is yours. When everyone is set, call it in. The Infected take their turn after.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_ba3eb230d3.ogg",
 		"text": "thirty-eight",
 		"voice": "okafor"
@@ -1195,6 +1260,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_cd697d2996.ogg",
+		"text": "I have no eyes past the gate. Push up and show me the yard. Something out there is moving.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_d03341a475.ogg",
 		"text": "forty-seven",
 		"voice": "okafor"
@@ -1227,6 +1297,11 @@
 	{
 		"file": "okafor_d7ced28cc7.ogg",
 		"text": "The wall crews' demolition rigs went quiet last week. One of them is moving again.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_d86638c315.ogg",
+		"text": "Two more Runners coming in. Set a watch and let them walk into it.",
 		"voice": "okafor"
 	},
 	{
@@ -1297,6 +1372,11 @@
 	{
 		"file": "okafor_e1561a8f63.ogg",
 		"text": "Novak",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_e78ee8fa09.ogg",
+		"text": "Contact. A Runner, fast and hungry. Put it down.",
 		"voice": "okafor"
 	},
 	{
