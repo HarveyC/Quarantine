@@ -1110,7 +1110,7 @@ static func _add_director_terms(t: Dictionary) -> void:
 		"see": ["pinned"],
 		"labels": ["Retrieval", "Caged"]}
 	var cards := {
-		"director": ["Calls a second team, {retrieval_mark|marks} a soldier and snipes from the roofs. Its posts keep it untouchable.", ["retrieval_mark"]],
+		"director": ["Snipes from the roofs and {retrieval_mark|marks} a soldier. Untouchable while a post lives.", ["retrieval_mark"]],
 	}
 	for kind in cards:
 		var st: Dictionary = UnitData.ENEMIES[kind]
