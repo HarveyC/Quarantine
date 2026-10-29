@@ -1065,9 +1065,10 @@ text walls.
   `reset_hints()` (for a settings screen). Each machine has its own profile, so online every player
   gets their own tips.
 - **Training mission**: `TutorialScript` (pure, like `Rules`) builds a fixed map (`maps/tutorial.txt`,
-  Trooper + Marksman for player 0) and runs 12 lessons in `STEPS`: welcome and camera, move, cover,
-  Ready / team phase, fog of war, hit chance, high ground, overwatch, clear, Infection and a mutation,
-  Turning, purge the nest. Each lesson has a goal read from the state (a soldier on a marked tile, an
+  Trooper + Breacher for player 0, with class rigs and a Demo charge) and runs 15 lessons in `STEPS`: briefing and camera, move, cover,
+  Ready / team phase, fog of war, hit chance (Shoot costs 1 action), high ground, overwatch, Parting blow and
+  Disengage, rigs, breaching the sealed wall, Concealment, Infection and a mutation, Turning, purge the nest.
+  Each lesson has a voiced Okafor line in `StoryData.TRAINING_LINES` (also on the voice manifest). Each lesson has a goal read from the state (a soldier on a marked tile, an
   enemy spotted, a reaction shot, a mutation used...) and a set-up when it starts (a Runner in the
   fog, a wave of two, a dose of Infection) that goes through `EnemyRoster` / `Encounter.spawn` /
   `Infection.add`, so the view plays it like any fight. A hidden spore nest walled into a corner keeps

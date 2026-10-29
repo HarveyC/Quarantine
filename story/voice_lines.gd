@@ -68,6 +68,8 @@ static func templates() -> Array:
 	for phase in StoryData.DIRECTOR_BARKS:
 		for t in StoryData.DIRECTOR_BARKS[phase]:
 			out.append(["hv", t])
+	for k in StoryData.TRAINING_LINES:
+		out.append(["source" if k == "whisper" else "okafor", StoryData.TRAINING_LINES[k]])
 	var seen := {}
 	for e in out:
 		var key := "%s|%s" % e

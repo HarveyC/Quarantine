@@ -262,6 +262,28 @@ const WHISPERS := {
 	3: ["Come down to me, {name}.", "They will burn you too, when this is over.", "You're nearly home."],
 }
 
+## The training mission's radio, one line per lesson (tutorial/tutorial_script.gd), all Okafor, all
+## voiced. "end" plays when the spore nest falls; "whisper" is the Source answering it.
+const TRAINING_LINES := {
+	"brief": "Lantern Company, Okafor. Welcome to Sector Nine, the yard behind the Wall. Six waves trained here before you. Some of them are still out in it.",
+	"move": "Trooper, Breacher, form up on the marked plates. Pick your tile, then confirm it. Out here you only move once you mean it.",
+	"cover": "Sandbags either side of the gate. Get behind them. Cover is the only armour you can count on.",
+	"ready": "The squad phase is yours. When everyone is set, call it in. The Infected take their turn after.",
+	"fog": "I have no eyes past the gate. Push up and show me the yard. Something out there is moving.",
+	"shoot": "Contact. A Runner, fast and hungry. Put it down.",
+	"high_ground": "That warehouse roof sees the whole yard. Take the ladder. Height is aim, and sight.",
+	"overwatch": "Two more Runners coming in. Set a watch and let them walk into it.",
+	"parting_blow": "Another Runner, right on top of you. Do not just turn your back. Leave its reach and it takes a free bite. Back away carefully instead.",
+	"rig": "Your class action rides in the Utility slot, as a rig. Any soldier can carry any rig. Trooper, lay down some suppression.",
+	"breach": "The compound is sealed. Breacher, put a charge on that wall. Or light the fuel drums beside it. Either one opens the door.",
+	"concealment": "Out in the field you will start unseen. Unaware Infected spot you up close, and any shot gives you away. Set a watch first, then open fire.",
+	"infection": "Feel that? The Bloom is answering. Use it. It wants you to.",
+	"turning": "Remember where the line is. At fifty you can lapse. At one hundred you turn, and I can not talk you back. Stims, hospitals and serum will.",
+	"nest": "That is the nest. Burn it out and you are done.",
+	"end": "That is the drill, Lantern. Go and get some sleep. Tomorrow it is live.",
+	"whisper": "You came.",
+}
+
 ## Intel logs, in the order they are recovered across runs. The last one unlocks Carry it.
 ## A boss win recovers the next log; so does putting down an Echo.
 const LORE := [
