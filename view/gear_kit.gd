@@ -45,7 +45,7 @@ const ARMOR_LOOK := {
 	"ember_plating": "ember", "ghillie_cloak": "ghillie", "cauterizer": "cauterizer",
 	"hold_position": "guard", "feral_grip": "feral", "overlook": "overlook",
 	"targeting_optic": "overlook", "lattice_sight": "overlook", "plated_ribs": "ballistic", "heart_knot": "bio",
-	"flash_fry": "ember", "bounty_ledger": "vest", "hair_trigger": "harness", "retaliation_plate": "ballistic",
+	"flash_fry": "ember", "kill_chain": "overlook", "steady_hands": "rig", "bounty_ledger": "vest", "hair_trigger": "harness", "retaliation_plate": "ballistic",
 }
 ## Pocket items that have their own shape (anything else gets a plain pouch).
 const POCKET_LOOKS := ["medkit", "flashbang", "smoke_grenade", "recon_drone", "suppressant_shot", "antiviral_dose", "breather_mask", "stim", "frag_grenade", "demo_charge", "containment_foam"]

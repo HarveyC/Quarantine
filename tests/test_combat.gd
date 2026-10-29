@@ -147,14 +147,14 @@ func test_graze_shot_applies_reduced_damage() -> void:
 
 # ------------------------------------------------------------------ shoot / overwatch
 
-func test_shoot_costs_one_action_and_rejects_without_los() -> void:
+func test_shoot_ends_turn_and_rejects_without_los() -> void:
 	var s := make_blank(PackedStringArray(["..........", "..........", "....#.....", "..........", ".........."]))
 	var a := _add(s, "trooper", Types.Team.PLAYER, Vector2i(1, 2))
 	var hidden := _add(s, "runner", Types.Team.ENEMY, Vector2i(7, 2))
 	assert_true(not Rules.apply(s, {"type": Types.SHOOT, "unit": a.id, "target": hidden.id}), "no LOS rejected")
 	var seen := _add(s, "runner", Types.Team.ENEMY, Vector2i(7, 0))
 	assert_true(Rules.apply(s, {"type": Types.SHOOT, "unit": a.id, "target": seen.id}), "visible accepted")
-	assert_eq(a.actions_left, 1, "a shot costs one action")
+	assert_eq(a.actions_left, 0, "shot ends turn")
 
 
 func test_overwatch_interrupts_move() -> void:

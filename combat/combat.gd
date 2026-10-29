@@ -559,11 +559,13 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 	_sweep(s)
 	match action.type:
 		Types.SHOOT:
-			# Soldiers spend one action per shot; enemies still fire once and end their turn.
-			u.actions_left = 0 if u.team == Types.Team.ENEMY else maxi(0, u.actions_left - 1)
+			# A shot ends the turn. Skirmisher, Slipstream, Steady hands and Kill chain give an action back.
+			u.actions_left = 0
 			if u.team == Types.Team.PLAYER and not action.has("cell") and Weapons.skirmish_free(s, u):
 				u.actions_left += 1
 				s.emit({"type": "perk", "unit": u.id, "perk": "skirmish"})
+			if u.team == Types.Team.PLAYER and not action.has("cell"):
+				GearTricks.steady_hands(s, u)
 			if action.has("cell"):
 				fire_at_barrel(s, u, action.cell, false)
 			else:
@@ -573,6 +575,10 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 					u.status["spray_second"] = true
 					fire(s, u, tgt, false)
 					u.status.erase("spray_second")
+				elif tgt.is_alive() and u.is_alive() and GearTricks.double_tap(s, u):
+					u.status["tap_second"] = true
+					fire(s, u, tgt, false)
+					u.status.erase("tap_second")
 		Types.OVERWATCH:
 			u.overwatch = true
 			u.status["ow_until"] = phase_index(s) + 2

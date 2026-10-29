@@ -339,6 +339,20 @@ func _probes() -> Dictionary:
 		x.u.actions_left = 1
 		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
 		return _expect(x.u.actions_left == 2, "no refunded action")
+	p["steady_hands"] = func(x):
+		x.u.actions_left = 2
+		Rules.apply(x.s, {"type": Types.SHOOT, "unit": x.u.id, "target": x.foe.id})
+		return _expect(x.u.actions_left == 1, "the shot still ended the turn")
+	p["double_tap"] = func(x):
+		var before := Ammo.rounds(x.u)
+		x.foe.hp = 99
+		Rules.apply(x.s, {"type": Types.SHOOT, "unit": x.u.id, "target": x.foe.id})
+		return _expect(Ammo.rounds(x.u) == before - 2, "no second shot")
+	p["kill_chain"] = func(x):
+		x.u.actions_left = 0
+		x.foe.hp = 0
+		GearFx.on_kill(x.s, x.u, x.foe, false)
+		return _expect(x.u.actions_left == 1, "the kill gave no action back")
 	p["kevlar_vest"] = func(x): return _expect(GearFx.damage_taken(x.s, x.u, 4, x.foe) == 1, "first hit not cut")
 	p["ballistic_plate"] = func(x):
 		GearFx.damage_taken(x.s, x.u, 4, x.near)

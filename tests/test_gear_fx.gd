@@ -465,3 +465,79 @@ func test_exo_frame_riot_shield_and_filter_mask_mk2() -> void:
 	ally.infection = 30
 	GearFx.on_purge(s, md, ally, 15)
 	assert_eq(ally.hp, 2 + GearFx.FILTER_HEAL, "Purge heals through a Mk II filter mask")
+
+
+# ---------------------------------------------------------------- extra shots
+
+func test_a_plain_shot_ends_the_turn() -> void:
+	var s := _state()
+	s.phase = Types.Phase.TEAM
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	var t := _add(s, "spitter", Types.Team.ENEMY, Vector2i(6, 2))
+	t.hp = 99
+	assert_true(Rules.apply(s, {"type": Types.SHOOT, "unit": u.id, "target": t.id}), "shot")
+	assert_eq(u.actions_left, 0, "a shot ends the turn")
+
+
+func test_steady_hands_needs_stillness_and_works_once() -> void:
+	var s := _state()
+	s.phase = Types.Phase.TEAM
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	var t := _add(s, "spitter", Types.Team.ENEMY, Vector2i(6, 2))
+	t.hp = 99
+	_gear(u, ["steady_hands"])
+	u.status["gear_moved_turn"] = s.turn
+	u.status["gear_move_len"] = 1
+	Rules.apply(s, {"type": Types.SHOOT, "unit": u.id, "target": t.id})
+	assert_eq(u.actions_left, 0, "a Mk I moved soldier gets nothing")
+	u.status.erase("gear_moved_turn")
+	u.actions_left = 2
+	Rules.apply(s, {"type": Types.SHOOT, "unit": u.id, "target": t.id})
+	assert_eq(u.actions_left, 1, "still: the shot leaves an action")
+	Rules.apply(s, {"type": Types.SHOOT, "unit": u.id, "target": t.id})
+	assert_eq(u.actions_left, 0, "only the first shot")
+
+
+func test_steady_hands_mk2_forgives_a_short_step() -> void:
+	var s := _state()
+	s.phase = Types.Phase.TEAM
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	var t := _add(s, "spitter", Types.Team.ENEMY, Vector2i(6, 2))
+	t.hp = 99
+	_gear(u, [["steady_hands", 2]])
+	u.status["gear_moved_turn"] = s.turn
+	u.status["gear_move_len"] = 2
+	Rules.apply(s, {"type": Types.SHOOT, "unit": u.id, "target": t.id})
+	assert_eq(u.actions_left, 1, "a 2 tile step still counts as still")
+
+
+func test_double_tap_fires_twice_once_a_turn() -> void:
+	var s := _state()
+	s.phase = Types.Phase.TEAM
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	var t := _add(s, "spitter", Types.Team.ENEMY, Vector2i(6, 2))
+	t.hp = 99
+	_gear(u, ["double_tap"])
+	var rounds := Ammo.rounds(u)
+	Rules.apply(s, {"type": Types.SHOOT, "unit": u.id, "target": t.id})
+	assert_eq(Ammo.rounds(u), rounds - 2, "two rounds went")
+	assert_eq(s.log.filter(func(ev): return ev.type == "shot").size(), 2, "two shot events")
+	u.actions_left = 2
+	Rules.apply(s, {"type": Types.SHOOT, "unit": u.id, "target": t.id})
+	assert_eq(Ammo.rounds(u), rounds - 3, "the second shot is once a turn")
+
+
+func test_kill_chain_gives_the_action_back() -> void:
+	var s := _state()
+	s.phase = Types.Phase.TEAM
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	var t := _add(s, "runner", Types.Team.ENEMY, Vector2i(6, 2))
+	_gear(u, ["kill_chain"])
+	u.actions_left = 0
+	t.hp = 0
+	GearFx.on_kill(s, u, t, false)
+	assert_eq(u.actions_left, 1, "the first kill gives an action back")
+	GearFx.on_kill(s, u, t, false)
+	assert_eq(u.actions_left, 1, "Mk I: once a turn")
+	GearFx.on_kill(s, u, t, true)
+	assert_eq(u.actions_left, 1, "not on reaction fire")

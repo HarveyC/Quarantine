@@ -1221,6 +1221,9 @@ const GEAR_PROCS := {
 	# Flat stats turned into effects: each one fires a visible beat of its own.
 	"laser_sight": {"text": "PAINTED", "color": Color("ff5c86"), "on_target": true, "sound": "flare_pop"},
 	"light_harness": {"text": "SLIPSTREAM  +1 ACTION", "color": Color("e0a050"), "sound": "cap_field"},
+	"steady_hands": {"text": "STEADY  +1 ACTION", "color": Color("6fc3ff"), "sound": "cap_field"},
+	"double_tap": {"text": "DOUBLE TAP", "color": Color("b9a7ff"), "sound": "impact_slug"},
+	"kill_chain": {"text": "KILL CHAIN  +1 ACTION", "color": Color("e0a050"), "sound": "cap_warrant"},
 	"kevlar_vest": {"text": "PLATE CRACKS", "color": Color("a9c46c"), "sound": "plate_clang"},
 	"ballistic_plate": {"text": "SPALL", "color": Color("a9c46c"), "on_target": true, "sound": "plate_clang"},
 	"plated_rig": {"text": "PLANTED", "color": Color("a9c46c"), "sound": "plate_clang"},
