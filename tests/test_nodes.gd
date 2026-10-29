@@ -206,7 +206,7 @@ func test_sealed_armoury_breacher_skips_volunteer() -> void:
 	assert_eq(opts.size(), 2, "1 of 2 items")
 	_choose(run, 0, opts[0].id, 1)
 	_choose(run, 1, EventRules.options_for(run, run.node_state, 1)[1].id, 4)
-	assert_eq(Loadout.equipped(run.get_soldier(1)).size(), 1, "equipped")
+	assert_eq(Loadout.equipped(run.get_soldier(1)).size(), 2, "the class rig plus the loot")
 	assert_true(run.node_state.finished, "done")
 
 

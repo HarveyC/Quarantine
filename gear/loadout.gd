@@ -138,6 +138,29 @@ static func start_on_sidearm(record) -> void:
 	g.slots["gun"] = {"id": Weapons.START_GUN, "mk": 1}
 
 
+## Puts the soldier's class kit on them (see GearData.CLASS_KIT) and marks the record so their
+## class's own actives now come from that gear: take it off and the ability goes with it.
+static func give_class_kit(record) -> void:
+	var g := of(record)
+	for id in GearData.CLASS_KIT.get(str(record.get("kind", "")), []):
+		for slot in GearData.slots_for(GearData.slot_of(id)):
+			if g.slots.get(slot) == null:
+				g.slots[slot] = {"id": id, "mk": 1}
+				break
+	g["kit"] = true
+
+
+## The abilities this record's class kit stands for, dropped from the Unit when the gear is off.
+static func kit_abilities(record) -> Array:
+	var out: Array = []
+	if bool(of(record).get("kit", false)):
+		for id in GearData.CLASS_KIT.get(str(record.get("kind", "")), []):
+			var a := GearData.signature_of(id)
+			if a != "":
+				out.append(a)
+	return out
+
+
 ## Takes a gun found on a run and carries it; the gun it replaces goes to the stash when
 ## `run` is given (and is dropped for a throwaway record, as in previews and the balance sim).
 ## False if the soldier can't use it.
