@@ -53,6 +53,9 @@ const LOTS := {
 }
 ## Each biome has one signature lot that always shows up at least twice.
 const SIGNATURE := {"wall": "tents", "port": "containers", "bore": "rockmass"}
+## One landmark per biome that every district map holds, and a skybridge tower that raises the ceiling.
+const SETPIECE := {"wall": "checkpoint", "port": "gantry", "bore": "gallery"}
+const TOWER_CHANCE := 0.5            # a map also gets a skybridge tower
 const ROOF_CHANCE := 0.55            # share of intact buildings that get a roof
 const SHUT_DOOR_CHANCE := 0.5
 const WINDOW_CHANCE := 0.3
@@ -127,6 +130,7 @@ static func build(biome: String, objective: String, rng: RandomNumberGenerator) 
 			if idx.is_empty():
 				break
 			types[idx[rng.randi() % idx.size()]] = want
+	_force_setpiece(c, blocks, types)
 	for i in blocks.size():
 			_fill_block(c, blocks[i], types[i])
 	_street_props(c)
@@ -324,17 +328,34 @@ static func _rect_cells(r: Rect2i) -> Array[Vector2i]:
 	return out
 
 
+## The biome's landmark goes in the biggest block that fits it; a skybridge tower in half the maps.
+static func _force_setpiece(c: Ctx, blocks: Array[Rect2i], types: Array[String]) -> void:
+	var order: Array[int] = []
+	for i in blocks.size():
+		order.append(i)
+	order.sort_custom(func(a: int, b: int) -> bool: return blocks[a].size.x * blocks[a].size.y > blocks[b].size.x * blocks[b].size.y)
+	var want: Array[String] = [SETPIECE[c.biome]]
+	if c.rng.randf() < TOWER_CHANCE:
+		want.append("tower")
+	for kind in want:
+		for i in order:
+			if blocks[i].size.x >= 9 and blocks[i].size.y >= 6 and not types[i] in SETPIECE.values() and types[i] != "tower":
+				types[i] = kind
+				break
+
+
 static func _fill_block(c: Ctx, b: Rect2i, kind: String) -> void:
 	var w := b.size.x
 	var h := b.size.y
-	if kind != "plaza" and w >= 11 and h >= 7 and c.rng.randf() < 0.6:
+	var whole := kind in SETPIECE.values() or kind == "tower"
+	if not whole and kind != "plaza" and w >= 11 and h >= 7 and c.rng.randf() < 0.6:
 		var a := c.rng.randi_range(b.position.x + 5, _x1(b) - 5)
 		var gap := c.rng.randi_range(1, 2)
 		_fill_lot(c, Rect2i(b.position.x, b.position.y, a - b.position.x, h), kind)
 		var other: Array = LOTS[c.biome]
 		_fill_lot(c, Rect2i(a + gap, b.position.y, _x1(b) - a - gap + 1, h), other[c.rng.randi() % other.size()])
 		return
-	if kind != "plaza" and h >= 11 and w >= 7 and c.rng.randf() < 0.5:
+	if not whole and kind != "plaza" and h >= 11 and w >= 7 and c.rng.randf() < 0.5:
 		var a2 := c.rng.randi_range(b.position.y + 4, _y1(b) - 4)
 		var gap2 := c.rng.randi_range(1, 2)
 		_fill_lot(c, Rect2i(b.position.x, b.position.y, w, a2 - b.position.y), kind)
@@ -378,6 +399,10 @@ static func _fill_lot(c: Ctx, lot: Rect2i, kind: String) -> void:
 				_building(c, lot, lot, {"depth": 1})
 		"rooftop": _rooftop(c, lot)
 		"plaza": _plaza(c, lot)
+		"checkpoint": _checkpoint(c, lot)
+		"gantry": _gantry(c, lot)
+		"gallery": _gallery(c, lot)
+		"tower": _tower(c, lot)
 	_claim(c, lot)
 
 
@@ -785,6 +810,137 @@ static func _plaza(c: Ctx, lot: Rect2i) -> void:
 	c.places.append({"kind": "square", "cells": _open_cells(c, lot)})
 
 
+# ---------------------------------------------------------------- set pieces
+
+## The Wall: a cordon line across the lot with a three-wide gate, sandbag chicanes on both sides and fuel drums
+## behind the wall. Enemies hold the far side.
+static func _checkpoint(c: Ctx, lot: Rect2i) -> void:
+	var rng := c.rng
+	var x0 := lot.position.x
+	var x1 := _x1(lot)
+	var line := lot.position.y + lot.size.y / 2
+	var gate := rng.randi_range(x0 + 2, x1 - 4)
+	for x in range(x0, x1 + 1):
+		if x < gate or x > gate + 2:
+			_set_edge(c, [x, line - 1, 1], WALL)
+	for x in [gate - 2, gate - 1, gate + 3, gate + 4]:
+		if x >= x0 and x <= x1:
+			_put(c, Vector2i(x, line), Types.Tile.LOW)
+	var drums: Array[Vector2i] = []
+	for x in [gate - 3, gate + 5]:
+		var cell := Vector2i(x, line - 2)
+		if x >= x0 and x <= x1 and _is_free(c, cell):
+			_put(c, cell, Types.Tile.LOW)
+			c.g.volatile[cell] = true
+			drums.append(cell)
+	var far: Array[Vector2i] = []
+	for cell in _cells(Rect2i(x0, lot.position.y, lot.size.x, line - lot.position.y)):
+		if _is_free(c, cell) and not drums.has(cell):
+			far.append(cell)
+	var near: Array[Vector2i] = []
+	for cell in _cells(Rect2i(x0, line, lot.size.x, _y1(lot) - line + 1)):
+		if _is_free(c, cell) and c.g.tile(cell) == Types.Tile.FLOOR:
+			near.append(cell)
+	c.places.append({"kind": "camp", "cells": far})
+	c.places.append({"kind": "yard", "cells": near})
+	_claim(c, lot)
+
+
+## Port Ardent: a gantry, two raised platforms joined by a fragile catwalk. Stairs at both ends; an
+## explosive brings the catwalk down.
+static func _gantry(c: Ctx, lot: Rect2i) -> void:
+	var rng := c.rng
+	var w := lot.size.x
+	var row := lot.position.y + rng.randi_range(1, maxi(1, lot.size.y - 5))
+	var pw := 3
+	var left := Rect2i(lot.position.x, row, pw, 3)
+	var right := Rect2i(_x1(lot) - pw + 1, row, pw, 3)
+	for plat in [left, right]:
+		for cell in _cells(plat):
+			c.g.set_level(cell, 1)
+			c.g.fragile[cell] = true
+			c.reserved[cell] = true
+		var stairs := Vector2i(plat.position.x + 1, _y1(plat) + 1)
+		_put(c, stairs, Types.Tile.FLOOR)
+		c.g.stairs[stairs] = true
+		c.reserved[stairs] = true
+	for x in range(left.position.x + pw, right.position.x):
+		var cell := Vector2i(x, row + 1)
+		c.g.set_level(cell, 1)
+		c.g.fragile[cell] = true
+		c.reserved[cell] = true
+	# Stacked containers on the rest of the lot give the platforms something to cover behind.
+	for y in range(lot.position.y, _y1(lot) + 1):
+		if absi(y - (row + 1)) >= 3 and y != _y1(lot):
+			for x in range(lot.position.x + 4, _x1(lot) - 3, 7):
+				for dx in 4:
+					var cell := Vector2i(x + dx, y)
+					if x + dx < _x1(lot) - 2 and _is_free(c, cell) and not c.reserved.has(cell) and (y - lot.position.y) % 3 != 2:
+						_put(c, cell, Types.Tile.WALL)
+	var open: Array[Vector2i] = []
+	for cell in _cells(lot):
+		if _is_free(c, cell) and not c.reserved.has(cell):
+			open.append(cell)
+	c.places.append({"kind": "apron", "cells": open})
+	_claim(c, lot)
+
+
+## The Bore: a mine gallery. Two rock walls with arches every few tiles, timber and rubble in the aisle.
+static func _gallery(c: Ctx, lot: Rect2i) -> void:
+	var rng := c.rng
+	var along_x := lot.size.x >= lot.size.y
+	var length := lot.size.x if along_x else lot.size.y
+	var depth := lot.size.y if along_x else lot.size.x
+	var aisle0 := depth / 2 - 1
+	var arch := rng.randi_range(1, 3)
+	for a in length:
+		for b in depth:
+			var cell := Vector2i(lot.position.x + a, lot.position.y + b) if along_x else Vector2i(lot.position.x + b, lot.position.y + a)
+			var in_aisle := b >= aisle0 and b < aisle0 + 3
+			if in_aisle:
+				continue
+			var is_arch := (a + arch) % 6 < 2 and (b == aisle0 - 1 or b == aisle0 + 3)
+			if not is_arch:
+				_put(c, cell, Types.Tile.WALL)
+	for k in 3:
+		var a := rng.randi_range(2, length - 3)
+		var cell := Vector2i(lot.position.x + a, lot.position.y + aisle0 + rng.randi_range(0, 2)) if along_x else Vector2i(lot.position.x + aisle0 + rng.randi_range(0, 2), lot.position.y + a)
+		if _is_free(c, cell):
+			_put(c, cell, Types.Tile.LOW)
+	c.places.append({"kind": "cut", "cells": _open_cells(c, lot)})
+	_claim(c, lot)
+
+
+## A tower block with two storeys: stairs to the first roof, a second roof at the far end and a bridge between
+## a pair of raised roofs on the first level. Brings level 2 into more maps.
+static func _tower(c: Ctx, lot: Rect2i) -> void:
+	var rng := c.rng
+	var w := lot.size.x
+	var h := lot.size.y
+	var roof := Rect2i(lot.position.x + 1, lot.position.y, w - 2, mini(h - 1, 4))
+	for cell in _cells(roof):
+		c.g.set_level(cell, 1)
+		c.reserved[cell] = true
+	var stairs := Vector2i(roof.position.x + rng.randi_range(0, roof.size.x - 1), _y1(roof) + 1)
+	_put(c, stairs, Types.Tile.FLOOR)
+	c.g.stairs[stairs] = true
+	c.reserved[stairs] = true
+	# Upper roofs on both ends of the first roof, each reached by its own stairs, joined by a skybridge of low walls on the first level.
+	for end in [roof.position.x, _x1(roof) - 2]:
+		var top := Rect2i(end, roof.position.y, 3, 2)
+		for cell in _cells(top):
+			c.g.set_level(cell, 2)
+		var up := Vector2i(end + 1, roof.position.y + 2)
+		c.g.set_level(up, 1)
+		c.g.stairs[up] = true
+		c.reserved[up] = true
+		_put(c, Vector2i(end, roof.position.y + 1), Types.Tile.LOW)
+	for x in range(roof.position.x + 3, _x1(roof) - 2):
+		_put(c, Vector2i(x, roof.position.y), Types.Tile.LOW)
+	c.places.append({"kind": "apron", "cells": _open_cells(c, lot)})
+	_claim(c, lot)
+
+
 # ---------------------------------------------------------------- streets
 
 ## Parked or wrecked vehicles along the curb: two cells of half cover against a wall.
@@ -962,7 +1118,7 @@ static func _far_place(c: Ctx, dist: Dictionary, lo: int, hi: int, markers: Dict
 static func _roof_sites(c: Ctx, dist: Dictionary, n: int) -> Array[Vector2i]:
 	var cells: Array = []
 	for cell in dist:
-		if dist[cell] >= 8 and c.g.level(cell) >= 1 and c.g.tile(cell) == Types.Tile.FLOOR and not c.reserved.has(cell) \
+		if dist[cell] >= 8 and c.g.level(cell) >= 1 and c.g.tile(cell) == Types.Tile.FLOOR and not c.pod_cells.has(cell) \
 				and not c.g.stairs.has(cell) and not c.g.ladders.has(cell) and not _near_pod(c, cell, 4):
 			cells.append(cell)
 	cells.sort()   # Vector2 order, so the pick below does not depend on dictionary order
