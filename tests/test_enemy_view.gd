@@ -303,7 +303,7 @@ func test_colonel_hale_three_phases_play_through_the_view() -> void:
 ## The Source through the view: lashes marked on the ground, the core opening and slamming, then the
 ## floor giving way and the roots coming back.
 func test_the_source_three_phases_play_through_the_view() -> void:
-	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 4, "squad": 2, "players": 2})
+	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 4, "squad": 2, "players": 2, "boss": "the_source"})
 	_drain(v)
 	var src := _boss_of(v, "the_source")
 	var seen := {}
@@ -331,6 +331,48 @@ func test_the_source_three_phases_play_through_the_view() -> void:
 	v.free()
 
 
+## The Bore Engine through the view: pistons marked then landing, a cut valve venting and its platform
+## falling, the jaws, the core opening with a countdown, and sealing again with valves regrown.
+func test_the_bore_engine_plays_pistons_valves_window_and_reseal_through_the_view() -> void:
+	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 4, "squad": 2, "players": 2, "boss": "bore_engine"}, "bore_engine")
+	_drain(v)
+	var e := _boss_of(v, "bore_engine")
+	var seen := {}
+	v.player.beat_finished.connect(func(ev: Dictionary) -> void:
+		var t := str(ev.get("type", ""))
+		if t in ["valve_cut", "core_open", "core_sealed", "untethered"]:
+			seen[t] = int(seen.get(t, 0)) + 1)
+	_watch(v, 2, seen)
+	assert_true(seen.get("piston", 0) >= 1, "the pistons sweep")
+	assert_true(seen.get("strike:piston", 0) >= 1 and seen.get("red_tiles", 0) >= 1, "marked in red, then landed")
+	var soldier: Unit = v.state.living(Types.Team.PLAYER)[0]
+	var valves := v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "coolant_valve")
+	assert_eq(valves.size(), 3, "three valves on the deck")
+	for c in EnemyAbilities.square(v.state.grid, valves[0].pos, 2):
+		v.state.grid.set_level(c, 1)
+	v.board.rebuild_tiles()
+	Rules.deal_damage(v.state, valves[0], 99, soldier)
+	_drain(v)
+	assert_true(seen.get("valve_cut", 0) >= 1 and seen.get("boss_phase:2", 0) >= 1, "the valve vents and the Engine overloads")
+	soldier.pos = Encounter.free_cell(v.state, e.pos + Vector2i(1, 1))
+	_watch(v, 2, seen)
+	assert_true(seen.get("bite", 0) >= 1 and seen.get("strike:bite", 0) >= 1, "the jaws clamp on a soldier beside it")
+	assert_true(seen.get("strike:collapse", 0) >= 1 and seen.get("level_changed:", 0) >= 1, "the cut valve's platform falls")
+	for valve in v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "coolant_valve"):
+		Rules.deal_damage(v.state, valve, 99, soldier)
+	_drain(v)
+	assert_true(BoreEngine.is_open(e), "the core is open")
+	assert_true(seen.get("core_open", 0) >= 1 and seen.get("untethered:", 0) >= 1 and seen.get("boss_phase:3", 0) >= 1, "its shield breaks on screen")
+	_watch(v, BoreEngine.WINDOW[2], seen)
+	assert_true(seen.get("core_sealed", 0) >= 1, "the core seals again")
+	assert_true(v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "coolant_valve").size() >= 1, "valves are back")
+	for u in v.state.living():
+		assert_true(v.view_for(u.id) != null, "a view for every unit")
+	assert_true(_no_bare_labels(v), "every Engine ability has a beat of its own")
+	assert_true(not v.player.is_busy(), "queue drained")
+	v.free()
+
+
 func test_parting_blow_warning_card_has_width() -> void:
 	var s := make_state(["runner"])
 	var v: MissionView = MAIN.instantiate()
@@ -348,7 +390,7 @@ func test_parting_blow_warning_card_has_width() -> void:
 func test_units_stand_on_their_floor_after_the_source_fight() -> void:
 	var bad := []
 	for sd in [1, 2, 3]:
-		var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": sd, "squad": 3, "players": 1})
+		var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": sd, "squad": 3, "players": 1, "boss": "the_source"})
 		_drain(v)
 		var src: Unit = v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "the_source")[0]
 		for u in v.state.living(Types.Team.PLAYER):
@@ -374,7 +416,7 @@ func test_units_stand_on_their_floor_after_the_source_fight() -> void:
 
 
 func test_soldier_on_a_collapsing_tile_drops_with_it() -> void:
-	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 1, "squad": 3, "players": 1})
+	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 1, "squad": 3, "players": 1, "boss": "the_source"})
 	_drain(v)
 	var s: GameState = v.state
 	var raised: Vector2i = Vector2i(-1, -1)
