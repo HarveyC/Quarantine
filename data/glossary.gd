@@ -589,13 +589,13 @@ static func _build() -> Dictionary:
 		"see": ["smoke", "tile_blast"],
 		"labels": ["Aim area"]}
 	var evac := TileOverlays.color("evac")
-	t["zone_evac"] = {"name": "Evac zone", "kind": "objective", "icon": "flag", "tone": evac,
-		"line": "Get every soldier onto the green pad. The first one there fires a flare that wakes the area.",
+	t["zone_evac"] = {"name": "Gate", "kind": "objective", "icon": "flag", "tone": evac,
+		"line": "A sealed checkpoint. Work the winch to open it, then get everyone through.",
 		"art": "tile", "art_ctx": {"overlay": "evac"},
-		"stats": [["%d" % Objectives.EXTRACT_TURNS, "turns to make it"]],
-		"more": ["The dropship needs a round to land, so the win comes at the end of a later squad turn.", "When the dropship leaves, anyone off the pad is lost."],
+		"stats": [["%d" % Objectives.EXTRACT_TURNS, "turns to get through"]],
+		"more": ["Stay on the gate 2 squad turns in a row to open it. The winch is loud and wakes the area.", "Once it is open, every soldier must be on the gate at the end of a squad turn.", "When time runs out, anyone not through is lost."],
 		"see": ["actions"],
-		"aliases": ["Evac", "Evac pad", "Evac zone"]}
+		"aliases": ["Gate", "Evac", "Evac pad", "Evac zone"]}
 	t["zone_beacon"] = {"name": "Beacon", "kind": "objective", "icon": "flag", "tone": "amber",
 		"line": "Wakes every enemy after turn one. Lost if only enemies hold the zone.",
 		"art": "tile", "art_ctx": {"overlay": "beacon"},
@@ -628,7 +628,7 @@ static func _build() -> Dictionary:
 		"more": ["A carrier who falls drops it.", "An enemy ending a round on a loose sample destroys it."],
 		"aliases": ["Sample points"]}
 	t["courier"] = {"name": "Courier", "kind": "objective", "icon": "flag", "tone": "amber",
-		"line": "Any player can move it, %d tiles a turn. It cannot attack. Lead it to the evac zone." % Objectives.ESCORT_MOVE,
+		"line": "Any player can move it, %d tiles a turn. It cannot attack. Lead it to the gate." % Objectives.ESCORT_MOVE,
 		"stats": [["%d" % Objectives.ESCORT_HP, "courier HP"]],
 		"more": ["If the courier dies the mission is lost."],
 		"aliases": ["Courier"]}

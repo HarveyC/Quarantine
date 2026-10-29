@@ -32,7 +32,7 @@ const KINDS := {
 	"spore": {"term": "hazard_spore", "name": "Spores", "color": Palette.TEAL, "pattern": "dots"},
 	"acid": {"term": "hazard_acid", "name": "Acid", "color": ACID, "pattern": "puddle"},
 	"smoke": {"term": "smoke", "name": "Smoke", "color": SMOKE, "pattern": "haze"},
-	"evac": {"term": "zone_evac", "name": "Evac zone", "color": EVAC, "pattern": "zone", "label": "EVAC"},
+	"evac": {"term": "zone_evac", "name": "Gate", "color": EVAC, "pattern": "zone", "label": "GATE"},
 	"beacon": {"term": "zone_beacon", "name": "Beacon", "color": Palette.AMBER, "pattern": "zone", "label": "BEACON"},
 	"charge": {"term": "zone_charge", "name": "Charge site", "color": Color("ff9a3c"), "pattern": "zone", "label": "CHARGE"},
 	"relay": {"term": "zone_relay", "name": "Relay", "color": Color("6fb2ff"), "pattern": "zone", "label": "RELAY"},
