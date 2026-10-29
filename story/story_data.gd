@@ -81,8 +81,8 @@ const SOURCE_REMEMBERS := ["SOURCE", "You came back. I remember the fire."]
 const SOURCE_BURNED := ["SOURCE", "Last time, you burned me. I grew back."]
 
 ## What the Source says by aspect (SourceBoss.ASPECTS): in its boss intro, when the core opens
-## ("open"), when a root grows back ("regrow") and when the shaft gives way ("collapse"). Captions
-## only until these are recorded (not in VoiceLines.templates).
+## ("open"), when a root grows back ("regrow") and when the shaft gives way ("collapse"). All are
+## voiced (VoiceLines.templates).
 const SOURCE_ASPECT_LINES := {
 	"hunger": {"intro": ["SOURCE", "You carry so much of me already. Bring me the rest."],
 		"open": "Closer. Let me hold what is already mine.",
