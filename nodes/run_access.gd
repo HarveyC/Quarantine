@@ -207,7 +207,7 @@ static func add_recruit(run: RunState, player: int, kind := "", infection := 0, 
 	return r
 
 
-## The soldier leaves the run for good (not a death: Last seat flies them out).
+## The soldier leaves the run for good (not a death: Last place through sends them out).
 static func send_home(run: RunState, rec: Dictionary) -> void:
 	rec.status = RunSoldier.GONE
 	emit(run, {"type": "soldier_lost", "sid": rec.id, "how": "sent_home"})
