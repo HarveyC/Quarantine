@@ -443,6 +443,9 @@ static func intro_spec(run: RunState) -> Dictionary:
 			key = "burn"
 	var lines: Array = StoryData.INTRO_OPENERS[key].duplicate()
 	lines.append_array(StoryData.INTRO_ORDERS if key == "first" else StoryData.INTRO_ORDERS.slice(2))
+	var warn: Array = StoryData.INTRO_BY_BOSS.get(run.act_boss(), [])
+	for i in warn.size():
+		lines.insert(lines.size() - 1 + i, warn[i])   # before the closing order, so it ends on the mission
 	var vars := {"wave": st.get("wave", StoryData.FIRST_WAVE), "last_wave": st.get("last_wave", 0)}
 	return {"stage": "wall", "title": "Wave %d" % vars.wave, "sub": "Lantern Company · The Cordon, Harrow",
 		"lines": _lines(run, lines, vars), "cast": cast_of(run)}

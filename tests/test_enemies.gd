@@ -452,7 +452,8 @@ func test_fight_builder_respects_budget_cap_and_pool() -> void:
 				for e in f.enemies:
 					var p := EnemyRoster.parse(e)
 					if not p.elite:
-						assert_true(EnemyRoster.FROM_ACT[p.kind] <= act, "%s not in act %d" % [p.kind, act])
+						var packed: bool = EnemyRoster.BOSS_POOL[act].any(func(b: String) -> bool: return EnemyRoster.pack_of(b).has(p.kind))   # a boss's faction joins early
+						assert_true(EnemyRoster.FROM_ACT[p.kind] <= act or packed, "%s not in act %d" % [p.kind, act])
 	var a := FightBuilder.build({"act": 2, "node": "skirmish", "outbreak": 5, "seed": 9})
 	var b := FightBuilder.build({"act": 2, "node": "skirmish", "outbreak": 5, "seed": 9})
 	assert_eq(a, b, "deterministic")
@@ -492,7 +493,7 @@ func test_nest_and_boss_fights() -> void:
 	assert_eq(prev.elite, p.kind, "preview matches build, independent of outbreak")
 	for act in [1, 2, 3]:
 		var boss := FightBuilder.build({"act": act, "node": "boss", "objective": "boss", "outbreak": 5, "seed": 2})
-		assert_eq(boss.encounter.boss, EnemyRoster.BOSS_OF_ACT[act], "boss of act %d" % act)
+		assert_eq(boss.encounter.boss, EnemyRoster.boss_for(act, 2), "boss of act %d" % act)
 
 
 # --- vertical enemies ----------------------------------------------------------------------

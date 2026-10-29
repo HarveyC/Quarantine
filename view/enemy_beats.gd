@@ -5,6 +5,7 @@ extends RefCounted
 
 const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
+const EnemyKit := preload("res://view/enemy_kit.gd")
 const FactionBeats := preload("res://view/faction_beats.gd")
 
 ## Placeholder body scale per kind: [width, height], for kinds still without their own
@@ -57,7 +58,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 		"telegraph":
 			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
 				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
-				"acid_rain": "ACID RAIN", "stomp": "STOMP", "hurl": "WRECKAGE INCOMING", "rockfall": "ROCKS INCOMING", "danger_close": "DANGER CLOSE",
+				"acid_rain": "ACID RAIN", "stomp": "STOMP", "hurl": "WRECKAGE INCOMING", "rockfall": "ROCKS INCOMING", "debris": "RUBBLE INCOMING", "danger_close": "DANGER CLOSE",
 				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES",
 				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN", "firebomb": "FIREBOMB LOBBED", "crossfire": "CROSSFIRE",
 				"sterilize": "FLAME CONE", "bloom": "BLOOMING", "hush": "HUSH LOCKED"}
@@ -245,17 +246,26 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 		"boss_phase":
 			if uv != null:
 				ep._focus(uv)
-				uv.scale *= 1.15
-				var human: bool = not EnemyRoster.infects(view.state.get_unit(int(ev.get("unit", -1))))   # looters and soldiers are not Infected
-				if uv.has_method("set_bloom") and not human:
-					uv.set_bloom(0.5 * int(ev.get("phase", 2)))
+				var machine: bool = EnemyKit.SHED.has(str(ev.get("boss", "")))   # a rig sheds plating, it does not mutate
+				var human: bool = not machine and not EnemyRoster.infects(view.state.get_unit(int(ev.get("unit", -1))))   # looters are not Infected
+				if not machine:
+					uv.scale *= 1.15
+					if uv.has_method("set_bloom") and not human:
+						uv.set_bloom(0.5 * int(ev.get("phase", 2)))
 				if ev.has("max_hp"):
 					uv.max_hp = int(ev.max_hp)
 					uv.set_hp(int(ev.get("hp", 0)))
-				fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.AMBER if human else Palette.TEAL, 30, 4.0, true, 0.06)
+				if machine:
+					for part in EnemyKit.SHED[str(ev.boss)].get(int(ev.get("phase", 2)), []):
+						uv.shed_part(part)
+					fx.crumble(uv.position, 1.6, Color("6a6f6b"))
+					fx.burst(uv.position + Vector3(0, 1.2, 0), Vector3.UP, Palette.AMBER, 30, 5.0, true, 0.06)
+					fx.flash_light(uv.position + Vector3(0, 1.5, 0), Palette.AMBER, 6.0, 0.4, 6.0)
+				else:
+					fx.burst(uv.position + Vector3(0, 1.0, 0), Vector3.UP, Palette.AMBER if human else Palette.TEAL, 30, 4.0, true, 0.06)
 			view.hud.banner(str(ev.get("text", "THE BOSS CHANGES")).to_upper(), Palette.DANGER)
 			view.camera_rig.shake(1.2)
-			ep._sfx("mutation")
+			ep._sfx("plate_clang" if str(ev.get("boss", "")) == "breaker" else "mutation")
 			return {"dur": 1.4}
 		"boss_aspect":
 			if uv != null:

@@ -285,8 +285,18 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_2c722001d1.ogg",
+		"text": "The wall rig is running again, and nobody is driving it.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_2cbdaf9ce4.ogg",
 		"text": "eighteen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2d67c4a7ed.ogg",
+		"text": "Its plate is off. It's tearing the yard down on top of you.",
 		"voice": "okafor"
 	},
 	{
@@ -500,6 +510,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_546e3c862e.ogg",
+		"text": "It's stripped to the frame. Two runs at once, watch both lanes.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_5743867f3f.ogg",
 		"text": "They aren't ours any more.",
 		"voice": "okafor"
@@ -642,6 +657,16 @@
 	{
 		"file": "okafor_7700143085.ogg",
 		"text": "You're past the wall. Port Ardent is ahead of you.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_784812c419.ogg",
+		"text": "It flattens whatever is in its way. Don't stand behind anything you need.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_7ad0a2e1d9.ogg",
+		"text": "Plate's gone. Get off the high ground.",
 		"voice": "okafor"
 	},
 	{
@@ -1075,6 +1100,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_d7ced28cc7.ogg",
+		"text": "The wall crews' demolition rigs went quiet last week. One of them is moving again.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_d911b34823.ogg",
 		"text": "Wave",
 		"voice": "okafor"
@@ -1172,6 +1202,11 @@
 	{
 		"file": "okafor_ef83e005d2.ogg",
 		"text": "forty-four",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_f02d4edd45.ogg",
+		"text": "No more plating, and it's fast. Keep moving.",
 		"voice": "okafor"
 	},
 	{

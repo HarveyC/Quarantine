@@ -80,6 +80,8 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 			BroodMother.setup(s, _place(s, "brood_mother", _marker(s, "boss", _far_spawn(s))), squad)
 		"broker":
 			Broker.setup(s, _place(s, "broker", _marker(s, "boss", _far_spawn(s))), squad)
+		"breaker":
+			Breaker.setup(s, _place(s, "breaker", _marker(s, "boss", _far_spawn(s))), squad)
 		"colonel_hale":
 			var h := _place(s, "colonel_hale", ColonelHale.post_near(s.grid, _marker(s, "boss", _far_spawn(s))))
 			ColonelHale.setup(s, h, squad)
@@ -420,6 +422,8 @@ static func _resolve_telegraphs(s: GameState) -> void:
 				hits[c] = 1
 			Destruction.noise(s, t.cells[t.cells.size() / 2])
 			Destruction.hit(s, hits, src if src != null and src.is_alive() else null)
+		if t.get("drop", false) and s.phase != Types.Phase.ENDED:   # raised ground under the strike comes down
+			EnemyTerrain.collapse(s, t.cells, src)
 		if s.phase == Types.Phase.ENDED:
 			return
 	s.encounter["telegraphs"] = keep
@@ -590,6 +594,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		return BroodMother.clamp_damage(target, amount)
 	if target.kind == "broker":
 		return Broker.clamp_damage(target, amount)
+	if target.kind == "breaker":
+		return Breaker.clamp_damage(target, amount)
 	if target.kind == "colonel_hale":
 		return ColonelHale.clamp_damage(target, amount)
 	if target.kind == "the_source":
@@ -645,6 +651,8 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 			BroodMother.on_damaged(s, target)
 		"broker":
 			Broker.on_damaged(s, target)
+		"breaker":
+			Breaker.on_damaged(s, target)
 		"colonel_hale":
 			ColonelHale.on_damaged(s, target)
 		"the_source":

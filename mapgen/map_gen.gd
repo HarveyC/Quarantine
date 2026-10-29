@@ -78,10 +78,10 @@ static func generate(spec: Dictionary) -> Grid:
 	var biome := _biome_name(str(spec.get("biome", "wall")))
 	var objective := str(spec.get("objective", "skirmish"))
 	var data := _load_biome(biome)
-	if objective == "boss" and not data.arenas.is_empty():
+	var arenas := _arenas_for(data, str(spec.get("boss", "")))
+	if objective == "boss" and not arenas.is_empty():
 		var arng := RandomNumberGenerator.new()
 		arng.seed = ("%d:%s:arena" % [int(spec.get("seed", 0)), biome]).hash()
-		var arenas := _arenas_for(data.arenas, str(spec.get("boss", "")))
 		var arena := _build_arena(arenas[arng.randi() % arenas.size()], arng)
 		if arena != null:
 			arena.biome = biome
@@ -126,12 +126,12 @@ static func generate(spec: Dictionary) -> Grid:
 	return fb
 
 
-## The arenas drawn for `boss` (an `@arena <name> <boss>` header), else the untagged ones, else all.
-static func _arenas_for(arenas: Array, boss: String) -> Array:
-	var own := arenas.filter(func(a: Dictionary) -> bool: return a.get("boss", "") == boss and boss != "")
-	if own.is_empty():
-		own = arenas.filter(func(a: Dictionary) -> bool: return a.get("boss", "") == "")
-	return arenas if own.is_empty() else own
+## The arenas a boss fights in: those tagged `boss=<kind>` for that boss, else the untagged ones.
+static func _arenas_for(data: Dictionary, boss: String) -> Array:
+	var own: Array = data.arenas.filter(func(a: Dictionary) -> bool: return boss != "" and a.get("boss", "") == boss)
+	if not own.is_empty():
+		return own
+	return data.arenas.filter(func(a: Dictionary) -> bool: return a.get("boss", "") == "")
 
 
 ## A boss arena drawn whole in the biome file (20x20, plain glyphs; P deploy, E pod cells, B boss
@@ -211,7 +211,10 @@ static func parse(text: String) -> Dictionary:
 		if line.begins_with("@"):
 			var parts := line.substr(1).split(" ", false)
 			if parts[0] == "arena":
-				current = {"name": parts[1], "boss": parts[2] if parts.size() > 2 else "", "rows": PackedStringArray()}
+				current = {"name": parts[1], "rows": PackedStringArray()}
+				for p in parts:   # "@arena <name> boss=<kind>" is that boss's own arena
+					if p.begins_with("boss="):
+						current["boss"] = p.trim_prefix("boss=")
 				arenas.append(current)
 			elif parts[0] == "plot":
 				var lanes := 0

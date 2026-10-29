@@ -35,6 +35,12 @@ const INTRO_ORDERS := [
 	["OKAFOR", "Through the breach, down the Bore. Burn the Source and come home."],
 ]
 
+## Extra briefing lines before act 1 when a given boss waits at its end, so the first act names what
+## is coming. Same shape as INTRO_ORDERS.
+const INTRO_BY_BOSS := {
+	"breaker": [["OKAFOR", "The wall crews' demolition rigs went quiet last week. One of them is moving again."]],
+}
+
 const ACT_SCENES := {
 	2: {"title": "Act II · Port Ardent", "sub": "Downtown and the Halden-Voss labs", "stage": "port", "lines": [
 		["OKAFOR", "You're past the wall. Port Ardent is ahead of you."],
@@ -81,6 +87,10 @@ const BOSS_SCENES := {
 		["SQUAD", "That's the Broker. He has been stripping the cordon dead for months."],
 		["BROKER", "Whatever you carry, I have already priced it."],
 		["BROKER", "Set it down and walk away. Or I take it from you."],
+	]},
+	"breaker": {"title": "The Breaker", "sub": "The wall engineers' rig", "lines": [
+		["OKAFOR", "The wall rig is running again, and nobody is driving it."],
+		["OKAFOR", "It flattens whatever is in its way. Don't stand behind anything you need."],
 	]},
 	"colonel_hale": {"title": "Colonel Hale", "sub": "Halden-Voss Recovery", "lines": [
 		["HALE", "Lantern Company. You are carrying company property."],
@@ -151,6 +161,8 @@ const BARKS := {
 	"brood_mother_2": ["She's tunnelling! Watch the ground and get off the roofs.",
 		"She's under you somewhere. Move when the ground cracks."],
 	"brood_mother_3": ["She's lost it. No more sacs. Finish her.", "She's coming straight at you. Put her down."],
+	"breaker_2": ["Its plate is off. It's tearing the yard down on top of you.", "Plate's gone. Get off the high ground."],
+	"breaker_3": ["It's stripped to the frame. Two runs at once, watch both lanes.", "No more plating, and it's fast. Keep moving."],
 	"lore": ["Intel recovered."],
 }
 ## Boss radio lines with no recorded clips yet: captions only, so they stay out of the voice manifest.
