@@ -47,17 +47,18 @@ func test_kills_alone_do_not_win_extract_or_hold() -> void:
 	assert_eq(sk.result, Types.Result.VICTORY, "skirmish wins on kills")
 
 
-func test_extract_wins_when_everyone_is_on_the_pad() -> void:
+func test_extract_opens_the_gate_then_wins_with_everyone_through() -> void:
 	var s := _mission("extract")
 	var evac := s.grid.marker("evac")
 	var squad := Objectives.soldiers(s)
 	for i in squad.size():
 		_place(s, squad[i], evac[i])
 	_end_round(s)
-	assert_eq(s.result, Types.Result.NONE, "the flare goes up first")
-	assert_eq(s.objective.flare, 1, "flare turn recorded")
+	assert_eq(s.result, Types.Result.NONE, "the winch is still turning")
+	assert_eq(s.objective.flare, 1, "the noise starts on arrival")
+	assert_true(not s.objective.open, "gate still shut")
 	_end_round(s)
-	assert_eq(s.result, Types.Result.VICTORY, "extracted")
+	assert_eq(s.result, Types.Result.VICTORY, "gate open and everyone through")
 	assert_true(Objectives.bonus_met(s), "nobody left behind")
 
 
@@ -83,10 +84,22 @@ func test_hold_beacon_wakes_everyone_after_turn_one() -> void:
 		assert_true(EnemyAI.is_alerted(e), "beacon woke " + e.kind)
 
 
-func test_extract_dropship_leaves_after_turn_limit() -> void:
+func test_extract_winch_resets_when_the_gate_is_left() -> void:
 	var s := _mission("extract")
 	var squad := Objectives.soldiers(s)
 	_place(s, squad[0], s.grid.marker("evac")[0])
+	Objectives.on_team_phase_end(s)
+	assert_eq(s.objective.winch, 1, "one turn on the winch")
+	_place(s, squad[0], Vector2i(0, 0))
+	Objectives.on_team_phase_end(s)
+	assert_eq(s.objective.winch, 0, "leaving resets it")
+
+
+func test_extract_leaves_stragglers_when_time_runs_out() -> void:
+	var s := _mission("extract")
+	var squad := Objectives.soldiers(s)
+	_place(s, squad[0], s.grid.marker("evac")[0])
+	s.objective.open = true
 	s.turn = Objectives.EXTRACT_TURNS
 	_end_round(s)
 	assert_eq(s.result, Types.Result.VICTORY, "one made it")
@@ -168,7 +181,7 @@ func test_loss_cause_names_each_loss() -> void:
 	var ex := _mission("extract")
 	ex.turn = Objectives.EXTRACT_TURNS
 	_end_round(ex)
-	assert_eq(ex.result, Types.Result.DEFEAT, "nobody made the dropship")
+	assert_eq(ex.result, Types.Result.DEFEAT, "the gate never opened")
 	assert_eq(Objectives.loss_cause(ex), "left_behind", "left behind")
 
 	var tu := _mission("skirmish")

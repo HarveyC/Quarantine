@@ -283,11 +283,15 @@ func _on_beat_finished(ev: Dictionary) -> void:
 			var u := st.get_unit(ev.unit)
 			if u != null:
 				_boss_bark(u.kind + "_open")
+		"core_sealed":
+			var u := st.get_unit(ev.unit)
+			if u != null:
+				_boss_bark(u.kind + "_sealed")
 
 
 ## Boss fight lines (StoryData.BARKS "<boss>_<phase>", "<boss>_open"), each once a fight.
 func _boss_bark(key: String) -> void:
-	if (StoryData.BARKS.has(key) or StoryData.CAPTION_BARKS.has(key)) and not _boss_said.has(key):
+	if (StoryData.BARKS.has(key) or StoryData.SQUAD_BARKS.has(key)) and not _boss_said.has(key):
 		_boss_said[key] = true
 		_bark(key, {})
 
@@ -351,7 +355,7 @@ static func tier_rule(tier: int) -> String:
 func _bark(key: String, vars: Dictionary) -> void:
 	if _run == null:
 		return
-	var lines: Array = StoryData.BARKS.get(key, StoryData.CAPTION_BARKS.get(key, []))
+	var lines: Array = StoryData.BARKS.get(key, StoryData.SQUAD_BARKS.get(key, []))
 	if lines.is_empty():
 		return
 	var clean := StoryData.fill(lines[_rng.randi() % lines.size()], vars)

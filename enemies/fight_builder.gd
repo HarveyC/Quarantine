@@ -29,7 +29,7 @@ const SQUAD_BOSS_HEALTH := {1: 0.35, 2: 0.4, 3: 0.6, 4: 1.0}
 const PURGE_NESTS := {1: 2, 2: 2, 3: 2, 4: 3}
 const PURGE_BUDGET_CUT := 2
 ## Boss HP as a share of its base, by squad size. Each boss module owns its table.
-const BOSS_HEALTH := {"brood_mother": BroodMother.HEALTH, "breaker": Breaker.HEALTH, "broker": Broker.HEALTH, "colonel_hale": ColonelHale.HEALTH, "the_source": SourceBoss.HEALTH}
+const BOSS_HEALTH := {"brood_mother": BroodMother.HEALTH, "breaker": Breaker.HEALTH, "broker": Broker.HEALTH, "colonel_hale": ColonelHale.HEALTH, "director": DirectorBoss.HEALTH, "choir_prophet": ChoirProphet.HEALTH, "the_source": SourceBoss.HEALTH, "bore_engine": BoreEngine.HEALTH}
 ## The Broker's convoy on the field when the fight starts (more arrive as waves, see Broker.WAVE_KINDS).
 const BROKER_ADDS := {1: [], 2: ["cutter"], 3: ["cutter", "cutter"], 4: ["cutter", "cutter", "torchman"]}
 const HALE_ADDS := {1: [], 2: ["shieldman"], 3: ["shieldman", "overwatcher", "fallen"], 4: ["shieldman", "overwatcher", "emplacement", "sharpshooter"]}

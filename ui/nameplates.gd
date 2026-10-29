@@ -152,6 +152,10 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 			if big:
 				Tips.term(ic, "mark")
 			row.add_child(ic)
+	if held != null and not uv.dead and Retrieval.is_marked(held):
+		var rm := W.Icon.new("tag", Styles.AMBER, 20.0, 2.5)
+		Tips.term(rm, "retrieval_mark")
+		row.add_child(rm)
 	var hp := W.HpPips.new(Vector2(7, 4))
 	var lose := 0
 	if targeted and shooter != null:

@@ -16,7 +16,7 @@ const LINE_BASE := 2.6
 const LINE_PER_CHAR := 0.045
 const BAR_H := 0.15   # letterbox height, share of the screen; captions sit in the bottom bar
 const SPEAKERS := {"OKAFOR": "Major Okafor · Cordon Command", "SOURCE": "The Source",
-	"HALE": "Colonel Hale", "BROKER": "The Broker", "HALDEN-VOSS": "Halden-Voss Recovery"}
+	"HALE": "Colonel Hale", "HALDEN-VOSS": "Halden-Voss Recovery", "DIRECTOR": "The Director · Halden-Voss", "BROKER": "The Broker", "PROPHET": "The Choir Prophet"}
 
 var spec := {}
 var _stage: Node3D
@@ -153,10 +153,10 @@ func _next() -> void:
 	var l: Array = _lines[_i]
 	var who: String = l[0]
 	_speaker.text = SPEAKERS.get(who, who).to_upper() if who != "" else ""
-	_speaker.add_theme_color_override("font_color", Styles.TEAL if who == "SOURCE" else Styles.AMBER)
+	_speaker.add_theme_color_override("font_color", Styles.TEAL if who in ["SOURCE", "PROPHET"] else Styles.AMBER)
 	_line.text = l[1]
 	_layout()
-	_line.add_theme_color_override("font_color", Styles.TEAL if who == "SOURCE" else (Styles.DIM if who == "" else Styles.TEXT))
+	_line.add_theme_color_override("font_color", Styles.TEAL if who in ["SOURCE", "PROPHET"] else (Styles.DIM if who == "" else Styles.TEXT))
 	_line.modulate.a = 0.0
 	_speaker.modulate.a = 0.0
 	_fade = 0.25

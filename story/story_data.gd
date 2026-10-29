@@ -56,7 +56,25 @@ const ACT_SCENES := {
 ## An act's transition scene when a given boss waits at its end, same shape as ACT_SCENES (lines,
 ## title, sub, stage). It replaces the act's default scene, so the story foreshadows the boss.
 ## A new boss adds its entry here and in BOSS_SCENES; bosses without one use ACT_SCENES.
-const ACT_SCENES_BY_BOSS := {}
+const ACT_SCENES_BY_BOSS := {
+	"choir_prophet": {"title": "Act II · Port Ardent", "sub": "Every channel carries the same hymn", "stage": "port", "lines": [
+		["SQUAD", "Every channel is playing the same hymn. Do not listen to it for long."],
+		["SQUAD", "It sounds like someone we knew."],
+		["", "The harbour speakers are on. Whatever is singing, it is singing to you."],
+	]},
+	"director": {"title": "Act II · Port Ardent", "sub": "Downtown and the Halden-Voss labs", "stage": "port", "lines": [
+		["OKAFOR", "You're past the wall. Port Ardent's harbour lights are on."],
+		["OKAFOR", "Nobody here turned them on. A Halden-Voss recovery team is on the docks. They are not here for the Infected."],
+		["DIRECTOR", "Lantern Company. Your blood work is under contract. Stay exactly where you are."],
+		["SQUAD", "Command's gone quiet. We keep moving."],
+	]},
+	"bore_engine": {"title": "Act III · The Bore", "sub": "Nine kilometres down", "stage": "bore", "lines": [
+		["SQUAD", "No radio this deep. Just the glow."],
+		["", "Something below is turning over. The whole shaft hums with it."],
+		["SQUAD", "That is the drill. Somebody started it."],
+		["SOURCE", "You came."],
+	]},
+}
 ## Act 3's second line when an earlier wave has reached the Source.
 const SOURCE_REMEMBERS := ["SOURCE", "You came back. I remember the fire."]
 ## The Source's extra boss line when the last wave burned it.
@@ -79,6 +97,11 @@ const SOURCE_ASPECT_LINES := {
 }
 
 const BOSS_SCENES := {
+	"choir_prophet": {"title": "The Choir Prophet", "sub": "The hymn from the harbour", "lines": [
+		["", "One voice. All of them are singing in time with it."],
+		["PROPHET", "Come inside the circle. There is no one left outside to hurt you."],
+		["PROPHET", "It is not a disease. It is a conversation. Stop shouting."],
+	]},
 	"brood_mother": {"title": "The Brood Mother", "sub": "She nests in the breach", "lines": [
 		["OKAFOR", "That's what has been feeding on the camps."],
 		["OKAFOR", "Break the egg sacs first. While they live, she can't be hurt."],
@@ -95,6 +118,15 @@ const BOSS_SCENES := {
 	"colonel_hale": {"title": "Colonel Hale", "sub": "Halden-Voss Recovery", "lines": [
 		["HALE", "Lantern Company. You are carrying company property."],
 		["HALE", "Stand down and we'll take you home. In jars."],
+	]},
+	"director": {"title": "The Director", "sub": "Halden-Voss Recovery", "lines": [
+		["DIRECTOR", "I don't need all of you. I need one of you, breathing."],
+		["DIRECTOR", "My team will do the lifting. Please don't make it hard."],
+	]},
+	"bore_engine": {"title": "The Bore Engine", "sub": "The drill that cut the shaft", "lines": [
+		["", "The drill head wakes. The platform shudders under every boot."],
+		["SQUAD", "Coolant lines. Three valves ring the shaft. Cut them and the core opens."],
+		["SQUAD", "It won't stay open long. Be ready when it does."],
 	]},
 	"the_source": {"title": "The Source", "sub": "The bottom of the Bore", "lines": [
 		["SOURCE", "I know all of your names."],
@@ -161,12 +193,24 @@ const BARKS := {
 	"brood_mother_2": ["She's tunnelling! Watch the ground and get off the roofs.",
 		"She's under you somewhere. Move when the ground cracks."],
 	"brood_mother_3": ["She's lost it. No more sacs. Finish her.", "She's coming straight at you. Put her down."],
+	# The Director: "director_open" when her snipers are down, then one line per phase.
+	"director_open": ["Her snipers are down. She's exposed. Hit her now.", "That's the last post. She has no cover. Go."],
+	"director_2": ["A second team is on the roofs. Clear them again, and watch who she marks.",
+		"She's marked one of you. Break her sight lines and keep that soldier moving."],
+	"director_3": ["She's calling the extraction. Kill the Collectors and keep everyone on their feet.",
+		"Cages incoming. Don't let anyone stand pinned under one."],
 	"breaker_2": ["Its plate is off. It's tearing the yard down on top of you.", "Plate's gone. Get off the high ground."],
 	"breaker_3": ["It's stripped to the frame. Two runs at once, watch both lanes.", "No more plating, and it's fast. Keep moving."],
 	"lore": ["Intel recovered."],
 }
-## Boss radio lines with no recorded clips yet: captions only, so they stay out of the voice manifest.
-const CAPTION_BARKS := {
+## Boss fight lines spoken by a soldier of the squad (act 3 has no radio), same keys as the boss lines
+## in BARKS. They are mask babble at play time, so they need no recorded clips.
+const SQUAD_BARKS := {
+	"choir_prophet_2": ["He's fixed on someone. Break his line of sight or get them cleansed.", "That's a link on {name}'s head. Cut it before it lands."],
+	"choir_prophet_3": ["The circle is closing. Find solid cover before the hymn peaks.", "Every third bar he stops singing and the whole room hurts. Hide, then hit him."],
+	"bore_engine_2": ["Valve's gone! Get off that platform, it's dropping.", "One down. The deck won't hold where that valve was."],
+	"bore_engine_open": ["Last valve! The core's open, hit it now!", "It's bare. Everything you've got, right now."],
+	"bore_engine_sealed": ["It sealed again. Cut the valves before the next window.", "The core shut. Valves are growing back, go!"],
 	"broker_2": ["He's taken your best kit and he's making for the gate. Hit him, he'll drop it.",
 		"He's running with your gear. Cut him off before he reaches the gate."],
 	"broker_3": ["He's torched what he carried. Finish him before he torches you.", "Cornered. He's burning everything. Put him down."],
@@ -177,6 +221,13 @@ const HALE_BARKS := {
 	1: ["Suppress them. Nobody leaves.", "Recovery team, move up.", "Take the carriers alive. The rest is optional.",
 		"Lantern Company. You are carrying company property.", "Keep them pinned. I want those samples intact."],
 	2: ["Stand down. Stand down. Come home.", "It's warm down here. Why is it so warm.", "Company property. All of it. All of us."],
+}
+## The Director's voice in her boss fight, by phase (the company radio, cool and polite). Heard, not captioned.
+const DIRECTOR_BARKS := {
+	1: ["Hold your positions. Nobody touches the carriers.", "Posts, lock your lanes.", "Lantern Company. Please stay where you are.",
+		"Collectors, the nearest one. Gently."],
+	2: ["Mark the warm one. The most Infected, I want that one.", "Second team, take the roofs.", "You are making this harder than it is."],
+	3: ["Extraction is called. Everyone clear the lane.", "Cage the marked carrier. Now.", "I only need one. One will do."],
 }
 ## In act 2 Okafor's signal breaks up: words are dropped for "--".
 const STATIC_EVERY := 4

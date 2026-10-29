@@ -12,7 +12,7 @@ const FactionBeats := preload("res://view/faction_beats.gd")
 ## model (ModelKit.CHARACTERS sizes the rest). Bosses and elites read bigger.
 const SCALE := {
 	"hive_node": [1.3, 0.7], "egg_sac": [0.9, 0.55], "spore_nest": [1.1, 0.6],
-	"source_root": [1.2, 0.9], "relay": [0.7, 1.9], "the_source": [2.6, 2.2], "drifter": [1.1, 0.7],
+	"source_root": [1.2, 0.9], "relay": [0.7, 1.9], "the_source": [2.6, 2.2], "bore_engine": [0.7, 0.8], "coolant_valve": [1.0, 1.0], "drifter": [1.1, 0.7],
 }
 const ELITE_SCALE := 1.2
 
@@ -20,7 +20,8 @@ const ELITE_SCALE := 1.2
 const EVENTS: Array[String] = ["spawned", "telegraph", "strike", "cover_destroyed", "spores",
 	"reinforcements_incoming", "spore_exposure", "source_pulse", "revealed", "pinned", "released", "struggle",
 	"regenerate", "immune", "untethered", "boss_phase", "boss_defeated", "burrowed", "lock_lost", "fell",
-	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled", "boss_aspect", "burned", "exit_marked"]
+	"jammed", "slowed", "plated", "stalked", "braced", "stolen", "recovered", "fled", "loot", "stalled", "boss_aspect",
+	"valve_cut", "core_open", "core_sealed", "burned", "exit_marked"]
 
 
 static func handles(ev: Dictionary) -> bool:
@@ -59,9 +60,9 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			var text := {"burst": "SWELLING", "charge": "WINDING UP", "airstrike": "AIRSTRIKE CALLED", "core_slam": "THE CORE RISES",
 				"leap": "CROUCHING TO LEAP", "snipe": "LASER SIGHT", "erupt": "TUNNELLING",
 				"acid_rain": "ACID RAIN", "stomp": "STOMP", "hurl": "WRECKAGE INCOMING", "rockfall": "ROCKS INCOMING", "debris": "RUBBLE INCOMING", "danger_close": "DANGER CLOSE",
-				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES",
+				"lash": "THE ROOTS LASH", "collapse": "THE FLOOR GIVES", "piston": "PISTONS", "bite": "THE ENGINE BITES",
 				"hook": "HOOK LOCKED", "satchel": "SATCHEL DOWN", "firebomb": "FIREBOMB LOBBED", "crossfire": "CROSSFIRE",
-				"sterilize": "FLAME CONE", "bloom": "BLOOMING", "hush": "HUSH LOCKED"}
+				"sterilize": "FLAME CONE", "bloom": "BLOOMING", "hush": "HUSH LOCKED", "retrieval": "RETRIEVAL CAGE"}
 			if ev.get("kind", "") == "erupt":   # the boss is underground: label the ground that will break
 				var cells: Array = ev.get("cells", [])
 				if not cells.is_empty():
@@ -78,7 +79,7 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 				return {"dur": 0.6}
 			for c in ev.get("cells", []):
 				var w := Board.cell_to_world(c)
-				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "rockfall", "danger_close", "satchel", "firebomb", "crossfire", "sterilize"] else Palette.TEAL, 6, 4.0, true, 0.05)
+				fx.burst(w + Vector3(0, 0.2, 0), Vector3.UP, Palette.AMBER if ev.get("kind") in ["airstrike", "stomp", "hurl", "rockfall", "danger_close", "satchel", "firebomb", "crossfire", "sterilize", "piston", "bite", "retrieval"] else Palette.TEAL, 6, 4.0, true, 0.05)
 			if not (ev.get("cells", []) as Array).is_empty():
 				var mid := Board.cell_to_world(ev.cells[ev.cells.size() / 2])
 				fx.flash_light(mid + Vector3(0, 1.0, 0), Palette.AMBER, 8.0, 0.35, 6.0)
@@ -274,6 +275,35 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 			view.hud.banner(("The Source: %s" % str(ev.get("text", ""))).to_upper(), Palette.TEAL)
 			ep._sfx("sting_enemy", -4.0)
 			return {"dur": 1.2}
+		"valve_cut":   # the line vents and the platform under it is marked to fall
+			if uv != null:
+				fx.floating_text(head.call(uv), "VALVE CUT", Palette.AMBER, 52)
+				fx.puff(uv.position + Vector3(0, 0.8, 0), Color(0.8, 0.85, 0.85), 1.4, 1.2, 0.7)
+				fx.burst(uv.position + Vector3(0, 0.8, 0), Vector3.UP, Color(0.85, 0.9, 0.9), 14, 3.5, false, 0.05)
+			var left := int(ev.get("left", 0))
+			view.hud.banner("VALVE CUT  %d LEFT" % left if left > 0 else "LAST VALVE CUT", Palette.AMBER)
+			view.camera_rig.shake(0.8)
+			ep._sfx("breach", -2.0)
+			return {"dur": 0.9}
+		"core_open":   # the core glares through the plating, with the rounds it has left
+			if uv != null:
+				var left := int(ev.get("left", 0))
+				ep._focus(uv)
+				fx.floating_text(head.call(uv), "CORE OPEN  %d" % left, Palette.DANGER, 56)
+				fx.pulse(uv.position, Palette.DANGER, 1.4)
+				fx.flash_light(uv.position + Vector3(0, 2.0, 0), Palette.TEAL, 7.0, 0.5, 8.0)
+			ep._sfx("alert", -2.0)
+			return {"dur": 0.8}
+		"core_sealed":
+			if uv != null:
+				ep._focus(uv)
+				fx.floating_text(head.call(uv), "CORE SEALED", Palette.AMBER, 52)
+				fx.puff(uv.position + Vector3(0, 1.5, 0), Color(0.7, 0.72, 0.74), 1.6, 1.4, 0.8)
+				uv.set_hp(int(ev.get("hp", 0)))
+			view.hud.banner("THE CORE SEALS  %d VALVES BACK" % int(ev.get("valves", 0)), Palette.DANGER)
+			view.camera_rig.shake(1.0)
+			ep._sfx("collapse", -3.0)
+			return {"dur": 1.2}
 		"boss_defeated":
 			view.hud.banner("%s IS DOWN" % view.unit_name(int(ev.get("unit", -1))).to_upper(), Palette.AMBER)
 			ep._sfx("victory", -4.0)
@@ -337,6 +367,9 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 		"loot": return "%s drops its loot (+%d Supplies)" % [who.call("unit"), int(ev.get("supplies", 0))]
 		"stalked": return "[color=#%s]%s is cut off and takes a stalker's bonus hit[/color]" % [red, who.call("target")]
 		"boss_aspect": return "[color=#%s]The Source: %s. %s[/color]" % [red, str(ev.get("text", "")), SourceBoss.ASPECT_RULES.get(str(ev.get("aspect", "")), "")]
+		"valve_cut": return "[color=#%s]%s is cut (%d left)[/color]" % [red, who.call("unit"), int(ev.get("left", 0))]
+		"core_open": return "[color=#%s]The core is open for %d more turn%s[/color]" % [red, int(ev.get("left", 0)), "" if int(ev.get("left", 0)) == 1 else "s"]
+		"core_sealed": return "[color=#%s]The core seals again (%d valves)[/color]" % [red, int(ev.get("valves", 0))]
 		"boss_defeated": return "[b]%s is defeated[/b]" % name_of.call(int(ev.get("unit", -1)))
 	return ""
 

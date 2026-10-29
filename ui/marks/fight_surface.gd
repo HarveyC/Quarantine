@@ -9,7 +9,7 @@ const HEAD := Vector3(0, 1.9, 0)
 ## Stroke points sit just above the floor or roof they were drawn on.
 const LIFT := 0.06
 const HAZARD_NAMES := {"fire": "Fire", "spores": "Spores", "acid": "Acid", "gas": "Gas", "smoke": "Smoke"}
-const MARKER_NAMES := {"beacon": "Beacon", "evac": "Evac zone", "exit": "Exit", "civilian": "Civilian",
+const MARKER_NAMES := {"beacon": "Beacon", "evac": "Gate", "exit": "Exit", "civilian": "Civilian",
 		"charge": "Charge site", "relay": "Relay", "sample": "Sample point"}
 
 var view: MissionView

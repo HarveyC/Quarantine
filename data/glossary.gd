@@ -448,7 +448,7 @@ static func _build() -> Dictionary:
 		"stats": [["1", "HP a turn"], ["%d" % ClassAbilities.BLEED_TURNS, "turns"]],
 		"see": []}
 	t["pinned"] = {"name": "Pinned", "kind": "status", "icon": "pinned", "tone": "danger",
-		"line": "A Lurker has the soldier down: no actions until it lets go, and it mauls every turn.",
+		"line": "A Lurker or Collector has the soldier down: no actions until it lets go, and it mauls every turn.",
 		"art": "",
 		"stats": [["0", "actions"], ["%d%%" % Encounter.STRUGGLE_CHANCE, "struggle free"]],
 		"more": ["The pinned soldier can Struggle once a turn to try to throw it off.",
@@ -589,13 +589,13 @@ static func _build() -> Dictionary:
 		"see": ["smoke", "tile_blast"],
 		"labels": ["Aim area"]}
 	var evac := TileOverlays.color("evac")
-	t["zone_evac"] = {"name": "Evac zone", "kind": "objective", "icon": "flag", "tone": evac,
-		"line": "Get every soldier onto the green pad. The first one there fires a flare that wakes the area.",
+	t["zone_evac"] = {"name": "Gate", "kind": "objective", "icon": "flag", "tone": evac,
+		"line": "A sealed checkpoint. Work the winch to open it, then get everyone through.",
 		"art": "tile", "art_ctx": {"overlay": "evac"},
-		"stats": [["%d" % Objectives.EXTRACT_TURNS, "turns to make it"]],
-		"more": ["The dropship needs a round to land, so the win comes at the end of a later squad turn.", "When the dropship leaves, anyone off the pad is lost."],
+		"stats": [["%d" % Objectives.EXTRACT_TURNS, "turns to get through"]],
+		"more": ["Stay on the gate 2 squad turns in a row to open it. The winch is loud and wakes the area.", "Once it is open, every soldier must be on the gate at the end of a squad turn.", "When time runs out, anyone not through is lost."],
 		"see": ["actions"],
-		"aliases": ["Evac", "Evac pad", "Evac zone"]}
+		"aliases": ["Gate", "Evac", "Evac pad", "Evac zone"]}
 	t["zone_beacon"] = {"name": "Beacon", "kind": "objective", "icon": "flag", "tone": "amber",
 		"line": "Wakes every enemy after turn one. Lost if only enemies hold the zone.",
 		"art": "tile", "art_ctx": {"overlay": "beacon"},
@@ -628,7 +628,7 @@ static func _build() -> Dictionary:
 		"more": ["A carrier who falls drops it.", "An enemy ending a round on a loose sample destroys it."],
 		"aliases": ["Sample points"]}
 	t["courier"] = {"name": "Courier", "kind": "objective", "icon": "flag", "tone": "amber",
-		"line": "Any player can move it, %d tiles a turn. It cannot attack. Lead it to the evac zone." % Objectives.ESCORT_MOVE,
+		"line": "Any player can move it, %d tiles a turn. It cannot attack. Lead it to the gate." % Objectives.ESCORT_MOVE,
 		"stats": [["%d" % Objectives.ESCORT_HP, "courier HP"]],
 		"more": ["If the courier dies the mission is lost."],
 		"aliases": ["Courier"]}
@@ -914,6 +914,7 @@ static func _build() -> Dictionary:
 		t["node_" + type] = {"name": n[0], "kind": "map node", "icon": n[1], "tone": n[2], "line": n[3],
 			"art": "intel" if type == RunMap.UNKNOWN else "", "stats": n[4], "see": ["outbreak"], "scan": false}
 	_add_enemy_terms(t)
+	_add_director_terms(t)
 	_add_rules_terms(t)
 	return t
 
@@ -922,6 +923,25 @@ static func _build() -> Dictionary:
 ## cards open from the enemy's nameplate; the mechanic cards from the bold words in their text and
 ## from the intent words (HOOKING, SATCHEL, FROZEN, MENDING). The common-word ones stay out of prose.
 static func _add_enemy_terms(t: Dictionary) -> void:
+	t["compel"] = {"name": "Compel", "kind": "enemy ability", "icon": "enemy", "tone": "teal",
+		"line": "The Prophet links to the most Infected soldier he sees. If it holds a round, they fight for him.",
+		"art": "", "stats": [["1 to 2", "rounds"], ["1/2", "their damage"]],
+		"more": ["A compelled soldier shoots their own squad. Alone, they stand transfixed and lose the rounds.",
+			"Break line of sight, {suppress} the Prophet, or cure the soldier and the hold ends at once."],
+		"see": ["infection", "lapse", "suppress"],
+		"aliases": ["Compelled", "Fix", "Fixed"], "labels": ["Compelling"]}
+	t["hymn_ring"] = {"name": "Hymn ring", "kind": "enemy ability", "icon": "enemy", "tone": "teal",
+		"line": "The Prophet's circle. The Choir inside hits harder and soldiers inside gain Infection each round.",
+		"art": "", "stats": [["%d-%d" % [int(ChoirProphet.RING[3]), int(ChoirProphet.RING[1])], "tiles"], ["+%d-%d" % [ChoirProphet.RING_INFECTION[1], ChoirProphet.RING_INFECTION[3]], "Infection a round"]],
+		"more": ["The Cantors round him soak %d damage from every hit while they sing. Kill them first." % ChoirProphet.GUARD,
+			"The ring shrinks each phase and bites harder. {suppress} the Prophet and it falls silent for a round."],
+		"see": ["infection", "suppress"], "aliases": ["Cantors guard"]}
+	t["crescendo"] = {"name": "Crescendo", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "Every third round the hymn peaks: every tile he can see takes damage and Infection.",
+		"art": "", "stats": [["%d" % ChoirProphet.CRESCENDO_DAMAGE, "damage"], ["+%d" % ChoirProphet.CRESCENDO_INFECTION, "Infection"]],
+		"more": ["The red tiles show what he sees. Stand behind a wall, a pillar or a building and it misses you.",
+			"{suppress} him before it lands and the hymn is cut."],
+		"see": ["suppress", "infection"], "aliases": ["The hymn peaks"]}
 	t["hook"] = {"name": "Hook", "kind": "enemy ability", "icon": "enemy", "tone": "danger", "scan": false,
 		"line": "A Hooker's locked line. Next turn it yanks the soldier on it toward the Hooker.",
 		"art": "", "stats": [["%d" % EnemyRoster.HOOK_PULL, "tiles pulled"], ["%d" % EnemyRoster.HOOK_DAMAGE, "damage"]],
@@ -1088,6 +1108,35 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 		"carapace": ["Slow Infected with a bone {plate} over its front. Flank it.", ["plate"]],
 		"stalker": ["Frozen while any soldier can see it. Unseen, it hunts the soldier who strayed.", ["watched"]],
 		"weaver": ["Threads to a wounded Infected and {mend|mends} it. Kill it first.", ["mend"]],
+	}
+	for kind in cards:
+		var st: Dictionary = UnitData.ENEMIES[kind]
+		t["enemy_" + kind] = {"name": st.name, "kind": "enemy", "icon": "enemy", "tone": "danger",
+			"line": cards[kind][0], "art": "",
+			"stats": [["%d" % int(st.max_hp), "HP"], ["%d-%d" % [int(st.damage[0]), int(st.damage[1])] if int(st.damage[1]) > 0 else "0", "damage"]],
+			"more": [], "see": cards[kind][1]}
+
+
+## Cards for the Act 2 boss Halden-Voss Recovery: the Director, its Collectors and the retrieval mechanics.
+static func _add_director_terms(t: Dictionary) -> void:
+	t["retrieval_mark"] = {"name": "Retrieval mark", "kind": "status", "icon": "tag", "tone": "danger",
+		"line": "The Director has flagged this soldier for retrieval. she calls the cage down on them.",
+		"art": "", "stats": [["+%d" % Retrieval.MARK_DAMAGE, "damage taken"], ["0", "cover vs the Director"]],
+		"more": ["Every enemy hit on the marked soldier deals extra damage.",
+			"The Director's shots ignore their cover.",
+			"A {pinned} soldier is easy prey for a Collector."],
+		"see": ["pinned", "cover"],
+		"labels": ["Marked for retrieval"]}
+	t["retrieval"] = {"name": "Retrieval cage", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "A red 3x3 the Director calls down. Next enemy phase it hurts every soldier inside.",
+		"art": "", "stats": [["%d" % Retrieval.CAGE_DAMAGE, "damage"], ["3x3", "cage"]],
+		"more": ["A soldier a Netter or Collector holds is taken the moment the cage lands.",
+			"Step off the red tiles, or free the soldier first.",
+			"It is aimed where a pinned soldier lies, else on the marked soldier."],
+		"see": ["pinned"],
+		"labels": ["Retrieval", "Caged"]}
+	var cards := {
+		"director": ["Snipes from the roofs and {retrieval_mark|marks} a soldier. Untouchable while a post lives.", ["retrieval_mark"]],
 	}
 	for kind in cards:
 		var st: Dictionary = UnitData.ENEMIES[kind]

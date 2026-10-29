@@ -8,10 +8,12 @@ extends RefCounted
 ## run framework calls bonus_met. See docs/ARCHITECTURE.md, "Objectives".
 ##
 ##   skirmish, elite, boss: kill every enemy.
-##   extract: every living soldier on the evac zone at the end of a squad turn. The first soldier
-##            to reach the pad fires a signal flare that wakes every Infected within SIGNAL_RADIUS,
-##            and the dropship needs a round to land: the win comes at the end of a later squad
-##            turn. After turn EXTRACT_TURNS the dropship leaves: soldiers off the pad are lost.
+##   extract: "Raise the gate". The way out is a sealed Cordon checkpoint (the evac zone). The first
+##            soldier to reach it starts the winch, which is loud: it wakes every Infected within
+##            SIGNAL_RADIUS. A soldier must stay on the gate GATE_TURNS squad turns in a row to
+##            open it; then the win comes when every living soldier is on the gate at the end of a
+##            squad turn. At turn EXTRACT_TURNS the Infected close in: if the gate is open, soldiers
+##            off it are lost; if it never opened, the whole squad is.
 ##   hold:    the beacon goes live after the squad's first turn and wakes every Infected on the map.
 ##            Survive HOLD_TURNS rounds; lost once enemies have stood in the beacon zone with no
 ##            soldier on it at the end of HOLD_OVERRUN_ROUNDS rounds in a row. The first such round
@@ -20,7 +22,7 @@ extends RefCounted
 ##   rescue:  civilians are moved by the players (move only, any player); win when every living civilian has reached the
 ##            exit (the drop zone). If every civilian dies, killing every enemy wins instead.
 ##   purge:   destroy every spore nest (units of kind NEST_KIND), or kill every enemy.
-##   escort:  a courier starts with the squad; any player can move it (move only) to the evac zone. Lost if it dies.
+##   escort:  a courier starts with the squad; any player can move it (move only) to the gate. Lost if it dies.
 ##   demolish: stand on a charge site at the end of a squad turn to arm it. An armed charge blows
 ##            CHARGE_FUSE rounds later (a demo blast, soldiers in it are hurt too); an enemy standing on
 ##            it defuses it. Won when every charge has blown, lost after DEMOLISH_TURNS rounds.
@@ -32,7 +34,8 @@ extends RefCounted
 ##            enemy ending a round on a loose sample destroys it. Won at SAMPLES_NEED delivered, lost
 ##            when too few are left.
 
-const EXTRACT_TURNS := 9           # one more than the old 7: the evac zone sits farther out on the bigger maps
+const EXTRACT_TURNS := 10          # the evac zone sits far out on the bigger maps, and the winch takes GATE_TURNS
+const GATE_TURNS := 2              # squad turns in a row a soldier must stay on the gate to open it
 const HOLD_TURNS := 4
 const SIGNAL_RADIUS := 14.0     # how far the evac flare carries
 const HOLD_OVERRUN_ROUNDS := 2  # rounds in a row the enemy can own the beacon before it falls
@@ -54,11 +57,11 @@ const TEXT := {
 	"skirmish": "Clear the area",
 	"elite": "Destroy the nest",
 	"boss": "Kill the boss",
-	"extract": "Reach the evac zone",
+	"extract": "Open the gate and get through",
 	"hold": "Hold the beacon",
 	"rescue": "Escort the civilians to the drop zone",
 	"purge": "Destroy the spore nests",
-	"escort": "Walk the courier to the evac zone",
+	"escort": "Walk the courier to the gate",
 	"demolish": "Blow the charges",
 	"hack": "Hack the relays",
 	"samples": "Bring the samples to the drop zone",
@@ -69,9 +72,9 @@ const LOSS := {
 	"beacon": {"title": "Beacon overrun", "icon": "flag",
 		"line": "Enemies held the beacon with no soldier on it for %d rounds running." % HOLD_OVERRUN_ROUNDS},
 	"left_behind": {"title": "Left behind", "icon": "clock",
-		"line": "The dropship left before anyone reached the evac zone."},
+		"line": "The gate was not opened and cleared in time."},
 	"courier_down": {"title": "Courier lost", "icon": "skull",
-		"line": "The courier fell before it reached the evac zone."},
+		"line": "The courier fell before it reached the gate."},
 	"charges_late": {"title": "Out of time", "icon": "clock",
 		"line": "The charges were not all set off in %d rounds." % DEMOLISH_TURNS},
 	"relays_lost": {"title": "Relays lost", "icon": "flag",
@@ -105,7 +108,9 @@ static func setup(s: GameState) -> void:
 			s.objective.contested = false
 		"extract":
 			s.objective.left_behind = 0
-			s.objective.flare = -1   # the turn the first soldier reached the pad
+			s.objective.flare = -1   # the turn the first soldier reached the gate
+			s.objective.winch = 0    # squad turns in a row a soldier has stayed on it
+			s.objective.open = false
 		"escort":
 			var courier := _spawn_courier(s)
 			s.objective.courier = courier.id if courier != null else -1
@@ -239,22 +244,34 @@ static func _check_extract(s: GameState) -> void:
 	var evac := s.grid.marker("evac")
 	var squad := soldiers(s)
 	var on_pad := squad.filter(func(u: Unit) -> bool: return evac.has(u.pos))
-	_progress(s, on_pad.size(), squad.size())
 	if not on_pad.is_empty() and int(s.objective.flare) < 0:
 		s.objective.flare = s.turn
 		_signal(s, evac, SIGNAL_RADIUS)
-	if on_pad.size() == squad.size() and s.turn > int(s.objective.flare):
+	if not s.objective.open:
+		if on_pad.is_empty():
+			s.objective.winch = 0
+		else:
+			s.objective.winch += 1
+			if s.objective.winch >= GATE_TURNS:
+				s.objective.open = true
+				s.emit({"type": "gate_open", "cell": evac[0] if not evac.is_empty() else Vector2i.ZERO})
+			else:
+				s.emit({"type": "gate_winching", "cell": evac[0] if not evac.is_empty() else Vector2i.ZERO,
+					"left": GATE_TURNS - int(s.objective.winch)})
+	_progress(s, on_pad.size() if s.objective.open else int(s.objective.winch), squad.size() if s.objective.open else GATE_TURNS)
+	if s.objective.open and on_pad.size() == squad.size():
 		s.objective.result = Types.Result.VICTORY
 	elif s.turn >= EXTRACT_TURNS:
-		# The dropship leaves: anyone not aboard is lost.
+		# The Infected close in: anyone not through the gate is lost.
+		var through: Array = on_pad if s.objective.open else []
 		for u in squad:
-			if not on_pad.has(u):
+			if not through.has(u):
 				u.hp = 0
 				u.status["left_behind"] = true
 				s.objective.left_behind += 1
 				s.emit({"type": "left_behind", "unit": u.id})
 				s.emit({"type": "died", "unit": u.id})
-		s.objective.result = Types.Result.VICTORY if not on_pad.is_empty() else Types.Result.DEFEAT
+		s.objective.result = Types.Result.VICTORY if not through.is_empty() else Types.Result.DEFEAT
 
 
 # ---------------------------------------------------------------- escort
@@ -603,7 +620,9 @@ static func describe(s: GameState) -> String:
 	var text: String = TEXT[k]
 	match k:
 		"extract":
-			return "%s  ·  dropship leaves after turn %d" % [text, EXTRACT_TURNS]
+			if s.objective.open:
+				return "%s  ·  gate open, everyone through by turn %d" % [text, EXTRACT_TURNS]
+			return "%s  ·  winch %d/%d  ·  turn %d" % [text, s.objective.winch, GATE_TURNS, EXTRACT_TURNS]
 		"hold":
 			var line := "%s  ·  %d/%d turns" % [text, s.objective.get("held", 0), HOLD_TURNS]
 			return line + "  ·  OVERRUN, RETAKE IT" if int(s.objective.get("overrun", 0)) > 0 else line

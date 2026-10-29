@@ -267,7 +267,7 @@ func test_the_breaker_three_phases_play_through_the_view() -> void:
 ## Colonel Hale through the view: air support from his post with marked strikes and smoke, the
 ## Bloom taking him (banner beat, stomps and charges), then hurled wreckage and danger close.
 func test_colonel_hale_three_phases_play_through_the_view() -> void:
-	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 5, "squad": 2, "players": 2}, "colonel_hale")   # his escort has its own tests
+	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 5, "squad": 2, "players": 2, "boss": "colonel_hale"}, "colonel_hale")   # his escort has its own tests
 	_drain(v)
 	var h := _boss_of(v, "colonel_hale")
 	var hv = v.view_for(h.id)
@@ -300,10 +300,107 @@ func test_colonel_hale_three_phases_play_through_the_view() -> void:
 	v.free()
 
 
+## The Choir Prophet through the view: verses marked on the ground and landing, the chant ring pulsing
+## Infection into a soldier inside it, the hymn answering (fix, then a soldier compelled), then Hush, the
+## hymn building and the Crescendo.
+func test_choir_prophet_three_phases_play_through_the_view() -> void:
+	var s := make_blank(PackedStringArray(Array(range(20)).map(func(_y): return ".".repeat(20))))
+	var trooper := UnitData.make("trooper", Types.Team.PLAYER)
+	trooper.owner_player = 0
+	trooper.abilities.append("lockdown")
+	s.add_unit(trooper, Vector2i(8, 12))
+	var medic := UnitData.make("medic", Types.Team.PLAYER)
+	medic.owner_player = 0
+	s.add_unit(medic, Vector2i(11, 8))   # inside the chant ring
+	s.grid.enemy_spawns.assign([Vector2i(10, 4), Vector2i(2, 2), Vector2i(17, 2)])
+	s.grid.markers["boss"] = [Vector2i(10, 4)]
+	Encounter.setup(s, {"boss": "choir_prophet", "node": "boss", "act": 2, "squad": 2})
+	Vision.disable(s)
+	var v: MissionView = MAIN.instantiate()
+	v.start(s)
+	_drain(v)
+	var h := _boss_of(v, "choir_prophet")
+	var seen := {}
+	var extra := {}
+	v.player.beat_finished.connect(func(ev: Dictionary) -> void:
+		var t := str(ev.get("type", ""))
+		if t in ["ring", "hymn", "lapse", "hushed", "lock_lost"]:
+			extra[t] = int(extra.get(t, 0)) + 1)
+	_watch(v, 3, seen)
+	assert_true(seen.get("verse", 0) >= 1, "he sings a verse")
+	assert_true(seen.get("strike:verse", 0) >= 1 and seen.get("red_tiles", 0) >= 1, "marked in red, then it lands")
+	assert_true(extra.get("ring", 0) >= 1, "the ring presses Infection into the soldier inside it")
+	# The circle breaks and the hymn answers.
+	for c in s.living(Types.Team.ENEMY).filter(func(u): return u.kind == ChoirProphet.choir_kind("cantor")):
+		Encounter.kill(s, c)
+	Rules.deal_damage(s, h, 999, trooper)
+	_drain(v)
+	assert_eq(int(h.status.boss_phase), 2, "phase 2")
+	assert_true(seen.get("boss_phase:2", 0) >= 1, "the banner beat played")
+	for u in s.living(Types.Team.PLAYER):
+		u.pos = Encounter.free_cell(s, h.pos + Vector2i(u.id * 2, 5))
+		v.view_for(u.id).set_cell(u.pos)
+	_watch(v, 6, seen)
+	assert_true(seen.get("fix", 0) >= 1, "he fixes on a soldier")
+	assert_true(seen.get("compel", 0) >= 1 and extra.get("lapse", 0) >= 1, "and takes them")
+	# The circle closes in.
+	for u in s.living(Types.Team.PLAYER):
+		Infection.end_lapse(s, u)
+	Rules.deal_damage(s, h, 999, trooper)
+	_drain(v)
+	assert_eq(int(h.status.boss_phase), 3, "phase 3")
+	assert_true(seen.get("boss_phase:3", 0) >= 1, "and the next banner")
+	_watch(v, 8, seen)
+	assert_true(seen.get("quell", 0) >= 1, "Hush")
+	assert_true(extra.get("hymn", 0) >= 1, "the hymn builds")
+	assert_true(seen.get("crescendo", 0) >= 1 and seen.get("strike:crescendo", 0) >= 1, "the Crescendo is marked, then lands")
+	assert_true(not v.player.generic_log.any(func(x): return ChoirProphet.OWNS.any(func(id): return str(x) == "ability:" + id)), "every Choir Prophet ability has a beat of its own")
+	assert_true(not v.player.generic_log.any(func(x): return str(x).begins_with("event:")), "no unhandled events")
+	assert_true(not v.player.is_busy(), "queue drained")
+	v.free()
+
+
+## The Director through the view: her lock and snipe from the roofs, the second team and the retrieval
+## mark, the cage, then a Collector dragging a pinned soldier to the lane and taking them.
+func test_the_director_three_phases_play_through_the_view() -> void:
+	var v := _view_for_fight({"act": 2, "node": "boss", "objective": "boss", "outbreak": 6, "seed": 5, "squad": 2, "players": 2, "boss": "director"}, "director")
+	_drain(v)
+	var d := _boss_of(v, "director")
+	var seen := {}
+	_watch(v, 3, seen)
+	assert_true(seen.get("sight", 0) >= 1, "she locks a soldier")
+	var any_soldier: Unit = v.state.living(Types.Team.PLAYER)[0]
+	d.status.erase("tether")
+	Rules.deal_damage(v.state, d, 999, any_soldier)
+	_drain(v)
+	assert_eq(int(d.status.boss_phase), 2, "phase 2")
+	assert_true(seen.get("boss_phase:2", 0) >= 1, "the second team banner played")
+	_watch(v, 3, seen)
+	assert_true(seen.get("flag", 0) >= 1, "she marks a soldier")
+	d.status.erase("tether")
+	Rules.deal_damage(v.state, d, 999, any_soldier)
+	_drain(v)
+	assert_eq(int(d.status.boss_phase), 3, "phase 3")
+	assert_true(seen.get("boss_phase:3", 0) >= 1, "the extraction banner played")
+	_watch(v, 4, seen)
+	assert_true(seen.get("retrieve", 0) >= 1, "she drops the cage")
+	assert_true(seen.get("strike:retrieval", 0) >= 1 and seen.get("red_tiles", 0) >= 1, "marked in red, then landed")
+	# Recovery's Netter holds a soldier and a Collector drags them off the map.
+	var victim: Unit = v.state.living(Types.Team.PLAYER)[0]
+	var c := Encounter._place(v.state, "collector", Encounter.free_cell(v.state, victim.pos + Vector2i(1, 0)))
+	Recovery.hold(v.state, c, victim)
+	Recovery.apply(v.state, c, {"ability": "drag", "target": victim.id})
+	_drain(v)
+	assert_true(seen.get("drag", 0) >= 1, "the drag shows")
+	assert_true(_no_bare_labels(v), "every Director ability has a beat of its own")
+	assert_true(not v.player.is_busy(), "queue drained")
+	v.free()
+
+
 ## The Source through the view: lashes marked on the ground, the core opening and slamming, then the
 ## floor giving way and the roots coming back.
 func test_the_source_three_phases_play_through_the_view() -> void:
-	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 4, "squad": 2, "players": 2})
+	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 4, "squad": 2, "players": 2, "boss": "the_source"})
 	_drain(v)
 	var src := _boss_of(v, "the_source")
 	var seen := {}
@@ -377,6 +474,46 @@ func test_the_broker_haul_plays_through_the_view() -> void:
 	_watch(v, 5, seen)
 	assert_true(seen.get("firebomb", 0) >= 1 or seen.get("slam", 0) >= 1, "the cornered Broker fights")
 	assert_true(_no_bare_labels(v), "every Broker ability has a beat of its own")
+
+
+## The Bore Engine through the view: pistons marked then landing, a cut valve venting and its platform
+## falling, the jaws, the core opening with a countdown, and sealing again with valves regrown.
+func test_the_bore_engine_plays_pistons_valves_window_and_reseal_through_the_view() -> void:
+	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 4, "squad": 2, "players": 2, "boss": "bore_engine"}, "bore_engine")
+	_drain(v)
+	var e := _boss_of(v, "bore_engine")
+	var seen := {}
+	v.player.beat_finished.connect(func(ev: Dictionary) -> void:
+		var t := str(ev.get("type", ""))
+		if t in ["valve_cut", "core_open", "core_sealed", "untethered"]:
+			seen[t] = int(seen.get(t, 0)) + 1)
+	_watch(v, 2, seen)
+	assert_true(seen.get("piston", 0) >= 1, "the pistons sweep")
+	assert_true(seen.get("strike:piston", 0) >= 1 and seen.get("red_tiles", 0) >= 1, "marked in red, then landed")
+	var soldier: Unit = v.state.living(Types.Team.PLAYER)[0]
+	var valves := v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "coolant_valve")
+	assert_eq(valves.size(), 3, "three valves on the deck")
+	for c in EnemyAbilities.square(v.state.grid, valves[0].pos, 2):
+		v.state.grid.set_level(c, 1)
+	v.board.rebuild_tiles()
+	Rules.deal_damage(v.state, valves[0], 99, soldier)
+	_drain(v)
+	assert_true(seen.get("valve_cut", 0) >= 1 and seen.get("boss_phase:2", 0) >= 1, "the valve vents and the Engine overloads")
+	soldier.pos = Encounter.free_cell(v.state, e.pos + Vector2i(1, 1))
+	_watch(v, 2, seen)
+	assert_true(seen.get("bite", 0) >= 1 and seen.get("strike:bite", 0) >= 1, "the jaws clamp on a soldier beside it")
+	assert_true(seen.get("strike:collapse", 0) >= 1 and seen.get("level_changed:", 0) >= 1, "the cut valve's platform falls")
+	for valve in v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "coolant_valve"):
+		Rules.deal_damage(v.state, valve, 99, soldier)
+	_drain(v)
+	assert_true(BoreEngine.is_open(e), "the core is open")
+	assert_true(seen.get("core_open", 0) >= 1 and seen.get("untethered:", 0) >= 1 and seen.get("boss_phase:3", 0) >= 1, "its shield breaks on screen")
+	_watch(v, BoreEngine.WINDOW[2], seen)
+	assert_true(seen.get("core_sealed", 0) >= 1, "the core seals again")
+	assert_true(v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "coolant_valve").size() >= 1, "valves are back")
+	for u in v.state.living():
+		assert_true(v.view_for(u.id) != null, "a view for every unit")
+	assert_true(_no_bare_labels(v), "every Engine ability has a beat of its own")
 	assert_true(not v.player.is_busy(), "queue drained")
 	v.free()
 
@@ -398,7 +535,7 @@ func test_parting_blow_warning_card_has_width() -> void:
 func test_units_stand_on_their_floor_after_the_source_fight() -> void:
 	var bad := []
 	for sd in [1, 2, 3]:
-		var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": sd, "squad": 3, "players": 1})
+		var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": sd, "squad": 3, "players": 1, "boss": "the_source"})
 		_drain(v)
 		var src: Unit = v.state.living(Types.Team.ENEMY).filter(func(u): return u.kind == "the_source")[0]
 		for u in v.state.living(Types.Team.PLAYER):
@@ -424,7 +561,7 @@ func test_units_stand_on_their_floor_after_the_source_fight() -> void:
 
 
 func test_soldier_on_a_collapsing_tile_drops_with_it() -> void:
-	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 1, "squad": 3, "players": 1})
+	var v := _view_for_fight({"act": 3, "node": "boss", "objective": "boss", "outbreak": 9, "seed": 1, "squad": 3, "players": 1, "boss": "the_source"})
 	_drain(v)
 	var s: GameState = v.state
 	var raised: Vector2i = Vector2i(-1, -1)

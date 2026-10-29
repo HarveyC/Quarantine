@@ -300,7 +300,50 @@ def broker_arena():
     return a
 
 
-ARENAS = {"wall": [brood_arena, broker_arena], "port": [hale_arena], "bore": [source_arena]}
+def chorale_arena():
+    """The Choir Prophet's amphitheatre: a dais ringed by pillars, galleries either side, a lane of cover to the deploy."""
+    a = A("chorale", "choir_prophet")
+    a.rect(8, 4, 12, 8, ".")
+    a.put(10, 6, "B")
+    for x, y in [(8, 3), (12, 3), (7, 9), (13, 9)]:     # the Cantors' kneeling stones, half cover
+        a.put(x, y, "=")
+    for x0, y0, x1, y1 in [(6, 4, 6, 5), (14, 4, 14, 5), (5, 7, 5, 8), (15, 7, 15, 8), (8, 10, 9, 10), (11, 10, 12, 10),
+                           (9, 1, 9, 2), (11, 1, 11, 2)]:
+        a.rect(x0, y0, x1, y1, "#")                     # pillars: stand behind one and the Crescendo cannot see you
+    for x0, sx in [(1, 4), (16, 15)]:                    # a gallery either side, one stair each
+        a.rect(x0, 3, x0 + 2, 8, "^").put(x0 + 1, 5, "%")
+        a.put(sx, 6, "s")
+    for x, y in [(3, 11), (4, 11), (15, 11), (16, 11), (7, 13), (12, 13), (9, 14), (10, 14), (6, 16), (13, 16)]:
+        a.put(x, y, "=")
+    a.put(2, 13, "!").put(17, 13, "!").put(10, 2, "!")
+    a.deploy()
+    a.pods([(1, 1), (18, 1), (1, 10), (18, 10), (4, 12), (15, 12), (6, 1), (13, 1)])
+    return a
+
+
+def director_arena():
+    a = A("rooftop_net", "director")                     # only the Director's fight is drawn here
+    a.rect(8, 1, 11, 3, "2")                             # her perch: the harbour authority's upper roof
+    a.put(9, 2, "b")                                     # boss anchor on the upper roof
+    a.rect(4, 4, 15, 6, "^")                             # the authority deck below it
+    a.put(9, 4, "S").put(10, 4, "S")                     # stairs from the deck up to her perch
+    a.put(5, 5, "%").put(14, 5, "%").put(7, 6, "%").put(12, 6, "%")
+    a.put(9, 7, "s").put(10, 7, "s")                     # the open stair down to the street
+    a.rect(1, 9, 3, 12, "^")                             # west and east wing roofs: two more posts
+    a.rect(16, 9, 18, 12, "^")
+    a.put(2, 10, "%").put(17, 10, "%")
+    a.put(4, 10, "/").put(15, 10, "/")                   # ladders up from the street
+    a.put(2, 8, "s").put(17, 8, "s")                     # stairs from the north lane up to the wings
+    a.rect(6, 9, 7, 12, "#").rect(12, 9, 13, 12, "#")    # containers either side of the street
+    a.rect(1, 14, 2, 14, "#").rect(17, 14, 18, 14, "#")
+    for x, y in [(4, 8), (15, 8), (9, 11), (10, 13), (3, 16), (16, 16), (5, 14), (14, 14)]:
+        a.put(x, y, "=")
+    a.put(8, 14, "!").put(12, 15, "!")
+    a.deploy()
+    a.pods([(3, 6), (16, 6), (5, 12), (14, 12), (9, 9), (10, 9), (1, 5), (18, 5)])
+    return a
+
+
 def breaker_arena():
     """The wall engineers' yard behind the breach: long lanes of cover for the rig to flatten, a gantry
     on each flank to climb, and fuel barrels to turn on it."""
@@ -319,29 +362,28 @@ def breaker_arena():
     return a
 
 
-def broker_arena():
-    a = A("salvage_yard", "broker")
-    a.put(10, 4, "B")
-    for x, y in [(8, 5), (12, 5), (10, 6), (9, 3), (11, 3)]:
-        a.put(x, y, "=")                                # the Broker's crate nest, half cover all round
-    a.rect(1, 7, 5, 8, "#").rect(14, 7, 17, 8, "#")     # container rows, a wide lane between them
-    a.rect(1, 2, 3, 3, "#").rect(16, 2, 18, 3, "#")
-    a.rect(1, 11, 4, 14, "^").put(2, 12, "%").put(5, 13, "s")   # a gantry for height, one stair
-    a.rect(15, 11, 18, 14, "#")                         # stacked containers on the gate side
-    a.put(19, 10, "X")                                  # the exit gate
-    a.rect(16, 10, 18, 10, ".")
-    for x, y in [(15, 9), (15, 10), (17, 9)]:
-        a.put(x, y, "!")                                # fuel drums on the way to the gate
-    for x, y in [(7, 10), (12, 12), (9, 13), (5, 5), (14, 5)]:
+def engine_arena():
+    a = A("drill_deck", "bore_engine")
+    a.put(10, 9, "B")                                   # the drill head over the shaft
+    for cx, cy, stairs in [(10, 3, [(10, 6)]), (4, 12, [(4, 9), (7, 12)]), (16, 12, [(16, 9), (13, 12)])]:
+        a.rect(cx - 2, cy - 2, cx + 2, cy + 2, "^")     # a coolant platform, one valve each; it falls when the valve is cut
+        a.rect(cx - 1, cy - 1, cx + 1, cy + 1, "^")
+        a.put(cx - 2, cy + 2, "%").put(cx + 2, cy + 2, "%").put(cx - 2, cy - 2, "%").put(cx + 2, cy - 2, "%")
+        for sx, sy in stairs:
+            a.put(sx, sy, "s")
+    for x0, y0, x1, y1 in [(7, 7, 8, 8), (12, 7, 13, 8), (7, 10, 8, 11), (12, 10, 13, 11)]:
+        a.rect(x0, y0, x1, y1, "#")                      # piston housings around the shaft
+    for x, y in [(9, 14), (11, 14), (2, 16), (17, 16), (1, 6), (18, 6), (6, 5), (14, 5), (9, 12), (11, 12)]:
         a.put(x, y, "=")
+    a.put(1, 9, "!").put(18, 9, "!")
     a.deploy()
-    a.pods([(3, 5), (4, 5), (15, 5), (16, 5), (8, 1), (11, 1), (6, 9), (13, 9)])
+    a.pods([(1, 1), (2, 1), (17, 1), (18, 1), (1, 13), (1, 14), (19, 13), (19, 14)])
     return a
 
 
 ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
 ## Further arenas a boss fights in (tagged with their boss), after the biome's default one.
-EXTRA_ARENAS = {"wall": [breaker_arena, broker_arena]}
+EXTRA_ARENAS = {"wall": [breaker_arena, broker_arena], "port": [director_arena, chorale_arena], "bore": [engine_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)

@@ -27,7 +27,7 @@ func test_the_broker_is_in_act_1s_pool_with_everything_a_boss_needs() -> void:
 	assert_true(EnemyRoster.BOSS_POOL[1].has("broker") and EnemyRoster.BOSSES.has("broker"), "pooled")
 	assert_true(FightBuilder.BOSS_HEALTH.has("broker") and StoryData.BOSS_SCENES.has("broker"), "health and intro scene")
 	for p in [2, 3]:
-		assert_true(StoryData.CAPTION_BARKS.has("broker_%d" % p), "a radio line for phase %d" % p)
+		assert_true(StoryData.SQUAD_BARKS.has("broker_%d" % p), "a radio line for phase %d" % p)
 	assert_true(Glossary.has("enemy_broker") and Glossary.has("haul"), "hover cards")
 	var built := FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3, "squad": 2, "boss": "broker"})
 	assert_eq(built.encounter.boss, "broker")

@@ -73,7 +73,7 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	if objective_override != "":
 		objective = objective_override
 	var spec := {"act": act, "row": 2, "node": node, "objective": objective, "outbreak": outbreak,
-		"seed": seed, "players": kinds.size(), "squad": kinds.size(),
+		"seed": seed, "players": kinds.size(), "squad": kinds.size(), "boss": boss_kind,
 		"modifiers": {"boss_health_mult": boss_hp} if boss_hp != 1.0 else {}}
 	if boss_kind != "":
 		spec["boss"] = boss_kind
