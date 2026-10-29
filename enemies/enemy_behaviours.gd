@@ -11,7 +11,7 @@ const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
 	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
-	"brood_mother", "colonel_hale", "the_source"]
+	"brood_mother", "breaker", "colonel_hale", "the_source"]
 
 
 static func handles(s: GameState, u: Unit) -> bool:
@@ -27,6 +27,9 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 		return true
 	if u.kind == "brood_mother":
 		BroodMother.take_turn(s, u)
+		return true
+	if u.kind == "breaker":
+		Breaker.take_turn(s, u)
 		return true
 	if u.kind == "colonel_hale":
 		ColonelHale.take_turn(s, u)
@@ -106,6 +109,8 @@ static func end_turn(s: GameState, u: Unit) -> void:
 	var hostiles := EnemyAI._hostiles(s, u)
 	if u.status.get("plate", false):
 		_face(s, u, hostiles)
+	if u.kind == "breaker":
+		Breaker.end_turn(s, u)
 	if u.kind in ["bloater", "broodling"] and not u.status.has("swelling") and EnemyAI.is_alerted(u):
 		var need := 1 if u.kind == "broodling" else 2
 		if _adjacent(s, u.pos, hostiles) >= need:

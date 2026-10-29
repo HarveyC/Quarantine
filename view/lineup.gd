@@ -17,7 +17,7 @@ const ModelKit := preload("res://view/model_kit.gd")
 
 const ENEMIES: Array[String] = ["runner", "spitter", "leaper", "shrieker", "broodling", "brute", "bloater",
 	"brood_mother", "fallen", "sharpshooter", "colonel_hale", "lurker", "burrower",
-	"hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "emplacement", "hound", "loader", "relay"]
+	"hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "emplacement", "hound", "loader", "relay", "breaker"]
 
 var mode := "classes"
 var shot_path := ""

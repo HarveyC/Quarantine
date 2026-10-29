@@ -1331,7 +1331,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
 	"burrow", "erupt", "leap", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
-	"hook", "reel", "satchel", "firebomb", "mend",
+	"hook", "reel", "satchel", "firebomb", "mend", "debris",
 	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
 
 ## Rank 2 signatures (Signatures): the sound, title and colour of each one's beat.
@@ -1392,6 +1392,7 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 		"charge":
 			if int(ev.get("target", -1)) >= 0:
 				return _melee_beat(ev)
+			return BossBeats.beat(self, ev)
 		"breach":
 			return _breach_beat(ev)
 		"item:frag_grenade", "item:demo_charge":
