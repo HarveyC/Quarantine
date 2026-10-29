@@ -606,6 +606,8 @@ func _probes() -> Dictionary:
 		return _expect(safe and _term(Combat.hit_chance(x.s, x.foe, x.u), "Cauterizer") == -10, "fire hurts or no defense")
 	p["reaper_blade"] = func(x): return _expect(x.u.abilities.has("lunge"), "Lunge not granted")
 	p["trench_maul"] = func(x): return _expect(x.u.abilities.has("bash"), "Bash not granted")
+	for rig in ["suppress", "tag", "stim", "breach", "incinerate", "siphon"]:
+		p["rig_" + rig] = func(x): return _expect(x.u.abilities.has(rig), "%s not granted" % rig)
 	for sig in ["lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]:
 		p["sig_" + sig] = func(x): return _expect(x.u.abilities.has(sig), "%s not granted" % sig)
 	return p

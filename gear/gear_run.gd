@@ -154,6 +154,7 @@ static func has_pending(run) -> bool:
 ## A soldier at run start: ranged classes begin on the sidearm.
 static func start_soldier(record) -> void:
 	Loadout.start_on_sidearm(record)
+	Loadout.give_class_kit(record)
 
 
 ## Before the first fight each soldier picks 1 of 3 deployment orders (1 of 4 with the Field kit
@@ -558,6 +559,8 @@ static func apply_to_unit(u: Unit, record) -> void:
 	if not docs.is_empty():
 		u.status["doctrines"] = docs.duplicate()
 	Weapons.equip_unit(u, Loadout.gun(record))
+	for a in Loadout.kit_abilities(record):
+		u.abilities.erase(a)
 	for e in Loadout.equipped(record):
 		var sig := GearData.signature_of(e.id)
 		if sig != "" and not u.abilities.has(sig):

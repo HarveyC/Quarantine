@@ -255,7 +255,16 @@ static func mag_for(id: String, kind: String = "") -> int:
 
 static func has_trait(u: Unit, t: String) -> bool:
 	var g := of(u)
-	return g.get("trait", "") == t or g.get("also", "") == t
+	return g.get("trait", "") == t or g.get("also", "") == t or passive_trait(u) == t
+
+
+## The gun trait a class passive gives every gun its soldier fires ("" if none).
+static func passive_trait(u: Unit) -> String:
+	if Kit.has_passive(u, "covering_fire"):
+		return "pin"
+	if Kit.has_passive(u, "door_kicker"):
+		return "doorkick"
+	return ""
 
 
 ## Appends the weapon's range term (if any) for a shot over `dist` tiles to `breakdown`.
@@ -285,6 +294,8 @@ static func graze_band(u: Unit, base: int) -> int:
 static func after_miss(s: GameState, u: Unit, t: Unit) -> void:
 	if has_trait(u, "pin") and t.is_alive():
 		t.status["suppressed"] = Combat.phase_index(s) + 2
+		if Kit.has_perk(u, "steadfast"):
+			t.overwatch = false
 		s.emit({"type": "pinned", "unit": u.id, "target": t.id})
 
 
