@@ -57,6 +57,16 @@ const DEFS := {
 		"desc": "Drags the soldier with the most Infection 2 tiles toward the Source."},
 	"core_slam": {"name": "Core slam", "targeting": "cell", "cost": -1, "cooldown": 0, "phases": [2, 3],
 		"desc": "Marks a whole row or column; it slams for 4 damage next enemy phase."},
+	"verse": {"name": "Verse", "targeting": "cell", "cost": 1, "cooldown": 0,
+		"desc": "Sings a 3x3 that lands next enemy phase: 3 damage and Infection. The Choir inside his ring hit harder."},
+	"fix": {"name": "Fix", "targeting": "unit", "cost": 1, "cooldown": 2, "phases": [2, 3],
+		"desc": "Fixes the hymn on the most Infected soldier he can see. If the link holds next round they are Compelled for 2 rounds. Break sight, cleanse them or Suppress him to cut it."},
+	"compel": {"name": "Compel", "targeting": "none", "cost": 0, "cooldown": 0, "phases": [2, 3],
+		"desc": "The fixed soldier fights for the song for 2 rounds, shooting their own squad at half damage, or standing transfixed alone. A cure ends it."},
+	"hush": {"name": "Hush", "targeting": "unit", "cost": 1, "cooldown": 2, "phases": [3],
+		"desc": "Silences one soldier's signature for 2 rounds."},
+	"crescendo": {"name": "Crescendo", "targeting": "none", "cost": -1, "cooldown": 0, "phases": [3],
+		"desc": "The hymn peaks: 4 damage and Infection on every tile he can see next enemy phase. Get behind something solid."},
 	"smoke_screen": {"name": "Smoke screen", "targeting": "cell", "cost": 1, "cooldown": 4,
 		"desc": "Pops a 3x3 smoke cloud to cover a fall back: +defense inside it."},
 	"stomp": {"name": "Stomp", "targeting": "none", "cost": -1, "cooldown": 3,
@@ -132,6 +142,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		return "Not in this phase"
 	if int(u.cooldowns.get(id, 0)) > 0:
 		return "On cooldown"
+	if ChoirProphet.OWNS.has(id):
+		return ChoirProphet.validate(s, u, action)
 	var def: Dictionary = DEFS[id]
 	if def.targeting == "unit":
 		var t := s.get_unit(action.get("target", -1))
@@ -254,6 +266,9 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 	u.actions_left = 0 if cost < 0 else maxi(0, u.actions_left - cost)
 	if int(def.cooldown) > 0:
 		u.cooldowns[id] = def.cooldown
+	if ChoirProphet.OWNS.has(id):
+		ChoirProphet.apply(s, u, action)
+		return
 	match id:
 		"slam": _slam(s, u, s.get_unit(action.target))
 		"leap": _leap(s, u)

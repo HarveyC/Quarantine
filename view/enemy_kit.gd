@@ -7,6 +7,7 @@ extends RefCounted
 ##   Carapace  a Brute with a bone plate over its front
 ##   Stalker   a tall, pale Runner with long back spines
 ##   Weaver    a Shrieker with glowing strands trailing from both hands
+##   Choir Prophet  a tall Shrieker in a pale robe, a ring of light behind the head, strands from both hands
 ## Bone frames (rest pose): spine bones +Y up the spine, +Z the chest, -Z the back;
 ## hand/forearm bones +Y toward the fingers.
 
@@ -15,10 +16,10 @@ const GunModels := preload("res://view/gun_models.gd")
 const BODY := {"hooker": "spitter", "sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker",
 	"cutter": "runner", "torchman": "fallen", "fence": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
-	"hound": "runner", "loader": "brute", "relay": "shrieker"}
+	"hound": "runner", "loader": "brute", "relay": "shrieker", "choir_prophet": "shrieker"}
 const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95,
 	"shieldman": 1.1, "overwatcher": 1.0, "emplacement": 1.0,
-	"hound": 0.8, "loader": 1.2, "relay": 0.7}
+	"hound": 0.8, "loader": 1.2, "relay": 0.7, "choir_prophet": 1.45}
 ## Role tints: kind -> {role: lighten (+) or darken (-) amount}.
 const TINT := {
 	"hooker": {"body": -0.25, "flesh": -0.15},
@@ -35,6 +36,7 @@ const TINT := {
 	"hound": {"body": -0.3, "skin": -0.3, "flesh": -0.3},
 	"loader": {"body": -0.25, "skin": -0.25},
 	"relay": {"body": -0.3, "skin": -0.3, "flesh": -0.3},
+	"choir_prophet": {"body": 0.4, "skin": 0.35, "flesh": 0.3, "rags": 0.5},
 }
 
 
@@ -73,6 +75,11 @@ static func dress(model: Node3D, kind: String) -> void:
 		"emplacement":
 			_attach(sk, "pelvis", "sandbags", _sandbags())
 		"weaver":
+			_attach(sk, "lowerarm_l", "strands_l", _strands())
+			_attach(sk, "lowerarm_r", "strands_r", _strands())
+		"choir_prophet":
+			_attach(sk, "spine_03", "robe", _robe())
+			_attach(sk, "Head", "halo", _halo())
 			_attach(sk, "lowerarm_l", "strands_l", _strands())
 			_attach(sk, "lowerarm_r", "strands_r", _strands())
 
@@ -194,4 +201,23 @@ static func _strands() -> Mesh:
 		var s := -0.04 + i * 0.027
 		p.append(["glow", "tube", Vector3(s, 0.1, 0.0), Vector3(s * 3.0, 0.4 + i * 0.05, 0.04 - i * 0.03), 0.006])
 	p.append(["glow", "ball", Vector3(0.0, 0.1, 0.0), 0.022])
+	return GunModels.build_mesh(p, {}, {})
+
+
+## A pale robe from the shoulders to the floor, with a glowing hem.
+static func _robe() -> Mesh:
+	var p := [
+		["robe", "tube", Vector3(0.0, 0.1, 0.0), Vector3(0.0, -1.15, 0.0), 0.5, 0.2],
+		["robe", "box", Vector3(0.0, 0.14, 0.0), Vector3(0.62, 0.1, 0.34)],
+		["glow", "tube", Vector3(0.0, -1.14, 0.0), Vector3(0.0, -1.16, 0.0), 0.5, 0.49],
+	]
+	return GunModels.build_mesh(p, {}, {"robe": Color("cfc8b8")})
+
+
+## A ring of light standing behind the head.
+static func _halo() -> Mesh:
+	var p := []
+	for i in 12:
+		var a := TAU * i / 12.0
+		p.append(["glow", "ball", Vector3(cos(a) * 0.3, 0.12 + sin(a) * 0.3, -0.2), 0.03])
 	return GunModels.build_mesh(p, {}, {})

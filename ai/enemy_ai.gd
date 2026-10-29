@@ -37,7 +37,10 @@ static func _take_turn(s: GameState, u: Unit) -> void:
 		s.emit({"type": "gear", "unit": u.id, "item": "restrained"})
 		return
 	if u.status.get("lapsed", false):
-		_lapsed_turn(s, u)
+		if u.status.has("compelled"):
+			ChoirProphet.compelled_turn(s, u)
+		else:
+			_lapsed_turn(s, u)
 		return
 	if EnemyBehaviours.custom_turn(s, u):
 		return
@@ -145,7 +148,7 @@ static func preview(s: GameState, u: Unit) -> Dictionary:
 
 ## Units whose turn is a script of their own (EnemyBehaviours.custom_turn), not `_choose`.
 static func has_scripted_turn(u: Unit) -> bool:
-	return u.kind in ["emplacement", "brood_mother", "colonel_hale", "the_source"] or EnemyRoster.is_static(u)
+	return u.kind in ["emplacement", "brood_mother", "colonel_hale", "choir_prophet", "the_source"] or EnemyRoster.is_static(u)
 
 
 # --- Lapsed soldiers -------------------------------------------------------------------------

@@ -98,13 +98,17 @@ func refresh() -> void:
 		var ring := Palette.ring(EnemyRoster.RALLY_RADIUS - 0.08, EnemyRoster.RALLY_RADIUS, _m_rally)
 		ring.position = Board.cell_to_world(r.cell, 0.04)
 		add_child(ring)
+	for ch in EnemyIntent.chants(s):
+		var cring := Palette.ring(ch.radius - 0.08, ch.radius, _m_tether)
+		cring.position = Board.cell_to_world(ch.cell, 0.04)
+		add_child(cring)
 	for pair in EnemyIntent.links(s):
 		var wa: Node3D = view.view_for(pair[0])
 		var wb: Node3D = view.view_for(pair[1])
 		if wa != null and wb != null and wa.visible and wb.visible:
 			_line(wa.position + Vector3(0, 1.0, 0), wb.position + Vector3(0, 1.0, 0), _m_tether, 0.04)
 	# Teal threads from each shield (egg sac, root, hive node) to the enemy it keeps immune.
-	for pair in EnemyIntent.tethers(s):
+	for pair in EnemyIntent.tethers(s) + ChoirProphet.guards(s):
 		var a: Node3D = view.view_for(pair[0])
 		var b: Node3D = view.view_for(pair[1])
 		if a != null and b != null and a.visible and b.visible:

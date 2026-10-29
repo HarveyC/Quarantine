@@ -922,6 +922,30 @@ static func _build() -> Dictionary:
 ## cards open from the enemy's nameplate; the mechanic cards from the bold words in their text and
 ## from the intent words (HOOKING, SATCHEL, FROZEN, MENDING). The common-word ones stay out of prose.
 static func _add_enemy_terms(t: Dictionary) -> void:
+	t["compel"] = {"name": "Compel", "kind": "enemy ability", "icon": "enemy", "tone": "teal",
+		"line": "The Prophet links to the most Infected soldier he sees. If it holds a round, they fight for him.",
+		"art": "", "stats": [["1 to 2", "rounds"], ["1/2", "their damage"]],
+		"more": ["A compelled soldier shoots their own squad. Alone, they stand transfixed and lose the rounds.",
+			"Break line of sight, {suppress} the Prophet, or cure the soldier and the hold ends at once."],
+		"see": ["infection", "lapse", "suppress"],
+		"aliases": ["Compelled", "Fix", "Fixed"], "labels": ["Compelling"]}
+	t["hush"] = {"name": "Hush", "kind": "enemy ability", "icon": "enemy", "tone": "teal",
+		"line": "The hymn silences one soldier's signature for %d rounds. Everything else still works." % ChoirProphet.HUSH_ROUNDS,
+		"art": "", "stats": [["%d" % ChoirProphet.HUSH_ROUNDS, "rounds"]],
+		"more": ["It picks a soldier whose signature is ready.", "{suppress} the Prophet or kill him and no new Hush is sung."],
+		"see": ["suppress"], "aliases": ["Hushed"]}
+	t["chant"] = {"name": "Chant ring", "kind": "enemy ability", "icon": "enemy", "tone": "teal",
+		"line": "The Prophet's circle. The Choir inside hits harder and soldiers inside gain Infection each round.",
+		"art": "", "stats": [["%d-%d" % [int(ChoirProphet.RING[3]), int(ChoirProphet.RING[1])], "tiles"], ["+%d-%d" % [ChoirProphet.RING_INFECTION[1], ChoirProphet.RING_INFECTION[3]], "Infection a round"]],
+		"more": ["The Cantors round him soak %d damage from every hit while they sing. Kill them first." % ChoirProphet.GUARD,
+			"The ring shrinks each phase and bites harder. {suppress} the Prophet and it falls silent for a round."],
+		"see": ["infection", "suppress"], "aliases": ["Chant", "Cantors guard"]}
+	t["crescendo"] = {"name": "Crescendo", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "Every third round the hymn peaks: every tile he can see takes damage and Infection.",
+		"art": "", "stats": [["%d" % ChoirProphet.CRESCENDO_DAMAGE, "damage"], ["+%d" % ChoirProphet.CRESCENDO_INFECTION, "Infection"]],
+		"more": ["The red tiles show what he sees. Stand behind a wall, a pillar or a building and it misses you.",
+			"{suppress} him before it lands and the hymn is cut."],
+		"see": ["suppress", "infection"], "aliases": ["The hymn peaks"]}
 	t["hook"] = {"name": "Hook", "kind": "enemy ability", "icon": "enemy", "tone": "danger", "scan": false,
 		"line": "A Hooker's locked line. Next turn it yanks the soldier on it toward the Hooker.",
 		"art": "", "stats": [["%d" % EnemyRoster.HOOK_PULL, "tiles pulled"], ["%d" % EnemyRoster.HOOK_DAMAGE, "damage"]],

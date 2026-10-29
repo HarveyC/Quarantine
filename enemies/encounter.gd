@@ -81,6 +81,8 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 		"colonel_hale":
 			var h := _place(s, "colonel_hale", ColonelHale.post_near(s.grid, _marker(s, "boss", _far_spawn(s))))
 			ColonelHale.setup(s, h, squad)
+		"choir_prophet":
+			ChoirProphet.setup(s, _place(s, "choir_prophet", _marker(s, "boss", _far_spawn(s))), squad)
 		"the_source":
 			var centre := Vector2i(s.grid.width / 2, s.grid.height / 2)
 			var src := _place(s, "the_source", _marker(s, "boss", centre))
@@ -303,6 +305,10 @@ static func kill(s: GameState, u: Unit) -> void:
 static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	if u.status.has("pinned_by"):
 		return "Pinned by a Lurker: Struggle or wait for a teammate"
+	if u.status.has("hushed"):
+		var hushed := ChoirProphet.validate_hushed(u, action)
+		if hushed != "":
+			return hushed
 	if action.has("target"):
 		var t := s.get_unit(action.get("target", -1))
 		if t != null and t.status.get("hidden", false) and u.is_enemy_of(t):
@@ -330,6 +336,7 @@ static func _reveal_near(s: GameState) -> void:
 
 static func on_team_phase_start(s: GameState) -> void:
 	check_pins(s)
+	ChoirProphet.on_team_phase_start(s)
 	for u in s.living(Types.Team.PLAYER):
 		if u.status.has("pinned_by"):
 			var l := s.get_unit(u.status.pinned_by)
@@ -369,6 +376,7 @@ static func on_enemy_phase_start(s: GameState) -> void:
 	if s.encounter.is_empty():
 		return
 	_resolve_telegraphs(s)
+	ChoirProphet.on_enemy_phase_start(s)
 	var src := _boss(s, "the_source")
 	if src != null and src.status.has("tether"):
 		var hit: Array[int] = []
@@ -405,6 +413,8 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			"units": victims.map(func(x: Unit) -> int: return x.id), "damage": t.damage})
 		for u in victims:
 			Rules.deal_damage(s, u, int(t.damage), src if src != null and src.is_alive() else null)
+			if int(t.get("infect", 0)) > 0 and u.is_alive() and u.team == Types.Team.PLAYER:
+				Infection.add(s, u, int(t.infect))
 		if int(t.get("spores", 0)) > 0 and s.phase != Types.Phase.ENDED:
 			add_spores(s, t.cells, int(t.spores), src)
 		if int(t.get("fire", 0)) > 0 and s.phase != Types.Phase.ENDED:
@@ -578,6 +588,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		amount += _rally_bonus(s, source) + _stalk_bonus(s, source, target)
 	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:
 		amount = maxi(1, roundi(amount * float(BOSS_DAMAGE[clampi(int(s.encounter.get("squad", 4)), 1, 4)])))
+	if source != null and target.team == Types.Team.PLAYER:
+		amount = ChoirProphet.compelled_damage(source, amount + ChoirProphet.chant_bonus(s, source))
 	if target.kind == "the_source" and source != null and source.team == Types.Team.PLAYER \
 			and Infection.tier(source.infection) >= Infection.Tier.MUTATING:
 		amount = ceili(amount * CARRIER_BONUS)
@@ -585,6 +597,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		return BroodMother.clamp_damage(target, amount)
 	if target.kind == "colonel_hale":
 		return ColonelHale.clamp_damage(target, amount)
+	if target.kind == "choir_prophet":
+		return ChoirProphet.clamp_damage(s, target, amount)
 	if target.kind == "the_source":
 		return SourceBoss.clamp_damage(target, amount)
 	return amount
@@ -638,6 +652,8 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 			BroodMother.on_damaged(s, target)
 		"colonel_hale":
 			ColonelHale.on_damaged(s, target)
+		"choir_prophet":
+			ChoirProphet.on_damaged(s, target)
 		"the_source":
 			SourceBoss.on_damaged(s, target)
 

@@ -37,6 +37,7 @@ func _init() -> void:
 	objective_override = str(args.get("objective", ""))
 	boss_hp = float(args.get("bosshp", 1.0))
 	build_level = str(args.get("build", "none"))
+	boss_override = str(args.get("boss", ""))
 	PartingBlow.enabled = not args.has("nopb")
 	SquadBot.skip_signatures = args.has("nosig")
 	SquadBot.skip_gear = args.has("nogear")
@@ -54,6 +55,7 @@ func _init() -> void:
 var boss_hp := 1.0   # bosshp= scales the boss's health on top of FightBuilder's (for tuning)
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
 var build_level := "none"       # build= (see build_quality.gd)
+var boss_override := ""         # boss= (a boss kind of the act's pool; else the seed rolls it)
 
 
 func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, seed: int, rank: int,
@@ -71,6 +73,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	var spec := {"act": act, "row": 2, "node": node, "objective": objective, "outbreak": outbreak,
 		"seed": seed, "players": kinds.size(), "squad": kinds.size(),
 		"modifiers": {"boss_health_mult": boss_hp} if boss_hp != 1.0 else {}}
+	if boss_override != "":
+		spec["boss"] = boss_override
 	var built := FightBuilder.build(spec)
 	var enemies: Array = built.enemies
 	var enc: Dictionary = built.encounter
@@ -78,7 +82,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		enemies = Array(enemy_override.split(","))
 		enc = {}
 	var config := {"map": MatchConfig.MAP, "squad": squad, "enemies": enemies, "encounter": enc, "seed": seed,
-		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak}}
+		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak,
+			"boss": str(enc.get("boss", ""))}}
 	var s := MatchConfig.build(config)
 	if guns != "":
 		var gl := guns.split(",")

@@ -891,7 +891,7 @@ func test_hale_phases_are_gated_and_the_last_one_ends_the_fight() -> void:
 func test_hale_health_scales_with_squad() -> void:
 	for squad in [1, 2, 4]:
 		var enc: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 3,
-			"players": squad, "squad": squad}).encounter
+			"players": squad, "squad": squad, "boss": "colonel_hale"}).encounter
 		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(ColonelHale.HEALTH[squad])) < 0.001, "Hale's share for %d" % squad)
 		var src: Dictionary = FightBuilder.build({"act": 3, "node": "boss", "objective": "boss", "seed": 3,
 			"players": squad, "squad": squad}).encounter

@@ -50,7 +50,13 @@ const ACT_SCENES := {
 ## An act's transition scene when a given boss waits at its end, same shape as ACT_SCENES (lines,
 ## title, sub, stage). It replaces the act's default scene, so the story foreshadows the boss.
 ## A new boss adds its entry here and in BOSS_SCENES; bosses without one use ACT_SCENES.
-const ACT_SCENES_BY_BOSS := {}
+const ACT_SCENES_BY_BOSS := {
+	"choir_prophet": {"title": "Act II · Port Ardent", "sub": "Every channel carries the same hymn", "stage": "port", "lines": [
+		["SQUAD", "Every channel is playing the same hymn. Do not listen to it for long."],
+		["SQUAD", "It sounds like someone we knew."],
+		["", "The harbour speakers are on. Whatever is singing, it is singing to you."],
+	]},
+}
 ## Act 3's second line when an earlier wave has reached the Source.
 const SOURCE_REMEMBERS := ["SOURCE", "You came back. I remember the fire."]
 ## The Source's extra boss line when the last wave burned it.
@@ -64,6 +70,11 @@ const BOSS_SCENES := {
 	"colonel_hale": {"title": "Colonel Hale", "sub": "Halden-Voss Recovery", "lines": [
 		["HALE", "Lantern Company. You are carrying company property."],
 		["HALE", "Stand down and we'll take you home. In jars."],
+	]},
+	"choir_prophet": {"title": "The Choir Prophet", "sub": "The hymn from the harbour", "lines": [
+		["", "One voice. All of them are singing in time with it."],
+		["PROPHET", "Come inside the circle. There is no one left outside to hurt you."],
+		["PROPHET", "It is not a disease. It is a conversation. Stop shouting."],
 	]},
 	"the_source": {"title": "The Source", "sub": "The bottom of the Bore", "lines": [
 		["SOURCE", "I know all of your names."],
@@ -106,6 +117,11 @@ const SUMMARY_TITLES := {"burn": "The Source is burning", "sample": "Contract co
 
 ## Radio barks between nodes and in fights. Each key has a few variants; act 3 has no radio, so
 ## barks there come from the squad.
+## Boss lines with no recorded clip yet (captions only): same keys as BARKS.
+const SILENT_BARKS := {
+	"choir_prophet_2": ["He's fixed on someone. Break his line of sight or get them cleansed.", "That's a link on {name}'s head. Cut it before it lands."],
+	"choir_prophet_3": ["The circle is closing. Find solid cover before the hymn peaks.", "Every third bar he stops singing and the whole room hurts. Hide, then hit him."],
+}
 const BARKS := {
 	"skirmish": ["Contacts ahead. Keep it tight.", "Infected in the street. Clear it and move on.",
 		"Hostiles on thermals. Your call how you go in."],

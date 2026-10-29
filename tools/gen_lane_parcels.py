@@ -278,7 +278,30 @@ def source_arena():
     return a
 
 
+def chorale_arena():
+    """The Choir Prophet's amphitheatre: a dais ringed by pillars, galleries either side, a lane of cover to the deploy."""
+    a = A("chorale")
+    a.rect(8, 4, 12, 8, ".")
+    a.put(10, 6, "B")
+    for x, y in [(8, 3), (12, 3), (7, 9), (13, 9)]:     # the Cantors' kneeling stones, half cover
+        a.put(x, y, "=")
+    for x0, y0, x1, y1 in [(6, 4, 6, 5), (14, 4, 14, 5), (5, 7, 5, 8), (15, 7, 15, 8), (8, 10, 9, 10), (11, 10, 12, 10),
+                           (9, 1, 9, 2), (11, 1, 11, 2)]:
+        a.rect(x0, y0, x1, y1, "#")                     # pillars: stand behind one and the Crescendo cannot see you
+    for x0, sx in [(1, 4), (16, 15)]:                    # a gallery either side, one stair each
+        a.rect(x0, 3, x0 + 2, 8, "^").put(x0 + 1, 5, "%")
+        a.put(sx, 6, "s")
+    for x, y in [(3, 11), (4, 11), (15, 11), (16, 11), (7, 13), (12, 13), (9, 14), (10, 14), (6, 16), (13, 16)]:
+        a.put(x, y, "=")
+    a.put(2, 13, "!").put(17, 13, "!").put(10, 2, "!")
+    a.deploy()
+    a.pods([(1, 1), (18, 1), (1, 10), (18, 10), (4, 12), (15, 12), (6, 1), (13, 1)])
+    return a
+
+
 ARENAS = {"wall": brood_arena, "port": hale_arena, "bore": source_arena}
+## Further arenas a biome draws (a boss picks its own by name, see MapGen.BOSS_ARENAS).
+EXTRA_ARENAS = {"port": [chorale_arena]}
 
 
 # ---------------------------------------------------------------- plots (slot letters)
@@ -370,7 +393,7 @@ def build(biome):
         parts.append(p.render())
         parts.append("")
     parts.append(PLOTS.strip("\n"))
-    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.", ARENAS[biome]().render()]
+    parts += ["", "; Boss arenas (20x20): the boss fight's own ground, drawn to match its phases.", ARENAS[biome]().render()] + [f().render() for f in EXTRA_ARENAS.get(biome, [])]
     return "\n".join(parts) + "\n"
 
 
