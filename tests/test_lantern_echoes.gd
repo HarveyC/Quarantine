@@ -160,5 +160,5 @@ func test_the_bore_arena_for_this_boss_is_its_own() -> void:
 		assert_true(g.level(boss) >= 2, "the Last Echo sits on the dais seat (level %d)" % g.level(boss))
 		assert_true(g.in_bounds(boss), "on the map")
 	var data := MapGen._load_biome("bore")
-	assert_eq(MapGen._arenas_for(data.arenas, "lantern_echoes").map(func(a): return a.name), ["lantern_wake"], "tagged for it")
-	assert_true(not MapGen._arenas_for(data.arenas, "the_source").map(func(a): return a.name).has("lantern_wake"), "and kept off the Source's ground")
+	assert_eq(MapGen._arenas_for(data, "lantern_echoes").map(func(a): return a.name), ["lantern_wake"], "tagged for it")
+	assert_true(not MapGen._arenas_for(data, "the_source").map(func(a): return a.name).has("lantern_wake"), "and kept off the Source's ground")

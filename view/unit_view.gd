@@ -191,7 +191,7 @@ func _build_model() -> void:
 	if ModelKit.is_skinned(_model):
 		_skin = SkinnedBody.new()
 		_skin.setup(_model, not soldier_body)
-		_skin.speed = {"runner": 1.3, "leaper": 1.2, "broodling": 1.4, "brood_mother": 0.7, "brute": 0.85, "carapace": 0.8, "sapper": 1.3}.get(kind, 1.0)
+		_skin.speed = {"runner": 1.3, "leaper": 1.2, "broodling": 1.4, "brood_mother": 0.7, "brute": 0.85, "breaker": 0.75, "carapace": 0.8, "sapper": 1.3}.get(kind, 1.0)
 	else:
 		_prop = ModelKit.find(_model, "body")
 		_prop_y = _prop.position.y if _prop != null else 0.0
@@ -234,6 +234,15 @@ func _enemy_glow() -> float:
 
 
 ## A boss whose phase changed shows more of the Bloom: stronger veins and a brighter glow.
+## Drops the named props of a boss's rig (its plate at a phase change); true when any was there.
+func shed_part(nm: String) -> bool:
+	var n := _model.find_child(nm, true, false) if _model != null else null
+	if n is Node3D:
+		(n as Node3D).visible = false
+		return true
+	return false
+
+
 func set_bloom(k: float) -> void:
 	_set_veins(k)
 	if _glow != null:

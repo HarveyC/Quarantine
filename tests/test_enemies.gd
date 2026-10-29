@@ -452,7 +452,8 @@ func test_fight_builder_respects_budget_cap_and_pool() -> void:
 				for e in f.enemies:
 					var p := EnemyRoster.parse(e)
 					if not p.elite:
-						assert_true(EnemyRoster.FROM_ACT[p.kind] <= act, "%s not in act %d" % [p.kind, act])
+						var packed: bool = EnemyRoster.BOSS_POOL[act].any(func(b: String) -> bool: return EnemyRoster.pack_of(b).has(p.kind))   # a boss's faction joins early
+						assert_true(EnemyRoster.FROM_ACT[p.kind] <= act or packed, "%s not in act %d" % [p.kind, act])
 	var a := FightBuilder.build({"act": 2, "node": "skirmish", "outbreak": 5, "seed": 9})
 	var b := FightBuilder.build({"act": 2, "node": "skirmish", "outbreak": 5, "seed": 9})
 	assert_eq(a, b, "deterministic")
@@ -492,7 +493,7 @@ func test_nest_and_boss_fights() -> void:
 	assert_eq(prev.elite, p.kind, "preview matches build, independent of outbreak")
 	for act in [1, 2, 3]:
 		var boss := FightBuilder.build({"act": act, "node": "boss", "objective": "boss", "outbreak": 5, "seed": 2})
-		assert_eq(boss.encounter.boss, EnemyRoster.BOSS_OF_ACT[act], "boss of act %d" % act)
+		assert_true(EnemyRoster.BOSS_POOL[act].has(boss.encounter.boss), "boss of act %d is from its pool" % act)
 
 
 # --- vertical enemies ----------------------------------------------------------------------
@@ -713,7 +714,7 @@ func test_brood_mother_phases_and_death_ends_fight() -> void:
 
 func test_brood_mother_health_scales_with_squad() -> void:
 	for squad in [1, 2, 4]:
-		var enc: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3,
+		var enc: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3, "boss": "brood_mother",
 			"players": squad, "squad": squad}).encounter
 		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(BroodMother.HEALTH[squad])) < 0.001,
 			"health share for %d soldiers" % squad)
@@ -860,7 +861,7 @@ func test_hale_holds_the_high_ground() -> void:
 	EnemyAbilities.set_tile(s.grid, Vector2i(5, 3), Types.Tile.LOW)
 	s.grid.set_level(Vector2i(6, 3), 1)
 	assert_eq(ColonelHale.post_near(s.grid, Vector2i(7, 2)), Vector2i(6, 3), "the one raised tile near his start")
-	var enc: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 3, "players": 2, "squad": 2}).encounter
+	var enc: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 3, "boss": "colonel_hale", "players": 2, "squad": 2}).encounter
 	enc["boss"] = "colonel_hale"
 	_soldier(s, "trooper", Vector2i(6, 12))
 	s.grid.enemy_spawns.assign([Vector2i(7, 2)])
@@ -890,7 +891,7 @@ func test_hale_phases_are_gated_and_the_last_one_ends_the_fight() -> void:
 
 func test_hale_health_scales_with_squad() -> void:
 	for squad in [1, 2, 4]:
-		var enc: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 3,
+		var enc: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 3, "boss": "colonel_hale",
 			"players": squad, "squad": squad}).encounter
 		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(ColonelHale.HEALTH[squad])) < 0.001, "Hale's share for %d" % squad)
 		var src: Dictionary = FightBuilder.build({"act": 3, "node": "boss", "objective": "boss", "seed": 3,

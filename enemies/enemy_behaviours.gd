@@ -12,7 +12,7 @@ const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
 	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
 	"netter", "handler", "sterilizer", "collector", "acolyte", "cantor", "hush",
-	"brood_mother", "colonel_hale", "the_source", "lantern_echoes"]
+	"brood_mother", "breaker", "colonel_hale", "director", "choir_prophet", "the_source", "bore_engine", "lantern_echoes"]
 
 
 static func handles(s: GameState, u: Unit) -> bool:
@@ -29,14 +29,25 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 	if u.kind == "brood_mother":
 		BroodMother.take_turn(s, u)
 		return true
+	if u.kind == "breaker":
+		Breaker.take_turn(s, u)
+		return true
 	if u.kind == "colonel_hale":
 		ColonelHale.take_turn(s, u)
+		return true
+	if u.kind == "choir_prophet":
+		ChoirProphet.take_turn(s, u)
+	if u.kind == "director":
+		DirectorBoss.take_turn(s, u)
 		return true
 	if u.kind == "the_source":
 		SourceBoss.take_turn(s, u)
 		return true
 	if LanternEchoes.scripted(u):
 		LanternEchoes.boss_turn(s, u)
+		return true
+	if u.kind == "bore_engine":
+		BoreEngine.take_turn(s, u)
 		return true
 	if u.kind == "collector" and Recovery.collector_turn(s, u):
 		return true
@@ -126,6 +137,8 @@ static func end_turn(s: GameState, u: Unit) -> void:
 	var hostiles := EnemyAI._hostiles(s, u)
 	if u.status.get("plate", false):
 		_face(s, u, hostiles)
+	if u.kind == "breaker":
+		Breaker.end_turn(s, u)
 	Choir.end_turn(s, u, hostiles)
 	if u.kind in ["bloater", "broodling"] and not u.status.has("swelling") and EnemyAI.is_alerted(u):
 		var need := 1 if u.kind == "broodling" else 2

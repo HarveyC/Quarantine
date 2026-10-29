@@ -11,7 +11,7 @@ const RADIO_OUT := "res://audio/voice/radio_out.ogg"
 const STATIC := "res://audio/voice/radio_static.ogg"
 ## Seconds the voice drops out for each word a broken-up line loses.
 const DROPOUT := 0.35
-const DB := {"okafor": -1.0, "source": 0.0, "hale": -1.0, "hale_turned": 0.0, "hv": -2.0, "squad": -5.0}
+const DB := {"okafor": -1.0, "source": 0.0, "hale": -1.0, "hale_turned": 0.0, "hv": -2.0, "prophet": 0.0, "squad": -5.0}
 
 var _voice: AudioStreamPlayer
 var _fx: AudioStreamPlayer

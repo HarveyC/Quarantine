@@ -78,20 +78,30 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 	match str(enc.get("boss", "")):
 		"brood_mother":
 			BroodMother.setup(s, _place(s, "brood_mother", _marker(s, "boss", _far_spawn(s))), squad)
+		"breaker":
+			Breaker.setup(s, _place(s, "breaker", _marker(s, "boss", _far_spawn(s))), squad)
 		"colonel_hale":
 			var h := _place(s, "colonel_hale", ColonelHale.post_near(s.grid, _marker(s, "boss", _far_spawn(s))))
 			ColonelHale.setup(s, h, squad)
+		"choir_prophet":
+			ChoirProphet.setup(s, _place(s, "choir_prophet", _marker(s, "boss", _far_spawn(s))), squad)
+		"director":
+			DirectorBoss.setup(s, _place(s, "director", _marker(s, "boss", _far_spawn(s))), squad)
 		"the_source":
 			var centre := Vector2i(s.grid.width / 2, s.grid.height / 2)
 			var src := _place(s, "the_source", _marker(s, "boss", centre))
 			var offsets: Array[Vector2i] = [Vector2i(0, -4), Vector2i(-4, 3), Vector2i(4, 3)]
-			for i in SOURCE_ROOTS[squad]:
+			SourceBoss.setup(s, src, str(enc.get("aspect", "")), enc.get("echo_names", []))
+			for i in SourceBoss.roots_for(squad, SourceBoss.aspect_of(src), SOURCE_ROOTS[squad]):
 				var root := _place(s, "source_root", src.pos + offsets[i])
 				root.status["spawner"] = {"kinds": ["runner", "spitter"], "every": 3 + slower, "next": 2 + i, "i": i}
 			src.status["alerted"] = true
 		"lantern_echoes":
 			var last := _place(s, "lantern_echoes", _marker(s, "boss", _far_spawn(s)))
 			LanternEchoes.setup(s, last, squad)
+		"bore_engine":
+			var engine := _place(s, "bore_engine", _marker(s, "boss", Vector2i(s.grid.width / 2, s.grid.height / 2)))
+			BoreEngine.setup(s, engine, squad)
 	var mult := float(enc.get("boss_health_mult", 1.0))
 	for u in s.living(Types.Team.ENEMY):
 		if EnemyRoster.is_static(u) or enc.get("ambush", false):
@@ -373,13 +383,14 @@ static func on_enemy_phase_start(s: GameState) -> void:
 		return
 	_resolve_telegraphs(s)
 	LanternEchoes.on_enemy_phase_start(s)
+	ChoirProphet.on_enemy_phase_start(s)
 	Choir.on_enemy_phase_start(s)
 	var src := _boss(s, "the_source")
 	if src != null and src.status.has("tether"):
 		var hit: Array[int] = []
 		for u in s.living(Types.Team.PLAYER):
 			hit.append(u.id)
-		var amount: int = SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)]
+		var amount: int = SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)] + SourceBoss.pulse_bonus(s, src)
 		s.emit({"type": "source_pulse", "unit": src.id, "units": hit, "amount": amount})
 		for id in hit:
 			Infection.add(s, s.get_unit(id), amount)
@@ -404,13 +415,17 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			continue
 		var victims: Array[Unit] = []
 		for u in s.living():
-			if t.cells.has(u.pos) and u != src:
+			if t.cells.has(u.pos) and u != src and not (t.get("foes_only", false) and src != null and not src.is_enemy_of(u)):
 				victims.append(u)
 		s.emit({"type": "strike", "kind": t.kind, "cells": t.cells, "unit": t.get("unit", -1),
 			"units": victims.map(func(x: Unit) -> int: return x.id), "damage": t.damage})
 		for u in victims:
 			Rules.deal_damage(s, u, int(t.damage), src if src != null and src.is_alive() else null)
+			if int(t.get("infect", 0)) > 0 and u.is_alive() and u.team == Types.Team.PLAYER:
+				Infection.add(s, u, int(t.infect))
 		Recovery.after_strike(s, t, victims)
+		if t.get("capture", false) and s.phase != Types.Phase.ENDED:
+			Retrieval.after_cage(s, victims)
 		if int(t.get("spores", 0)) > 0 and s.phase != Types.Phase.ENDED:
 			add_spores(s, t.cells, int(t.spores), src)
 		if int(t.get("fire", 0)) > 0 and s.phase != Types.Phase.ENDED:
@@ -421,6 +436,8 @@ static func _resolve_telegraphs(s: GameState) -> void:
 				hits[c] = 1
 			Destruction.noise(s, t.cells[t.cells.size() / 2])
 			Destruction.hit(s, hits, src if src != null and src.is_alive() else null)
+		if t.get("drop", false) and s.phase != Types.Phase.ENDED:   # raised ground under the strike comes down
+			EnemyTerrain.collapse(s, t.cells, src)
 		if s.phase == Types.Phase.ENDED:
 			return
 	s.encounter["telegraphs"] = keep
@@ -502,7 +519,7 @@ static func on_enemy_phase_end(s: GameState) -> void:
 
 ## The Source fight: spore zones grow one ring inward from the map edge every turn.
 static func _spread_spore_ring(s: GameState, src: Unit) -> void:
-	var ring := s.turn - 1
+	var ring := s.turn - 1 + SourceBoss.ring_head(src)
 	var last := ring
 	if int(src.status.get("boss_phase", 1)) >= 3:   # the collapse: the ring runs two rings ahead each turn
 		ring += s.turn - int(src.status.get("phase3_turn", s.turn))
@@ -582,8 +599,12 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		s.emit({"type": "plated", "unit": target.id, "source": source.id})
 	if source != null and target.team == Types.Team.PLAYER and source.team == Types.Team.ENEMY:
 		amount += _rally_bonus(s, source) + _stalk_bonus(s, source, target) + Choir.chant_bonus(s, source)
+		if Retrieval.is_marked(target):
+			amount += Retrieval.MARK_DAMAGE
 	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:
 		amount = maxi(1, roundi(amount * float(BOSS_DAMAGE[clampi(int(s.encounter.get("squad", 4)), 1, 4)])))
+	if source != null and target.team == Types.Team.PLAYER:
+		amount = ChoirProphet.compelled_damage(source, amount + ChoirProphet.ring_bonus(s, source))
 	if target.kind == "the_source" and source != null and source.team == Types.Team.PLAYER \
 			and Infection.tier(source.infection) >= Infection.Tier.MUTATING:
 		amount = ceili(amount * CARRIER_BONUS)
@@ -593,10 +614,18 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		return LanternEchoes.clamp_damage(s, target, amount, source)
 	if target.kind == "brood_mother":
 		return BroodMother.clamp_damage(target, amount)
+	if target.kind == "breaker":
+		return Breaker.clamp_damage(target, amount)
 	if target.kind == "colonel_hale":
 		return ColonelHale.clamp_damage(target, amount)
+	if target.kind == "choir_prophet":
+		return ChoirProphet.clamp_damage(s, target, amount)
+	if target.kind == "director":
+		return DirectorBoss.clamp_damage(target, amount)
 	if target.kind == "the_source":
 		return SourceBoss.clamp_damage(target, amount)
+	if target.kind == "bore_engine":
+		return BoreEngine.clamp_damage(target, amount)
 	return amount
 
 
@@ -646,8 +675,14 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 	match target.kind:
 		"brood_mother":
 			BroodMother.on_damaged(s, target)
+		"breaker":
+			Breaker.on_damaged(s, target)
 		"colonel_hale":
 			ColonelHale.on_damaged(s, target)
+		"choir_prophet":
+			ChoirProphet.on_damaged(s, target)
+		"director":
+			DirectorBoss.on_damaged(s, target)
 		"the_source":
 			SourceBoss.on_damaged(s, target)
 
@@ -680,13 +715,17 @@ static func on_died(s: GameState, u: Unit) -> void:
 		for o in s.living(Types.Team.ENEMY):
 			kill(s, o)
 		return
-	if u.kind in ["hive_node", "source_root", "egg_sac"] and not _any_alive(s, u.kind):
+	if u.kind == "coolant_valve":
+		BoreEngine.on_valve_cut(s, u)
+	if u.kind in ["hive_node", "source_root", "egg_sac", "coolant_valve", "sharpshooter"] and not _any_alive(s, u.kind):
 		for o in s.living(Types.Team.ENEMY):
 			if o.status.get("tether", "") == u.kind:
 				o.status.erase("tether")
 				s.emit({"type": "untethered", "unit": o.id})
 				if o.kind == "the_source":
 					SourceBoss.on_roots_dead(s, o)
+				elif o.kind == "bore_engine":
+					BoreEngine.on_valves_dead(s, o)
 
 
 static func _any_alive(s: GameState, kind: String) -> bool:

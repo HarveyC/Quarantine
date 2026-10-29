@@ -487,6 +487,42 @@ func _set_boss() -> void:
 				_box(Vector3(2.5, 1.2, 1.0), Vector3(x, 0.6, -2.0), CONCRETE, 0.3 * signf(x))
 			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
 			_omni(Vector3(-4, 1, -4), Color("ff4a33"), 2.0, 8.0, true)
+		"choir_prophet":
+			# The circle: the Choir kneels in a ring round the dais, the ring itself burning teal on the floor.
+			for i in 8:
+				var a := TAU * i / 8.0 + 0.2
+				_unit("shrieker", -1, 0, Vector3(cos(a) * 4.2, 0, sin(a) * 3.0 - 1.0), Vector3(-cos(a), 0, -sin(a)))
+			_omni(Vector3(0, 0.3, -1.0), TEAL, 6.0, 7.0, true)
+			_spores(Vector3(0, 2, -1), Vector3(5, 3, 4), TEAL, 90)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), TEAL, 6.0, 16.0, 22.0)
+		"director":   # three posts on the roofs behind her, red laser lines laid across the shot
+			col = Color("e8f0ff")
+			for x in [-6.5, 6.5]:
+				_box(Vector3(3.0, 3.0, 2.2), Vector3(x, 1.5, -4.5), CONCRETE, 0.0)
+				var post := _unit("sharpshooter", -1, 0, Vector3(x, 3.0, -4.5), Vector3(0, 0, 10))
+				_white(post)
+				var beam := _box(Vector3(0.03, 0.03, 12.0), Vector3(x * 0.35, 2.6, 1.0), Color("ff3a2a"), 0.0, 4.0)
+				beam.rotation.y = -0.35 * signf(x)
+			_box(Vector3(4.0, 4.4, 2.6), Vector3(0, 2.2, -5.5), CONCRETE, 0.0)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
+			_omni(Vector3(-3, 1, -3), Color("ff4a33"), 1.5, 8.0, true)
+		"bore_engine":
+			col = Color("ffc470")
+			for i in 3:
+				var a := TAU * i / 3.0 + 1.5708
+				_unit("coolant_valve", -1, 0, Vector3(cos(a) * 4.5, 0, sin(a) * 4.5 - 1.0), Vector3(0, 0, -1))
+			_omni(Vector3(0, 3, 0), Color("ff7a33"), 7.0, 16.0, true)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 6.0, 16.0, 22.0)
+		"breaker":   # the demolition yard: stacked blocks and hazard lamps, the rig lit from behind
+			col = Color("ffb347")
+			for i in 5:
+				var x := -7.0 + i * 3.5
+				_box(Vector3(2.4, 0.9 + 0.5 * float(i % 3), 1.0), Vector3(x, 0.45, -3.4 - 0.4 * float(i % 2)), CONCRETE.darkened(0.15), 0.12 * float(i - 2))
+			_box(Vector3(0.5, 7.0, 0.5), Vector3(-5.5, 3.5, -6.0), CONCRETE.darkened(0.3))
+			_box(Vector3(11.0, 0.4, 0.5), Vector3(0.0, 7.0, -6.0), CONCRETE.darkened(0.3))
+			_spot(Vector3(0, 9, 3), Vector3(0, 0, 0), col, 8.0, 16.0, 26.0)
+			_omni(Vector3(-4, 1.2, -3), Color("ff9a3d"), 2.5, 8.0, true)
+			_omni(Vector3(4, 1.2, -3), Color("ff9a3d"), 2.5, 8.0, true)
 		"the_source":
 			for i in 6:
 				var a := TAU * i / 6.0

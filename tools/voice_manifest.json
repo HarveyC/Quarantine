@@ -45,13 +45,78 @@
 		"voice": "hale_turned"
 	},
 	{
+		"file": "hv_02283fd9fa.ogg",
+		"text": "I don't need all of you. I need one of you, breathing.",
+		"voice": "hv"
+	},
+	{
 		"file": "hv_09c10c3a8f.ogg",
 		"text": "Sample secured. Your contracts are complete.",
 		"voice": "hv"
 	},
 	{
+		"file": "hv_2888f1a230.ogg",
+		"text": "You are making this harder than it is.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_30a69eb444.ogg",
+		"text": "My team will do the lifting. Please don't make it hard.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_5da9c55b9c.ogg",
+		"text": "Lantern Company. Your blood work is under contract. Stay exactly where you are.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_6005de6d52.ogg",
+		"text": "Collectors, the nearest one. Gently.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_716698149d.ogg",
+		"text": "Hold your positions. Nobody touches the carriers.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_86fbe33c7a.ogg",
+		"text": "Lantern Company. Please stay where you are.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_87136ac886.ogg",
+		"text": "Cage the marked carrier. Now.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_984aa1c79e.ogg",
+		"text": "Extraction is called. Everyone clear the lane.",
+		"voice": "hv"
+	},
+	{
 		"file": "hv_a87eb208ca.ogg",
 		"text": "The colony was never the product.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_aa4dd0c66b.ogg",
+		"text": "Posts, lock your lanes.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_ae046bbfac.ogg",
+		"text": "Mark the warm one. The most Infected, I want that one.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_b33ce265e7.ogg",
+		"text": "I only need one. One will do.",
+		"voice": "hv"
+	},
+	{
+		"file": "hv_b9a90e348e.ogg",
+		"text": "Second team, take the roofs.",
 		"voice": "hv"
 	},
 	{
@@ -285,8 +350,18 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_2c722001d1.ogg",
+		"text": "The wall rig is running again, and nobody is driving it.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_2cbdaf9ce4.ogg",
 		"text": "eighteen",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_2d67c4a7ed.ogg",
+		"text": "Its plate is off. It's tearing the yard down on top of you.",
 		"voice": "okafor"
 	},
 	{
@@ -500,6 +575,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_546e3c862e.ogg",
+		"text": "It's stripped to the frame. Two runs at once, watch both lanes.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_5743867f3f.ogg",
 		"text": "They aren't ours any more.",
 		"voice": "okafor"
@@ -620,6 +700,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_7140cf4376.ogg",
+		"text": "That's the last post. She has no cover. Go.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_734ffceeba.ogg",
 		"text": "Sato",
 		"voice": "okafor"
@@ -627,6 +712,11 @@
 	{
 		"file": "okafor_743942eb54.ogg",
 		"text": "fifty-four's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_75072b758f.ogg",
+		"text": "She's marked one of you. Break her sight lines and keep that soldier moving.",
 		"voice": "okafor"
 	},
 	{
@@ -642,6 +732,16 @@
 	{
 		"file": "okafor_7700143085.ogg",
 		"text": "You're past the wall. Port Ardent is ahead of you.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_784812c419.ogg",
+		"text": "It flattens whatever is in its way. Don't stand behind anything you need.",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_7ad0a2e1d9.ogg",
+		"text": "Plate's gone. Get off the high ground.",
 		"voice": "okafor"
 	},
 	{
@@ -715,6 +815,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_8946033a79.ogg",
+		"text": "You're past the wall. Port Ardent's harbour lights are on.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_896e67823d.ogg",
 		"text": "twenty's",
 		"voice": "okafor"
@@ -722,6 +827,11 @@
 	{
 		"file": "okafor_89a0476e8a.ogg",
 		"text": "twenty-three",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_8af025b8fe.ogg",
+		"text": "Nobody here turned them on. A Halden-Voss recovery team is on the docks. They are not here for the Infected.",
 		"voice": "okafor"
 	},
 	{
@@ -860,6 +970,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_aafda4dd29.ogg",
+		"text": "She's calling the extraction. Kill the Collectors and keep everyone on their feet.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_ab389edaab.ogg",
 		"text": "twenty",
 		"voice": "okafor"
@@ -940,6 +1055,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_b858bd824e.ogg",
+		"text": "Her snipers are down. She's exposed. Hit her now.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_b8a9f715db.ogg",
 		"text": "two",
 		"voice": "okafor"
@@ -977,6 +1097,11 @@
 	{
 		"file": "okafor_bf571e9909.ogg",
 		"text": "Ferreira's",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_c2373da4c4.ogg",
+		"text": "A second team is on the roofs. Clear them again, and watch who she marks.",
 		"voice": "okafor"
 	},
 	{
@@ -1075,6 +1200,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_d7ced28cc7.ogg",
+		"text": "The wall crews' demolition rigs went quiet last week. One of them is moving again.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_d911b34823.ogg",
 		"text": "Wave",
 		"voice": "okafor"
@@ -1130,6 +1260,11 @@
 		"voice": "okafor"
 	},
 	{
+		"file": "okafor_e039312ffc.ogg",
+		"text": "Cages incoming. Don't let anyone stand pinned under one.",
+		"voice": "okafor"
+	},
+	{
 		"file": "okafor_e03b75c98d.ogg",
 		"text": "Reyes's",
 		"voice": "okafor"
@@ -1172,6 +1307,11 @@
 	{
 		"file": "okafor_ef83e005d2.ogg",
 		"text": "forty-four",
+		"voice": "okafor"
+	},
+	{
+		"file": "okafor_f02d4edd45.ogg",
+		"text": "No more plating, and it's fast. Keep moving.",
 		"voice": "okafor"
 	},
 	{
@@ -1228,6 +1368,16 @@
 		"file": "okafor_fe9d1c12f4.ogg",
 		"text": "Nakamura's",
 		"voice": "okafor"
+	},
+	{
+		"file": "prophet_4500c478fd.ogg",
+		"text": "It is not a disease. It is a conversation. Stop shouting.",
+		"voice": "prophet"
+	},
+	{
+		"file": "prophet_c1f7382a3c.ogg",
+		"text": "Come inside the circle. There is no one left outside to hurt you.",
+		"voice": "prophet"
 	},
 	{
 		"file": "source_0e6fc146d3.ogg",
@@ -1290,8 +1440,18 @@
 		"voice": "source"
 	},
 	{
+		"file": "source_29cd38bed6.ogg",
+		"text": "Closer. Let me hold what is already mine.",
+		"voice": "source"
+	},
+	{
 		"file": "source_29e7549cfd.ogg",
 		"text": "Come down to me,",
+		"voice": "source"
+	},
+	{
+		"file": "source_3138f99f44.ogg",
+		"text": "You carry so much of me already. Bring me the rest.",
 		"voice": "source"
 	},
 	{
@@ -1310,6 +1470,11 @@
 		"voice": "source"
 	},
 	{
+		"file": "source_42b774f732.ogg",
+		"text": "You cannot burn what grows back.",
+		"voice": "source"
+	},
+	{
 		"file": "source_430f293c7e.ogg",
 		"text": "Every one of you is already part of me. Come down.",
 		"voice": "source"
@@ -1317,6 +1482,11 @@
 	{
 		"file": "source_4bd761d4cf.ogg",
 		"text": "Tanaka",
+		"voice": "source"
+	},
+	{
+		"file": "source_4f1bb76d31.ogg",
+		"text": "There is nothing left to hold you up.",
 		"voice": "source"
 	},
 	{
@@ -1355,6 +1525,11 @@
 		"voice": "source"
 	},
 	{
+		"file": "source_8d2860bd3e.ogg",
+		"text": "I kept every name. Listen, they are calling you.",
+		"voice": "source"
+	},
+	{
 		"file": "source_9459b92017.ogg",
 		"text": "Adeyemi",
 		"voice": "source"
@@ -1372,6 +1547,11 @@
 	{
 		"file": "source_a18ae8d5d6.ogg",
 		"text": "I can feel you,",
+		"voice": "source"
+	},
+	{
+		"file": "source_a3e98451e7.ogg",
+		"text": "Come down. They are waiting.",
 		"voice": "source"
 	},
 	{
@@ -1395,13 +1575,28 @@
 		"voice": "source"
 	},
 	{
+		"file": "source_b3b235658e.ogg",
+		"text": "Cut me down. I have done this before.",
+		"voice": "source"
+	},
+	{
 		"file": "source_b9fca8911e.ogg",
 		"text": "Castillo",
 		"voice": "source"
 	},
 	{
+		"file": "source_c0f94ffc2d.ogg",
+		"text": "Hear them? They remember you too.",
+		"voice": "source"
+	},
+	{
 		"file": "source_c4449d26bf.ogg",
 		"text": "Iyer",
+		"voice": "source"
+	},
+	{
+		"file": "source_c8497077c4.ogg",
+		"text": "Roots are patient. So am I.",
 		"voice": "source"
 	},
 	{
@@ -1417,6 +1612,11 @@
 	{
 		"file": "source_d4d104f306.ogg",
 		"text": "Petrov",
+		"voice": "source"
+	},
+	{
+		"file": "source_d7b891c061.ogg",
+		"text": "Again. I am not finished.",
 		"voice": "source"
 	},
 	{

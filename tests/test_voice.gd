@@ -30,6 +30,7 @@ func test_speakers_map_to_voices() -> void:
 	assert_eq(VoiceLines.voice_of("MAJOR OKAFOR"), "okafor")
 	assert_eq(VoiceLines.voice_of("OKAFOR"), "okafor")
 	assert_eq(VoiceLines.voice_of("SOURCE"), "source")
+	assert_eq(VoiceLines.voice_of("PROPHET"), "prophet")
 	assert_eq(VoiceLines.voice_of("Trooper Reyes"), "")
 	assert_eq(Babble.class_of("Trooper Reyes"), "trooper")
 	assert_eq(Babble.class_of("MEDIC ADEYEMI"), "medic")
@@ -62,6 +63,11 @@ func test_every_story_line_by_a_voice_has_clips() -> void:
 	for l in lines:
 		if VoiceLines.voice_of(l[0]) != "":
 			assert_true(not VoiceLines.plan(l[0], l[1]).is_empty(), "no clips for %s: %s" % l)
+	for aspect in StoryData.SOURCE_ASPECT_LINES:
+		for k in StoryData.SOURCE_ASPECT_LINES[aspect]:
+			var l: Variant = StoryData.SOURCE_ASPECT_LINES[aspect][k]
+			var text: String = l[1] if l is Array else l
+			assert_true(not VoiceLines.plan("SOURCE", text).is_empty(), "no clips for %s %s: %s" % [aspect, k, text])
 	assert_eq(VoiceLines.plan("MAJOR OKAFOR", "We lost Reyes.").size(), 2)
 	var echo := VoiceLines.plan("MAJOR OKAFOR", "Contact. That's Osei, wave 12. They aren't ours any more.")
 	assert_eq(echo.size(), 5)

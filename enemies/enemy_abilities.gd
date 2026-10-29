@@ -25,6 +25,8 @@ const DEFS := {
 		"desc": "Lobs acid onto a 3x3 that lands next enemy phase: 3 damage and a spore patch for 2 turns."},
 	"rockfall": {"name": "Rockfall", "targeting": "none", "cost": -1, "cooldown": 0,
 		"desc": "Throws up a spray of rocks onto marked tiles that land next enemy phase: 2 damage each, smashes cover. Move off a marked tile to dodge."},
+	"debris": {"name": "Debris", "targeting": "none", "cost": 1, "cooldown": 2, "phases": [2],
+		"desc": "Tears rubble down on marked tiles that land next enemy phase: 2 damage, smashes cover and brings raised ground down. Aims at soldiers on high ground, else the best-covered."},
 	"airstrike": {"name": "Airstrike", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
 		"desc": "Calls a 3x3 airstrike that lands next enemy phase: 4 damage and destroys half cover."},
 	"flashbang": {"name": "Flashbang", "targeting": "cell", "cost": 1, "cooldown": 2, "phase": 1,
@@ -57,6 +59,20 @@ const DEFS := {
 		"desc": "Drags the soldier with the most Infection 2 tiles toward the Source."},
 	"core_slam": {"name": "Core slam", "targeting": "cell", "cost": -1, "cooldown": 0, "phases": [2, 3],
 		"desc": "Marks a whole row or column; it slams for 4 damage next enemy phase."},
+	"verse": {"name": "Verse", "targeting": "cell", "cost": 1, "cooldown": 0,
+		"desc": "Sings a 3x3 that lands next enemy phase: 3 damage and Infection. The Choir inside his ring hit harder."},
+	"fix": {"name": "Fix", "targeting": "unit", "cost": 1, "cooldown": 2, "phases": [2, 3],
+		"desc": "Fixes the hymn on the most Infected soldier he can see. If the link holds next round they are Compelled for 2 rounds. Break sight, cleanse them or Suppress him to cut it."},
+	"compel": {"name": "Compel", "targeting": "none", "cost": 0, "cooldown": 0, "phases": [2, 3],
+		"desc": "The fixed soldier fights for the song for 2 rounds, shooting their own squad at half damage, or standing transfixed alone. A cure ends it."},
+	"quell": {"name": "Hush", "targeting": "unit", "cost": 1, "cooldown": 2, "phases": [3],
+		"desc": "Silences one soldier's class abilities and signature for two rounds."},
+	"crescendo": {"name": "Crescendo", "targeting": "none", "cost": -1, "cooldown": 0, "phases": [3],
+		"desc": "The hymn peaks: 4 damage and Infection on every tile he can see next enemy phase. Get behind something solid."},
+	"piston": {"name": "Piston", "targeting": "cell", "cost": 1, "cooldown": 0,
+		"desc": "Marks a whole row or column; the pistons sweep it for 4 damage next enemy phase."},
+	"bite": {"name": "Bite", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Clamps down on everything within 2 tiles of the Engine: 5 damage next enemy phase."},
 	"smoke_screen": {"name": "Smoke screen", "targeting": "cell", "cost": 1, "cooldown": 4,
 		"desc": "Pops a 3x3 smoke cloud to cover a fall back: +defense inside it."},
 	"stomp": {"name": "Stomp", "targeting": "none", "cost": -1, "cooldown": 3,
@@ -65,6 +81,10 @@ const DEFS := {
 		"desc": "Hurls wreckage onto a 3x3 that lands next enemy phase: 4 damage, smashes cover and roofs."},
 	"danger_close": {"name": "Danger close", "targeting": "none", "cost": 1, "cooldown": 3,
 		"desc": "Calls an airstrike on his own position: 4 damage in a 5x5 next enemy phase, hits his own adds too."},
+	"flag": {"name": "Retrieval mark", "targeting": "none", "cost": 1, "cooldown": 2, "phases": [2, 3],
+		"desc": "Marks the most Infected soldier for retrieval: every enemy hit on them deals +1 damage, her shots ignore their cover and her cage comes down on them."},
+	"retrieve": {"name": "Retrieval", "targeting": "cell", "cost": 1, "cooldown": 2, "phases": [3],
+		"desc": "Drops a retrieval cage on a 3x3 that lands next enemy phase: 5 damage, and a soldier a Netter or Collector holds is taken."},
 	"lash": {"name": "Lash", "targeting": "cell", "cost": 1, "cooldown": 0, "phases": [1, 3],
 		"desc": "Roots lash a 3x3 next enemy phase: 3 damage and spores. Aims at the highest ground."},
 	"net": {"name": "Net", "targeting": "unit", "cost": -1, "cooldown": 0,
@@ -101,6 +121,7 @@ const STRIKE_DAMAGE := 4
 const ACID_RAIN_DAMAGE := 3
 const ACID_RAIN_RANGE := 10.0
 const ROCK_DAMAGE := 2
+const DEBRIS_DAMAGE := 2
 const PULL_STEPS := 2
 const LEAP_RANGE := 5
 const LEAP_DAMAGE := 4
@@ -112,6 +133,9 @@ const SMOKE_RANGE := 6.0
 const SMOKE_TURNS := 3
 const HURL_RANGE := 9.0
 const LASH_RANGE := 24.0
+const PISTON_DAMAGE := 4
+const BITE_DAMAGE := 5
+const BITE_RADIUS := 2
 
 
 static func handles(id: String) -> bool:
@@ -133,6 +157,8 @@ static func _phase_ok(u: Unit, id: String) -> bool:
 	if u.kind == "colonel_hale":
 		return HALE_PHASES[clampi(phase, 1, 3)].has(id)
 	var need: int = DEFS[id].get("phase", 0)
+	if id == "pull" and u.kind == "the_source" and SourceBoss.pulls_in_phase_1(u):
+		return true
 	if DEFS[id].has("phases"):
 		return DEFS[id].phases.has(phase)
 	return need == 0 or need == phase
@@ -150,7 +176,11 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		return Recovery.validate(s, u, action)
 	if Choir.handles(id):
 		return Choir.validate(s, u, action)
+	if ChoirProphet.OWNS.has(id):
+		return ChoirProphet.validate(s, u, action)
 	var def: Dictionary = DEFS[id]
+	if Retrieval.handles(id):
+		return Retrieval.validate(s, u, action)
 	if def.targeting == "unit":
 		var t := s.get_unit(action.get("target", -1))
 		if t == null or not t.is_alive():
@@ -207,7 +237,7 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			"flashbang":
 				if u.pos.distance_to(cell) > FLASH_RANGE or not Combat.can_see(s, u.pos, cell):
 					return "Out of range"
-			"core_slam":
+			"core_slam", "piston":
 				if not action.get("axis", "") in ["row", "col"]:
 					return "No axis"
 			"smoke_screen":
@@ -265,13 +295,25 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	return ""
 
 
+## Actions an ability spends. The Director lays a lock and fires on it as two separate actions.
+static func _cost(u: Unit, id: String, def: Dictionary) -> int:
+	if u.kind == "director" and id in ["sight", "snipe"]:
+		return 1
+	return int(def.cost)
+
+
 static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 	var id: String = action.ability
 	var def: Dictionary = DEFS[id]
-	var cost: int = def.cost
+	var cost: int = _cost(u, id, def)
 	u.actions_left = 0 if cost < 0 else maxi(0, u.actions_left - cost)
 	if int(def.cooldown) > 0:
 		u.cooldowns[id] = def.cooldown
+	if Retrieval.handles(id):
+		Retrieval.apply(s, u, action)
+	if ChoirProphet.OWNS.has(id):
+		ChoirProphet.apply(s, u, action)
+		return
 	match id:
 		"net", "designate", "sterilize", "drag": Recovery.apply(s, u, action)
 		"bloom", "hush", "silence": Choir.apply(s, u, action)
@@ -334,6 +376,11 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cells": rocks})
 			Encounter.add_telegraph(s, {"kind": "rockfall", "cells": rocks, "turn": s.turn + 1,
 				"damage": ROCK_DAMAGE, "source": u.id, "smash": true, "unit": u.id})
+		"debris":
+			var rubble: Array = action.get("cells", [])
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cells": rubble})
+			Encounter.add_telegraph(s, {"kind": "debris", "cells": rubble, "turn": s.turn + 1,
+				"damage": DEBRIS_DAMAGE, "source": u.id, "smash": true, "drop": true, "unit": u.id})
 		"hurl":
 			var cells := square(s.grid, action.cell, 1)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
@@ -345,6 +392,16 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			Encounter.add_telegraph(s, {"kind": "lash", "cells": cells, "turn": s.turn + 1,
 				"damage": SourceBoss.LASH_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "spores": SPORE_TURNS})
 		"pull": _pull(s, u)
+		"piston":
+			var lane := slam_line(s, u, action.cell, action.axis)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": lane})
+			Encounter.add_telegraph(s, {"kind": "piston", "cells": lane, "turn": s.turn + 1,
+				"damage": PISTON_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "foes_only": true})
+		"bite":
+			var jaws := square(s.grid, u.pos, BITE_RADIUS)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": u.pos, "cells": jaws})
+			Encounter.add_telegraph(s, {"kind": "bite", "cells": jaws, "turn": s.turn + 1,
+				"damage": BITE_DAMAGE, "source": u.id, "smash": false, "unit": u.id, "foes_only": true})
 		"core_slam":
 			var cells := slam_line(s, u, action.cell, action.axis)
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": cells})
@@ -402,6 +459,10 @@ static func _charge(s: GameState, u: Unit) -> void:
 		if s.grid.tile(c) == Types.Tile.LOW:
 			smashed.append(c)
 		path.append(c)
+	if u.kind == "breaker":   # the rig flattens the cover on both sides of its lane too
+		for c in Breaker.swath(s.grid, path):
+			if s.grid.tile(c) == Types.Tile.LOW and not smashed.has(c):
+				smashed.append(c)
 	var from := u.pos
 	if not smashed.is_empty():
 		# Ploughs through the cover in its lane first (a fuel barrel in the way goes off).
@@ -415,7 +476,7 @@ static func _charge(s: GameState, u: Unit) -> void:
 		Rules.open_doors_along(s, from, path, u)
 		u.pos = path[-1]
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": path})
-		if u.kind == "colonel_hale":   # the Brute's run shakes every roof along its lane down
+		if u.kind == "colonel_hale" or (u.kind == "breaker" and int(u.status.get("boss_phase", 1)) >= 3):   # the run shakes every roof along its lane down
 			var shaken := {}
 			for c in path:
 				for n in square(s.grid, c, 1):
@@ -482,6 +543,8 @@ static func _snipe(s: GameState, u: Unit) -> void:
 	u.status.erase("sighted")
 	var dmg := s.rng.randi_range(u.damage.x, u.damage.y)
 	var cover := Elevation.adjust_cover(s, u, t, u.pos, Combat.cover_against(s.grid, t.pos, u.pos))
+	if Retrieval.is_marked(t):
+		cover = Types.Cover.NONE   # a marked soldier has nowhere to hide
 	if cover == Types.Cover.FULL:
 		dmg = maxi(1, dmg / 2)
 	s.emit({"type": "shot", "unit": u.id, "target": t.id, "hit": true, "graze": cover == Types.Cover.FULL,

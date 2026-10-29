@@ -1221,7 +1221,7 @@ World, Echoes and endings from the design doc's "World and story". Rules live in
   never arrives before the attack has played on screen (host and clients alike). Scenes are `story_scene.gd` (letterbox, title card, captions; Space next, Esc skip)
   over `story_stage.gd` (a 3D set from primitives plus the game's models, own SubViewport world).
 - **Voices** (local only, through `Soundscape.say(speaker, text, opts)` -> `view/voice_player.gd`). Okafor,
-  the Source, Hale and Halden-Voss speak recorded clips in `audio/voice/`; `VoiceLines` (story/voice_lines.gd)
+  the Source, Hale, Halden-Voss and the Choir Prophet speak recorded clips in `audio/voice/`; `VoiceLines` (story/voice_lines.gd)
   maps a filled caption back to its `StoryData` template and returns the clips, splicing a clip per
   `{name}` / `{wave}` (names from `RunSoldier.NAMES`, waves 1-60 in words). Okafor gets a radio key-up and
   release; in act 2 the words `StoryData.garble` blanked drop out under static (`VoicePlayer.dropouts`).

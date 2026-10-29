@@ -21,11 +21,11 @@ const OBJECTIVE_NAMES := {"skirmish": "Clear", "extract": "Extract", "hold": "Ho
 	"escort": "Escort", "demolish": "Sabotage", "hack": "Hack", "samples": "Samples"}
 const OBJECTIVE_TEXT := {
 	"skirmish": "Kill every enemy.",
-	"extract": "Get everyone to the evac zone. The flare wakes the area; the dropship needs a round to land.",
+	"extract": "Open the sealed gate: a soldier works the winch for 2 turns, which is loud and wakes the area. Then everyone goes through.",
 	"hold": "The beacon wakes every enemy. Hold it for %d turns. Don't leave it to the enemy two rounds running." % 4,
 	"rescue": "Escort the civilians to the drop zone.",
 	"purge": "Destroy the spore nests.",
-	"escort": "Walk the courier to the evac zone. It only moves while a soldier is close.",
+	"escort": "Walk the courier to the gate. It only moves while a soldier is close.",
 	"demolish": "Stand on each charge site to arm it, then get clear. All must blow within 10 rounds.",
 	"hack": "Hold a relay for 2 turns to hack it. Hack 2 of the 3 before the enemy wrecks them.",
 	"samples": "Pick up samples and carry 2 of the 3 back to the drop zone.",
