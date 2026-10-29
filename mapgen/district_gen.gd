@@ -812,7 +812,7 @@ static func _plaza(c: Ctx, lot: Rect2i) -> void:
 
 # ---------------------------------------------------------------- set pieces
 
-## The Wall: a cordon line across the lot with a three-wide gate, sandbag chicanes on both sides and fuel drums
+## The Wall: a cordon line across the lot with a three-wide gate, sandbag chicanes on both sides and drum stacks
 ## behind the wall. Enemies hold the far side.
 static func _checkpoint(c: Ctx, lot: Rect2i) -> void:
 	var rng := c.rng
@@ -830,8 +830,7 @@ static func _checkpoint(c: Ctx, lot: Rect2i) -> void:
 	for x in [gate - 3, gate + 5]:
 		var cell := Vector2i(x, line - 2)
 		if x >= x0 and x <= x1 and _is_free(c, cell):
-			_put(c, cell, Types.Tile.LOW)
-			c.g.volatile[cell] = true
+			_put(c, cell, Types.Tile.LOW)   # drum stacks: MapGen may turn one into a fuel barrel
 			drums.append(cell)
 	var far: Array[Vector2i] = []
 	for cell in _cells(Rect2i(x0, lot.position.y, lot.size.x, line - lot.position.y)):

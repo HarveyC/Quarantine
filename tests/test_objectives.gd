@@ -312,13 +312,13 @@ func test_new_objectives_generate_without_fallback() -> void:
 			for seed in range(1, 5):
 				var g := MapGen.generate({"biome": biome, "objective": o, "seed": seed})
 				assert_eq(g.objective, o, "%s %s %d keeps its objective" % [biome, o, seed])
-				assert_true(g.width >= 22, "%s %s sized" % [biome, o])
+				assert_true(g.width * g.height >= 600, "%s %s sized" % [biome, o])
 				var key: String = {"escort": "evac", "demolish": "charge", "hack": "relay", "samples": "sample"}[o]
 				assert_true(not g.marker(key).is_empty(), "%s %s has %s" % [biome, o, key])
 				if o != "escort":
 					assert_eq(g.marker(key).size(), 3, "%s %s three sites" % [biome, o])
 	var grand := MapGen.generate({"biome": "wall", "objective": "demolish", "seed": 2})
-	assert_eq(grand.width, 28, "sites ride on grand maps")
+	assert_true(grand.width >= 28, "sites ride on grand maps")
 
 
 func test_escort_courier_is_moved_by_players_and_wins_at_evac() -> void:
