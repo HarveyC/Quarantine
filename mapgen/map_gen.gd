@@ -29,6 +29,8 @@ const SITE_MARKER := {"demolish": "charge", "hack": "relay", "samples": "sample"
 const POD_STEPS := Vector2i(6, 20)        # walking distance from the drop zone: every pod cell >= x, each pod's nearest cell <= y
 const GRAND_WIDTH := 26                   # maps this wide or wider (5x5 plots are 28x28) get GRAND_POD_MAX
 const GRAND_POD_MAX := 27
+const HUGE_SIDE := 36                     # long and tall district footprints reach pods further out
+const HUGE_POD_MAX := 36
 const EVAC_MIN_STEPS := 12
 const OBJECTIVE_MIN_STEPS := 5            # civilians, nests, hive
 const FULL_COVER := Vector2(0.03, 0.24)   # share of all tiles
@@ -760,7 +762,10 @@ static func _validate(g: Grid, objective: String, dist: Dictionary, deploy: Arra
 		var nearest := 1 << 30
 		for c in pod:
 			nearest = mini(nearest, dist[c])
-		if nearest < POD_STEPS.x or nearest > (GRAND_POD_MAX if g.width >= GRAND_WIDTH else POD_STEPS.y):
+		var pod_max := GRAND_POD_MAX if g.width >= GRAND_WIDTH else POD_STEPS.y
+		if maxi(g.width, g.height) >= HUGE_SIDE:
+			pod_max = HUGE_POD_MAX
+		if nearest < POD_STEPS.x or nearest > pod_max:
 			last_reject = "pod distance %d" % nearest
 			return false
 	for c in markers.evac:
