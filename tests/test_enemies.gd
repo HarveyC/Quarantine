@@ -493,7 +493,7 @@ func test_nest_and_boss_fights() -> void:
 	assert_eq(prev.elite, p.kind, "preview matches build, independent of outbreak")
 	for act in [1, 2, 3]:
 		var boss := FightBuilder.build({"act": act, "node": "boss", "objective": "boss", "outbreak": 5, "seed": 2})
-		assert_eq(boss.encounter.boss, EnemyRoster.BOSS_OF_ACT[act], "boss of act %d" % act)
+		assert_true(EnemyRoster.BOSS_POOL[act].has(boss.encounter.boss), "boss of act %d is from its pool" % act)
 
 
 # --- vertical enemies ----------------------------------------------------------------------

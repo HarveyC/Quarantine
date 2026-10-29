@@ -83,6 +83,8 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 		"colonel_hale":
 			var h := _place(s, "colonel_hale", ColonelHale.post_near(s.grid, _marker(s, "boss", _far_spawn(s))))
 			ColonelHale.setup(s, h, squad)
+		"choir_prophet":
+			ChoirProphet.setup(s, _place(s, "choir_prophet", _marker(s, "boss", _far_spawn(s))), squad)
 		"director":
 			DirectorBoss.setup(s, _place(s, "director", _marker(s, "boss", _far_spawn(s))), squad)
 		"the_source":
@@ -377,6 +379,7 @@ static func on_enemy_phase_start(s: GameState) -> void:
 	if s.encounter.is_empty():
 		return
 	_resolve_telegraphs(s)
+	ChoirProphet.on_enemy_phase_start(s)
 	Choir.on_enemy_phase_start(s)
 	var src := _boss(s, "the_source")
 	if src != null and src.status.has("tether"):
@@ -414,6 +417,8 @@ static func _resolve_telegraphs(s: GameState) -> void:
 			"units": victims.map(func(x: Unit) -> int: return x.id), "damage": t.damage})
 		for u in victims:
 			Rules.deal_damage(s, u, int(t.damage), src if src != null and src.is_alive() else null)
+			if int(t.get("infect", 0)) > 0 and u.is_alive() and u.team == Types.Team.PLAYER:
+				Infection.add(s, u, int(t.infect))
 		Recovery.after_strike(s, t, victims)
 		if t.get("capture", false) and s.phase != Types.Phase.ENDED:
 			Retrieval.after_cage(s, victims)
@@ -594,6 +599,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 			amount += Retrieval.MARK_DAMAGE
 	if source != null and EnemyRoster.is_boss(source) and target.team == Types.Team.PLAYER:
 		amount = maxi(1, roundi(amount * float(BOSS_DAMAGE[clampi(int(s.encounter.get("squad", 4)), 1, 4)])))
+	if source != null and target.team == Types.Team.PLAYER:
+		amount = ChoirProphet.compelled_damage(source, amount + ChoirProphet.ring_bonus(s, source))
 	if target.kind == "the_source" and source != null and source.team == Types.Team.PLAYER \
 			and Infection.tier(source.infection) >= Infection.Tier.MUTATING:
 		amount = ceili(amount * CARRIER_BONUS)
@@ -603,6 +610,8 @@ static func modify_damage(s: GameState, target: Unit, amount: int, source: Unit)
 		return Breaker.clamp_damage(target, amount)
 	if target.kind == "colonel_hale":
 		return ColonelHale.clamp_damage(target, amount)
+	if target.kind == "choir_prophet":
+		return ChoirProphet.clamp_damage(s, target, amount)
 	if target.kind == "director":
 		return DirectorBoss.clamp_damage(target, amount)
 	if target.kind == "the_source":
@@ -662,6 +671,8 @@ static func on_damaged(s: GameState, target: Unit, source: Unit, amount: int) ->
 			Breaker.on_damaged(s, target)
 		"colonel_hale":
 			ColonelHale.on_damaged(s, target)
+		"choir_prophet":
+			ChoirProphet.on_damaged(s, target)
 		"director":
 			DirectorBoss.on_damaged(s, target)
 		"the_source":

@@ -154,6 +154,17 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 				return {"icon": "claw", "label": "BERSERK", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 			if int(u.cooldowns.get("acid_rain", 0)) <= 1:
 				return {"icon": "strike", "label": "ACID RAIN", "target": -1}
+		"choir_prophet":
+			if not ChoirProphet.singing(s, u):
+				return {"icon": "hide", "label": "HUSHED", "target": -1}
+			if u.status.has("fixed"):
+				return {"icon": "hook", "label": "COMPELLING", "target": int(u.status.fixed)}
+			if phase == 3:
+				var charge := int(u.status.get("hymn", 0)) + 1
+				if charge >= ChoirProphet.HYMN_MAX:
+					return {"icon": "strike", "label": "CRESCENDO", "target": -1}
+				return {"icon": "pulse", "label": "HYMN %d/%d" % [charge, ChoirProphet.HYMN_MAX], "target": -1}
+			return {"icon": "strike", "label": "VERSE", "target": -1}
 		"breaker":
 			if phase == 2 and int(u.cooldowns.get("debris", 0)) <= 1:
 				return {"icon": "strike", "label": "DEBRIS", "target": -1}
@@ -284,6 +295,15 @@ static func chants(s: GameState) -> Array[Dictionary]:
 	for u in s.living(Types.Team.ENEMY):
 		if u.kind == "cantor" and Vision.sees_unit(s, Types.Team.PLAYER, u):
 			out.append({"unit": u.id, "cell": u.pos})
+	return out
+
+
+## [{unit, cell, radius}] the hymn ring of a Choir Prophet the squad sees while he sings.
+static func rings(s: GameState) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var u := ChoirProphet.prophet(s)
+	if ChoirProphet.singing(s, u) and Vision.sees_unit(s, Types.Team.PLAYER, u):
+		out.append({"unit": u.id, "cell": u.pos, "radius": ChoirProphet.ring_radius(u)})
 	return out
 
 

@@ -26,6 +26,7 @@ const CameraRig := preload("res://view/camera_rig.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
 const ItemBeats := preload("res://view/item_beats.gd")
 const BossBeats := preload("res://view/boss_beats.gd")
+const ChoirBeats := preload("res://view/choir_beats.gd")
 const FactionBeats := preload("res://view/faction_beats.gd")
 const ShotCamera := preload("res://view/shot_camera.gd")
 const GunFeel := preload("res://view/gun_feel.gd")
@@ -1854,7 +1855,7 @@ func _beat_lapse(ev: Dictionary) -> Dictionary:
 	uv.set_lapsed(true)
 	uv.flash(Palette.DANGER)
 	view.fx.pulse(uv.position, Palette.DANGER, 0.9)
-	view.fx.floating_text(_head(uv), "LAPSED!", Palette.DANGER, 56)
+	view.fx.floating_text(_head(uv), "COMPELLED!" if ev.get("compelled", false) else "LAPSED!", Palette.TEAL if ev.get("compelled", false) else Palette.DANGER, 56)
 	_sfx("lapse")
 	view.camera_rig.shake(0.4)
 	return {"dur": 1.0}
@@ -2120,6 +2121,8 @@ func _beat_revealed_area(_ev: Dictionary) -> Dictionary:
 func _beat_unknown(ev: Dictionary) -> Dictionary:
 	if EnemyBeats.handles(ev):
 		return EnemyBeats.beat(self, ev)
+	if ChoirBeats.handles_event(ev):
+		return ChoirBeats.event_beat(self, ev)
 	generic_log.append("event:" + str(ev.get("type", "")))
 	print("[view] unhandled event: ", ev)
 	var uv := _uv(ev)

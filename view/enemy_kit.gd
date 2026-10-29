@@ -7,6 +7,7 @@ extends RefCounted
 ##   Carapace  a Brute with a bone plate over its front
 ##   Stalker   a tall, pale Runner with long back spines
 ##   Weaver    a Shrieker with glowing strands trailing from both hands
+##   Choir Prophet  a tall Shrieker in a pale robe, a ring of light behind the head, strands from both hands
 ##   Director  Hale's frame in a long white coat with a headset and a data slate (Halden-Voss Recovery)
 ##   Collector a Sharpshooter's body with a net launcher across the chest and a winch drum on the back
 ##   Breaker   the Act 1 boss: a big Brute frame in demolition plate, a wrecking ram for a fist and
@@ -20,13 +21,13 @@ const GunModels := preload("res://view/gun_models.gd")
 const BODY := {"hooker": "spitter", "sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker",
 	"cutter": "runner", "torchman": "fallen", "fence": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
-	"hound": "runner", "loader": "brute", "relay": "shrieker", "breaker": "brute",
+	"hound": "runner", "loader": "brute", "relay": "shrieker", "breaker": "brute", "choir_prophet": "shrieker",
 	"netter": "fallen", "handler": "fallen", "sterilizer": "fallen", "collector": "fallen",
 	"acolyte": "runner", "cantor": "shrieker", "hush": "shrieker",
 	"director": "colonel_hale"}
 const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95,
 	"shieldman": 1.1, "overwatcher": 1.0, "emplacement": 1.0,
-	"hound": 0.8, "loader": 1.2, "relay": 0.7, "breaker": 1.7,
+	"hound": 0.8, "loader": 1.2, "relay": 0.7, "breaker": 1.7, "choir_prophet": 1.45,
 	"netter": 1.05, "handler": 0.95, "sterilizer": 1.1, "collector": 1.15,
 	"acolyte": 0.85, "cantor": 1.0, "hush": 0.95}
 ## Props a boss drops at a phase change: kind -> {phase: [prop names]}.
@@ -52,6 +53,7 @@ const TINT := {
 	"collector": {"body": -0.1, "rags": 0.1},
 	"acolyte": {"body": 0.35, "skin": 0.3, "rags": 0.3}, "cantor": {"body": 0.45, "skin": 0.4, "flesh": 0.2},
 	"hush": {"body": -0.3, "skin": 0.3, "flesh": -0.1},
+	"choir_prophet": {"body": 0.4, "skin": 0.35, "flesh": 0.3, "rags": 0.5},
 	"director": {"body": 0.3, "cloth_team": 0.45, "armor_team": 0.35, "cloak_team": 0.5},
 }
 
@@ -103,6 +105,11 @@ static func dress(model: Node3D, kind: String) -> void:
 			_attach(sk, "spine_03", "net_launcher", _net_launcher())
 			_attach(sk, "spine_03", "winch_drum", _winch())
 		"weaver":
+			_attach(sk, "lowerarm_l", "strands_l", _strands())
+			_attach(sk, "lowerarm_r", "strands_r", _strands())
+		"choir_prophet":
+			_attach(sk, "spine_03", "robe", _robe())
+			_attach(sk, "Head", "halo", _halo())
 			_attach(sk, "lowerarm_l", "strands_l", _strands())
 			_attach(sk, "lowerarm_r", "strands_r", _strands())
 
@@ -311,3 +318,22 @@ static func _breaker_ram() -> Mesh:
 		["metal", "ball", Vector3(0.0, 0.78, 0.1), 0.19],
 	]
 	return GunModels.build_mesh(p, {}, {"plate": Color("6a6f6b"), "metal": Color("2c2e2d")})
+
+
+## A pale robe from the shoulders to the floor, with a glowing hem.
+static func _robe() -> Mesh:
+	var p := [
+		["robe", "tube", Vector3(0.0, 0.1, 0.0), Vector3(0.0, -1.15, 0.0), 0.5, 0.2],
+		["robe", "box", Vector3(0.0, 0.14, 0.0), Vector3(0.62, 0.1, 0.34)],
+		["glow", "tube", Vector3(0.0, -1.14, 0.0), Vector3(0.0, -1.16, 0.0), 0.5, 0.49],
+	]
+	return GunModels.build_mesh(p, {}, {"robe": Color("cfc8b8")})
+
+
+## A ring of light standing behind the head.
+static func _halo() -> Mesh:
+	var p := []
+	for i in 12:
+		var a := TAU * i / 12.0
+		p.append(["glow", "ball", Vector3(cos(a) * 0.3, 0.12 + sin(a) * 0.3, -0.2), 0.03])
+	return GunModels.build_mesh(p, {}, {})

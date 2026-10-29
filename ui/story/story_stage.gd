@@ -472,6 +472,14 @@ func _set_boss() -> void:
 				_box(Vector3(2.5, 1.2, 1.0), Vector3(x, 0.6, -2.0), CONCRETE, 0.3 * signf(x))
 			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
 			_omni(Vector3(-4, 1, -4), Color("ff4a33"), 2.0, 8.0, true)
+		"choir_prophet":
+			# The circle: the Choir kneels in a ring round the dais, the ring itself burning teal on the floor.
+			for i in 8:
+				var a := TAU * i / 8.0 + 0.2
+				_unit("shrieker", -1, 0, Vector3(cos(a) * 4.2, 0, sin(a) * 3.0 - 1.0), Vector3(-cos(a), 0, -sin(a)))
+			_omni(Vector3(0, 0.3, -1.0), TEAL, 6.0, 7.0, true)
+			_spores(Vector3(0, 2, -1), Vector3(5, 3, 4), TEAL, 90)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), TEAL, 6.0, 16.0, 22.0)
 		"director":   # three posts on the roofs behind her, red laser lines laid across the shot
 			col = Color("e8f0ff")
 			for x in [-6.5, 6.5]:

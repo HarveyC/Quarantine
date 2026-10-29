@@ -57,6 +57,11 @@ const ACT_SCENES := {
 ## title, sub, stage). It replaces the act's default scene, so the story foreshadows the boss.
 ## A new boss adds its entry here and in BOSS_SCENES; bosses without one use ACT_SCENES.
 const ACT_SCENES_BY_BOSS := {
+	"choir_prophet": {"title": "Act II · Port Ardent", "sub": "Every channel carries the same hymn", "stage": "port", "lines": [
+		["SQUAD", "Every channel is playing the same hymn. Do not listen to it for long."],
+		["SQUAD", "It sounds like someone we knew."],
+		["", "The harbour speakers are on. Whatever is singing, it is singing to you."],
+	]},
 	"director": {"title": "Act II · Port Ardent", "sub": "Downtown and the Halden-Voss labs", "stage": "port", "lines": [
 		["OKAFOR", "You're past the wall. Port Ardent's harbour lights are on."],
 		["OKAFOR", "Nobody here turned them on. A Halden-Voss recovery team is on the docks. They are not here for the Infected."],
@@ -92,6 +97,11 @@ const SOURCE_ASPECT_LINES := {
 }
 
 const BOSS_SCENES := {
+	"choir_prophet": {"title": "The Choir Prophet", "sub": "The hymn from the harbour", "lines": [
+		["", "One voice. All of them are singing in time with it."],
+		["PROPHET", "Come inside the circle. There is no one left outside to hurt you."],
+		["PROPHET", "It is not a disease. It is a conversation. Stop shouting."],
+	]},
 	"brood_mother": {"title": "The Brood Mother", "sub": "She nests in the breach", "lines": [
 		["OKAFOR", "That's what has been feeding on the camps."],
 		["OKAFOR", "Break the egg sacs first. While they live, she can't be hurt."],
@@ -191,6 +201,8 @@ const BARKS := {
 ## Boss fight lines spoken by a soldier of the squad (act 3 has no radio), same keys as the boss lines
 ## in BARKS. They are mask babble at play time, so they need no recorded clips.
 const SQUAD_BARKS := {
+	"choir_prophet_2": ["He's fixed on someone. Break his line of sight or get them cleansed.", "That's a link on {name}'s head. Cut it before it lands."],
+	"choir_prophet_3": ["The circle is closing. Find solid cover before the hymn peaks.", "Every third bar he stops singing and the whole room hurts. Hide, then hit him."],
 	"bore_engine_2": ["Valve's gone! Get off that platform, it's dropping.", "One down. The deck won't hold where that valve was."],
 	"bore_engine_open": ["Last valve! The core's open, hit it now!", "It's bare. Everything you've got, right now."],
 	"bore_engine_sealed": ["It sealed again. Cut the valves before the next window.", "The core shut. Valves are growing back, go!"],

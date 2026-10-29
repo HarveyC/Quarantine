@@ -59,6 +59,16 @@ const DEFS := {
 		"desc": "Drags the soldier with the most Infection 2 tiles toward the Source."},
 	"core_slam": {"name": "Core slam", "targeting": "cell", "cost": -1, "cooldown": 0, "phases": [2, 3],
 		"desc": "Marks a whole row or column; it slams for 4 damage next enemy phase."},
+	"verse": {"name": "Verse", "targeting": "cell", "cost": 1, "cooldown": 0,
+		"desc": "Sings a 3x3 that lands next enemy phase: 3 damage and Infection. The Choir inside his ring hit harder."},
+	"fix": {"name": "Fix", "targeting": "unit", "cost": 1, "cooldown": 2, "phases": [2, 3],
+		"desc": "Fixes the hymn on the most Infected soldier he can see. If the link holds next round they are Compelled for 2 rounds. Break sight, cleanse them or Suppress him to cut it."},
+	"compel": {"name": "Compel", "targeting": "none", "cost": 0, "cooldown": 0, "phases": [2, 3],
+		"desc": "The fixed soldier fights for the song for 2 rounds, shooting their own squad at half damage, or standing transfixed alone. A cure ends it."},
+	"quell": {"name": "Hush", "targeting": "unit", "cost": 1, "cooldown": 2, "phases": [3],
+		"desc": "Silences one soldier's class abilities and signature for two rounds."},
+	"crescendo": {"name": "Crescendo", "targeting": "none", "cost": -1, "cooldown": 0, "phases": [3],
+		"desc": "The hymn peaks: 4 damage and Infection on every tile he can see next enemy phase. Get behind something solid."},
 	"piston": {"name": "Piston", "targeting": "cell", "cost": 1, "cooldown": 0,
 		"desc": "Marks a whole row or column; the pistons sweep it for 4 damage next enemy phase."},
 	"bite": {"name": "Bite", "targeting": "none", "cost": -1, "cooldown": 0,
@@ -166,6 +176,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		return Recovery.validate(s, u, action)
 	if Choir.handles(id):
 		return Choir.validate(s, u, action)
+	if ChoirProphet.OWNS.has(id):
+		return ChoirProphet.validate(s, u, action)
 	var def: Dictionary = DEFS[id]
 	if Retrieval.handles(id):
 		return Retrieval.validate(s, u, action)
@@ -299,6 +311,8 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 		u.cooldowns[id] = def.cooldown
 	if Retrieval.handles(id):
 		Retrieval.apply(s, u, action)
+	if ChoirProphet.OWNS.has(id):
+		ChoirProphet.apply(s, u, action)
 		return
 	match id:
 		"net", "designate", "sterilize", "drag": Recovery.apply(s, u, action)

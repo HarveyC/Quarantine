@@ -5,6 +5,7 @@ extends RefCounted
 
 const Palette := preload("res://view/palette.gd")
 const Board := preload("res://view/board.gd")
+const ChoirBeats := preload("res://view/choir_beats.gd")
 
 const IDS := ["airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull", "rockfall", "debris", "charge", "piston", "bite",
 	"sight", "flag", "retrieve"]
@@ -13,7 +14,7 @@ const DUST := Color(0.5, 0.42, 0.32)
 
 
 static func handles(id: String) -> bool:
-	return IDS.has(id)
+	return IDS.has(id) or ChoirBeats.handles(id)
 
 
 static func beat(ep: Node, ev: Dictionary) -> Dictionary:
@@ -23,6 +24,8 @@ static func beat(ep: Node, ev: Dictionary) -> Dictionary:
 	if uv == null:
 		return {}
 	var id := str(ev.get("ability", ""))
+	if ChoirBeats.handles(id):
+		return ChoirBeats.beat(ep, ev)
 	var cells: Array = ev.get("cells", [])
 	var head: Vector3 = ep._head(uv)
 	ep._focus(uv)
