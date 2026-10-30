@@ -110,6 +110,8 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return _c("Concealment lost. %s" % Concealment.cause_text(str(ev.get("cause", "")), by), Palette.DANGER)
 		"turned":
 			return _c("%s has TURNED" % who.call("unit"), Palette.TEAL)
+		"objective":
+			return _c("Objective progress %d of %d" % [int(ev.get("progress", 0)), int(ev.get("goal", 0))], Palette.AMBER)
 		"charge_armed":
 			return _c("Charge armed. Get clear before it blows", Palette.AMBER)
 		"charge_defused":
