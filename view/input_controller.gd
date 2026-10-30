@@ -285,6 +285,7 @@ func _update_hover(force: bool) -> void:
 	hover_cell = c
 	view.hud.hide_move_warning()
 	view.board.set_hover(c, c != NO_CELL and can_act())
+	view.board.show_link_hint(c)
 	view.board.clear_path()
 	var u := selected_unit()
 	if u != null and can_act() and c != NO_CELL:
@@ -319,7 +320,7 @@ func _update_hover(force: bool) -> void:
 ## Area items (smoke, flashbang, flare, concussion): the square they cover around the aimed tile.
 func _show_move_preview(u: Unit, c: Vector2i) -> void:
 	var path := view.state.grid.find_path(u.pos, c, view.state.occupied(u.id), false, Grafts.climbs(u))
-	view.board.show_path(path, spotted_step(path))
+	view.board.show_path(path, spotted_step(path), u.pos)
 	view.board.show_cover(c, view.state.grid.cover_sides(c))
 	# Whoever would land a Parting blow along this path glows red and is named on a warning card.
 	var swingers := blow_swingers(u, c)
