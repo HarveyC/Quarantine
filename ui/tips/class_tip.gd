@@ -39,11 +39,6 @@ static func short_lines() -> Dictionary:
 	}
 
 
-## Stat bar scales: segments drawn per stat (the best class sits near the top, not at it).
-const HP_SEGS := 10
-const MOVE_SEGS := 8
-const SIGHT_SEGS := 12
-const DMG_SEGS := 8
 const RANGE_TILES := 14
 
 
@@ -93,15 +88,6 @@ static func build(card: Control, box: VBoxContainer, kind: String, locked: bool,
 	if locked:
 		box.add_child(_locked_row(card, kind, inner))
 	box.add_child(card.rich(str(ROLES.get(kind, ["", ""])[1]), inner, 14, Styles.DIM))
-	box.add_child(_rule())
-
-	var sight: int = Vision.KIND_SIGHT.get(kind, Vision.SOLDIER_SIGHT)
-	var dmg: Array = u.damage
-	box.add_child(StatRow.new("HP", int(u.max_hp), 0, HP_SEGS, Styles.HP, "%d" % u.max_hp))
-	box.add_child(StatRow.new("Aim", int(round(u.aim / 10.0)), 0, 10, Styles.TEXT, "%d" % u.aim))
-	box.add_child(StatRow.new("Move", int(u.mobility), 0, MOVE_SEGS, Styles.TEXT, "%d" % u.mobility))
-	box.add_child(StatRow.new("Sight", sight, 0, SIGHT_SEGS, Styles.TEXT, "%d" % sight))
-	box.add_child(StatRow.new("Damage", int(dmg[0]), int(dmg[1]), DMG_SEGS, Styles.TEXT, "%d-%d" % [dmg[0], dmg[1]]))
 	box.add_child(_rule())
 
 	box.add_child(Styles.caps("starts with", 10, Styles.MUTED, false))
@@ -250,71 +236,6 @@ static func _rule() -> ColorRect:
 	r.custom_minimum_size = Vector2(0, 1)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
-
-
-## Label, a row of segments (filled to `lo`, faded to `hi` for a range) and the number.
-class StatRow extends Control:
-	var label := ""
-	var lo := 0
-	var hi := 0
-	var segs := 10
-	var col := Color.WHITE
-	var value := ""
-
-	func _init(l: String, a: int, b: int, n: int, c: Color, v: String) -> void:
-		label = l
-		lo = a
-		hi = b
-		segs = n
-		col = c
-		value = v
-		custom_minimum_size = Vector2(0, Styles.fs(16))
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	func _draw() -> void:
-		var font := Styles.FONT_COND
-		var fs := Styles.fs(11)
-		var cy := size.y * 0.5
-		var base := cy + fs * 0.35
-		draw_string(font, Vector2(0, base), label.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Styles.MUTED)
-		var mono := Styles.FONT_BODY_BOLD
-		var vw := 44.0
-		draw_string(mono, Vector2(size.x - vw, base), value, HORIZONTAL_ALIGNMENT_RIGHT, vw, Styles.fs(12), Styles.TEXT)
-		var x0 := 64.0
-		var w := size.x - x0 - vw - 8.0
-		var gap := 3.0
-		var sw := (w - gap * (segs - 1)) / segs
-		var h := 6.0
-		for i in segs:
-			var r := Rect2(x0 + i * (sw + gap), cy - h * 0.5, sw, h)
-			var c := Styles.HP_OFF
-			if i < lo:
-				c = col
-			elif i < hi:
-				c = Color(col, 0.38)
-			draw_rect(r, c)
-
-
-## Action cost: one diamond per action, or a bar reading "ends turn" for all actions.
-class CostPips extends Control:
-	var cost := 1
-
-	func _init(c: int) -> void:
-		cost = c
-		custom_minimum_size = Vector2(56 if c < 0 else 12 * maxi(c, 1), 14)
-		size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	func _draw() -> void:
-		var cy := size.y * 0.5
-		if cost < 0:
-			var fs := Styles.fs(9)
-			draw_string(Styles.FONT_COND, Vector2(0, cy + fs * 0.35), "ENDS TURN", HORIZONTAL_ALIGNMENT_RIGHT, size.x, fs, Styles.AMBER)
-			return
-		for i in cost:
-			var c := Vector2(size.x - 6 - i * 12, cy)
-			var d := PackedVector2Array([c + Vector2(0, -4.5), c + Vector2(4.5, 0), c + Vector2(0, 4.5), c + Vector2(-4.5, 0)])
-			draw_colored_polygon(d, Styles.AMBER)
 
 
 ## The gun's aim by distance: one cell per tile, amber where it gains aim, pink where it loses.
