@@ -638,7 +638,12 @@ static func describe(s: GameState) -> String:
 			var left := _courier_dist(s, c.pos)
 			return "%s  ·  %d tiles to go" % [text, maxi(left, 0)]
 		"demolish":
-			return "%s  ·  %d/%d blown  ·  round %d/%d" % [text, s.objective.charges.count("blown"), s.objective.charges.size(), s.turn, DEMOLISH_TURNS]
+			var tail := "round %d/%d" % [s.turn, DEMOLISH_TURNS]
+			var armed: int = s.objective.charges.count("armed")
+			var hint := "stand on a site and end the turn to arm it"
+			if armed > 0:
+				hint = "%d armed, get clear" % armed
+			return "%s  ·  %s  ·  %d/%d blown  ·  %s" % [text, hint, s.objective.charges.count("blown"), s.objective.charges.size(), tail]
 		"hack":
 			return "%s  ·  %d/%d hacked" % [text, s.objective.relays.count("hacked"), HACK_NEED]
 		"samples":

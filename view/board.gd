@@ -26,6 +26,7 @@ var _sight_key := ""
 var _hazard_nodes := {}   # cell -> Node3D
 var _hazard_kinds := {}   # cell -> hazard kind, for the region outlines and the legend
 var _hazard_edges: Node3D
+var _charge_labels: Array[Label3D] = []   # one per charge site, in marker order
 var _zone_keys: Array[String] = []   # objective zones on this map (TileOverlays.ZONES)
 var _sight_cells := {}
 var _blast_cells := {}
@@ -683,6 +684,7 @@ func tick_hazards(t: float) -> void:
 ## floating label: evac pad and drop zone (green), beacon (amber). See TileOverlays.ZONES.
 func _build_zones() -> void:
 	_zone_keys.clear()
+	_charge_labels.clear()
 	for key in TileOverlays.ZONES:
 		var cells: Array = grid.marker(key)
 		if cells.is_empty():
@@ -707,9 +709,41 @@ func _build_zones() -> void:
 				var line := Palette.box(Vector3(0.98, 0.012, 0.05) if d.y != 0 else Vector3(0.05, 0.012, 0.98), edge)
 				line.position = cell_to_world(c, 0.01) + Vector3(d.x, 0, d.y) * 0.47
 				_fixed.add_child(line)
+		if key == "charge":   # sites are scattered: each carries its own label, sitting on its tile
+			for c in cells:
+				var site := zone_label(str(TileOverlays.KINDS[key].label), col)
+				site.position = cell_to_world(c) + Vector3(0, 1.1, 0)
+				_fixed.add_child(site)
+				_charge_labels.append(site)
+			continue
 		var label := zone_label(str(TileOverlays.KINDS[key].label), col)
 		label.position = mid / cells.size() + Vector3(0, 1.5, 0)
 		_fixed.add_child(label)
+
+
+## Charge site labels follow the charge: CHARGE (idle), ARMED with the fuse, then BLOWN. A soldier
+## standing on an idle site reads "END TURN TO ARM".
+func refresh_charges(s: GameState) -> void:
+	if _charge_labels.is_empty() or s.objective.get("kind", "") != "demolish":
+		return
+	var cells: Array = grid.marker("charge")
+	for i in mini(cells.size(), _charge_labels.size()):
+		var l := _charge_labels[i]
+		var col := TileOverlays.color("charge")
+		var text := "CHARGE"
+		match str(s.objective.charges[i]):
+			"armed":
+				text = "ARMED  %d" % int(s.objective.fuse[i])
+				col = Palette.DANGER
+			"blown":
+				text = "BLOWN"
+				col = col.darkened(0.4)
+			_:
+				if Objectives._soldier_on(s, cells[i]):
+					text = "END TURN TO ARM"
+					col = Palette.AMBER
+		l.text = text
+		l.modulate = col.lightened(0.15)
 
 
 ## A floating caps label for an objective zone ("EVAC"), always facing the camera.

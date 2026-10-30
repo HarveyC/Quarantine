@@ -630,10 +630,10 @@ static func _build() -> Dictionary:
 		"more": ["If every civilian dies, killing every enemy still wins."],
 		"aliases": ["Drop zone"]}
 	t["zone_charge"] = {"name": "Charge site", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("charge"),
-		"line": "End a squad turn on it to arm the charge. It blows %d rounds later, hurting anyone near it." % Objectives.CHARGE_FUSE,
+		"line": "Stand on it and end the turn to arm the charge. It blows %d rounds later, hurting anyone near it." % Objectives.CHARGE_FUSE,
 		"art": "tile", "art_ctx": {"overlay": "charge"},
 		"stats": [["%d" % Objectives.CHARGE_FUSE, "round fuse"], ["%d" % Objectives.DEMOLISH_TURNS, "rounds to finish"]],
-		"more": ["An enemy standing on an armed charge defuses it.", "The blast breaks walls and roofs like a demo charge."],
+		"more": ["Grenades and shots do not arm it. Only a soldier standing on it at the end of the turn does.", "Once armed you can walk away, but get clear before it blows.", "An enemy standing on an armed charge defuses it.", "The blast breaks walls and roofs like a demo charge."],
 		"aliases": ["Charge sites"]}
 	t["zone_relay"] = {"name": "Relay", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("relay"),
 		"line": "Keep a soldier on it for %d squad turns in a row to hack it." % Objectives.HACK_TURNS,

@@ -325,6 +325,8 @@ func refresh() -> void:
 	var hostiles := s.living(Types.Team.ENEMY).size()
 	_hostiles.text = "%d hostile%s" % [hostiles, "" if hostiles == 1 else "s"]
 	_objective.text = Objectives.describe(s)
+	if view.board != null:
+		view.board.refresh_charges(s)
 	_refresh_stealth()
 	_session_label.text = "" if view.session is LocalSession else view.session.status_text()
 	_session_label.visible = _session_label.text != ""
