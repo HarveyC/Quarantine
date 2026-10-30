@@ -19,8 +19,9 @@ const SCOUT_CELLS: Array[Vector2i] = [Vector2i(8, 16), Vector2i(9, 16), Vector2i
 const ROOF_CELLS: Array[Vector2i] = [Vector2i(4, 14), Vector2i(4, 13), Vector2i(3, 13), Vector2i(5, 13),
 	Vector2i(3, 12), Vector2i(4, 12), Vector2i(5, 12), Vector2i(2, 10), Vector2i(3, 10), Vector2i(4, 10), Vector2i(5, 10)]
 ## The wall into the compound (a Demo charge or a barrel blast brings it down) and the barrels by it.
+const WALL_ROW := 7
 const WALL_CELLS: Array[Vector2i] = [Vector2i(9, 7), Vector2i(10, 7)]
-const BARREL_CELLS: Array[Vector2i] = [Vector2i(6, 8), Vector2i(15, 8)]
+const BARREL_CELLS: Array[Vector2i] = [Vector2i(8, 8), Vector2i(9, 8), Vector2i(10, 8)]
 const NEST_CELL := Vector2i(10, 2)
 ## The Runner for the fog lesson appears at the first of these the squad can't see.
 const SCOUT_SPAWNS: Array[Vector2i] = [Vector2i(8, 10), Vector2i(7, 11), Vector2i(15, 11), Vector2i(16, 10), Vector2i(10, 9)]
@@ -62,7 +63,7 @@ const STEPS: Array[Dictionary] = [
 	{"id": "rig", "title": "Rigs", "hud": "suppress", "visual": "rig",
 		"text": "Use Suppress from the action bar. The Trooper's passive, Covering Fire, also suppresses on every miss."},
 	{"id": "breach", "title": "Open the wall", "cells": WALL_CELLS, "visual": "wall",
-		"text": "Place the Breacher's Demo charge on the wall, or Shoot a fuel barrel beside it. Walls break to rubble, then floor."},
+		"text": "Place the Breacher's Demo charge on the wall, or Shoot the fuel barrels in front of it. Walls break to rubble, then floor."},
 	{"id": "concealment", "title": "Concealment", "info": true, "visual": "stealth",
 		"text": "Most missions start Concealed. Red tiles near unaware Infected give you away, and so does any shot."},
 	{"id": "infection", "title": "Infection", "hud": "mutation",
@@ -194,7 +195,8 @@ func _done(s: GameState) -> bool:
 		"rig":
 			return _suppressed
 		"breach":
-			return WALL_CELLS.any(func(c: Vector2i) -> bool: return s.grid.tile(c) != Types.Tile.WALL)
+			# Any gap will do, as long as a soldier can walk through it.
+			return range(1, s.grid.width - 1).any(func(x: int) -> bool: return s.grid.is_walkable(Vector2i(x, WALL_ROW)))
 		"infection":
 			return _mutation
 		"nest":

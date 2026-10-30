@@ -37,9 +37,10 @@ func test_training_map_holds_its_lesson_cells() -> void:
 	assert_true(g.is_ladder(TutorialScript.ROOF_CELLS[0]), "the roof lesson starts at the ladder")
 	for c in TutorialScript.ROOF_CELLS.slice(1):
 		assert_eq(g.level(c), 1, "roof cell %s is raised" % c)
-	for c in TutorialScript.WALL_CELLS:
+	for x in range(1, g.width - 1):
+		var c := Vector2i(x, TutorialScript.WALL_ROW)
 		assert_eq(g.tile(c), Types.Tile.WALL, "the compound wall at %s stands" % c)
-		assert_true(not g.hard.has(c), "and it can be broken")
+		assert_true(not g.hard.has(c), "and every part of it can be broken")
 	for c in TutorialScript.BARREL_CELLS:
 		assert_true(g.volatile.has(c), "a fuel barrel sits at %s" % c)
 	var anchor := t.state.unit_at(TutorialScript.ANCHOR_CELL)
@@ -228,3 +229,68 @@ func test_fight_tips_are_per_player() -> void:
 	coach.free()
 	app.free()
 	sess.free()
+
+
+const MAIN := preload("res://scenes/main.tscn")
+const InputController := preload("res://view/input_controller.gd")
+
+
+func _drain(v: MissionView) -> void:
+	var steps := 0
+	while v.player.is_busy() and steps < 20000:
+		v.player.advance(1.0 / 15.0)
+		steps += 1
+
+
+## The training mission's view, built the way App builds it, with the Breacher next to the wall.
+func _training_view(t: TutorialSession, breacher_at: Vector2i) -> MissionView:
+	Rules.start_mission(t.state)
+	var br := _soldier(t, "breacher")
+	br.pos = breacher_at
+	br.actions_left = 2
+	Vision.refresh(t.state)
+	var v: MissionView = MAIN.instantiate()
+	v.auto_start = false
+	v.session = t
+	v.start(t.state, true)
+	_drain(v)
+	return v
+
+
+func test_the_demo_charge_opens_the_wall_through_the_view() -> void:
+	for wall in TutorialScript.WALL_CELLS + [Vector2i(4, 7), Vector2i(15, 7)]:
+		var t := TutorialSession.new()
+		t.start_tutorial()
+		var v := _training_view(t, Vector2i(wall.x, wall.y + 1))
+		var br := _soldier(t, "breacher")
+		v.input.select(br.id)
+		v.input.trigger("ability:item:demo_charge")
+		assert_eq(v.input.mode, InputController.Mode.TARGET_CELL, "the charge asks for a cell (wall %s)" % wall)
+		v.input.click_cell(wall)
+		_drain(v)
+		assert_true(t.state.grid.is_walkable(wall), "the wall at %s came down and can be walked through" % wall)
+		t.tick()
+		assert_true(t.drill.step >= 0, "the lesson still runs")
+		v.free()
+		t.free()
+
+
+func test_the_fuel_barrels_open_the_wall_through_the_view() -> void:
+	var t := TutorialSession.new()
+	t.start_tutorial()
+	var v := _training_view(t, Vector2i(9, 12))
+	var gun := _soldier(t, "trooper")
+	gun.pos = Vector2i(9, 12)
+	gun.aim = 100
+	gun.actions_left = 2
+	Vision.refresh(t.state)
+	v.input.select(gun.id)
+	var barrel: Vector2i = TutorialScript.BARREL_CELLS[1]
+	v.input.click_cell(barrel)
+	assert_eq(v.input.mode, InputController.Mode.SHOOT, "clicking a barrel aims at it")
+	v.input.click_cell(barrel)
+	_drain(v)
+	var gap := range(1, t.state.grid.width - 1).any(func(x: int) -> bool: return t.state.grid.is_walkable(Vector2i(x, TutorialScript.WALL_ROW)))
+	assert_true(gap, "the blast leaves a gap a soldier can walk through")
+	v.free()
+	t.free()
