@@ -39,8 +39,8 @@ func test_training_map_holds_its_lesson_cells() -> void:
 		assert_eq(g.level(c), 1, "roof cell %s is raised" % c)
 	for x in range(1, g.width - 1):
 		var c := Vector2i(x, TutorialScript.WALL_ROW)
-		assert_eq(g.tile(c), Types.Tile.WALL, "the compound wall at %s stands" % c)
-		assert_true(not g.hard.has(c), "and every part of it can be broken")
+		assert_eq(g.edge(c, Vector2i(0, -1)), Grid.EDGE_WALL, "the compound wall at %s stands" % c)
+		assert_true(g.is_walkable(c), "and it is a thin wall, which can be broken")
 	for c in TutorialScript.BARREL_CELLS:
 		assert_true(g.volatile.has(c), "a fuel barrel sits at %s" % c)
 	var anchor := t.state.unit_at(TutorialScript.ANCHOR_CELL)
@@ -290,7 +290,7 @@ func test_the_fuel_barrels_open_the_wall_through_the_view() -> void:
 	assert_eq(v.input.mode, InputController.Mode.SHOOT, "clicking a barrel aims at it")
 	v.input.click_cell(barrel)
 	_drain(v)
-	var gap := range(1, t.state.grid.width - 1).any(func(x: int) -> bool: return t.state.grid.is_walkable(Vector2i(x, TutorialScript.WALL_ROW)))
+	var gap := range(1, t.state.grid.width - 1).any(func(x: int) -> bool: return t.state.grid.edge(Vector2i(x, TutorialScript.WALL_ROW), Vector2i(0, -1)) == Grid.EDGE_NONE)
 	assert_true(gap, "the blast leaves a gap a soldier can walk through")
 	v.free()
 	t.free()
