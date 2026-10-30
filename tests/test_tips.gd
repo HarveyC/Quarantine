@@ -140,7 +140,7 @@ func test_class_cards() -> void:
 				c.set_expanded(wide)
 				holder.add_child(c)
 				assert_true(c.custom_minimum_size.x >= (TipCard.CLASS_WIDE if wide else TipCard.CLASS_WIDTH), "%s card width" % k)
-				assert_true(c.get_child(0).get_child_count() >= 10, "%s card shows stats, gun, abilities and passive" % k)
+				assert_true(c.get_child(0).get_child_count() >= 7, "%s card shows gun, rig, consumable and passive" % k)
 				c.free()
 	var dmr := Weapons.get_gun("dmr")
 	assert_eq(ClassTip.range_aim(dmr, 1.0), -10, "the scope penalty shows up close")
