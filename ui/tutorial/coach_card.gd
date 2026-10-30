@@ -241,17 +241,17 @@ class Diagram extends Control:
 		_text(Vector2(x0 + (enemy - r) * tile, ground + 24), "SPOTTED IN %d TILES" % r, Styles.DANGER_TEXT, 12)
 		_text(Vector2(x0 + tile * 3.0, ground - 30), "+%d AIM UNAWARE" % Concealment.AMBUSH_AIM, Styles.AMBER, 12, true)
 
-	## Two action pips: a shot spends one and the turn goes on.
+	## Two action pips: move first, then the shot that ends the turn.
 	func _actions() -> void:
 		var y := 36.0
-		var labels := ["SHOOT", "MOVE OR SHOOT"]
+		var labels := ["MOVE", "SHOOT"]
 		for i in 2:
 			var x := 30.0 + i * 130.0
-			draw_circle(Vector2(x, y), 11.0, Color(Styles.AMBER, 0.15 if i == 0 else 0.95))
+			draw_circle(Vector2(x, y), 11.0, Color(Styles.AMBER, 0.95))
 			draw_arc(Vector2(x, y), 11.0, 0, TAU, 24, Styles.AMBER, 1.5)
-			_text(Vector2(x + 18, y + 5), labels[i], Styles.TEXT if i else Styles.AMBER, 13)
+			_text(Vector2(x + 18, y + 5), labels[i], Styles.TEXT, 13)
 		draw_line(Vector2(30, y + 22), Vector2(size.x - 20, y + 22), Styles.BORDER_STRONG, 1.0)
-		_text(Vector2(30, y + 38), "1 ACTION, THE TURN CONTINUES", Styles.AMBER, 12, true)
+		_text(Vector2(30, y + 38), "A SHOT ENDS THE TURN", Styles.AMBER, 12, true)
 
 	## A fighter, its reach, and the free strike that walking out of it provokes.
 	func _reach() -> void:
