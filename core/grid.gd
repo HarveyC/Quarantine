@@ -187,12 +187,16 @@ func read_glyph(c: Vector2i, ch: String) -> int:
 
 static func load_file(path: String) -> Grid:
 	var rows := PackedStringArray()
+	var edges := false
 	for line in FileAccess.get_file_as_string(path).split("\n"):
-		line = line.strip_edges()
-		if line.is_empty() or line.begins_with(";"):
+		line = line.trim_suffix("\r")
+		if line.strip_edges().is_empty() or line.begins_with(";"):
 			continue
-		rows.append(line)
-	return from_rows(rows)
+		if line == "@edges":   # rows are drawn at double resolution, with thin walls between cells
+			edges = true
+			continue
+		rows.append(line if edges else line.strip_edges())
+	return from_edge_rows(rows) if edges else from_rows(rows)
 
 
 func to_dict() -> Dictionary:
@@ -310,8 +314,9 @@ func is_volatile(c: Vector2i) -> bool:
 	return volatile.has(c)
 
 
+## Reinforced: every full wall block. Only the thin edge walls between cells break.
 func is_hard(c: Vector2i) -> bool:
-	return hard.has(c)
+	return hard.has(c) or tile(c) == Types.Tile.WALL
 
 
 ## Raw tile write. In a fight, terrain changes go through Destruction (which emits events).

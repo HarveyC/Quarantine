@@ -402,12 +402,19 @@ static func _build() -> Dictionary:
 		"see": ["rubble", "cover", "hit_chance"],
 		"aliases": ["Fuel barrels", "Barrel", "Barrels", "Fuel drum"]}
 	t["rubble"] = {"name": "Rubble", "kind": "terrain", "icon": "charge", "tone": "amber",
-		"line": "Explosives break terrain in steps you can see.",
+		"line": "Explosives break thin walls, cover and roofs in steps you can see.",
 		"art": "",
-		"stats": [["%d" % Destruction.WALL_HITS, "hits: wall to rubble"], ["1", "hit: cover to floor"], ["%d" % Destruction.ROOF_HITS, "hits: roof drops"]],
-		"more": ["A rubble heap is half {cover} you can see over.", "A collapsed roof leaves a ramp you can walk up. Anyone on it falls.", "Bullets never break cover. Explosions also wake nearby Infected."],
-		"see": ["fuel_barrel", "cover", "high_ground"],
-		"aliases": ["Rubble heap", "Cracked", "Demo charge", "Destructible"]}
+		"stats": [["%d" % Destruction.WALL_HITS, "hits: thin wall breaks"], ["1", "hit: cover to floor"], ["%d" % Destruction.ROOF_HITS, "hits: roof drops"]],
+		"more": ["Only thin walls between tiles break. A full wall block is {reinforced}.", "A rubble heap is half {cover} you can see over.", "A collapsed roof leaves a ramp you can walk up. Anyone on it falls.", "Bullets never break cover. Explosions also wake nearby Infected."],
+		"see": ["reinforced", "fuel_barrel", "cover"],
+		"aliases": ["Rubble heap", "Cracked", "Demo charge", "Destructible", "Thin wall", "Thin walls"]}
+	t["reinforced"] = {"name": "Reinforced", "kind": "terrain", "icon": "cover_half", "tone": "amber",
+		"line": "A full wall block, steel plated. Nothing breaks it.",
+		"art": "",
+		"stats": [["0", "hits to break"], ["full", "cover"]],
+		"more": ["Frag grenades, Demo charges and barrel blasts leave it standing.", "Thin walls between tiles are the ones that break. Look for the pale, plain ones.", "Blocks line the outer wall and make up containers and rock."],
+		"see": ["rubble", "cover"],
+		"aliases": ["Reinforced wall", "Reinforced walls", "Wall block", "Wall blocks"]}
 	t["overwatch"] = {"name": "Overwatch", "kind": "action", "icon": "overwatch", "tone": "amber",
 		"line": "End the turn watching: shoot the first enemy that moves in sight.",
 		"art": "overwatch",

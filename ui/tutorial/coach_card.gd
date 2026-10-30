@@ -279,19 +279,24 @@ class Diagram extends Control:
 			_text(Vector2(x + 6, 36), names[i], Styles.AMBER if hot else Styles.DIM, 12)
 		_text(Vector2(6.0 + 3 * 78.0, 66), "CLASS RIG", Styles.AMBER, 12, true)
 
-	## A wall that breaks in steps.
+	## A thin wall that breaks, beside a reinforced block that never does.
 	func _wall() -> void:
 		var ground := 58.0
-		var steps := ["WALL", "RUBBLE", "FLOOR"]
+		draw_line(Vector2(10, ground), Vector2(size.x - 10, ground), Styles.BORDER_STRONG, 1.0)
+		# Reinforced block: solid, with hazard bands.
+		var bx := 30.0
+		draw_rect(Rect2(bx, ground - 44, 56, 44), Color(Styles.DIM, 0.55))
+		draw_rect(Rect2(bx, ground - 44, 56, 44), Styles.TEXT, false, 1.6)
 		for i in 3:
-			var x := 20.0 + i * 130.0
-			var h: float = [40.0, 16.0, 0.0][i]
-			draw_line(Vector2(x - 6, ground), Vector2(x + 84, ground), Styles.BORDER_STRONG, 1.0)
-			if h > 0.0:
-				draw_rect(Rect2(x + 8, ground - h, 56, h), Styles.DIM if i == 0 else Color(Styles.DIM, 0.6))
-			_text(Vector2(x + 8, ground - 46), steps[i], Styles.AMBER if i == 2 else Styles.TEXT, 13)
-			if i < 2:
-				draw_string(Styles.FONT_MONO, Vector2(x + 90, ground - 14), ">", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Styles.AMBER)
+			draw_line(Vector2(bx + 8 + i * 18, ground - 6), Vector2(bx + 22 + i * 18, ground - 20), Styles.AMBER, 3.0)
+		_text(Vector2(bx, ground - 52), "REINFORCED", Styles.TEXT, 12)
+		# Thin wall: whole, then a breach.
+		var tx := 190.0
+		draw_rect(Rect2(tx, ground - 44, 8, 44), Styles.DIM)
+		draw_string(Styles.FONT_MONO, Vector2(tx + 24, ground - 14), ">", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Styles.AMBER)
+		draw_rect(Rect2(tx + 60, ground - 44, 8, 14), Styles.DIM)
+		draw_rect(Rect2(tx + 60, ground - 10, 8, 10), Styles.DIM)
+		_text(Vector2(tx, ground - 52), "THIN WALL BREAKS", Styles.AMBER, 12)
 
 	func _tiers() -> void:
 		var x0 := 4.0

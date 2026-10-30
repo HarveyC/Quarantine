@@ -6,12 +6,11 @@ extends RefCounted
 ## See docs/ARCHITECTURE.md, "Destruction", and the study page linked there.
 ##
 ## Terrain takes "hits" (bullets only on fuel barrels, else explosives, airstrikes and smashing enemies):
-##   wall           WALL_HITS hits -> rubble heap (half cover, see-through) -> 1 more -> floor
+##   wall block     never: a full 1x1 wall is reinforced (Grid.is_hard)
 ##   half cover     1 hit -> floor (debris)
 ##   fuel barrel    1 hit -> explodes (BARREL_*), then floor
 ##   roof cell      ROOF_HITS per level -> drops one level and becomes a rubble ramp (stairs)
 ##   scaffold       1 hit -> drops to the ground (Elevation's old blast rule)
-##   hard / edge    never (the map's own rim)
 ##   edge wall      WALL_HITS hits -> gone (a breach; windows the same), low wall 1 hit, doorways never.
 ##                  A border takes the larger of the hits on the two cells beside it.
 ## Hits beyond what breaks a layer carry into the next one (a demo charge goes straight through a
@@ -47,8 +46,6 @@ static var _barrel_fire := false
 static func breakable(g: Grid, c: Vector2i) -> bool:
 	if not g.in_bounds(c) or g.is_hard(c):
 		return false
-	if g.tile(c) == Types.Tile.WALL and (c.x == 0 or c.y == 0 or c.x == g.width - 1 or c.y == g.height - 1):
-		return false   # the map's own edge
 	return g.tile(c) != Types.Tile.FLOOR or g.level(c) > 0
 
 

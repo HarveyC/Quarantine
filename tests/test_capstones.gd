@@ -356,11 +356,13 @@ func test_shaped_charge_breach_brings_down_the_walls_around_the_target() -> void
 		"..............",
 		"..............",
 		"..............",
-		"....##........",
-		"....##........",
+		"..............",
+		"..............",
 		"..............",
 	]
 	var s := make_blank(PackedStringArray(rows))
+	for y in [3, 4]:   # a thin wall on the east side of the target's column
+		s.grid.set_edge(Vector2i(3, y), Vector2i(1, 0), Grid.EDGE_WALL)
 	s.turn = 1
 	s.phase = Types.Phase.TEAM
 	var b := _add(s, "breacher", Types.Team.PLAYER, Vector2i(2, 2))
@@ -369,10 +371,12 @@ func test_shaped_charge_breach_brings_down_the_walls_around_the_target() -> void
 	foe.hp = 60
 	b.status["perks"] = ["shaped_charge"]
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": b.id, "ability": "breach", "target": foe.id}), "breach")
-	assert_true(s.grid.tile(Vector2i(4, 3)) != Types.Tile.WALL or s.grid.rubble.has(Vector2i(4, 3)), "the wall beside the target is cracked open")
+	assert_eq(s.grid.edge(Vector2i(3, 3), Vector2i(1, 0)), Grid.EDGE_NONE, "the wall beside the target is cracked open")
 	assert_true(s.log.any(func(ev): return ev.get("type") == "perk" and ev.get("perk") == "shaped_charge"), "with a beat")
 	# Without the perk the wall stands.
 	var s2 := make_blank(PackedStringArray(rows))
+	for y in [3, 4]:
+		s2.grid.set_edge(Vector2i(3, y), Vector2i(1, 0), Grid.EDGE_WALL)
 	s2.turn = 1
 	s2.phase = Types.Phase.TEAM
 	var b2 := _add(s2, "breacher", Types.Team.PLAYER, Vector2i(2, 2))
@@ -380,4 +384,4 @@ func test_shaped_charge_breach_brings_down_the_walls_around_the_target() -> void
 	foe2.max_hp = 60
 	foe2.hp = 60
 	assert_true(Rules.apply(s2, {"type": Types.ABILITY, "unit": b2.id, "ability": "breach", "target": foe2.id}), "breach")
-	assert_eq(s2.grid.tile(Vector2i(4, 3)), Types.Tile.WALL, "no perk, no hole")
+	assert_eq(s2.grid.edge(Vector2i(3, 3), Vector2i(1, 0)), Grid.EDGE_WALL, "no perk, no hole")

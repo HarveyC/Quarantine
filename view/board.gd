@@ -381,9 +381,9 @@ func _build_tiles() -> void:
 	var floor_mats: Array[StandardMaterial3D] = []
 	for col in look.floor:
 		floor_mats.append(grimy(col, 0.95, 0.18))
-	var wall_mat := grimy(look.wall.lightened(0.15), 0.9, 0.35)
+	var wall_mat := grimy(look.wall.darkened(0.35), 0.45, 0.75)   # reinforced steel plate
 	var trim_mat := Palette.mat(look.trim, 0.6, 0.4)
-	var rib_mat := grimy(look.wall.lightened(0.08), 0.8, 0.35, 0.2)
+	var rib_mat := grimy(look.wall.lightened(0.12), 0.5, 0.7, 0.2)
 	var hazard := Palette.mat(Palette.AMBER.darkened(0.15), 0.7)
 	var crate_mat := grimy(look.crate, 0.9, 0.5)
 	var band_mat := Palette.mat(Palette.CRATE_BAND, 0.7, 0.3)
@@ -539,7 +539,7 @@ const EDGE_THICK := 0.16
 func _build_edges(look: Dictionary, trim: Material, hazard: Material, crack_mat: Material) -> void:
 	if grid.edges.is_empty():
 		return
-	var wall := grimy(look.partition, 0.9, 0.35)
+	var wall := grimy(look.partition.lightened(0.42), 0.95, 0.0)   # plain and pale: it breaks
 	var dark := grimy(look.partition.darkened(0.35), 0.9, 0.35)
 	var frame := Palette.mat(look.trim.lightened(0.1), 0.5, 0.5)
 	var glass := Palette.mat(Color(0.35, 0.5, 0.55, 1.0), 0.15, 0.6)
@@ -952,28 +952,35 @@ func _add_ladder(c: Vector2i, m: Material) -> void:
 			rung_y += 0.28
 
 
+## A reinforced block: dark steel plate with a hazard band at the base, a plate seam and corner
+## posts, so it never reads as the pale thin walls that break.
 func _add_wall(c: Vector2i, h: int, body: Material, trim: Material, rib: Material, hazard: Material) -> void:
 	var w := Palette.box(Vector3(1.0, 2.2, 1.0), body)
 	w.position = cell_to_world(c, 1.1)
 	_tiles.add_child(w)
-	var cap := Palette.box(Vector3(1.04, 0.1, 1.04), trim)
+	var cap := Palette.box(Vector3(1.04, 0.1, 1.04), rib)
 	cap.position = cell_to_world(c, 2.22)
 	_tiles.add_child(cap)
-	# Ribs and a hazard band on the faces that are not against another wall.
+	# Posts on the corners of the block, then plates and a hazard band on the faces that are not
+	# against another wall.
+	for sx in [-0.5, 0.5]:
+		for sz in [-0.5, 0.5]:
+			var post := Palette.box(Vector3(0.12, 2.24, 0.12), rib)
+			post.position = cell_to_world(c, 1.12) + Vector3(sx, 0, sz)
+			_tiles.add_child(post)
 	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var n: Vector2i = c + d
 		if grid.in_bounds(n) and grid.tile(n) == Types.Tile.WALL:
 			continue
 		var out := Vector3(d.x, 0, d.y)
 		var along := Vector3(absf(d.y), 0, absf(d.x))
-		for k in [-0.3, 0.3]:
-			var r := Palette.box(Vector3(0.08, 2.1, 0.08), rib)
-			r.position = cell_to_world(c, 1.05) + out * 0.52 + along * k
-			_tiles.add_child(r)
-		if h % 2 == 0:
-			var band := Palette.box(Vector3(1.0, 0.12, 0.02) if along.x > 0 else Vector3(0.02, 0.12, 1.0), hazard)
-			band.position = cell_to_world(c, 0.35) + out * 0.505
+		for yy in [0.35, 1.9]:
+			var band := Palette.box(Vector3(1.0, 0.14, 0.03) if along.x > 0 else Vector3(0.03, 0.14, 1.0), hazard if yy < 1.0 else rib)
+			band.position = cell_to_world(c, yy) + out * 0.505
 			_tiles.add_child(band)
+		var seam := Palette.box(Vector3(1.0, 0.05, 0.03) if along.x > 0 else Vector3(0.03, 0.05, 1.0), rib)
+		seam.position = cell_to_world(c, 1.15) + out * 0.505
+		_tiles.add_child(seam)
 
 
 func _add_crate(c: Vector2i, h: int, body: Material, band: Material) -> void:
