@@ -93,12 +93,24 @@ static func _cells(g: Grid, busy: Dictionary, raised: bool) -> Array:
 	return out
 
 
-## The cable may not run through a wall block or anything taller than its upper end.
+## The cable may not touch anything: it runs clear of wall blocks, roofed buildings (their roof and walls),
+## raised ground above its upper end, and every wall, window or door edge it crosses. Sampled every
+## quarter tile, so it also holds on diagonals.
 static func _clear(g: Grid, a: Vector2i, b: Vector2i) -> bool:
-	var steps := _span(a, b)
+	var steps := _span(a, b) * 4
+	var prev := a
 	for i in range(1, steps):
 		var p := Vector2(a).lerp(Vector2(b), float(i) / steps)
 		var c := Vector2i(roundi(p.x), roundi(p.y))
-		if g.tile(c) == Types.Tile.WALL or g.level(c) > g.level(a):
+		if c == prev:
+			continue
+		if c != b and (g.tile(c) == Types.Tile.WALL or g.level(c) > g.level(a) or g.roofed.has(c)):
 			return false
+		var d := c - prev
+		var hops: Array = [d] if d.x == 0 or d.y == 0 else [Vector2i(d.x, 0), Vector2i(0, d.y)]
+		for h in hops:
+			var from: Vector2i = prev if h == hops[0] else prev + hops[0]
+			if g.edge(from, h) in [Grid.EDGE_WALL, Grid.EDGE_WINDOW, Grid.EDGE_DOOR, Grid.EDGE_CLOSED]:
+				return false
+		prev = c
 	return true
