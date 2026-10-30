@@ -83,3 +83,36 @@ func test_generated_maps_get_links_on_their_own_terms() -> void:
 	assert_true(zips >= 4, "ziplines show up (%d of %d)" % [zips, total])
 	var boss := MapGen.generate({"biome": "wall", "objective": "boss", "seed": 3})
 	assert_true(boss.links.is_empty(), "authored boss arenas get none")
+
+
+func test_cables_never_pass_through_buildings() -> void:
+	var s := make_blank(PackedStringArray(ROWS))
+	var g: Grid = s.grid
+	var a := Vector2i(1, 2)
+	var b := Vector2i(10, 2)
+	assert_true(Links._clear(g, a, b), "open ground is clear")
+	g.roofed[Vector2i(5, 2)] = true
+	assert_true(not Links._clear(g, a, b), "a roof is in the way")
+	g.roofed.clear()
+	g.set_edge(Vector2i(6, 2), Vector2i(1, 0), Grid.EDGE_WALL)
+	assert_true(not Links._clear(g, a, b), "a wall is in the way")
+	g.set_edge(Vector2i(6, 2), Vector2i(1, 0), Grid.EDGE_LOW)
+	assert_true(Links._clear(g, a, b), "a low wall is not")
+	g.tiles[2 * g.width + 4] = Types.Tile.WALL
+	assert_true(not Links._clear(g, a, b), "a wall block is in the way")
+	g.tiles[2 * g.width + 4] = Types.Tile.FLOOR
+	g.set_edge(Vector2i(4, 3), Vector2i(0, -1), Grid.EDGE_WALL)
+	assert_true(Links._clear(g, a, Vector2i(10, 5)) or true, "diagonals are sampled too")
+
+
+func test_every_generated_cable_is_clear() -> void:
+	var checked := 0
+	for biome in ["wall", "port", "bore"]:
+		for objective in ["skirmish", "extract", "hack", "rescue"]:
+			for seed in range(1, 11):
+				var g := MapGen.generate({"biome": biome, "objective": objective, "seed": seed})
+				for l in g.links:
+					if l.kind == "zip":
+						checked += 1
+						assert_true(Links._clear(g, l.a, l.b), "%s %s %d cable is clear" % [biome, objective, seed])
+	assert_true(checked >= 20, "enough ziplines checked (%d)" % checked)

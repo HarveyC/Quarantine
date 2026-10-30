@@ -682,14 +682,14 @@ static func _build() -> Dictionary:
 		"see": ["high_ground", "rubble"],
 		"aliases": ["Scaffolds", "Scaffolding", "Catwalk"]}
 	t["zipline"] = {"name": "Zipline", "kind": "terrain", "icon": "rank", "tone": "text",
-		"line": "A cable from a roof down to the ground. Move onto the far end to slide down it, one way.",
+		"line": "A one way cable down from a roof. Chevrons point downhill. Pick the far end to ride it.",
 		"art": "",
 		"stats": [["%d" % Links.ZIP_COST, "move"], ["1 way", "direction"]],
 		"more": ["Sliding leaves no Parting blow behind."],
 		"see": ["high_ground", "parting_blow"],
 		"aliases": ["Ziplines", "Zip line"]}
 	t["cellar_tunnel"] = {"name": "Cellar tunnel", "kind": "terrain", "icon": "rank", "tone": "text",
-		"line": "A hatch that joins to another hatch across the map. Step in at one and come out of the other.",
+		"line": "Hatches share a letter and colour. Hover one to see its exit; pick the other to go through.",
 		"art": "",
 		"stats": [["%d" % Links.TUNNEL_COST, "moves"], ["2 way", "direction"]],
 		"more": ["Going through leaves no Parting blow behind.", "Enemies use it too."],
