@@ -52,6 +52,7 @@ const ACTIONS := [
 	["focus", "Centre on soldier", [KEY_F]],
 	["quick_menu", "Quick action menu", [KEY_R]],
 	["shot_cams", "Shot cameras on/off", [KEY_C]],
+	["loadout", "View loadout", [KEY_I]],
 	["mute", "Mute", [KEY_M]],
 	["ping", "Ping (tap) / ping wheel (hold)", [KEY_G]],
 	["draw", "Draw on the map (hold)", [KEY_V]],

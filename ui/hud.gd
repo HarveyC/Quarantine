@@ -22,6 +22,8 @@ const AttackCallout := preload("res://ui/attack_callout.gd")
 const UnitView := preload("res://view/unit_view.gd")
 const InputController := preload("res://view/input_controller.gd")
 const Tips := preload("res://ui/tips/tips.gd")
+const LoadoutScreen := preload("res://ui/gear/loadout_screen.gd")
+const Feel := preload("res://ui/ui_feel.gd")
 
 const MARGIN := 22.0
 
@@ -65,6 +67,7 @@ var _banner: Label
 var _tooltip: Control
 var _tooltip_uv: UnitView
 var _move_warning: Control
+var _loadout: Control
 var _toast_t := 0.0
 var _banner_t := 0.0
 ## The Bloom creeping in from the screen's right edge, further as the squad's Infection climbs.
@@ -260,17 +263,43 @@ func _key_legend() -> Control:
 	row.size_flags_horizontal = Control.SIZE_SHRINK_END
 	# Quiet reminders, at half strength: they matter on the first fight, not every turn.
 	row.modulate.a = 0.55
-	for k in [["1-9", "Actions"], ["Tab", "Next"], ["Space", "Ready"], ["Esc", "Menu"]]:
-		row.add_child(W.keycap(k[0], 11))
+	for k in [["1-9", "Actions"], ["Tab", "Next"], ["I", "Loadout"], ["Space", "Ready"], ["Esc", "Menu"]]:
+		var item := Styles.hbox(6)
+		item.add_child(W.keycap(k[0], 11))
 		var l := Styles.caps(k[1], 11, Styles.MUTED)
 		_outline(l, 4)
-		row.add_child(l)
+		item.add_child(l)
+		if k[0] == "I":
+			# The one legend entry that is also a button.
+			item.mouse_filter = Control.MOUSE_FILTER_STOP
+			item.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			item.tooltip_text = "Gear, pockets and grafts of your squad  [I]"
+			item.gui_input.connect(func(e: InputEvent) -> void:
+				if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+					open_loadout())
+		row.add_child(item)
 		if k[0] != "Esc":
 			var gap := Control.new()
 			gap.custom_minimum_size.x = 6
 			gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row.add_child(gap)
 	return row
+
+
+## A read-only look at the selected soldier's loadout over the fight; any soldier in the squad
+## can be viewed, teammates' included. Runs only: a lone mission has no loadouts.
+func open_loadout() -> void:
+	if is_instance_valid(_loadout):
+		return
+	var run: RunState = view.session.get("run") if view.session != null else null
+	if run == null or view.state == null or _debriefing:
+		return
+	var sid := -1
+	var sel := view.state.get_unit(view.input.selected_id) if view.input != null else null
+	if sel != null and sel.status.has("sid"):
+		sid = int(sel.status.sid)
+	_loadout = LoadoutScreen.open_in_fight(self, run, view.session, view.state, sid)
+	Feel.sound("open")
 
 
 func _build_overlays() -> void:
