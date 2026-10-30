@@ -53,6 +53,20 @@ const DEFS := {
 		"desc": "Throws a satchel onto a 3x3 that goes off next enemy phase: 3 damage to everyone in it and it cracks cover. Killing the Sapper does not stop it."},
 	"firebomb": {"name": "Firebomb", "targeting": "cell", "cost": 1, "cooldown": 2,
 		"desc": "Lobs a firebomb onto a 3x3 that goes off next enemy phase: 2 damage to everyone in it, then the ground burns for 2 rounds. The Infected walk through the fire unharmed."},
+	"snare": {"name": "Snare", "targeting": "cell", "cost": 1, "cooldown": 2,
+		"desc": "Strings a snare on a tile beside cover within 7. A soldier who steps on it stops there and loses an action. Kill the Rigger and its snares are cut."},
+	"flare": {"name": "Flare", "targeting": "unit", "cost": -1, "cooldown": 0,
+		"desc": "Fires a flare over a soldier it can see: the squad is no longer Concealed and two Cutters arrive next turn. Once a fight."},
+	"order": {"name": "Order", "targeting": "none", "cost": 1, "cooldown": 3,
+		"desc": "Puts every armed ally it can see on Overwatch."},
+	"frag": {"name": "Frag", "targeting": "cell", "cost": 1, "cooldown": 2,
+		"desc": "Lobs a frag over cover onto a 3x3 that goes off next enemy phase: 3 damage to everyone in it. Needs no line of sight to the spot."},
+	"revive": {"name": "Revive", "targeting": "none", "cost": -1, "cooldown": 0,
+		"desc": "Kneels beside a fallen Security. After 2 rounds it gets back up on half health. Hurt the medic to stop it."},
+	"repair": {"name": "Repair", "targeting": "none", "cost": 1, "cooldown": 1,
+		"desc": "Mends every wounded machine it can see within 6 for 3."},
+	"arc": {"name": "Arc", "targeting": "unit", "cost": -1, "cooldown": 0,
+		"desc": "Strikes a soldier within 4 with an arc that never misses, then jumps to soldiers beside the one it hit, twice. Cover halves the first hit."},
 	"mend": {"name": "Mend", "targeting": "unit", "cost": 1, "cooldown": 1,
 		"desc": "Threads to a wounded Infected within 6 tiles in line of sight and heals it 3. Cut the thread by killing the Weaver or breaking line of sight."},
 	"pull": {"name": "Pull", "targeting": "none", "cost": 1, "cooldown": 0, "phases": [2, 3],
@@ -213,6 +227,14 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 					return "Out of range"
 				if hook_victim(s, u, t) == null:
 					return "Snagged"
+			"flare":
+				if u.status.get("flared", false):
+					return "Already fired"
+				if t.status.get("hidden", false) or not Combat.can_see(s, u.pos, t.pos):
+					return "No line of sight"
+			"arc":
+				if _cheb(u.pos, t.pos) > EnemyRoster.ARC_RANGE or t.status.get("hidden", false) or not Combat.can_see(s, u.pos, t.pos):
+					return "Out of range"
 			"burrow":
 				if u.status.has("burrowed"):
 					return "Already burrowed"
@@ -248,6 +270,16 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 					return "Out of range"
 			"satchel", "firebomb":
 				if _cheb(u.pos, cell) > EnemyRoster.SATCHEL_RANGE or not Combat.can_see(s, u.pos, cell):
+					return "Out of range"
+			"snare":
+				if _cheb(u.pos, cell) > EnemyRoster.SNARE_RANGE or not Combat.can_see(s, u.pos, cell):
+					return "Out of range"
+				if not s.grid.is_walkable(cell) or not Scavengers.beside_cover(s.grid, cell) or s.unit_at(cell) != null or Scavengers.snare_at(s, cell) >= 0:
+					return "Nowhere to string it"
+				if Scavengers.snares_of(s, u).size() >= EnemyRoster.SNARE_CAP:
+					return "Too many snares"
+			"frag":
+				if _cheb(u.pos, cell) > EnemyRoster.FRAG_RANGE or _cheb(u.pos, cell) <= 1:
 					return "Out of range"
 			"drift":
 				var c: Vector2i = cell
@@ -292,6 +324,17 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 				return "Already pulled"
 			if pull_target(s, u) == null:
 				return "No target"
+		"order":
+			if Security.order_targets(s, u).is_empty():
+				return "Nobody to order"
+		"revive":
+			if u.status.has("reviving"):
+				return "Already reviving"
+			if Security.body_near(s, u) == null:
+				return "Nobody down"
+		"repair":
+			if Automata.repair_targets(s, u).is_empty():
+				return "Nothing to mend"
 	return ""
 
 
@@ -344,6 +387,17 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 			Encounter.add_telegraph(s, {"kind": "firebomb", "cells": fcells, "turn": s.turn + 1,
 				"damage": EnemyRoster.FIREBOMB_DAMAGE, "source": u.id, "smash": false, "unit": u.id,
 				"fire": EnemyRoster.FIREBOMB_FIRE_TURNS})
+		"snare": Scavengers.lay_snare(s, u, action.cell)
+		"flare": Scavengers.flare(s, u, s.get_unit(action.target))
+		"order": Security.order(s, u)
+		"frag":
+			var gcells := square(s.grid, action.cell, 1)
+			s.emit({"type": "ability", "unit": u.id, "ability": id, "cell": action.cell, "cells": gcells})
+			Encounter.add_telegraph(s, {"kind": "frag", "cells": gcells, "turn": s.turn + 1,
+				"damage": EnemyRoster.FRAG_DAMAGE, "source": u.id, "smash": false, "unit": u.id})
+		"revive": Security.begin_revive(s, u)
+		"repair": Automata.repair(s, u)
+		"arc": Automata.arc(s, u, s.get_unit(action.target))
 		"burrow": _burrow(s, u, s.get_unit(action.target))
 		"erupt": _erupt(s, u)
 		"charge": _charge(s, u)

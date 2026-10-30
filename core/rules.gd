@@ -296,6 +296,7 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 	var walked: Array[Vector2i] = []
 	var from := u.pos
 	var prev := u.pos
+	var snared := {}
 	for c in path:
 		var swingers := PartingBlow.provoked(s, u, prev, c)
 		if not swingers.is_empty():
@@ -349,11 +350,16 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 				return
 		if not u.is_alive():
 			return
+		snared = Scavengers.spring(s, u, c)   # a Rigger's snare: the walk ends here
+		if not snared.is_empty():
+			break
 	if not segment.is_empty():
 		s.emit({"type": "move", "unit": u.id, "from": from, "path": segment})
+	if not snared.is_empty():
+		s.emit({"type": "snared", "unit": u.id, "cell": snared.cell, "by": snared.by})
 	Grafts.after_move(s, u, origin)
 	GearTricks.after_move(s, u)
-	Hazards.on_move(s, u, path)
+	Hazards.on_move(s, u, walked if not snared.is_empty() else path)
 
 
 ## The first unit through a shut door opens it for good: the border becomes a doorway.

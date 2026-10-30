@@ -21,6 +21,8 @@ const COST := {"runner": 1, "spitter": 1, "fallen": 2, "bloater": 2, "lurker": 2
 	"cutter": 2, "torchman": 2, "fence": 2,
 	"shieldman": 2, "overwatcher": 2, "emplacement": 2,
 	"hound": 1, "loader": 3, "relay": 2,
+	"packrat": 2, "rigger": 2, "lookout": 2, "sergeant": 2, "grenadier": 2, "field_medic": 2,
+	"tender": 2, "carrier": 3, "arc_welder": 2,
 	"netter": 2, "handler": 2, "sterilizer": 2, "collector": 3, "acolyte": 1, "cantor": 2, "hush": 2}
 ## First act an enemy appears in as a regular.
 const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "leaper": 1, "brute": 2, "lurker": 2,
@@ -29,14 +31,19 @@ const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "leaper
 	"cutter": 1, "torchman": 1, "fence": 2,
 	"shieldman": 2, "overwatcher": 2, "emplacement": 2,
 	"hound": 3, "loader": 3, "relay": 3,
+	"packrat": 1, "rigger": 2, "lookout": 2, "sergeant": 2, "grenadier": 2, "field_medic": 2,
+	"tender": 3, "carrier": 3, "arc_welder": 3,
 	"netter": 2, "handler": 2, "sterilizer": 2, "collector": 3, "acolyte": 2, "cantor": 2, "hush": 3}
 ## Each act's signature enemies are twice as likely to be bought there, so acts feel different:
 ## act 1 the cordon (Fallen, Leaper), act 2 the port (Drifter, Sharpshooter, Brute), act 3 the bore.
-const SIGNATURE := {1: ["fallen", "leaper", "cutter", "torchman"], 2: ["drifter", "sharpshooter", "brute", "sapper", "carapace", "fence", "shieldman", "overwatcher", "emplacement"],
-	3: ["burrower", "shrieker", "lurker", "stalker", "weaver", "hound", "loader", "relay"]}
+const SIGNATURE := {1: ["fallen", "leaper", "cutter", "torchman", "packrat"], 2: ["drifter", "sharpshooter", "brute", "sapper", "carapace", "fence", "shieldman", "overwatcher", "emplacement",
+	"rigger", "lookout", "sergeant", "grenadier", "field_medic"],
+	3: ["burrower", "shrieker", "lurker", "stalker", "weaver", "hound", "loader", "relay", "tender", "carrier", "arc_welder"]}
+## Kinds that never arrive as reinforcements: static, fleeing or support kinds that need a squad to fight beside.
+const NOT_REINFORCEMENT: Array[String] = ["lurker", "fence", "emplacement", "relay", "carrier", "rigger", "tender", "field_medic", "lookout", "sergeant"]
 ## Ranged enemies: they shoot or spit from a distance. Fights are built mostly from melee infected
 ## that rush the squad; ranged kinds are supporting threats (FightBuilder caps their share).
-const RANGED: Array[String] = ["spitter", "fallen", "sharpshooter", "hooker", "overwatcher", "handler", "sterilizer", "hush"]
+const RANGED: Array[String] = ["spitter", "fallen", "sharpshooter", "hooker", "overwatcher", "lookout", "sergeant", "grenadier", "field_medic", "arc_welder", "handler", "sterilizer", "hush"]
 ## How often a kind is bought in each act relative to the others (1 when missing). The Runner is
 ## the staple infected, the most common enemy at any budget; later acts lean on their signatures.
 const WEIGHT := {"runner": {1: 3, 2: 3, 3: 3}}
@@ -77,12 +84,28 @@ const FIREBOMB_FIRE_TURNS := 2
 const TANK_FIRE_TURNS := 2
 const FENCE_LEAVES_TURN := 6
 const FENCE_SUPPLIES := 25
+const PACKRAT_PLATES := 3
+const PACKRAT_REDUCTION := 2
+const SNARE_RANGE := 7
+const SNARE_CAP := 4
+const FLARE_CALLS := 2
 ## Colony Security (enemies/security.gd).
 const CROSSFIRE_RANGE := 6
 const CROSSFIRE_DAMAGE := 3
 const CROSSFIRE_CONE := 0.8   # dot product with the facing: about 37 degrees either side
+const ORDER_RANGE := 9
+const FRAG_RANGE := 8
+const FRAG_DAMAGE := 3
+const REVIVE_ROUNDS := 2
 ## Automata (enemies/automata.gd).
 const RELAY_RANGE := 8
+const REPAIR_RANGE := 6
+const REPAIR_HEAL := 3
+const ARC_RANGE := 4
+const ARC_CHAIN_LINKS := 2
+const ARC_CHAIN_DAMAGE := 2
+const CARRIER_DROP := 2
+const CARRIER_EVERY := 3
 ## Halden-Voss Recovery (enemies/recovery.gd).
 const DESIGNATE_RANGE := 9
 const DESIGNATE_AIM := 20          # aim bonus Recovery gets against the designated soldier
@@ -101,9 +124,9 @@ const HUSH_RANGE := 8
 const HUSH_PHASES := 4             # two full rounds of the soldier's turns
 ## Which faction a kind fights for, for the boss dispatch that weights an Act's faction.
 const FACTIONS := {
-	"scavengers": ["cutter", "torchman", "fence"],
-	"security": ["shieldman", "overwatcher", "emplacement"],
-	"automata": ["hound", "loader", "relay"],
+	"scavengers": ["cutter", "torchman", "fence", "packrat", "rigger", "lookout"],
+	"security": ["shieldman", "overwatcher", "emplacement", "sergeant", "grenadier", "field_medic"],
+	"automata": ["hound", "loader", "relay", "tender", "carrier", "arc_welder"],
 	"recovery": ["netter", "handler", "sterilizer", "collector"],
 	"choir": ["acolyte", "cantor", "hush"],
 }
@@ -151,6 +174,10 @@ static func make(spec: String) -> Unit:
 		u.status["flying"] = true
 	if stats.get("shield", false):
 		u.status["shield"] = true
+	if parsed.kind == "packrat":
+		u.status["plates"] = PACKRAT_PLATES
+	if parsed.kind == "carrier":
+		u.status["spawner"] = {"kinds": ["hound"], "every": CARRIER_EVERY, "next": 2, "i": 0, "count": CARRIER_DROP}
 	if stats.get("plate", false):
 		u.status["plate"] = true
 		u.status["facing"] = Vector2i(0, 1)

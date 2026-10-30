@@ -11,6 +11,7 @@ const SUPPORT_MAX := 10.0
 const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
 	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
+	"packrat", "rigger", "lookout", "sergeant", "grenadier", "field_medic", "tender", "arc_welder",
 	"netter", "handler", "sterilizer", "collector", "acolyte", "cantor", "hush",
 	"brood_mother", "breaker", "broker", "colonel_hale", "director", "choir_prophet", "the_source", "bore_engine", "lantern_echoes"]
 
@@ -25,6 +26,8 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 		Security.emplacement_turn(s, u)
 		return true
 	if EnemyRoster.is_static(u):
+		return true
+	if u.status.has("reviving"):   # a field medic kneeling by its patient does nothing else
 		return true
 	if u.kind == "brood_mother":
 		BroodMother.take_turn(s, u)
@@ -124,6 +127,14 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"overwatcher": return Security.overwatcher(s, u)
 		"hound": return rush(s, u, Automata.hound_targets(hostiles), "claw")
 		"loader": return rush(s, u, hostiles, "slam")
+		"packrat": return rush(s, u, hostiles, "claw")
+		"rigger": return _sapper(s, u, hostiles, "snare")
+		"lookout": return Scavengers.lookout(s, u, hostiles)
+		"sergeant": return Security.sergeant(s, u, hostiles)
+		"grenadier": return _sapper(s, u, hostiles, "frag")
+		"field_medic": return Security.medic(s, u, hostiles)
+		"tender": return Automata.tender(s, u, hostiles)
+		"arc_welder": return Automata.welder(s, u, hostiles)
 		"netter": return Recovery.netter(s, u, hostiles)
 		"handler": return Recovery.handler(s, u, hostiles)
 		"sterilizer": return Recovery.sterilizer(s, u, hostiles)
@@ -577,7 +588,7 @@ static func _hook_perch(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Unit
 ## it has none, and keeps out of reach while the satchel is on cooldown.
 static func _sapper(s: GameState, u: Unit, hostiles: Array[Unit], ability := "satchel") -> Dictionary:
 	if int(u.cooldowns.get(ability, 0)) <= 0:
-		var throw := _best_satchel(s, u, u.pos, hostiles)
+		var throw := _best_throw(s, u, u.pos, hostiles, ability)
 		if not throw.is_empty():
 			return EnemyAI._check(s, {"type": Types.ABILITY, "unit": u.id, "ability": ability, "cell": throw.cell})
 		if u.actions_left >= 2:
@@ -585,7 +596,7 @@ static func _sapper(s: GameState, u: Unit, hostiles: Array[Unit], ability := "sa
 			var best_cell := u.pos
 			var best_score := -INF
 			for c in reach:
-				var th := _best_satchel(s, u, c, hostiles)
+				var th := _best_throw(s, u, c, hostiles, ability)
 				if th.is_empty():
 					continue
 				var sc := float(th.score) - int(reach[c]) * 0.1 - Hazards.avoid_cost(s, u, c)
@@ -629,6 +640,81 @@ static func _flee_score(s: GameState, u: Unit, c: Vector2i, hostiles: Array[Unit
 	elif nearest > 8.0:
 		score -= (nearest - 8.0) * 0.5
 	return score
+
+
+## The best cell to throw `ability` at from `from`: {cell, score}, or {} when it would do nothing.
+static func _best_throw(s: GameState, u: Unit, from: Vector2i, hostiles: Array[Unit], ability: String) -> Dictionary:
+	match ability:
+		"snare": return _best_snare(s, u, from, hostiles)
+		"frag": return _best_frag(s, u, from, hostiles)
+	return _best_satchel(s, u, from, hostiles)
+
+
+## A walkable tile beside cover, in view of `from` and close to the squad, away from other snares: where a
+## soldier is most likely to step to take cover.
+static func _best_snare(s: GameState, u: Unit, from: Vector2i, hostiles: Array[Unit]) -> Dictionary:
+	var best := {}
+	var best_score := 0.0
+	var r := EnemyRoster.SNARE_RANGE
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			var c := from + Vector2i(dx, dy)
+			if not s.grid.in_bounds(c) or not s.grid.is_walkable(c) or not Scavengers.beside_cover(s.grid, c) \
+					or s.unit_at(c) != null or Scavengers.snare_at(s, c) >= 0:
+				continue
+			if not Combat.can_see(s, from, c):
+				continue
+			var nearest := INF
+			for h in hostiles:
+				nearest = minf(nearest, EnemyAI._dist(c, h.pos))
+			if nearest > 6.0:
+				continue
+			var score := 8.0 - nearest - EnemyAI.telegraph_cost(s, c)
+			for sn in s.encounter.get("snares", []):
+				if EnemyAbilities._cheb(sn.cell, c) <= 2:
+					score -= 3.0
+			if score > best_score:
+				best_score = score
+				best = {"cell": c, "score": score}
+	return best
+
+
+## Like a satchel, but it needs no line of sight to the spot and does not smash cover: it goes over it.
+## Soldiers behind cover are the best targets.
+static func _best_frag(s: GameState, u: Unit, from: Vector2i, hostiles: Array[Unit]) -> Dictionary:
+	var best := {}
+	var best_score := 0.0
+	var seen := {}
+	for h in hostiles:
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var c: Vector2i = h.pos + Vector2i(dx, dy)
+				if seen.has(c) or not s.grid.in_bounds(c) or s.grid.tile(c) == Types.Tile.WALL:
+					continue
+				seen[c] = true
+				var d := EnemyAI._cheb(from, c)
+				if d > EnemyRoster.FRAG_RANGE or d <= 1:
+					continue
+				var hits := 0
+				var cover := 0.0
+				var friends := 0
+				for o in s.living():
+					if o == u or EnemyAI._cheb(o.pos, c) > 1:
+						continue
+					if u.is_enemy_of(o):
+						hits += 1
+						for dd in Grid.DIRS4:
+							if s.grid.cover_toward(o.pos, dd) > 0:
+								cover += 0.8
+					else:
+						friends += 1
+				if hits == 0:
+					continue
+				var score := hits * 3.0 + cover - friends * 4.0 - EnemyAI.telegraph_cost(s, c)
+				if score > best_score:
+					best_score = score
+					best = {"cell": c, "score": score}
+	return best
 
 
 ## Best satchel from `from`: {cell, score}, or {} when no throw hits a soldier. Aims at the cover

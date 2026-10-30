@@ -38,16 +38,25 @@ const ENEMIES := {
 	"cutter": {"name": "Cutter", "max_hp": 5, "aim": 70, "mobility": 6, "damage": [2, 3], "abilities": ["claw"], "melee_only": true, "infects": false},
 	"torchman": {"name": "Torchman", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["firebomb"], "melee_only": true, "infects": false},
 	"fence": {"name": "Fence", "max_hp": 6, "aim": 0, "mobility": 6, "damage": [0, 0], "abilities": [], "melee_only": true, "infects": false},
+	"packrat": {"name": "Packrat", "max_hp": 7, "aim": 65, "mobility": 4, "damage": [3, 4], "abilities": ["claw"], "melee_only": true, "infects": false},
+	"rigger": {"name": "Rigger", "max_hp": 4, "aim": 0, "mobility": 5, "damage": [0, 0], "abilities": ["snare"], "melee_only": true, "infects": false},
+	"lookout": {"name": "Lookout", "max_hp": 4, "aim": 70, "mobility": 5, "damage": [2, 3], "abilities": ["flare"], "infects": false},
 	# Colony Security (Hale's cordon holdouts): human, hits deal damage only. "shield" = the front arc
 	# takes no damage at all.
 	"shieldman": {"name": "Shieldman", "max_hp": 7, "aim": 65, "mobility": 4, "damage": [3, 4], "abilities": ["slam"], "melee_only": true, "plate": true, "shield": true, "infects": false},
 	"overwatcher": {"name": "Overwatcher", "max_hp": 5, "aim": 85, "mobility": 3, "damage": [3, 5], "abilities": [], "infects": false},
 	"emplacement": {"name": "Emplacement", "max_hp": 8, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true, "infects": false},
+	"sergeant": {"name": "Sergeant", "max_hp": 6, "aim": 60, "mobility": 4, "damage": [2, 4], "abilities": ["order"], "infects": false},
+	"grenadier": {"name": "Grenadier", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["frag"], "melee_only": true, "infects": false},
+	"field_medic": {"name": "Field medic", "max_hp": 5, "aim": 55, "mobility": 4, "damage": [2, 3], "abilities": ["revive"], "infects": false},
 	# Automata (the colony's machines, built around the shaft). A Relay mast gives nearby machines a
 	# third action; without one they get a single action.
 	"hound": {"name": "Hound drone", "max_hp": 3, "aim": 75, "mobility": 8, "damage": [2, 3], "abilities": ["claw"], "melee_only": true, "infects": false, "machine": true},
 	"loader": {"name": "Loader frame", "max_hp": 9, "aim": 70, "mobility": 4, "damage": [4, 5], "abilities": ["slam", "charge"], "melee_only": true, "armour": 2, "infects": false, "machine": true},
 	"relay": {"name": "Relay", "max_hp": 8, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true, "infects": false},
+	"tender": {"name": "Tender", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["repair"], "melee_only": true, "infects": false, "machine": true},
+	"carrier": {"name": "Carrier", "max_hp": 10, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true, "infects": false, "machine": true},
+	"arc_welder": {"name": "Arc-welder", "max_hp": 4, "aim": 0, "mobility": 4, "damage": [2, 3], "abilities": ["arc"], "melee_only": true, "infects": false, "machine": true},
 	# Halden-Voss Recovery (the company's contractors): human, hits deal damage only. They want a
 	# soldier alive (Netter holds one, Collector drags a held one off the map).
 	"netter": {"name": "Netter", "max_hp": 6, "aim": 70, "mobility": 5, "damage": [1, 2], "abilities": ["net"], "melee_only": true, "infects": false},

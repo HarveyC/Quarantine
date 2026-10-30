@@ -113,6 +113,7 @@ const BY_KIND := {
 	"trooper": "rifle", "marksman": "dmr", "medic": "pdw", "breacher": "shotgun",
 	"hazmat": "lmg", "vector": "carbine", "reaper": "sidearm", "warden": "revolver",
 	"fallen": "rifle", "broker": "sidearm", "colonel_hale": "rifle", "director": "dmr", "choir_prophet": "pdw", "sharpshooter": "dmr", "spitter": "spit",
+	"field_medic": "sidearm", "lookout": "carbine",
 }
 
 

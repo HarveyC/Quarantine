@@ -5,7 +5,8 @@ extends RefCounted
 ##
 ## intents(s) -> Array of {unit, icon, label, target (unit id or -1), affixes: Array[String]}
 ##   icon: "claw" | "shoot" | "spit" | "burst" | "charge" | "scream" | "spawn" | "strike" | "leap" | "snipe" | "drop" |
-##         "pull" | "pulse" | "hide" | "seek" | "dormant" | "pinning"
+##         "pull" | "pulse" | "hide" | "seek" | "dormant" | "pinning" | "snare" | "flare" | "order" | "frag" |
+##         "revive" | "repair" | "arc"
 ## dangers(s) -> Array of {kind, cells: Array[Vector2i], unit, turn}: tiles that get hit next (kind "trail" is the
 ##   line a burrowed enemy digs along, drawn as dirt rather than red)
 ##   enemy phase (bursts, charges, airstrikes, core slams). Paint them red.
@@ -147,6 +148,35 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 			if mt != null:
 				return {"icon": "mend", "label": "MENDING", "target": mt.id}
 			return {"icon": "hide", "label": "HIDING", "target": -1}
+		"rigger":
+			if int(u.cooldowns.get("snare", 0)) <= 1:
+				return {"icon": "snare", "label": "SNARE", "target": -1}
+			return {"icon": "hide", "label": "RETREATING", "target": -1}
+		"lookout":
+			if not u.status.get("flared", false):
+				var seen := _best_visible(s, u)
+				if seen >= 0:
+					return {"icon": "flare", "label": "FLARE", "target": seen}
+		"sergeant":
+			if int(u.cooldowns.get("order", 0)) <= 1 and not Security.order_targets(s, u).is_empty():
+				return {"icon": "order", "label": "ORDERS", "target": -1}
+		"grenadier":
+			if int(u.cooldowns.get("frag", 0)) <= 1:
+				return {"icon": "frag", "label": "FRAG", "target": _nearest(u, hostiles)}
+			return {"icon": "hide", "label": "RETREATING", "target": -1}
+		"field_medic":
+			if u.status.has("reviving"):
+				return {"icon": "revive", "label": "REVIVING", "target": int(u.status.reviving.body)}
+			var bodies := Security.downed_bodies(s)
+			if not bodies.is_empty():
+				return {"icon": "revive", "label": "TO THE FALLEN", "target": bodies[0].id}
+		"tender":
+			var fix := Automata.repair_targets(s, u)
+			if not fix.is_empty():
+				return {"icon": "repair", "label": "REPAIRING", "target": fix[0].id}
+			return {"icon": "hide", "label": "HIDING", "target": -1}
+		"arc_welder":
+			return {"icon": "arc", "label": "ARC", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 		"brood_mother":
 			if BroodMother.will_burrow(s, u, true):
 				return {"icon": "claw", "label": "BURROWING", "target": -1}
@@ -216,6 +246,9 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for t in s.encounter.get("telegraphs", []):
 		out.append({"kind": t.kind, "cells": t.cells, "unit": int(t.get("unit", -1)), "turn": int(t.turn)})
+	for c in Scavengers.snare_cells(s):   # a snare is only drawn once the squad can see its tile
+		if Vision.cell_visible(s, Types.Team.PLAYER, c):
+			out.append({"kind": "snare", "cells": [c], "unit": -1, "turn": s.turn})
 	for u in s.living(Types.Team.ENEMY):
 		if not Vision.sees_unit(s, Types.Team.PLAYER, u) and not u.status.has("emerge_cell"):
 			continue
@@ -286,15 +319,23 @@ static func plates(s: GameState) -> Array[Dictionary]:
 	return out
 
 
-## [weaver id, mended id] for each Weaver's thread, seen by the squad.
+## [mender id, mended id] for each Weaver's thread, each Tender's lines to the machines it will repair, and each
+## Field medic's line to the patient it kneels by, seen by the squad.
 static func links(s: GameState) -> Array:
 	var out: Array = []
 	for u in s.living(Types.Team.ENEMY):
-		if u.kind != "weaver" or not Vision.sees_unit(s, Types.Team.PLAYER, u):
+		if not Vision.sees_unit(s, Types.Team.PLAYER, u):
 			continue
-		var t := EnemyAbilities.mend_target(s, u)
-		if t != null and Vision.sees_unit(s, Types.Team.PLAYER, t):
-			out.append([u.id, t.id])
+		if u.kind == "weaver":
+			var t := EnemyAbilities.mend_target(s, u)
+			if t != null and Vision.sees_unit(s, Types.Team.PLAYER, t):
+				out.append([u.id, t.id])
+		elif u.kind == "tender":
+			for t in Automata.repair_targets(s, u):
+				if Vision.sees_unit(s, Types.Team.PLAYER, t):
+					out.append([u.id, t.id])
+		elif u.kind == "field_medic" and u.status.has("reviving"):
+			out.append([u.id, int(u.status.reviving.body)])
 	out.append_array(Choir.links(s))
 	return out
 

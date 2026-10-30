@@ -1386,7 +1386,7 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
 	"burrow", "erupt", "leap", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull", "piston", "bite",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
-	"hook", "reel", "satchel", "firebomb", "mend", "debris",
+	"hook", "reel", "satchel", "firebomb", "mend", "debris", "snare", "flare", "order", "frag", "revive", "repair", "arc",
 	"net", "designate", "sterilize", "drag", "bloom", "hush", "silence",
 	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
 
@@ -1465,9 +1465,70 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			if ev.ability == "reel":
 				hb.dur = 0.5
 			return hb
-		"satchel", "firebomb":
+		"satchel", "firebomb", "frag":
 			_sfx("satchel_arm", -4.0)
 			return _throw_beat(ev)
+		"snare":
+			_sfx("grapple", -4.0)
+			var sb := _power_beat(ev, "snare", Palette.AMBER)
+			if ev.get("cell") is Vector2i:
+				view.fx.burst(Board.cell_to_world(ev.cell) + Vector3(0, 0.15, 0), Vector3.UP, Color(0.7, 0.62, 0.45), 8, 2.0, false, 0.03)
+			return sb
+		"flare":   # one flare a fight: a red star over the squad, and the area is lit
+			_sfx("flare_pop", -2.0)
+			var fb := _power_beat(ev, "flare", Palette.DANGER)
+			var ft := _uv(ev, "target")
+			if ft != null:
+				view.fx.flash_light(ft.position + Vector3(0, 5.0, 0), Palette.DANGER, 14.0, 0.9, 16.0)
+				view.fx.burst(ft.position + Vector3(0, 4.0, 0), Vector3.UP, Palette.DANGER, 16, 3.0, true, 0.06)
+			view.camera_rig.shake(0.4)
+			fb.dur = 0.9
+			return fb
+		"order":
+			_sfx("order_call", -2.0)
+			var ob := _power_beat(ev, "order", Palette.DANGER)
+			for id in ev.get("units", []):
+				var ov := view.view_for(int(id))
+				if ov != null:
+					view.fx.pulse(ov.position, Palette.DANGER)
+			return ob
+		"revive":
+			_sfx("heal", -6.0)
+			var rb := _power_beat(ev, "revive", Palette.AMBER)
+			var rt := _uv(ev, "target")
+			var rv := _uv(ev)
+			if rv != null and rt != null:
+				view.fx.tracer(rv.position + Vector3(0, 0.9, 0), rt.position + Vector3(0, 0.3, 0), Palette.AMBER, 0.6)
+			return rb
+		"repair":
+			_sfx("emitter_hum", -4.0)
+			var pb := _power_beat(ev, "repair", Palette.AMBER)
+			var pv := _uv(ev)
+			for id in ev.get("units", []):
+				var mv := view.view_for(int(id))
+				if mv != null and pv != null:
+					view.fx.tracer(pv.position + Vector3(0, 1.0, 0), mv.aim_point(), Palette.AMBER, 0.7)
+					view.fx.burst(mv.aim_point(), Vector3.UP, Palette.AMBER, 6, 2.0, true, 0.03)
+			pb.dur = 0.8
+			return pb
+		"arc":   # a welder's arc: crack to the target, then a jump to each soldier beside it
+			_sfx("whiz_zap", -2.0)
+			_sfx("impact_shock", -4.0, 0.1)
+			var ab := _power_beat(ev, "arc", Color(0.72, 0.86, 1.0))
+			var av := _uv(ev)
+			var at := _uv(ev, "target")
+			var prev: Vector3 = at.aim_point() if at != null else Vector3.ZERO
+			if av != null and at != null:
+				view.fx.flash_light(at.aim_point(), Color(0.72, 0.86, 1.0), 6.0, 0.3, 5.0)
+				view.fx.burst(at.aim_point(), Vector3.UP, Color(0.72, 0.86, 1.0), 12, 4.0, true, 0.03)
+			for id in ev.get("units", []):
+				var cv := view.view_for(int(id))
+				if cv != null and at != null:
+					view.fx.tracer(prev, cv.aim_point(), Color(0.72, 0.86, 1.0), 0.5)
+					view.fx.burst(cv.aim_point(), Vector3.UP, Color(0.72, 0.86, 1.0), 8, 3.0, true, 0.03)
+					prev = cv.aim_point()
+			ab.dur = 0.7
+			return ab
 		"mend":
 			_sfx("weave_hum", -6.0)
 			var mb := _power_beat(ev, "mend", Palette.TEAL)
@@ -1738,7 +1799,7 @@ func _throw_beat(ev: Dictionary) -> Dictionary:
 	var w := Board.cell_to_world(ev.cell)
 	uv.face_towards(w)
 	var demo: bool = ev.ability == "item:demo_charge"
-	view.fx.floating_text(_head(uv), "DEMO CHARGE" if demo else ("SATCHEL" if ev.ability == "satchel" else "FRAG OUT"), Palette.AMBER, 44)
+	view.fx.floating_text(_head(uv), "DEMO CHARGE" if demo else {"satchel": "SATCHEL", "firebomb": "FIREBOMB", "frag": "FRAG"}.get(ev.ability, "FRAG OUT"), Palette.AMBER, 44)
 	_sfx("ui_click", -2.0)
 	var from := uv.position + Vector3(0, 1.3, 0)
 	var to := w + Vector3(0, 0.6 if demo and _grid().tile(ev.cell) == Types.Tile.WALL else 0.12, 0)
