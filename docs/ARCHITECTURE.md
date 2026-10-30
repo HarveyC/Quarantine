@@ -515,12 +515,12 @@ hits carry into the next layer:
 
 | Terrain | Hits | Becomes |
 |---|---|---|
-| Wall | `WALL_HITS` = 2 (1 = cracked, still a wall) | rubble heap: `LOW`, half cover, see-through; then floor |
+| Edge wall (thin, `Grid.edges`; windows the same) | `WALL_HITS` = 2 (1 = cracked, `edge_wear`) | gone: a breach. Low walls 1 hit; doorways never |
 | Half cover | 1 | floor with debris |
 | Fuel barrel (`Grid.volatile`) | 1 | explodes (`BARREL`), floor |
 | Roof cell (level > 0) | `ROOF_HITS` = 2 per level | one level lower, a rubble ramp (stairs where it meets higher ground); units on it fall (2 per level) |
 | Scaffold | 1 | ground (no ramp) |
-| Map edge wall, `H` reinforced wall (`Grid.hard`) | never | |
+| Wall block (`Tile.WALL`, any `#` or `H`; `Grid.is_hard`) | never: every full 1x1 wall is reinforced | |
 
 - **Sources**: frag grenade `FRAG` (3x3, 1 hit each, 3 damage), demo charge `DEMO` (consumable, range 1,
   centre 3 / ring 1, 3 damage, not to its user; the Breacher's starter), fuel barrel `BARREL` (centre 2 /
@@ -546,7 +546,7 @@ hits carry into the next layer:
   `wear` {cell: hits on its current layer}, `volatile` (barrels), `hard`, `rubble` {cell: "heap" |
   "debris" | "barrel" | "roof" | "scaffold"} (view only). No dice; cells resolve row-major and
   chains in hit order, so every peer gets the same board.
-- **Maps**: glyphs `!` fuel barrel and `H` reinforced wall (`Grid.read_glyph`). `MapGen._place_barrels`
+- **Maps**: glyphs `!` fuel barrel and `H` wall block (`Grid.read_glyph`; `#` is just as reinforced). `MapGen._place_barrels`
   turns up to `MapGen.BARRELS` = 2 half-cover pieces within 3 of enemy spawns (and 7+ from the drop zone)
   into barrels when the parcels placed none; it runs last, so layouts are unchanged.
 - **View**: `Board` draws cracked walls and roofs, rubble heaps, debris and scorch, rubble ramps and

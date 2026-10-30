@@ -1,33 +1,63 @@
 ; Live-fire ground for the training mission (tutorial/tutorial_script.gd): Sector Nine, the Yard
 ; behind the Wall. 20x26. Same legend as mission_01.txt, plus ^ raised floor, % low cover on a
 ; roof, / ladder, ! fuel barrel, H reinforced wall (never breaks).
-; The squad starts at the bottom, inside the gate. The compound at the top is sealed by a wall
-; that only a charge or a barrel blast opens (any cell of row 7). The script places every
-; enemy itself; the walled pocket in the top-right corner holds the hidden anchor that keeps
-; the fight open between lessons.
-..................#.
-..................##
-....................
-.......##..##.......
-....................
-.....=..........=...
-...==............==.
-####################
-........!!!.........
-....................
-..^^^^.........==...
-..^%^^..............
-..^^^^......####....
-..^^^^......#..#....
-..../.......#..#....
-....................
-..=.........=.......
-....................
-....................
-#######......#######
-...==..........==...
-....................
-.......P....P.......
-....................
-....................
-....................
+; Drawn at double resolution (the @edges line, see biome_wall.txt): cells at odd positions, thin
+; walls in the gaps. Full # blocks are reinforced and never break; only thin walls do.
+; The squad starts at the bottom, inside the gate. The compound at the top is sealed by a thin
+; wall along the top of row 7 that only a charge or a barrel blast opens (any cell of row 7). The
+; script places every enemy itself; the walled pocket in the top-right corner holds the hidden
+; anchor that keeps the fight open between lessons.
+@edges
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . # . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . # # 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . # # . . # # . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . = . . . . . . . . . . = . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . = = . . . . . . . . . . . . = = . 
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . ! ! ! . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . ^ ^ ^ ^ . . . . . . . . . = = . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . ^ % ^ ^ . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . ^ ^ ^ ^ . . . . . . # # # # . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . ^ ^ ^ ^ . . . . . . # . . # . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . / . . . . . . . # . . # . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . = . . . . . . . . . = . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ # # # # # # # . . . . . . # # # # # # # 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . = = . . . . . . . . . . = = . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . P . . . . P . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +
+ . . . . . . . . . . . . . . . . . . . . 
++ + + + + + + + + + + + + + + + + + + + +

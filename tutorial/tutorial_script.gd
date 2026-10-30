@@ -63,7 +63,7 @@ const STEPS: Array[Dictionary] = [
 	{"id": "rig", "title": "Rigs", "hud": "suppress", "visual": "rig",
 		"text": "Use Suppress from the action bar. The Trooper's passive, Covering Fire, also suppresses on every miss."},
 	{"id": "breach", "title": "Open the wall", "cells": WALL_CELLS, "visual": "wall",
-		"text": "Place the Breacher's Demo charge on the wall, or Shoot the fuel barrels in front of it. Walls break to rubble, then floor."},
+		"text": "Place the Breacher's Demo charge by the thin wall, or Shoot the fuel barrels in front of it. Thin walls break. Full wall blocks are reinforced and never do."},
 	{"id": "concealment", "title": "Concealment", "info": true, "visual": "stealth",
 		"text": "Most missions start Concealed. Red tiles near unaware Infected give you away, and so does any shot."},
 	{"id": "infection", "title": "Infection", "hud": "mutation",
@@ -196,7 +196,7 @@ func _done(s: GameState) -> bool:
 			return _suppressed
 		"breach":
 			# Any gap will do, as long as a soldier can walk through it.
-			return range(1, s.grid.width - 1).any(func(x: int) -> bool: return s.grid.is_walkable(Vector2i(x, WALL_ROW)))
+			return range(1, s.grid.width - 1).any(func(x: int) -> bool: return s.grid.edge(Vector2i(x, WALL_ROW), Vector2i(0, -1)) == Grid.EDGE_NONE)
 		"infection":
 			return _mutation
 		"nest":

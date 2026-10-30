@@ -2,14 +2,14 @@ extends TestCase
 ## Destruction: walls and cover breaking in steps, roofs collapsing into ramps, fuel barrels and
 ## their chains, the demo charge, Breach, noise, snapshots and map generation.
 
-# A wall line at x = 5 (rows 0..4), half cover at (3, 3), barrels at (8, 1) and (9, 1) and a lone
-# one at (8, 4); a roof block at x 1..3, y 5..6; an edge wall at (0, 7); a reinforced wall at (11, 3).
+# An edge wall line between x = 4 and x = 5 (rows 0..4), half cover at (3, 3), barrels at (8, 1) and (9, 1) and a lone
+# one at (8, 4); a roof block at x 1..3, y 5..6; a wall block at (0, 7); an H wall block at (11, 3). Both blocks are reinforced.
 const ROWS := [
 	"............",
-	".....#..!!..",
-	".....#......",
-	"...=.#.....H",
-	".....#..!...",
+	"........!!..",
+	"............",
+	"...=.......H",
+	"........!...",
 	".^^^........",
 	".^^^........",
 	"#...........",
@@ -18,6 +18,8 @@ const ROWS := [
 
 func _state() -> GameState:
 	var s := make_blank(PackedStringArray(ROWS))
+	for y in 5:
+		s.grid.set_edge(Vector2i(4, y), Vector2i(1, 0), Grid.EDGE_WALL)
 	s.turn = 1
 	Vision.disable(s)
 	return s
@@ -35,29 +37,25 @@ func _events(s: GameState, type: String) -> Array:
 	return s.log.filter(func(ev): return ev.type == type)
 
 
-func test_wall_breaks_in_steps() -> void:
+func test_edge_wall_breaks_in_two_hits() -> void:
 	var s := _state()
 	var w := Vector2i(5, 2)
+	var k := Grid.edge_key(w, Vector2i(-1, 0))
 	assert_true(not Combat.line_clear(s.grid, Vector2i(3, 2), Vector2i(7, 2)), "wall blocks sight")
 	Destruction.hit(s, {w: 1})
-	assert_eq(s.grid.tile(w), Types.Tile.WALL, "one hit cracks it")
-	assert_eq(int(s.grid.wear.get(w, 0)), 1, "crack recorded")
+	assert_eq(s.grid.edge(w, Vector2i(-1, 0)), Grid.EDGE_WALL, "one hit cracks it")
+	assert_eq(int(s.grid.edge_wear.get(k, 0)), 1, "crack recorded")
 	Destruction.hit(s, {w: 1})
-	assert_eq(s.grid.tile(w), Types.Tile.LOW, "two hits: rubble heap")
-	assert_eq(s.grid.rubble.get(w), "heap", "heap remembered for the view")
-	assert_true(Combat.line_clear(s.grid, Vector2i(3, 2), Vector2i(7, 2)), "heap is see-through")
-	assert_eq(s.grid.cover_value(w), Types.Cover.HALF, "and half cover")
-	Destruction.hit(s, {w: 1})
-	assert_eq(s.grid.tile(w), Types.Tile.FLOOR, "three hits: floor")
+	assert_eq(s.grid.edge(w, Vector2i(-1, 0)), Grid.EDGE_NONE, "two hits: a breach")
+	assert_true(Combat.line_clear(s.grid, Vector2i(3, 2), Vector2i(7, 2)), "sight through the breach")
 	var ev: Dictionary = _events(s, "cover_destroyed")[-1]
-	assert_eq(ev.changes[0].kind, "clear", "change kind for the view")
+	assert_eq(ev.changes[0].kind, "break", "change kind for the view")
 
 
 func test_extra_hits_carry_through() -> void:
 	var s := _state()
 	Destruction.hit(s, {Vector2i(5, 2): 3})
-	assert_eq(s.grid.tile(Vector2i(5, 2)), Types.Tile.FLOOR, "3 hits go straight through a wall")
-	assert_true(s.grid.is_walkable(Vector2i(5, 2)), "a doorway")
+	assert_eq(s.grid.edge(Vector2i(5, 2), Vector2i(-1, 0)), Grid.EDGE_NONE, "3 hits go straight through a wall")
 
 
 func test_half_cover_goes_in_one_hit_and_floor_is_untouched() -> void:
@@ -67,12 +65,14 @@ func test_half_cover_goes_in_one_hit_and_floor_is_untouched() -> void:
 	assert_eq(changed, [Vector2i(3, 3)] as Array[Vector2i], "plain floor doesn't change")
 
 
-func test_edge_and_reinforced_walls_never_break() -> void:
+func test_wall_blocks_never_break() -> void:
 	var s := _state()
 	Destruction.hit(s, {Vector2i(0, 7): 5, Vector2i(11, 3): 5})
-	assert_eq(s.grid.tile(Vector2i(0, 7)), Types.Tile.WALL, "map edge stays")
+	assert_eq(s.grid.tile(Vector2i(0, 7)), Types.Tile.WALL, "a wall block stays")
 	assert_eq(s.grid.tile(Vector2i(11, 3)), Types.Tile.WALL, "H stays")
+	assert_true(s.grid.is_hard(Vector2i(0, 7)), "every wall block is reinforced")
 	assert_true(s.grid.is_hard(Vector2i(11, 3)), "H parsed")
+	assert_true(not Destruction.breakable(s.grid, Vector2i(0, 7)), "explosives skip it")
 
 
 func test_demo_charge_blows_a_doorway() -> void:
@@ -86,9 +86,9 @@ func test_demo_charge_blows_a_doorway() -> void:
 	var hp := foe.hp
 	var bhp := b.hp
 	assert_true(Rules.apply(s, act), "demo charge")
-	assert_true(s.grid.is_walkable(Vector2i(5, 2)), "doorway through the wall")
-	assert_eq(s.grid.tile(Vector2i(5, 1)), Types.Tile.WALL, "walls beside it only crack")
-	assert_eq(int(s.grid.wear.get(Vector2i(5, 1), 0)), 1, "cracked")
+	assert_eq(s.grid.edge(Vector2i(5, 2), Vector2i(-1, 0)), Grid.EDGE_NONE, "doorway through the wall")
+	assert_eq(s.grid.edge(Vector2i(5, 1), Vector2i(-1, 0)), Grid.EDGE_WALL, "walls beside it only crack")
+	assert_eq(int(s.grid.edge_wear.get(Grid.edge_key(Vector2i(5, 1), Vector2i(-1, 0)), 0)), 1, "cracked")
 	assert_eq(foe.hp, maxi(0, hp - 3), "3 damage beyond the wall")
 	assert_eq(b.hp, bhp, "the Breacher is not hurt by their own charge")
 	assert_eq(_events(s, "explosion")[0].kind, "demo", "explosion event")
@@ -261,7 +261,7 @@ func test_damage_survives_snapshots_and_changes_the_checksum() -> void:
 	assert_true(s.checksum() != a, "cracks change the checksum")
 	var copy := GameState.from_dict(s.to_dict())
 	assert_eq(copy.checksum(), s.checksum(), "same after a snapshot")
-	assert_eq(int(copy.grid.wear.get(Vector2i(5, 2), 0)), 1, "wear round-trips")
+	assert_eq(int(copy.grid.edge_wear.get(Grid.edge_key(Vector2i(5, 2), Vector2i(-1, 0)), 0)), 1, "wear round-trips")
 	assert_true(copy.grid.is_volatile(Vector2i(8, 1)), "barrels round-trip")
 	assert_true(copy.grid.is_hard(Vector2i(11, 3)), "reinforced walls round-trip")
 
