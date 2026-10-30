@@ -789,6 +789,9 @@ func _action_input(e: InputEvent) -> void:
 	elif e.is_action_pressed("shot_cams"):
 		GameSettings.set_value("gameplay", "shot_cams", not EventPlayer.cinematics)
 		view.hud.toast("Shot cameras " + ("on" if EventPlayer.cinematics else "off"))
+	elif e.is_action_pressed("loadout"):
+		if view.hud != null:
+			view.hud.open_loadout()
 	elif e.is_action_pressed("mute"):
 		view.sfx.set_muted(not Sfx.muted)
 		view.hud.toast("Sound " + ("off" if Sfx.muted else "on"))
