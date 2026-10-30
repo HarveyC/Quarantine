@@ -180,6 +180,8 @@ func _cases() -> Dictionary:
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "bash") else "no strike"}
 	c["shield_charge"] = {"kind": "warden", "abilities": ["shield_charge"], "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "bash") else "no strike"}
+	c["swap_weapon"] = {"kind": "reaper", "act": func(x): return {},
+		"check": func(x): return "" if ClassAbilities.gun_drawn(x.u) else "gun not drawn"}
 	c["lunge"] = {"kind": "reaper", "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "lunge") else "no strike"}
 	# Rank 2 signatures (Signatures).
@@ -278,7 +280,7 @@ func test_every_active_item_and_ability_works_and_shows() -> void:
 			assert_eq(err, "", "%s has its effect" % id)
 			var events := s.log.slice(from)
 			var shown: String = "bash" if id == "shield_charge" else id   # a charge ends in a Bash
-			assert_true(events.any(func(ev): return ev.get("type") == "ability" and ev.get("ability") == shown) or id == "guard",
+			assert_true(events.any(func(ev): return ev.get("type") == "ability" and ev.get("ability") == shown) or id == "guard" or events.any(func(ev): return ev.get("type") == id),
 				"%s emits its ability event" % id)
 			v.player.flush()
 			assert_eq(v.player.generic_log, [] as Array[String], "%s plays dedicated beats" % id)

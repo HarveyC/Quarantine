@@ -511,6 +511,15 @@ static func _build() -> Dictionary:
 			"Some gear and perks make it free or give a bonus for it."],
 		"see": ["ammo", "actions"],
 		"aliases": ["Reloads", "Reloaded", "Reloading"]}
+	t["swap_weapon"] = {"name": "Swap weapon", "kind": "action", "icon": "reload", "tone": "amber",
+		"line": "Switch between your melee weapon and your gun. Only the drawn weapon can attack.",
+		"art": "",
+		"stats": [["1", "action"]],
+		"more": ["A melee weapon starts drawn: its strike takes the place of Shoot and ends your turn, and there is no {overwatch}.",
+			"Swap to the gun for anything out of reach, like fliers. Swapping does not end your turn.",
+			"The gun stays drawn until you swap back. A holstered melee weapon gives no {parting_blow|Parting blow}."],
+		"see": ["reload", "overwatch", "parting_blow"],
+		"aliases": ["Draw gun", "Drawn weapon"]}
 	t["suppress"] = {"name": "Suppressed", "kind": "status", "icon": "suppress", "tone": "danger",
 		"line": "Pinned down: worse aim on the next shot, and no overwatch.",
 		"art": "",
@@ -1219,7 +1228,7 @@ static func _add_rules_terms(t: Dictionary) -> void:
 		var a: Dictionary = abilities[id]
 		if taken.has(str(a.name).to_lower()):
 			continue
-		var e := {"name": a.name, "kind": "ability", "icon": id if ABILITY_ICONS.has(id) else "ability", "tone": "amber",
+		var e := {"name": a.name, "kind": "ability", "icon": "reload" if id == "swap_weapon" else (id if ABILITY_ICONS.has(id) else "ability"), "tone": "amber",
 			"line": _first_sentence(str(a.get("desc", ""))), "art": "", "stats": [], "aliases": ABILITY_ALIASES.get(id, [])}
 		var cd := int(a.get("cooldown", 0))
 		if cd > 0:

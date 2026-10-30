@@ -1084,6 +1084,22 @@ func _beat_reload(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.35 if free else 0.5}
 
 
+## Swap weapon: the drawn weapon named over the soldier, with a handling click.
+func _beat_swap_weapon(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	var gun: bool = str(ev.get("drawn", "")) == "gun"
+	view.fx.floating_text(_head(uv), "GUN" if gun else "MELEE", Palette.AMBER, 40)
+	view.fx.pulse(uv.position, Palette.AMBER, 0.4)
+	uv.flash(Palette.AMBER)
+	if gun:
+		_sfx(GunFeel.reload_sound(uv.weapon if uv.weapon != "" else Weapons.id_for(uv.kind)), 2.0)
+	else:
+		_sfx("bash", -12.0, 0.1)
+	return {"dur": 0.4}
+
+
 func _beat_hunker(ev: Dictionary) -> Dictionary:
 	return _status_beat(ev, false, "HUNKER DOWN")
 

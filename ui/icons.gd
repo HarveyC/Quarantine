@@ -7,7 +7,7 @@ const IconArt := preload("res://ui/icon_art.gd")
 const CLASS_ICON := {"trooper": "trooper", "marksman": "marksman", "medic": "medic", "breacher": "breacher",
 	"hazmat": "hazmat", "vector": "vector", "reaper": "reaper", "warden": "warden"}
 const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "breach": "breach",
-	"incinerate": "incinerate", "siphon": "siphon", "lunge": "lunge", "bash": "bash", "guard": "guard", "shield_charge": "shield_charge",
+	"incinerate": "incinerate", "siphon": "siphon", "lunge": "lunge", "bash": "bash", "swap_weapon": "reload", "guard": "guard", "shield_charge": "shield_charge",
 	"item:frag_grenade": "grenade", "item:demo_charge": "charge",
 	"item:smoke_grenade": "smoke", "item:flashbang": "flash", "item:medkit": "medic", "item:stim": "medic",
 	"item:suppressant_shot": "purge", "item:antiviral_dose": "purge", "item:breather_mask": "cure", "item:recon_drone": "drone", "gear:flare_launcher": "tag",
