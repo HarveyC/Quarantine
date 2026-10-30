@@ -555,6 +555,10 @@ func _autoplay_step() -> void:
 				if not Ammo.can_fire(u) and Rules.validate(state, reload) == "":
 					session.submit(reload)   # a dry gun reloads before anything else
 					return
+				var draw := {"type": Types.ABILITY, "unit": u.id, "ability": "swap_weapon"}
+				if ClassAbilities.melee_drawn(u) and Rules.validate(state, draw) == "":
+					session.submit(draw)   # autoplay shoots: draw the gun first
+					return
 				var targets := Combat.shot_targets(state, u)
 				var shot := {"type": Types.SHOOT, "unit": u.id, "target": targets[0].id} if not targets.is_empty() else {}
 				if not shot.is_empty() and Rules.validate(state, shot) == "":

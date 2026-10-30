@@ -277,11 +277,11 @@ const ITEMS := {
 		"desc_mk2": "Once a turn, a kill within 3 tiles cuts your signature ability's cooldown by 2"},
 	# Melee weapons: any soldier can carry one; it grants the matching strike ability
 	"reaper_blade": {"name": "Reaper blade", "tag": "Close", "slot": "melee", "rarity": "uncommon",
-		"desc": "Grants the Lunge ability",
-		"desc_mk2": "Grants the Lunge ability"},
+		"desc": "Drawn: Lunge replaces Shoot",
+		"desc_mk2": "Drawn: Lunge replaces Shoot"},
 	"trench_maul": {"name": "Trench maul", "tag": "Guard", "slot": "melee", "rarity": "uncommon",
-		"desc": "Grants the Shield Bash ability",
-		"desc_mk2": "Grants the Shield Bash ability"},
+		"desc": "Drawn: Shield Bash replaces Shoot",
+		"desc_mk2": "Drawn: Shield Bash replaces Shoot"},
 	# Head and chest grafts are plain gear: their rules run through Grafts (see GraftData.GEAR_GRAFTS).
 	"targeting_optic": {"name": "Targeting optic", "tag": "Mark", "slot": "head", "rarity": "rare",
 		"desc": "Each hit also Marks a second enemy within 3 tiles of the target.",

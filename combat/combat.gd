@@ -535,6 +535,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		Types.SHOOT:
 			if UnitData.is_melee_only(u.kind):
 				return "Melee only"
+			if ClassAbilities.melee_drawn(u):
+				return "Melee weapon drawn: swap weapon first"
 			if not Ammo.can_fire(u):
 				return "Out of ammo"
 			if action.has("cell"):
@@ -546,6 +548,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			if t == null or not shot_targets(s, u).has(t):
 				return "No line of sight"
 		Types.OVERWATCH:
+			if ClassAbilities.melee_drawn(u):
+				return "Melee weapon drawn: swap weapon first"
 			if not Ammo.can_fire(u):
 				return "Out of ammo"
 		Types.RELOAD:

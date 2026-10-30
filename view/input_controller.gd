@@ -88,6 +88,8 @@ func _aimed() -> Variant:
 
 ## Everything `u` can Shoot, in cycling order: units first, then the fuel barrels in sight.
 func shoot_candidates(u: Unit) -> Array:
+	if ClassAbilities.melee_drawn(u):
+		return []
 	var out: Array = Combat.shot_targets(view.state, u).map(func(t: Unit) -> int: return t.id)
 	out.append_array(Combat.shot_barrels(view.state, u))
 	return out
@@ -521,25 +523,33 @@ func actions() -> Array[Dictionary]:
 			"desc": "%d%% chance to throw the Lurker off. Costs nothing, once a turn." % Encounter.STRUGGLE_CHANCE})
 		return out
 	var has_ap := u.actions_left > 0
-	var gun: Dictionary = Weapons.of(u)
-	out.append({"key": "shoot", "label": "Shoot", "targeting": "shoot", "type": Types.SHOOT, "enabled": has_ap,
-		"desc": "%s: %s" % [gun.name, gun.desc]})
-	out.append({"key": "overwatch", "label": "Overwatch", "targeting": "none", "type": Types.OVERWATCH, "enabled": has_ap})
+	var melee := ClassAbilities.melee_drawn(u)
+	if not melee:
+		var gun: Dictionary = Weapons.of(u)
+		out.append({"key": "shoot", "label": "Shoot", "targeting": "shoot", "type": Types.SHOOT, "enabled": has_ap,
+			"desc": "%s: %s" % [gun.name, gun.desc]})
+		out.append({"key": "overwatch", "label": "Overwatch", "targeting": "none", "type": Types.OVERWATCH, "enabled": has_ap})
 	out.append({"key": "hunker", "label": "Hunker", "targeting": "none", "type": Types.HUNKER, "enabled": has_ap})
 	if PartingBlow.enabled and PartingBlow.threatened(view.state, u):
 		out.append({"key": "disengage", "label": "Disengage", "targeting": "cell", "type": Types.MOVE, "careful": true,
 			"enabled": has_ap, "cells": PartingBlow.careful_cells(view.state, u),
 			"desc": "Move up to %d tiles without a Parting blow." % PartingBlow.CAREFUL_RANGE})
-	if Ammo.tracked(u):
+	if Ammo.tracked(u) and not melee:
 		var dry := Ammo.reload_error(view.state, u)
 		out.append({"key": "reload", "label": "Reload", "targeting": "none", "type": Types.RELOAD, "enabled": has_ap and dry == "",
 			"reason": dry, "desc": "Refill the magazine (%d of %d rounds). Costs %s." % [Ammo.rounds(u), Ammo.mag_size(u),
 			"no action" if Ammo.reload_is_free(view.state, u) else "1 action"]})
+	var strike_at := 0   # a drawn melee weapon's strike takes Shoot's place at the front
 	for a in Combat.available_abilities(view.state, u):
-		out.append({"key": "ability:%s" % a.id, "label": str(a.get("name", a.id)), "targeting": str(a.get("targeting", "none")),
+		var entry := {"key": "ability:%s" % a.id, "label": str(a.get("name", a.id)), "targeting": str(a.get("targeting", "none")),
 			"type": Types.ABILITY, "id": a.id, "enabled": has_ap and a.get("ready", true), "desc": str(a.get("desc", "")),
 			"targets": a.get("targets", []), "reach": int(a.get("reach", a.get("range", 0))), "new": a.get("new", false),
-			"cooldown": int(a.get("cooldown", 0)), "reason": str(a.get("reason", ""))})
+			"cooldown": int(a.get("cooldown", 0)), "reason": str(a.get("reason", ""))}
+		if melee and a.id in ClassAbilities.STRIKES:
+			out.insert(strike_at, entry)
+			strike_at += 1
+		else:
+			out.append(entry)
 	for m in Infection.available_mutations(view.state, u):
 		var lbl := str(m.get("name", m.id))
 		if m.has("cost"):

@@ -13,6 +13,8 @@ static func can_swing(s: GameState, w: Unit) -> bool:
 	if not w.is_alive() or w.status.get("stunned", false) or EnemyRoster.is_static(w):
 		return false
 	if w.team == Types.Team.PLAYER:
+		if ClassAbilities.gun_drawn(w):
+			return false   # the melee weapon is put away
 		return SOLDIER_MELEE.has(w.kind) or w.abilities.has("lunge") or w.abilities.has("bash")
 	return UnitData.is_melee_only(w.kind) and w.damage.y > 0
 
