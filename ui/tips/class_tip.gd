@@ -1,7 +1,7 @@
 extends RefCounted
 ## The hover card for a soldier class (lobby class picker and squad tiles): role, stat bars,
-## signature gun with its range profile, abilities with their cost, the passive, and how to
-## unlock the class while it's locked. Shift adds the full ability text, the gun's trait and
+## starting equipment (gun with its range profile, class rig or melee weapon, consumable), the
+## passive, and how to unlock the class while it's locked. Shift adds the full rules text and
 ## the gear tags the class's perks build around. Numbers come from UnitData, Weapons, Combat,
 ## ClassAbilities, PerkData and Vision, so the card follows any retune.
 ## Hook a control with Tips.soldier_class(control, kind, locked); TipCard calls build().
@@ -9,6 +9,7 @@ extends RefCounted
 const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 const Icons := preload("res://ui/icons.gd")
+const IconArt := preload("res://ui/icon_art.gd")
 const Tips := preload("res://ui/tips/tips.gd")
 
 ## Role word and one-line pitch per class.
@@ -103,15 +104,19 @@ static func build(card: Control, box: VBoxContainer, kind: String, locked: bool,
 	box.add_child(StatRow.new("Damage", int(dmg[0]), int(dmg[1]), DMG_SEGS, Styles.TEXT, "%d-%d" % [dmg[0], dmg[1]]))
 	box.add_child(_rule())
 
+	box.add_child(Styles.caps("starts with", 10, Styles.MUTED, false))
+	var gun_id := Weapons.START_GUN if Weapons.starts_on_sidearm(kind) else Weapons.id_for(kind)
+	box.add_child(_gun_block(card, kind, inner, full, gun_id))
+	for id in GearData.CLASS_KIT.get(kind, []):
+		box.add_child(_kit_row(card, str(id), inner, full))
+	var cons := str(GearData.STARTER_CONSUMABLES.get(kind, ""))
+	if cons != "":
+		box.add_child(_consumable_row(card, cons, inner, full))
 	if Weapons.starts_on_sidearm(kind):
-		box.add_child(_gun_block(card, kind, inner, full, Weapons.START_GUN, "Starts with"))
-		box.add_child(_gun_block(card, kind, inner, full, "", "Class gun, found in a run"))
-	else:
-		box.add_child(_gun_block(card, kind, inner, full))
+		var cg := Weapons.get_gun(Weapons.id_for(kind))
+		box.add_child(Styles.caps("finds a %s in a run" % str(cg.get("name", "")).to_lower(), 10, Styles.MUTED, false))
 	box.add_child(_rule())
 
-	for id in u.abilities:
-		box.add_child(_ability_row(card, str(id), inner, full))
 	var pas: Dictionary = PerkData.PASSIVES.get(kind, {})
 	if not pas.is_empty():
 		var r := Styles.hbox(8)
@@ -159,16 +164,11 @@ static func _locked_row(card: Control, kind: String, inner: float) -> Control:
 	return p
 
 
-static func _gun_block(card: Control, kind: String, inner: float, full: bool, gun_id := "", caption := "") -> Control:
-	var id := gun_id if gun_id != "" else Weapons.id_for(kind)
+static func _gun_block(card: Control, kind: String, inner: float, full: bool, id: String) -> Control:
 	var gun := Weapons.get_gun(id)
 	var v := Styles.vbox(5)
-	if caption != "":
-		v.add_child(Styles.caps(caption, 10, Styles.MUTED, false))
 	var top := Styles.hbox(8)
-	var ic := W.Icon.new("weapon", Styles.TEXT, 18, 1.8)
-	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	top.add_child(ic)
+	top.add_child(_item_icon(id, "weapon"))
 	top.add_child(Styles.caps(str(gun.get("name", id)), 13, Styles.TEXT))
 	top.add_child(Styles.spacer())
 	var mag := Weapons.mag_for(id, kind)
@@ -185,7 +185,7 @@ static func _gun_block(card: Control, kind: String, inner: float, full: bool, gu
 		top.add_child(Styles.caps({"pin": "pins", "snap": "snap shots", "spread": "spread", "quarters": "close quarters", "heavy": "heavy rounds", "pierce": "pierce", "skirmish": "skirmisher", "tranq": "tranquiliser", "doorkick": "door kicker", "recoil": "recoil"}.get(tr, tr), 10, Styles.DIM))
 	v.add_child(top)
 	v.add_child(RangeStrip.new(gun, inner))
-	if full and gun_id == "":
+	if full:
 		v.add_child(card.rich(str(gun.get("desc", "")), inner, 12, Styles.DIM))
 		var alts := Weapons.alternates_for(kind).size()
 		if alts > 0:
@@ -193,29 +193,55 @@ static func _gun_block(card: Control, kind: String, inner: float, full: bool, gu
 	return v
 
 
-static func _ability_row(card: Control, id: String, inner: float, full: bool) -> Control:
-	var def := ability(id)
+## A tinted item picture from the generated art, or the line glyph `fallback` without one.
+static func _item_icon(id: String, fallback: String) -> Control:
+	var tex := IconArt.item(id)
+	if tex == null:
+		var ic := W.Icon.new(fallback, Styles.AMBER, 26, 1.8)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		return ic
+	var t := TextureRect.new()
+	t.texture = tex
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.custom_minimum_size = Vector2(30, 30)
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	t.modulate = Styles.AMBER
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
+
+static func _item_row(card: Control, id: String, name: String, line: String, tail: String, inner: float, fallback: String) -> Control:
 	var r := Styles.hbox(8)
-	var ic := W.Icon.new(ability_icon(id), Styles.AMBER, 18, 1.8)
-	ic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	r.add_child(ic)
+	r.add_child(_item_icon(id, fallback))
 	var col := Styles.vbox(1)
 	var top := Styles.hbox(6)
-	top.add_child(Styles.caps(str(def.get("name", id)), 13, Styles.TEXT))
-	top.add_child(Styles.spacer())
-	top.add_child(CostPips.new(int(def.get("cost", 1))))
-	var cd := int(def.get("cooldown", 0))
-	if cd > 0:
-		var clock := W.Icon.new("clock", Styles.MUTED, 12, 1.5)
-		clock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		top.add_child(clock)
-		top.add_child(Styles.mono("%d" % cd, 11, Styles.MUTED))
+	top.add_child(Styles.caps(name, 13, Styles.TEXT))
+	if tail != "":
+		top.add_child(Styles.spacer())
+		top.add_child(Styles.mono(tail, 11, Styles.MUTED))
 	col.add_child(top)
-	var short := short_lines()
-	var line := str(def.get("desc", "")) if full or not short.has(id) else str(short[id])
-	col.add_child(card.rich(line, inner - 26, 12, Styles.DIM))
+	col.add_child(card.rich(line, inner - 40, 12, Styles.DIM))
 	r.add_child(col)
 	return r
+
+
+## A class rig or melee weapon: what it does, from the ability it grants.
+static func _kit_row(card: Control, id: String, inner: float, full: bool) -> Control:
+	var ab := GearData.signature_of(id)
+	var def := ability(ab)
+	var short := short_lines()
+	var line := str(def.get("desc", "")) if full or not short.has(ab) else str(short[ab])
+	var cd := int(def.get("cooldown", 0))
+	return _item_row(card, id, GearData.item_name(id), line, "" if cd <= 0 else "cooldown %d" % cd, inner, "ability")
+
+
+## The starting consumable: its first sentence, with the charge count.
+static func _consumable_row(card: Control, id: String, inner: float, full: bool) -> Control:
+	var desc := str(GearData.CONSUMABLES.get(id, {}).get("desc", ""))
+	if not full:
+		desc = desc.split(". ")[0].trim_suffix(".")
+	return _item_row(card, id, GearData.item_name(id), desc, "x%d" % GearData.STARTER_CHARGES, inner, "consumable")
 
 
 static func _rule() -> ColorRect:
