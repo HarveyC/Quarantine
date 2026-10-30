@@ -50,21 +50,27 @@ func _init() -> void:
 		var path := s.grid.find_path(near, zip.b, s.occupied(soldier.id))
 		var args3: bool = v.board.get_method_list().any(func(m): return m.name == "show_path" and m.args.size() >= 3)
 		v.board.callv("show_path", [path, -1, near] if args3 else [path])
-		await _shot(v, zip.a.lerp(zip.b, 0.5) if false else Vector2(zip.a + zip.b) * 0.5, 15.0, "%s/%s-zipline.png" % [out, tag])
+		await _shot(v, zip.a.lerp(zip.b, 0.5) if false else Vector2(zip.a + zip.b) * 0.5, 15.0, "%s/%s-zipline.png" % [out, tag], zip.a)
 	if not cellar.is_empty():
 		v.board.show_range({})
 		v.board.show_path([] as Array[Vector2i])
 		if v.board.has_method("show_link_hint"):
 			v.board.call("show_link_hint", cellar.a)
-		await _shot(v, Vector2(cellar.a + cellar.b) * 0.5, 22.0, "%s/%s-cellar.png" % [out, tag])
+		await _shot(v, Vector2(cellar.a + cellar.b) * 0.5, 22.0, "%s/%s-cellar.png" % [out, tag], cellar.a)
 	quit()
 
 
-func _shot(v: MissionView, mid: Vector2, dist: float, path: String) -> void:
+func _shot(v: MissionView, mid: Vector2, dist: float, path: String, hint := Vector2i(-1, -1)) -> void:
 	v.camera_rig._target_dist = dist
 	v.camera_rig.focus(BoardScript.cell_to_world(Vector2i(roundi(mid.x), roundi(mid.y))))
 	v.camera_rig.snap()
 	for i in 30:
 		await process_frame
+	if hint.x >= 0 and v.board.has_method("show_link_hint"):   # the pointer's hover would have cleared it
+		v.input.set_process(false)
+		v.input.set_process_input(false)
+		v.board.call("show_link_hint", hint)
+		for i in 3:
+			await process_frame
 	root.get_texture().get_image().save_png(path)
 	print("[shot_links] ", path)
