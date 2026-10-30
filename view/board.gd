@@ -186,7 +186,7 @@ func _strip(a: Vector3, b: Vector3, width: float, material: Material) -> MeshIns
 
 
 ## Zipline cables with chevrons pointing downhill, and cellar hatches. Linked ends share a colour; the
-## tunnel's two hatches share a letter and the zipline's top says ZIP.
+## tunnel's two hatches share a letter; the zipline is named by its hover card.
 func _build_links() -> void:
 	_link_ends.clear()
 	if grid.links.is_empty():
@@ -228,9 +228,6 @@ func _build_links() -> void:
 				tip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				tip.transform = Transform3D(Basis.looking_at(dir, Vector3.UP) * Basis(Vector3.RIGHT, -PI / 2), top[0].lerp(top[1], t))
 				layer.add_child(tip)
-			var label := zone_label("ZIP", col)
-			label.position = top[0] + Vector3(0, 0.55, 0)
-			layer.add_child(label)
 		else:
 			var letter := char(65 + i)
 			for c in ends:
@@ -253,8 +250,8 @@ func link_at(c: Vector2i) -> int:
 	return int(_link_ends.get(c, -1))
 
 
-## Hovering a link end draws a line to where it comes out and names the exit with its cost. A zipline
-## only goes one way, so hovering its landing points back at the top instead.
+## Hovering a link end draws a line to where it comes out and rings the exit; the hover card
+## names it and its cost.
 func show_link_hint(c: Vector2i) -> void:
 	if _link_layer == null:
 		return
@@ -276,12 +273,6 @@ func show_link_hint(c: Vector2i) -> void:
 	ring.position = to
 	ring.scale.y = 0.2
 	_link_layer.add_child(ring)
-	var text := "EXIT" if (l.kind == "zip" and c == l.a) or l.kind == "cellar" else "TOP"
-	if text == "EXIT":
-		text += "  %d MOVE%s" % [int(l.cost), "" if int(l.cost) == 1 else "S"]
-	var label := zone_label(text, col)
-	label.position = to + Vector3(0, 1.5, 0)
-	_link_layer.add_child(label)
 
 
 ## Link exits a soldier can reach this turn, ringed in the link's colour with the way in: called with the move range.
@@ -297,9 +288,10 @@ func _mark_link_exits(cells: Dictionary) -> void:
 			ring.position = cell_to_world(end, 0.04)
 			ring.scale.y = 0.2
 			_range_layer.add_child(ring)
-			var label := zone_label("ZIP" if l.kind == "zip" else char(65 + i), link_color(i))
-			label.position = cell_to_world(end) + Vector3(0, 1.0, 0)
-			_range_layer.add_child(label)
+			if l.kind != "zip":
+				var label := zone_label(char(65 + i), link_color(i))
+				label.position = cell_to_world(end) + Vector3(0, 1.0, 0)
+				_range_layer.add_child(label)
 
 
 ## Four L-shaped corner marks round a cell (the hover cursor, aimed cells). `half` is the

@@ -1069,3 +1069,14 @@ func test_mutation_growths_dim_while_dormant() -> void:
 	uv.set_infection(80, Infection.tier(80))
 	assert_true((nodes.rampage[0] as MeshInstance3D).material_override == null, "and wakes when Infection climbs")
 	uv.free()
+
+
+func test_zipline_has_no_floating_word() -> void:
+	var g := Grid.from_rows(PackedStringArray(["..........", "..........", "..........", ".........."]))
+	g.add_link(Vector2i(1, 1), Vector2i(8, 1), 1, "zip", false)
+	var b: Node3D = load("res://view/board.gd").new()
+	b.build(g)
+	assert_true(b.find_child("ZoneLabel", true, false) == null, "a zipline is named by its hover card, not a floating word")
+	b.show_link_hint(Vector2i(1, 1))
+	assert_true(b.find_child("ZoneLabel", true, false) == null, "and hovering it adds a ring, not a word")
+	b.free()
