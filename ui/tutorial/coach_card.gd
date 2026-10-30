@@ -14,6 +14,9 @@ const WIDTH := 430.0
 var _kicker: Label
 var _title: Label
 var _text: TermText
+var _radio: VBoxContainer
+var _speaker: Label
+var _line: Label
 var _keys: HBoxContainer
 var _terms: HFlowContainer
 var _visual: Control
@@ -39,6 +42,15 @@ func _init() -> void:
 	box.add_child(head)
 	_title = Styles.caps("", 24)
 	box.add_child(_title)
+	# The radio line (voiced) sits above the task: one stripe, no inner panel.
+	_radio = Styles.vbox(3)
+	_speaker = Styles.caps("", 11, Styles.AMBER)
+	_radio.add_child(_speaker)
+	_line = Styles.label("", 15, Styles.TEXT)
+	_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_line.custom_minimum_size.x = WIDTH - 36
+	_radio.add_child(_line)
+	box.add_child(_radio)
 	_text = TermText.new()
 	_text.setup("", Styles.fs(15), Styles.TEXT, WIDTH - 36)
 	box.add_child(_text)
@@ -60,14 +72,21 @@ func _init() -> void:
 func set_width(w: float) -> void:
 	custom_minimum_size.x = w
 	_text.custom_minimum_size.x = w - 36
+	_line.custom_minimum_size.x = w - 36
 	_visual.custom_minimum_size.x = w - 36
 
 
 ## `buttons`: Array of [id, label, primary]. `step`/`steps` fill the progress dots (0 = none).
 func show_card(kicker: String, title: String, text: String, keys: Array = [], visual := "",
-		buttons: Array = [], step := 0, steps := 0) -> void:
+		buttons: Array = [], step := 0, steps := 0, speaker := "", line := "") -> void:
 	_kicker.text = kicker.to_upper()
 	_title.text = title.to_upper()
+	_radio.visible = line != ""
+	_speaker.add_theme_color_override("font_color", Styles.AMBER)
+	_line.add_theme_color_override("font_color", Styles.TEXT)
+	_speaker.text = speaker.to_upper()
+	_line.text = line
+	_text.visible = text != ""
 	_text.set_text_terms(text)
 	(_dots as Dots).set_values(step, steps)
 	(_visual as Diagram).kind = visual
@@ -91,6 +110,15 @@ func show_card(kicker: String, title: String, text: String, keys: Array = [], vi
 	for b in buttons:
 		_buttons.add_child(_button(str(b[0]), str(b[1]), bool(b[2])))
 	_buttons.visible = not buttons.is_empty()
+	reset_size()
+
+
+## Swaps the radio block's speaker and line, tinted `col` (the Source answers in teal).
+func set_radio(speaker: String, line: String, col: Color) -> void:
+	_speaker.text = speaker.to_upper()
+	_speaker.add_theme_color_override("font_color", col)
+	_line.text = line
+	_line.add_theme_color_override("font_color", col)
 	reset_size()
 
 
@@ -147,6 +175,10 @@ class Diagram extends Control:
 			"height": _height()
 			"tiers": _tiers()
 			"stealth": _stealth()
+			"actions": _actions()
+			"reach": _reach()
+			"rig": _rig()
+			"wall": _wall()
 
 	func _text(at: Vector2, t: String, col: Color, sz := 12, mono := false) -> void:
 		var f: Font = Styles.FONT_MONO if mono else Styles.FONT_COND_BOLD
@@ -208,6 +240,58 @@ class Diagram extends Control:
 		_text(Vector2(x0, ground + 24), "CONCEALED", Styles.STEALTH, 12)
 		_text(Vector2(x0 + (enemy - r) * tile, ground + 24), "SPOTTED IN %d TILES" % r, Styles.DANGER_TEXT, 12)
 		_text(Vector2(x0 + tile * 3.0, ground - 30), "+%d AIM UNAWARE" % Concealment.AMBUSH_AIM, Styles.AMBER, 12, true)
+
+	## Two action pips: move first, then the shot that ends the turn.
+	func _actions() -> void:
+		var y := 36.0
+		var labels := ["MOVE", "SHOOT"]
+		for i in 2:
+			var x := 30.0 + i * 130.0
+			draw_circle(Vector2(x, y), 11.0, Color(Styles.AMBER, 0.95))
+			draw_arc(Vector2(x, y), 11.0, 0, TAU, 24, Styles.AMBER, 1.5)
+			_text(Vector2(x + 18, y + 5), labels[i], Styles.TEXT, 13)
+		draw_line(Vector2(30, y + 22), Vector2(size.x - 20, y + 22), Styles.BORDER_STRONG, 1.0)
+		_text(Vector2(30, y + 38), "A SHOT ENDS THE TURN", Styles.AMBER, 12, true)
+
+	## A fighter, its reach, and the free strike that walking out of it provokes.
+	func _reach() -> void:
+		var ground := 56.0
+		var tile := 26.0
+		for i in 8:
+			var reach := i >= 2 and i <= 4
+			draw_rect(Rect2(10 + i * tile, ground, tile - 2, 8), Color(Styles.DANGER, 0.35) if reach else Color(Styles.STEALTH, 0.12))
+		_soldier(Vector2(10 + 3 * tile + 10, ground), Styles.player_color(0))
+		draw_circle(Vector2(10 + 2 * tile + 10, ground - 22), 5.0, Styles.DANGER)
+		draw_rect(Rect2(10 + 2 * tile + 5, ground - 16, 10, 16), Styles.DANGER)
+		draw_line(Vector2(10 + 3 * tile + 14, ground - 30), Vector2(10 + 6 * tile + 10, ground - 30), Styles.DANGER_TEXT, 1.5)
+		_text(Vector2(10 + 3 * tile + 16, ground - 36), "WALK: FREE STRIKE", Styles.DANGER_TEXT, 12)
+		draw_dashed_line(Vector2(10 + 3 * tile + 14, ground - 8), Vector2(10 + 5 * tile + 10, ground - 8), Styles.AMBER, 1.5, 5.0)
+		_text(Vector2(10 + 5 * tile + 14, ground - 4), "DISENGAGE: NONE", Styles.AMBER, 12)
+
+	## The Utility slot on a soldier's loadout, where the class action lives.
+	func _rig() -> void:
+		var names := ["HEAD", "BODY", "GUN", "UTILITY", "UTILITY"]
+		for i in names.size():
+			var x := 6.0 + i * 78.0
+			var hot := i == 3
+			draw_rect(Rect2(x, 14, 70, 34), Color(Styles.AMBER, 0.14) if hot else Color(1, 1, 1, 0.03))
+			draw_rect(Rect2(x, 14, 70, 34), Styles.AMBER if hot else Styles.BORDER_STRONG, false, 1.2)
+			_text(Vector2(x + 6, 36), names[i], Styles.AMBER if hot else Styles.DIM, 12)
+		_text(Vector2(6.0 + 3 * 78.0, 66), "CLASS RIG", Styles.AMBER, 12, true)
+
+	## A wall that breaks in steps.
+	func _wall() -> void:
+		var ground := 58.0
+		var steps := ["WALL", "RUBBLE", "FLOOR"]
+		for i in 3:
+			var x := 20.0 + i * 130.0
+			var h: float = [40.0, 16.0, 0.0][i]
+			draw_line(Vector2(x - 6, ground), Vector2(x + 84, ground), Styles.BORDER_STRONG, 1.0)
+			if h > 0.0:
+				draw_rect(Rect2(x + 8, ground - h, 56, h), Styles.DIM if i == 0 else Color(Styles.DIM, 0.6))
+			_text(Vector2(x + 8, ground - 46), steps[i], Styles.AMBER if i == 2 else Styles.TEXT, 13)
+			if i < 2:
+				draw_string(Styles.FONT_MONO, Vector2(x + 90, ground - 14), ">", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Styles.AMBER)
 
 	func _tiers() -> void:
 		var x0 := 4.0

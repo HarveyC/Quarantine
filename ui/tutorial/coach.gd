@@ -101,7 +101,7 @@ func offer_training(play: Callable, skip: Callable) -> void:
 	_dim.visible = true
 	card.set_width(CoachCard.WIDTH)
 	card.show_card("New to Carriers?", "Basic training",
-		"A short drill teaches moving, cover, fog, overwatch, high ground and Infection. About five minutes.",
+		"Major Okafor walks you through a live-fire drill: cover, fog, high ground, rigs, breaching and Infection. About ten minutes.",
 		[], "", [["offer_skip", "Skip, start the run", false], ["offer_play", "Play training", true]])
 	card.visible = true
 	_alpha = 1.0

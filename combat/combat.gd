@@ -274,6 +274,7 @@ static func hit_chance(s: GameState, attacker: Unit, target: Unit, from: Vector2
 	Weapons.odds_terms(s, attacker, target, from, cover, breakdown)
 	if attacker.team == Types.Team.PLAYER and has_status(s, target, "tagged"):
 		breakdown.append(["Marked", TAG_BONUS])
+	Recovery.odds_terms(s, attacker, target, breakdown)
 	if has_status(s, attacker, "suppressed"):
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
 	if reaction and attacker.kind != "overwatcher" and Weapons.reaction_penalty(attacker, REACTION_PENALTY) != 0:
@@ -305,6 +306,7 @@ static func melee_chance(s: GameState, attacker: Unit, target: Unit, from: Vecto
 	var breakdown: Array = [["Aim", attacker.aim]]
 	if cover != Types.Cover.NONE:
 		breakdown.append(["Cover", -MELEE_COVER])
+	Recovery.odds_terms(s, attacker, target, breakdown)
 	if has_status(s, attacker, "suppressed"):
 		breakdown.append(["Suppressed", -SUPPRESS_PENALTY])
 	return _finish_odds(breakdown, cover, cover == Types.Cover.NONE, true, 0)
@@ -359,7 +361,7 @@ static func available_abilities(s: GameState, u: Unit) -> Array[Dictionary]:
 		var has_targets: bool = def.targeting == "cell" or not targets.is_empty()
 		out.append({"id": id, "name": def.name, "targeting": def.targeting, "cost": def.cost,
 			"cooldown": cd, "desc": def.desc, "targets": targets,
-			"ready": cd <= 0 and u.actions_left > 0 and u.is_alive() and has_targets})
+			"ready": cd <= 0 and u.actions_left > 0 and u.is_alive() and has_targets and not has_status(s, u, "hushed")})
 	out.append_array(GearFx.available_abilities(s, u))
 	return out
 
@@ -430,6 +432,8 @@ static func _validate_ability(s: GameState, u: Unit, action: Dictionary) -> Stri
 		return "Unknown ability"
 	if int(u.cooldowns.get(id, 0)) > 0:
 		return "On cooldown"
+	if u.team == Types.Team.PLAYER and has_status(s, u, "hushed"):
+		return "Hushed"
 	if ABILITIES[id].targeting == "cell":
 		return _spit_cell_error(s, u, action.get("cell"))
 	var t := u
@@ -531,6 +535,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 		Types.SHOOT:
 			if UnitData.is_melee_only(u.kind):
 				return "Melee only"
+			if ClassAbilities.melee_drawn(u):
+				return "Melee weapon drawn: swap weapon first"
 			if not Ammo.can_fire(u):
 				return "Out of ammo"
 			if action.has("cell"):
@@ -542,6 +548,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 			if t == null or not shot_targets(s, u).has(t):
 				return "No line of sight"
 		Types.OVERWATCH:
+			if ClassAbilities.melee_drawn(u):
+				return "Melee weapon drawn: swap weapon first"
 			if not Ammo.can_fire(u):
 				return "Out of ammo"
 		Types.RELOAD:
@@ -555,11 +563,13 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 	_sweep(s)
 	match action.type:
 		Types.SHOOT:
-			# Soldiers spend one action per shot; enemies still fire once and end their turn.
-			u.actions_left = 0 if u.team == Types.Team.ENEMY else maxi(0, u.actions_left - 1)
+			# A shot ends the turn. Skirmisher, Slipstream, Steady hands and Kill chain give an action back.
+			u.actions_left = 0
 			if u.team == Types.Team.PLAYER and not action.has("cell") and Weapons.skirmish_free(s, u):
 				u.actions_left += 1
 				s.emit({"type": "perk", "unit": u.id, "perk": "skirmish"})
+			if u.team == Types.Team.PLAYER and not action.has("cell"):
+				GearTricks.steady_hands(s, u)
 			if action.has("cell"):
 				fire_at_barrel(s, u, action.cell, false)
 			else:
@@ -569,6 +579,10 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 					u.status["spray_second"] = true
 					fire(s, u, tgt, false)
 					u.status.erase("spray_second")
+				elif tgt.is_alive() and u.is_alive() and GearTricks.double_tap(s, u):
+					u.status["tap_second"] = true
+					fire(s, u, tgt, false)
+					u.status.erase("tap_second")
 		Types.OVERWATCH:
 			u.overwatch = true
 			u.status["ow_until"] = phase_index(s) + 2

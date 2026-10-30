@@ -26,6 +26,7 @@ var _sight_key := ""
 var _hazard_nodes := {}   # cell -> Node3D
 var _hazard_kinds := {}   # cell -> hazard kind, for the region outlines and the legend
 var _hazard_edges: Node3D
+var _charge_labels: Array[Label3D] = []   # one per charge site, in marker order
 var _zone_keys: Array[String] = []   # objective zones on this map (TileOverlays.ZONES)
 var _sight_cells := {}
 var _blast_cells := {}
@@ -138,11 +139,159 @@ func build(g: Grid) -> void:
 	_build_tiles()
 	_build_roofs()
 	_build_zones()
+	_build_water()
+	_build_links()
 	_build_perimeter()
 	_build_lights()
 	_hover = _brackets(Palette.overlay(Color(1, 1, 1, 0.9)), 0.46, 0.2)
 	_hover.visible = false
 	add_child(_hover)
+
+
+## Flooded cells (Grid.water): a shallow translucent pool over the floor with a paler sheen on top.
+func _build_water() -> void:
+	if grid.water.is_empty():
+		return
+	var layer := _layer("Water")
+	var pool := Palette.overlay(Color(0.2, 0.42, 0.62, 0.62))
+	var sheen := Palette.overlay(Color(0.55, 0.78, 0.95, 0.18))
+	var cells: Array = grid.water.keys()
+	cells.sort()
+	for c in cells:
+		var plate := Palette.box(Vector3(1.0, 0.04, 1.0), pool)
+		plate.position = cell_to_world(c, 0.0) + Vector3(0, 0.03, 0)
+		layer.add_child(plate)
+		var h := _hash(c)
+		var glint := Palette.box(Vector3(0.5, 0.01, 0.12), sheen)
+		glint.position = cell_to_world(c, 0.0) + Vector3(float(h % 5) / 10.0 - 0.2, 0.06, float((h >> 3) % 5) / 10.0 - 0.2)
+		layer.add_child(glint)
+
+
+## Each link has its own colour; both ends and the cable share it, and a tunnel's two hatches carry the same letter.
+const LINK_COLORS: Array[Color] = [Color("ffb938"), Color("b48cff"), Color("8be28b"), Color("ff8fa3")]
+var _link_ends := {}        # cell -> index into grid.links
+var _link_layer: Node3D     # hover hint: the line to the other end
+
+
+static func link_color(i: int) -> Color:
+	return LINK_COLORS[i % LINK_COLORS.size()]
+
+
+## A flat or sloped strip between two world points.
+func _strip(a: Vector3, b: Vector3, width: float, material: Material) -> MeshInstance3D:
+	var span := b - a
+	var strip := Palette.box(Vector3(width, 0.03, span.length()), material)
+	strip.transform = Transform3D(Basis.looking_at(span.normalized(), Vector3.UP), (a + b) * 0.5)
+	return strip
+
+
+## Zipline cables with chevrons pointing downhill, and cellar hatches. Linked ends share a colour; the
+## tunnel's two hatches share a letter; the zipline is named by its hover card.
+func _build_links() -> void:
+	_link_ends.clear()
+	if grid.links.is_empty():
+		return
+	var layer := _layer("Links")
+	var steel := Palette.mat(Color("8c97a0"), 0.5)
+	var dark := Palette.overlay(Color(0.02, 0.02, 0.03, 0.92))
+	for i in grid.links.size():
+		var l: Dictionary = grid.links[i]
+		var col := link_color(i)
+		var glow := Palette.emissive(col, 1.0)
+		var mark := Palette.overlay(Color(col, 0.5))
+		var ends: Array = [l.a, l.b]
+		for c in ends:
+			_link_ends[c] = i
+		if l.kind == "zip":
+			var top: Array[Vector3] = []
+			for c in ends:
+				var base := cell_to_world(c)
+				var post := Palette.box(Vector3(0.08, 1.3, 0.08), steel)
+				post.position = base + Vector3(0, 0.65, 0)
+				layer.add_child(post)
+				var plate := Palette.box(Vector3(0.9, 0.02, 0.9), mark)
+				plate.position = base + Vector3(0, 0.03, 0)
+				layer.add_child(plate)
+				top.append(base + Vector3(0, 1.25, 0))
+			layer.add_child(_strip(top[0], top[1], 0.035, glow))
+			# Chevrons along the cable point the way down.
+			var dir := (top[1] - top[0]).normalized()
+			for t in [0.3, 0.5, 0.7]:
+				var tip := MeshInstance3D.new()
+				var cone := CylinderMesh.new()
+				cone.top_radius = 0.0
+				cone.bottom_radius = 0.13
+				cone.height = 0.3
+				cone.radial_segments = 4
+				tip.mesh = cone
+				tip.material_override = glow
+				tip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				tip.transform = Transform3D(Basis.looking_at(dir, Vector3.UP) * Basis(Vector3.RIGHT, -PI / 2), top[0].lerp(top[1], t))
+				layer.add_child(tip)
+		else:
+			var letter := char(65 + i)
+			for c in ends:
+				var base := cell_to_world(c)
+				var hatch := Palette.box(Vector3(0.82, 0.03, 0.82), dark)
+				hatch.position = base + Vector3(0, 0.035, 0)
+				layer.add_child(hatch)
+				for side in [Vector3(0.43, 0, 0), Vector3(-0.43, 0, 0), Vector3(0, 0, 0.43), Vector3(0, 0, -0.43)]:
+					var bar := Palette.box(Vector3(0.06 if side.x != 0 else 0.92, 0.05, 0.06 if side.z != 0 else 0.92), glow)
+					bar.position = base + side + Vector3(0, 0.05, 0)
+					layer.add_child(bar)
+				var label := zone_label(letter, col)
+				label.position = base + Vector3(0, 0.9, 0)
+				layer.add_child(label)
+	_link_layer = _layer("LinkHint")
+
+
+## The link whose end is `c`, as an index into Grid.links (-1 for none).
+func link_at(c: Vector2i) -> int:
+	return int(_link_ends.get(c, -1))
+
+
+## Hovering a link end draws a line to where it comes out and rings the exit; the hover card
+## names it and its cost.
+func show_link_hint(c: Vector2i) -> void:
+	if _link_layer == null:
+		return
+	_clear(_link_layer)
+	var i := link_at(c)
+	if i < 0:
+		return
+	var l: Dictionary = grid.links[i]
+	var other: Vector2i = l.b if c == l.a else l.a
+	var col := link_color(i)
+	var from := cell_to_world(c, 0.0) + Vector3(0, 0.08, 0)
+	var to := cell_to_world(other, 0.0) + Vector3(0, 0.08, 0)
+	var dash := Palette.overlay(Color(col, 0.9), true)
+	var span := to - from
+	var n := int(span.length() / 0.5)
+	for k in range(0, n, 2):
+		_link_layer.add_child(_strip(from + span * (float(k) / n), from + span * (float(k + 1) / n), 0.12, dash))
+	var ring := Palette.ring(0.34, 0.44, Palette.overlay(Color(col, 0.95), true))
+	ring.position = to
+	ring.scale.y = 0.2
+	_link_layer.add_child(ring)
+
+
+## Link exits a soldier can reach this turn, ringed in the link's colour with the way in: called with the move range.
+func _mark_link_exits(cells: Dictionary) -> void:
+	for i in grid.links.size():
+		var l: Dictionary = grid.links[i]
+		for end in [l.b, l.a]:
+			if end == l.a and not l.both:
+				continue
+			if not cells.has(end):
+				continue
+			var ring := Palette.ring(0.3, 0.4, Palette.overlay(Color(link_color(i), 0.95), true))
+			ring.position = cell_to_world(end, 0.04)
+			ring.scale.y = 0.2
+			_range_layer.add_child(ring)
+			if l.kind != "zip":
+				var label := zone_label(char(65 + i), link_color(i))
+				label.position = cell_to_world(end) + Vector3(0, 1.0, 0)
+				_range_layer.add_child(label)
 
 
 ## Four L-shaped corner marks round a cell (the hover cursor, aimed cells). `half` is the
@@ -455,7 +604,7 @@ func _build_edges(look: Dictionary, trim: Material, hazard: Material, crack_mat:
 		_tiles.add_child(post)
 
 
-const HAZARD_COLORS := {"fire": TileOverlays.FIRE, "spore": Palette.TEAL, "acid": TileOverlays.ACID, "smoke": TileOverlays.SMOKE}
+const HAZARD_COLORS := {"fire": TileOverlays.FIRE, "spore": Palette.TEAL, "acid": TileOverlays.ACID, "smoke": TileOverlays.SMOKE, "live": Color("7fd0ff")}
 
 
 ## Draws (or redraws) hazard `kind` on `cells`. Each kind has its own floor pattern and props
@@ -624,6 +773,7 @@ func tick_hazards(t: float) -> void:
 ## floating label: evac pad and drop zone (green), beacon (amber). See TileOverlays.ZONES.
 func _build_zones() -> void:
 	_zone_keys.clear()
+	_charge_labels.clear()
 	for key in TileOverlays.ZONES:
 		var cells: Array = grid.marker(key)
 		if cells.is_empty():
@@ -648,9 +798,41 @@ func _build_zones() -> void:
 				var line := Palette.box(Vector3(0.98, 0.012, 0.05) if d.y != 0 else Vector3(0.05, 0.012, 0.98), edge)
 				line.position = cell_to_world(c, 0.01) + Vector3(d.x, 0, d.y) * 0.47
 				_fixed.add_child(line)
+		if key == "charge":   # sites are scattered: each carries its own label, sitting on its tile
+			for c in cells:
+				var site := zone_label(str(TileOverlays.KINDS[key].label), col)
+				site.position = cell_to_world(c) + Vector3(0, 1.1, 0)
+				_fixed.add_child(site)
+				_charge_labels.append(site)
+			continue
 		var label := zone_label(str(TileOverlays.KINDS[key].label), col)
 		label.position = mid / cells.size() + Vector3(0, 1.5, 0)
 		_fixed.add_child(label)
+
+
+## Charge site labels follow the charge: CHARGE (idle), ARMED with the fuse, then BLOWN. A soldier
+## standing on an idle site reads "END TURN TO ARM".
+func refresh_charges(s: GameState) -> void:
+	if _charge_labels.is_empty() or s.objective.get("kind", "") != "demolish":
+		return
+	var cells: Array = grid.marker("charge")
+	for i in mini(cells.size(), _charge_labels.size()):
+		var l := _charge_labels[i]
+		var col := TileOverlays.color("charge")
+		var text := "CHARGE"
+		match str(s.objective.charges[i]):
+			"armed":
+				text = "ARMED  %d" % int(s.objective.fuse[i])
+				col = Palette.DANGER
+			"blown":
+				text = "BLOWN"
+				col = col.darkened(0.4)
+			_:
+				if Objectives._soldier_on(s, cells[i]):
+					text = "END TURN TO ARM"
+					col = Palette.AMBER
+		l.text = text
+		l.modulate = col.lightened(0.15)
 
 
 ## A floating caps label for an objective zone ("EVAC"), always facing the camera.
@@ -1213,17 +1395,19 @@ func show_range(cells: Dictionary, spotted: Dictionary = {}) -> void:
 					_range_layer.add_child(b)
 	if not cells.is_empty():
 		_outline(cells, Palette.overlay(Color(TileOverlays.MOVE, 0.55)), 0.04, _range_layer)
+		_mark_link_exits(cells)
 
 
 ## Move path preview. `spotted_at` (index into `path`, -1 for none) is the first step a dormant
 ## enemy would see: from there the dots turn red and an open eye hangs over that tile.
-func show_path(path: Array[Vector2i], spotted_at := -1) -> void:
+func show_path(path: Array[Vector2i], spotted_at := -1, origin := Vector2i(-1, -1)) -> void:
 	_clear(_path_layer)
 	var red_dot: StandardMaterial3D = null
 	var red_dest: StandardMaterial3D = null
 	if spotted_at >= 0:
 		red_dot = Palette.overlay(Color(Palette.DANGER, 0.95))
 		red_dest = Palette.overlay(Color(Palette.DANGER, 0.5))
+	var prev := origin
 	for i in path.size():
 		var last := i == path.size() - 1
 		var seen := spotted_at >= 0 and i >= spotted_at
@@ -1231,6 +1415,16 @@ func show_path(path: Array[Vector2i], spotted_at := -1) -> void:
 		var dot := Palette.box(Vector3(0.6, 0.02, 0.6) if last else Vector3(0.14, 0.03, 0.14), m)
 		dot.position = cell_to_world(path[i], 0.03)
 		_path_layer.add_child(dot)
+		if prev.x >= 0 and maxi(absi(path[i].x - prev.x), absi(path[i].y - prev.y)) > 1:
+			# A link jump: a dashed line from where the unit rides in to where it comes out.
+			var li := link_at(prev)
+			var col := link_color(li) if li >= 0 else Palette.AMBER
+			var a := cell_to_world(prev, 0.0) + Vector3(0, 0.1, 0)
+			var span := cell_to_world(path[i], 0.0) + Vector3(0, 0.1, 0) - a
+			var n := maxi(2, int(span.length() / 0.5))
+			for k in range(0, n, 2):
+				_path_layer.add_child(_strip(a + span * (float(k) / n), a + span * (float(k + 1) / n), 0.14, Palette.overlay(Color(col, 0.95), true)))
+		prev = path[i]
 	if spotted_at >= 0 and spotted_at < path.size():
 		var at := cell_to_world(path[spotted_at])
 		var ring := Palette.ring(0.36, 0.44, Palette.overlay(Color(Palette.DANGER, 0.95), true))

@@ -15,7 +15,7 @@ func make_run(seed: int = 7) -> Dictionary:
 
 
 func test_item_tables_are_consistent() -> void:
-	assert_eq(GearData.ITEMS.size(), 79, "items")
+	assert_eq(GearData.ITEMS.size(), 92, "items")
 	assert_eq(GearData.PROTOTYPES.size(), 13, "prototypes")
 	for id in GearData.ITEMS:
 		var d: Dictionary = GearData.ITEMS[id]
@@ -289,7 +289,7 @@ func test_run_state_kit_rewards_and_doctrine_vote() -> void:
 		var rec := run.get_soldier(sid)
 		assert_true(RunRules.apply(run, {"type": "gear_pick", "player": rec.owner, "soldier": sid, "card": 0}), "kit pick")
 	assert_eq(run.phase, RunState.Phase.MAP, "run moves on once all picked")
-	assert_true(run.squad().all(func(x): return Loadout.equipped(x).size() >= 1 or not Loadout.guns(x).is_empty()), "everyone deployed with their order")
+	assert_true(run.squad().all(func(x): return Loadout.equipped(x).size() >= 1 or Loadout.gun_id(x) != Weapons.id_for(x.kind)), "everyone deployed with their order")
 	assert_eq(GearRun.reward_source(run), "kit", "the kit is still the last source")
 	assert_eq(RunRules.validate(run, {"type": "gear_pick", "player": 0, "soldier": r.id, "card": 0}).is_empty(), false, "no picks on the map")
 	# A boss opens a Doctrine vote; a split goes to the host.
@@ -352,13 +352,14 @@ func test_gun_cards_pick_and_swap() -> void:
 	assert_eq(GearTags.counts(r).get("Suppress"), 1, "its tag counts")
 	assert_eq(Loadout.gun_pool(r).has("battle_rifle"), false, "not offered again")
 	assert_eq(GearTags.preview_gun(r, "")[0], {"tag": "Suppress", "from": 1, "to": 0, "unlocks": false, "loses": false}, "swap preview")
-	assert_true(GearRun.apply(run, {"type": "gear_gun", "player": 0, "soldier": 1, "gun": ""}), "back to the signature rifle")
+	var old_idx := Loadout.stash(run).find_custom(func(it): return it.id == Weapons.id_for("trooper"))
+	assert_true(old_idx >= 0, "the gun it replaced waits in the stash")
+	assert_true(GearRun.apply(run, {"type": "gear_stash_take", "player": 0, "soldier": 1, "index": old_idx}), "back to the signature rifle")
 	assert_eq(Loadout.gun(r), "", "signature")
 	assert_eq(GearTags.counts(r).get("Suppress", 0), 0, "tag off with the gun")
-	assert_eq(Loadout.guns(r), ["battle_rifle"], "still owned")
-	assert_eq(GearRun.validate(run, {"type": "gear_gun", "player": 0, "soldier": 1, "gun": "pump_shotgun"}), "Not one of their guns", "must own it")
-	assert_true(GearRun.apply(run, {"type": "gear_gun", "player": 0, "soldier": 1, "gun": "battle_rifle"}), "swap back")
-	assert_eq(wrong.gear.get("gun", ""), "", "untouched")
+	assert_true(Loadout.stash(run).any(func(it): return it.id == "battle_rifle"), "the battle rifle is the spare now")
+	assert_eq(GearRun.validate(run, {"type": "gear_unequip", "player": 0, "soldier": 1, "slot": "gun"}), "Nothing equipped there", "a soldier always holds a gun")
+	assert_eq(Loadout.gun_id(wrong), Weapons.id_for(wrong.kind), "untouched")
 
 
 func test_gun_stamps_onto_the_unit_and_survives_a_save() -> void:
@@ -379,7 +380,7 @@ func test_gun_stamps_onto_the_unit_and_survives_a_save() -> void:
 	Loadout.add_gun(rec, alt)
 	var back := RunState.from_save_string(rs.save_string())
 	assert_eq(Loadout.gun(back.get_soldier(rec.id)), alt, "carried gun saved")
-	assert_eq(Loadout.guns(back.get_soldier(rec.id)).filter(func(g): return g != Weapons.START_GUN), [alt], "owned guns saved")
+	assert_eq(Loadout.gun_id(back.get_soldier(rec.id)), alt, "gun saved in its slot")
 
 
 func test_bosses_drop_a_gun() -> void:
@@ -389,12 +390,10 @@ func test_bosses_drop_a_gun() -> void:
 		var guns: Array = GearRun.offer_for(run, r.id).cards.filter(func(c): return c.kind == "gun")
 		assert_eq(guns.size(), 1, "%s gets a gun card" % r.kind)
 		assert_true(Weapons.can_carry(r.kind, guns[0].id), "for their class")
-	# Once a soldier owns every gun of their class, offers stop showing guns.
+	# A gun offer never repeats the gun already in hand.
 	run.gear.offers.clear()
-	for id in Weapons.alternates_for("trooper"):
-		Loadout.add_gun(run.soldiers[0], id, false)
-	GearRun.on_fight_won(run, "boss")
-	assert_true(GearRun.offer_for(run, 1).cards.all(func(c): return c.kind != "gun"), "nothing left to offer")
+	Loadout.take_gun(run.soldiers[0], "battle_rifle")
+	assert_true(not Loadout.gun_pool(run.soldiers[0]).has("battle_rifle"), "not offered again")
 
 
 func test_everyone_starts_with_a_consumable() -> void:

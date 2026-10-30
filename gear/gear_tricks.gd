@@ -11,6 +11,7 @@ const WICK_LENGTH := [2, 4]
 const WEAVE_HEAL := [2, 3]
 const SLIP_STEPS := [4, 3]
 const NEAR := 3.0
+const TAP_PENALTY := 20
 
 static var _busy := false   # a trick never sets off a trick of its own kind
 
@@ -36,6 +37,8 @@ static func _gear(s: GameState, u: Unit, id: String, target: Unit = null, extra 
 static func odds(s: GameState, a: Unit, t: Unit, reaction: bool, cover: int, breakdown: Array) -> void:
 	if _has(a, "laser_sight") and cover != Types.Cover.NONE and int(a.status.get("painter_turn", -1)) != s.turn:
 		breakdown.append(["Painter", Combat.COVER_FULL if cover == Types.Cover.FULL else Combat.COVER_HALF])
+	if a.status.get("tap_second", false):
+		breakdown.append(["Double tap", 0 if _m2(a, "double_tap") else -TAP_PENALTY])
 	if _has(a, "spotter_scope") and GearFx.is_marked(s, t):
 		breakdown.append(["Dead reckoning", 100])
 	if reaction and _has(a, "ghillie_cloak") and not t.status.get("alerted", true):
@@ -152,6 +155,7 @@ static func recoil_lock(s: GameState, u: Unit, t: Unit) -> void:
 
 ## Fixed blade: a kill within 2 tiles stabs an adjacent enemy, once a turn.
 static func on_kill(s: GameState, u: Unit, t: Unit) -> void:
+	kill_chain(s, u)
 	if not _has(u, "bayonet") or _busy or GearFx._dist(u.pos, t.pos) > 2.0 or int(u.status.get("blade_turn", -1)) == s.turn:
 		return
 	for o in s.living():
@@ -163,6 +167,41 @@ static func on_kill(s: GameState, u: Unit, t: Unit) -> void:
 			Rules.deal_damage(s, o, dmg, u)
 			_busy = false
 			return
+
+
+# --- Extra shots ----------------------------------------------------------------------------
+
+## Steady hands: standing still (Mk II: 2 tiles or fewer) makes the first shot each turn leave an action.
+## Called by Combat.apply after a soldier's shot has spent the turn.
+static func steady_hands(s: GameState, u: Unit) -> void:
+	if not _has(u, "steady_hands") or int(u.status.get("steady_turn", -1)) == s.turn:
+		return
+	var moved := int(u.status.get("gear_moved_turn", -1)) == s.turn
+	if moved and (not _m2(u, "steady_hands") or int(u.status.get("gear_move_len", 0)) > 2):
+		return
+	u.status["steady_turn"] = s.turn
+	u.actions_left += 1
+	_gear(s, u, "steady_hands", null, {"actions": u.actions_left})
+
+
+## Double tap: true once a turn when `u` may fire its second shot at the same target.
+static func double_tap(s: GameState, u: Unit) -> bool:
+	if not _has(u, "double_tap") or int(u.status.get("tap_turn", -1)) == s.turn or not Ammo.can_fire(u):
+		return false
+	u.status["tap_turn"] = s.turn
+	_gear(s, u, "double_tap")
+	return true
+
+
+## Kill chain: a kill on your own turn gives its action back (Mk I: once a turn, Mk II: every kill).
+static func kill_chain(s: GameState, u: Unit) -> void:
+	if not _has(u, "kill_chain") or s.phase != Types.Phase.TEAM or u.team != Types.Team.PLAYER:
+		return
+	if not _m2(u, "kill_chain") and int(u.status.get("chain_turn", -1)) == s.turn:
+		return
+	u.status["chain_turn"] = s.turn
+	u.actions_left += 1
+	_gear(s, u, "kill_chain", null, {"actions": u.actions_left})
 
 
 # --- Damage taken (GearFx.damage_taken) -----------------------------------------------------

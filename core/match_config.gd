@@ -103,8 +103,11 @@ static func for_fight(run: RunState, st: Dictionary) -> Dictionary:
 	var spec := {
 		"act": run.act, "row": run.row, "node": st.kind, "objective": st.objective,
 		"outbreak": run.outbreak, "seed": seed, "players": run.players.size(),
-		"modifiers": run.modifiers.duplicate(true),
+		"modifiers": run.modifiers.duplicate(true), "boss": run.act_boss(),
 	}
+	if spec.boss == "the_source":
+		spec["aspect"] = RunHooks.call_static("SourceBoss", "aspect_for", [run], "")
+		spec["echo_names"] = RunHooks.call_static("SourceBoss", "echo_names", [run], [])
 	var squad: Array = []
 	for r in run.squad():
 		if r.sit_out <= 0:
@@ -121,7 +124,8 @@ static func for_fight(run: RunState, st: Dictionary) -> Dictionary:
 	return {
 		"echo": echo,
 		"map": MAP, "map_spec": {"biome": RunMap.biome(run.act), "objective": st.objective, "seed": seed,
-			"act": run.act, "row": run.row, "outbreak": run.outbreak},
+			"act": run.act, "row": run.row, "outbreak": run.outbreak, "boss": spec.boss,
+			"condition": Conditions.for_fight(seed, run.act, st.objective, st.kind)},
 		"squad": squad, "enemies": enemies, "encounter": built.get("encounter", {}), "seed": seed, "fight": spec,
 	}
 
@@ -148,4 +152,5 @@ static func build(config: Dictionary) -> GameState:
 		RunHooks.call_static("Encounter", "setup", [s, config.encounter])
 	if not config.get("echo", {}).is_empty():
 		RunHooks.call_static("Story", "setup_echo", [s, config.echo])
+	Conditions.setup(s, int(config.get("map_spec", {}).get("act", 1)))
 	return s

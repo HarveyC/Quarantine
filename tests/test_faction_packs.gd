@@ -54,8 +54,9 @@ func test_the_new_enemies_are_in_their_factions_pools_and_cards() -> void:
 			for ab in UnitData.ENEMIES[k].abilities:
 				assert_true(EnemyAbilities.handles(ab) or ab == "claw", k + " ability " + ab + " exists")
 				assert_true(Glossary.has(ab) or ab == "claw", "a hover card for the " + ab + " ability")
-	for faction in EnemyRoster.FACTIONS:
+	for faction in ["scavengers", "security", "automata"]:
 		assert_eq(EnemyRoster.FACTIONS[faction].size(), 6, faction + " has its three old kinds and three new")
+	for faction in EnemyRoster.FACTIONS:
 		for k in EnemyRoster.FACTIONS[faction]:
 			assert_true(UnitData.ENEMIES.has(k), "stats for " + k)
 	assert_true(Automata.is_machine(EnemyRoster.make("tender")) and Automata.is_machine(EnemyRoster.make("arc_welder")), "machines")

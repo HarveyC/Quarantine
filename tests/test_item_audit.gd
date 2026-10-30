@@ -180,6 +180,8 @@ func _cases() -> Dictionary:
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "bash") else "no strike"}
 	c["shield_charge"] = {"kind": "warden", "abilities": ["shield_charge"], "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "bash") else "no strike"}
+	c["swap_weapon"] = {"kind": "reaper", "act": func(x): return {},
+		"check": func(x): return "" if ClassAbilities.gun_drawn(x.u) else "gun not drawn"}
 	c["lunge"] = {"kind": "reaper", "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "lunge") else "no strike"}
 	# Rank 2 signatures (Signatures).
@@ -278,7 +280,7 @@ func test_every_active_item_and_ability_works_and_shows() -> void:
 			assert_eq(err, "", "%s has its effect" % id)
 			var events := s.log.slice(from)
 			var shown: String = "bash" if id == "shield_charge" else id   # a charge ends in a Bash
-			assert_true(events.any(func(ev): return ev.get("type") == "ability" and ev.get("ability") == shown) or id == "guard",
+			assert_true(events.any(func(ev): return ev.get("type") == "ability" and ev.get("ability") == shown) or id == "guard" or events.any(func(ev): return ev.get("type") == id),
 				"%s emits its ability event" % id)
 			v.player.flush()
 			assert_eq(v.player.generic_log, [] as Array[String], "%s plays dedicated beats" % id)
@@ -339,6 +341,20 @@ func _probes() -> Dictionary:
 		x.u.actions_left = 1
 		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
 		return _expect(x.u.actions_left == 2, "no refunded action")
+	p["steady_hands"] = func(x):
+		x.u.actions_left = 2
+		Rules.apply(x.s, {"type": Types.SHOOT, "unit": x.u.id, "target": x.foe.id})
+		return _expect(x.u.actions_left == 1, "the shot still ended the turn")
+	p["double_tap"] = func(x):
+		var before := Ammo.rounds(x.u)
+		x.foe.hp = 99
+		Rules.apply(x.s, {"type": Types.SHOOT, "unit": x.u.id, "target": x.foe.id})
+		return _expect(Ammo.rounds(x.u) == before - 2, "no second shot")
+	p["kill_chain"] = func(x):
+		x.u.actions_left = 0
+		x.foe.hp = 0
+		GearFx.on_kill(x.s, x.u, x.foe, false)
+		return _expect(x.u.actions_left == 1, "the kill gave no action back")
 	p["kevlar_vest"] = func(x): return _expect(GearFx.damage_taken(x.s, x.u, 4, x.foe) == 1, "first hit not cut")
 	p["ballistic_plate"] = func(x):
 		GearFx.damage_taken(x.s, x.u, 4, x.near)
@@ -606,6 +622,22 @@ func _probes() -> Dictionary:
 		return _expect(safe and _term(Combat.hit_chance(x.s, x.foe, x.u), "Cauterizer") == -10, "fire hurts or no defense")
 	p["reaper_blade"] = func(x): return _expect(x.u.abilities.has("lunge"), "Lunge not granted")
 	p["trench_maul"] = func(x): return _expect(x.u.abilities.has("bash"), "Bash not granted")
+	p["targeting_optic"] = func(x):
+		var b := _add(x.s, "runner", Types.Team.ENEMY, x.foe.pos + Vector2i(1, 0))
+		Grafts.after_shot(x.s, x.u, x.foe)
+		return _expect(Combat.has_status(x.s, b, "tagged"), "neighbour not painted")
+	p["lattice_sight"] = func(x): return _expect(Vision.sense_radius(x.u) == GraftData.LATTICE_RADIUS, "no sense radius")
+	p["plated_ribs"] = func(x):
+		var hp: int = x.u.hp
+		Rules.deal_damage(x.s, x.u, 7, x.foe)
+		return _expect(x.u.hp == hp - GraftData.RIBS_CAP, "hit not capped")
+	p["heart_knot"] = func(x):
+		x.u.infection = 55
+		x.u.hp = x.u.max_hp - 2
+		Kit.on_team_phase_start(x.s)
+		return _expect(x.u.hp == x.u.max_hp - 1, "no regeneration")
+	for rig in ["suppress", "tag", "stim", "breach", "incinerate", "siphon"]:
+		p["rig_" + rig] = func(x): return _expect(x.u.abilities.has(rig), "%s not granted" % rig)
 	for sig in ["lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]:
 		p["sig_" + sig] = func(x): return _expect(x.u.abilities.has(sig), "%s not granted" % sig)
 	return p

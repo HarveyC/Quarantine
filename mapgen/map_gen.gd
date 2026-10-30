@@ -29,6 +29,8 @@ const SITE_MARKER := {"demolish": "charge", "hack": "relay", "samples": "sample"
 const POD_STEPS := Vector2i(6, 20)        # walking distance from the drop zone: every pod cell >= x, each pod's nearest cell <= y
 const GRAND_WIDTH := 26                   # maps this wide or wider (5x5 plots are 28x28) get GRAND_POD_MAX
 const GRAND_POD_MAX := 27
+const HUGE_SIDE := 36                     # long and tall district footprints reach pods further out
+const HUGE_POD_MAX := 36
 const EVAC_MIN_STEPS := 12
 const OBJECTIVE_MIN_STEPS := 5            # civilians, nests, hive
 const FULL_COVER := Vector2(0.03, 0.24)   # share of all tiles
@@ -78,10 +80,11 @@ static func generate(spec: Dictionary) -> Grid:
 	var biome := _biome_name(str(spec.get("biome", "wall")))
 	var objective := str(spec.get("objective", "skirmish"))
 	var data := _load_biome(biome)
-	if objective == "boss" and not data.arenas.is_empty():
+	var arenas := _arenas_for(data, str(spec.get("boss", "")))
+	if objective == "boss" and not arenas.is_empty():
 		var arng := RandomNumberGenerator.new()
 		arng.seed = ("%d:%s:arena" % [int(spec.get("seed", 0)), biome]).hash()
-		var arena := _build_arena(data.arenas[arng.randi() % data.arenas.size()], arng)
+		var arena := _build_arena(arenas[arng.randi() % arenas.size()], arng)
 		if arena != null:
 			arena.biome = biome
 			arena.objective = objective
@@ -102,6 +105,8 @@ static func generate(spec: Dictionary) -> Grid:
 				dg.biome = biome
 				dg.objective = objective
 				last_plot = "district"
+				_apply_condition(dg, spec)
+				_apply_links(dg, spec)
 				return dg
 		push_warning("MapGen: no valid district for %s (%s), trying the plots" % [spec, last_reject])
 	for attempt in MAX_TRIES:
@@ -117,12 +122,39 @@ static func generate(spec: Dictionary) -> Grid:
 			g.biome = biome
 			g.objective = objective
 			last_plot = str(plot_of.get("name", ""))
+			_apply_condition(g, spec)
+			_apply_links(g, spec)
 			return g
 	push_warning("MapGen: no valid layout for %s, using the fallback map" % [spec])
 	var fb := Grid.load_file(FALLBACK_MAP)
 	fb.biome = biome
 	fb.objective = "skirmish"
 	return fb
+
+
+## Lays a run fight's map condition (spec "condition", see Conditions) on a finished map.
+static func _apply_condition(g: Grid, spec: Dictionary) -> void:
+	var cond := str(spec.get("condition", ""))
+	if cond == "":
+		return
+	var crng := RandomNumberGenerator.new()
+	crng.seed = ("%d:%s:condition" % [int(spec.get("seed", 0)), cond]).hash()
+	Conditions.shape(g, cond, crng)
+
+
+## Ziplines and cellar tunnels on fight maps (never on boss arenas, which are authored).
+static func _apply_links(g: Grid, spec: Dictionary) -> void:
+	var lrng := RandomNumberGenerator.new()
+	lrng.seed = ("%d:%s:links" % [int(spec.get("seed", 0)), str(spec.get("objective", ""))]).hash()
+	Links.place(g, lrng)
+
+
+## The arenas a boss fights in: those tagged `boss=<kind>` for that boss, else the untagged ones.
+static func _arenas_for(data: Dictionary, boss: String) -> Array:
+	var own: Array = data.arenas.filter(func(a: Dictionary) -> bool: return boss != "" and a.get("boss", "") == boss)
+	if not own.is_empty():
+		return own
+	return data.arenas.filter(func(a: Dictionary) -> bool: return a.get("boss", "") == "")
 
 
 ## A boss arena drawn whole in the biome file (20x20, plain glyphs; P deploy, E pod cells, B boss
@@ -132,15 +164,17 @@ static func _build_arena(arena: Dictionary, rng: RandomNumberGenerator) -> Grid:
 	var flip := rng.randf() < 0.5
 	for r in arena.rows:
 		# B and b mark the boss anchor on the ground and on an upper roof; both are floor in the grid.
-		var row: String = r.replace("B", ".").replace("b", "2")
+		var row: String = r.replace("B", ".").replace("b", "2").replace("X", ".")
 		rows.append(row.reverse() if flip else row)
 	var g := Grid.from_rows(rows)
 	var deploy: Array[Vector2i] = []
 	var pods: Array[Vector2i] = []
 	var boss := Vector2i(-1, -1)
+	var exits: Array[Vector2i] = []
 	for y in g.height:
 		for x in g.width:
 			match arena.rows[y][(g.width - 1 - x) if flip else x]:
+				"X": exits.append(Vector2i(x, y))
 				"P": deploy.append(Vector2i(x, y))
 				"E": pods.append(Vector2i(x, y))
 				"B", "b": boss = Vector2i(x, y)
@@ -150,7 +184,7 @@ static func _build_arena(arena: Dictionary, rng: RandomNumberGenerator) -> Grid:
 	deploy.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
 	var dist := _distance_map(g, deploy)
 	var back := _can_return(g, [deploy[0]])
-	for c in pods + [boss]:
+	for c in pods + [boss] + exits:
 		if not dist.has(c) or not back.has(c):
 			last_reject = "arena cell %s unreachable" % c
 			return null
@@ -163,6 +197,7 @@ static func _build_arena(arena: Dictionary, rng: RandomNumberGenerator) -> Grid:
 	for k in MARKER_KEYS:
 		markers[k] = []
 	markers.boss.append(boss)
+	markers.exit.assign(exits)
 	g.player_spawns.assign(deploy)
 	g.enemy_spawns.assign(pods)
 	markers.reinforce.assign(_reinforce_cells(g, "boss", dist, markers))
@@ -200,6 +235,9 @@ static func parse(text: String) -> Dictionary:
 			var parts := line.substr(1).split(" ", false)
 			if parts[0] == "arena":
 				current = {"name": parts[1], "rows": PackedStringArray()}
+				for p in parts:   # "@arena <name> boss=<kind>" is that boss's own arena
+					if p.begins_with("boss="):
+						current["boss"] = p.trim_prefix("boss=")
 				arenas.append(current)
 			elif parts[0] == "plot":
 				var lanes := 0
@@ -745,7 +783,10 @@ static func _validate(g: Grid, objective: String, dist: Dictionary, deploy: Arra
 		var nearest := 1 << 30
 		for c in pod:
 			nearest = mini(nearest, dist[c])
-		if nearest < POD_STEPS.x or nearest > (GRAND_POD_MAX if g.width >= GRAND_WIDTH else POD_STEPS.y):
+		var pod_max := GRAND_POD_MAX if g.width >= GRAND_WIDTH else POD_STEPS.y
+		if maxi(g.width, g.height) >= HUGE_SIDE:
+			pod_max = HUGE_POD_MAX
+		if nearest < POD_STEPS.x or nearest > pod_max:
 			last_reject = "pod distance %d" % nearest
 			return false
 	for c in markers.evac:

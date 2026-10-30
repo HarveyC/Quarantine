@@ -43,21 +43,38 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 	var phase := int(u.status.get("boss_phase", 1))
 	if u.kind == "the_source":
 		if u.status.has("tether"):
-			return {"icon": "pulse", "label": "LASH + INFECTION +%d" % Encounter.SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)], "target": -1}
+			var pulse: int = Encounter.SOURCE_PULSE_SQUAD[clampi(int(s.encounter.get("squad", 4)), 1, 4)] + SourceBoss.pulse_bonus(s, u)
+			if SourceBoss.pulls_in_phase_1(u):
+				var hungry := EnemyAbilities.pull_target(s, u)
+				return {"icon": "pull", "label": "PULL + LASH + INFECTION +%d" % pulse, "target": hungry.id if hungry else -1}
+			return {"icon": "pulse", "label": "LASH + INFECTION +%d" % pulse, "target": -1}
 		var pt := EnemyAbilities.pull_target(s, u)
 		return {"icon": "pull", "label": "PULL + SLAM" if phase == 2 else "LASH + SLAM", "target": pt.id if pt else -1}
+	if u.kind == "bore_engine":
+		if BoreEngine.is_open(u):
+			return {"icon": "strike", "label": "CORE OPEN %d" % int(u.status.window), "target": -1}
+		return {"icon": "strike", "label": "PISTONS" if int(u.status.get("cut", 0)) == 0 else "PISTONS + BITE", "target": -1}
 	if not EnemyAI.is_alerted(u) and not u.status.get("turned", false) and UnitData.ENEMIES.has(u.kind):
 		return {"icon": "dormant", "label": "UNAWARE", "target": -1}
+	if u.kind == "collector" and not Recovery.collector_intent(s, u).is_empty():
+		return Recovery.collector_intent(s, u)
 	if u.status.has("pinning"):
-		return {"icon": "pinning", "label": "MAULING", "target": int(u.status.pinning)}
+		return {"icon": "pinning", "label": "HOLDING" if u.kind == "netter" else "MAULING", "target": int(u.status.pinning)}
 	if u.status.has("swelling"):
-		return {"icon": "burst", "label": "BURSTING", "target": -1}
+		return {"icon": "bloom" if u.kind == "acolyte" else "burst", "label": "BLOOMING" if u.kind == "acolyte" else "BURSTING", "target": -1}
+	if u.status.has("hushing"):
+		return {"icon": "hush", "label": "SILENCING", "target": int(u.status.hushing)}
 	if u.status.has("leap_cell"):
 		return {"icon": "leap", "label": "LEAPING", "target": -1}
 	if u.status.has("hooked"):
 		return {"icon": "hook", "label": "HOOKING", "target": int(u.status.hooked)}
 	if u.status.has("sighted"):
 		return {"icon": "snipe", "label": "AIMING", "target": int(u.status.sighted)}
+	if u.kind == "breaker" and u.status.has("charge_dir"):
+		var runs := Breaker.lanes(s, u)
+		var last: Unit = runs[-1].hit
+		return {"icon": "charge", "label": "DOUBLE CHARGE" if runs.size() > 1 else "CHARGING",
+			"target": last.id if last and u.is_enemy_of(last) else -1}
 	if u.status.has("charge_dir"):
 		var lane := EnemyAbilities.charge_lane(s, u, u.pos, u.status.charge_dir)
 		var hit: Unit = lane.hit
@@ -67,6 +84,26 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 	match u.kind:
 		"bloater", "broodling":
 			return {"icon": "seek", "label": "SEEKING", "target": _nearest(u, hostiles)}
+		"netter":
+			return {"icon": "net", "label": "NETTING", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
+		"handler":
+			var mark := Recovery.designate_target(s, u) if Recovery.designation_of(s, u) == null else null
+			if mark != null:
+				return {"icon": "designate", "label": "DESIGNATING", "target": mark.id}
+			return {"icon": "hide", "label": "HANDLING", "target": -1}
+		"sterilizer":
+			if int(u.cooldowns.get("sterilize", 0)) <= 1:
+				return {"icon": "flame", "label": "STERILIZE", "target": _nearest(u, hostiles)}
+			return {"icon": "hide", "label": "RETREATING", "target": -1}
+		"acolyte":
+			return {"icon": "bloom", "label": "RUSHING", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
+		"cantor":
+			return {"icon": "chant", "label": "CHANTING", "target": -1}
+		"hush":
+			var quiet := Choir.hush_target(s, u) if int(u.cooldowns.get("hush", 0)) <= 1 else null
+			if quiet != null:
+				return {"icon": "hush", "label": "HUSHING", "target": quiet.id}
+			return {"icon": "hide", "label": "HIDING", "target": -1}
 		"shrieker":
 			if int(u.cooldowns.get("scream", 0)) <= 1:
 				return {"icon": "scream", "label": "SCREAM", "target": -1}
@@ -147,6 +184,27 @@ static func _intent(s: GameState, u: Unit) -> Dictionary:
 				return {"icon": "claw", "label": "BERSERK", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
 			if int(u.cooldowns.get("acid_rain", 0)) <= 1:
 				return {"icon": "strike", "label": "ACID RAIN", "target": -1}
+		"broker":
+			if phase == 2:
+				return {"icon": "hide", "label": "RUNNING", "target": -1}
+			if phase == 3:
+				if int(u.cooldowns.get("firebomb", 0)) <= 1:
+					return {"icon": "satchel", "label": "FIREBOMB", "target": -1}
+				return {"icon": "claw", "label": "CORNERED", "target": _planned(s, u, plan, _most_exposed(s, u, hostiles))}
+		"choir_prophet":
+			if not ChoirProphet.singing(s, u):
+				return {"icon": "hide", "label": "HUSHED", "target": -1}
+			if u.status.has("fixed"):
+				return {"icon": "hook", "label": "COMPELLING", "target": int(u.status.fixed)}
+			if phase == 3:
+				var charge := int(u.status.get("hymn", 0)) + 1
+				if charge >= ChoirProphet.HYMN_MAX:
+					return {"icon": "strike", "label": "CRESCENDO", "target": -1}
+				return {"icon": "pulse", "label": "HYMN %d/%d" % [charge, ChoirProphet.HYMN_MAX], "target": -1}
+			return {"icon": "strike", "label": "VERSE", "target": -1}
+		"breaker":
+			if phase == 2 and int(u.cooldowns.get("debris", 0)) <= 1:
+				return {"icon": "strike", "label": "DEBRIS", "target": -1}
 		"colonel_hale":
 			var near := ColonelHale._nearest_dist(u.pos, hostiles)
 			if phase == 1:
@@ -195,7 +253,14 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 		if not Vision.sees_unit(s, Types.Team.PLAYER, u) and not u.status.has("emerge_cell"):
 			continue
 		if u.status.has("swelling"):
-			out.append({"kind": "burst", "cells": EnemyAbilities.square(s.grid, u.pos, 1), "unit": u.id, "turn": s.turn})
+			out.append({"kind": "bloom" if u.kind == "acolyte" else "burst", "cells": Choir.bloom_cells(s, u) if u.kind == "acolyte" else EnemyAbilities.square(s.grid, u.pos, 1),
+				"unit": u.id, "turn": s.turn})
+		if u.status.has("hushing"):
+			var hu := s.get_unit(int(u.status.hushing))
+			if hu != null and hu.is_alive():
+				out.append({"kind": "hush", "cells": EnemyAbilities.line_cells(u.pos, hu.pos), "unit": u.id, "turn": s.turn})
+		if u.kind == "collector" and Recovery.held(s, u) != null:
+			out.append({"kind": "drag", "cells": Recovery.drag_path(s, u), "unit": u.id, "turn": s.turn})
 		if u.status.has("leap_cell"):
 			out.append({"kind": "leap", "cells": EnemyAbilities.square(s.grid, u.status.leap_cell, 1), "unit": u.id, "turn": s.turn})
 		if u.status.has("emerge_cell"):
@@ -205,13 +270,29 @@ static func dangers(s: GameState) -> Array[Dictionary]:
 			var t := s.get_unit(int(u.status.sighted))
 			if t != null and t.is_alive():
 				out.append({"kind": "snipe", "cells": [t.pos], "unit": u.id, "turn": s.turn})
-		if u.status.has("charge_dir"):
+		if u.kind == "breaker":
+			for run in Breaker.lanes(s, u):
+				out.append({"kind": "charge", "cells": run.cells, "unit": u.id, "turn": s.turn})
+		elif u.status.has("charge_dir"):
 			var lane := EnemyAbilities.charge_lane(s, u, u.pos, u.status.charge_dir)
 			out.append({"kind": "charge", "cells": lane.cells, "unit": u.id, "turn": s.turn})
 		if u.status.has("hooked"):
 			var h := s.get_unit(int(u.status.hooked))
 			if h != null and h.is_alive():
 				out.append({"kind": "hook", "cells": EnemyAbilities.line_cells(u.pos, h.pos), "unit": u.id, "turn": s.turn})
+		if u.kind == "broker" and int(u.status.get("boss_phase", 1)) == 2:
+			out.append({"kind": "exit", "cells": Broker.exit_cells(s, u), "unit": u.id, "turn": s.turn})
+	return out
+
+
+## [broker id, soldier id] for each item the Broker is carrying off, seen by the squad.
+static func hoards(s: GameState) -> Array:
+	var out: Array = []
+	for u in s.living(Types.Team.ENEMY):
+		if u.kind != "broker" or not Vision.sees_unit(s, Types.Team.PLAYER, u):
+			continue
+		for loot in u.status.get("hoard", []):
+			out.append([u.id, int(loot.unit)])
 	return out
 
 
@@ -255,6 +336,35 @@ static func links(s: GameState) -> Array:
 					out.append([u.id, t.id])
 		elif u.kind == "field_medic" and u.status.has("reviving"):
 			out.append([u.id, int(u.status.reviving.body)])
+	out.append_array(Choir.links(s))
+	return out
+
+
+## [handler id, soldier id] for each live designation the squad can see: the line Recovery aims along.
+static func designations(s: GameState) -> Array:
+	var out: Array = []
+	for u in s.living(Types.Team.ENEMY):
+		var t := Recovery.designation_of(s, u) if u.kind == "handler" else null
+		if t != null and Vision.sees_unit(s, Types.Team.PLAYER, u):
+			out.append([u.id, t.id])
+	return out
+
+
+## [{unit, cell}] each Cantor the squad sees: enemies in its ring, in its sight, hit harder.
+static func chants(s: GameState) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for u in s.living(Types.Team.ENEMY):
+		if u.kind == "cantor" and Vision.sees_unit(s, Types.Team.PLAYER, u):
+			out.append({"unit": u.id, "cell": u.pos})
+	return out
+
+
+## [{unit, cell, radius}] the hymn ring of a Choir Prophet the squad sees while he sings.
+static func rings(s: GameState) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var u := ChoirProphet.prophet(s)
+	if ChoirProphet.singing(s, u) and Vision.sees_unit(s, Types.Team.PLAYER, u):
+		out.append({"unit": u.id, "cell": u.pos, "radius": ChoirProphet.ring_radius(u)})
 	return out
 
 

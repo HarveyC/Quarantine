@@ -153,6 +153,9 @@ static func is_lapsed(u: Unit) -> bool:
 static func on_team_phase_start(s: GameState) -> void:
 	for u in s.living(Types.Team.PLAYER):
 		if is_lapsed(u):
+			if int(u.status.get("compelled", 0)) > 1:   # the Choir Prophet's hold lasts a few rounds
+				u.status.compelled = int(u.status.compelled) - 1
+				continue
 			end_lapse(s, u)
 			continue
 		roll_lapse(s, u)
@@ -176,6 +179,7 @@ static func roll_lapse(s: GameState, u: Unit) -> bool:
 
 ## Ends a Lapse (recovery at the next team phase, or an ally talked them down / cured them).
 static func end_lapse(s: GameState, u: Unit) -> void:
+	u.status.erase("compelled")
 	u.status.erase("lapsed")
 	u.status.erase("lapsed_turn")
 	u.ai_controlled = false

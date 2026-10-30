@@ -107,15 +107,6 @@ func test_bloodlust_refunds_an_action_once_per_turn_and_feeds() -> void:
 	assert_eq(_of(ev, "perk", "perk", "bloodlust").size(), 1, "one bloodlust event")
 
 
-func test_low_profile_penalises_overwatch_on_a_reaper() -> void:
-	var s := _state()
-	var r := _add(s, "reaper", Types.Team.PLAYER, Vector2i(2, 2))
-	var e := _add(s, "fallen", Types.Team.ENEMY, Vector2i(8, 2))
-	var normal: int = Combat.hit_chance(s, e, r, e.pos, false).hit
-	var reaction: int = Combat.hit_chance(s, e, r, e.pos, true).hit
-	assert_eq(normal - reaction, Combat.REACTION_PENALTY + Kit.LOW_PROFILE, "reaction -15 and Low Profile -15")
-
-
 func test_cleave_hits_every_adjacent_enemy() -> void:
 	var s := _state()
 	var r := _add(s, "reaper", Types.Team.PLAYER, Vector2i(1, 2), ["cleave"])
@@ -291,3 +282,42 @@ func test_close_kills_and_hits_taken_are_counted() -> void:
 	assert_eq(int(b.status.get("hits_taken", 0)), 1, "hit counted")
 	Rules.deal_damage(s, e, 99, b)
 	assert_eq(int(b.status.get("close_kills", 0)), 1, "adjacent kill counted")
+
+
+# ------------------------------------------------------------------ one drawn weapon
+
+func _swap(s: GameState, u: Unit) -> bool:
+	return Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "swap_weapon"})
+
+
+func test_melee_weapon_replaces_shoot_until_swapped() -> void:
+	var s := _state()
+	var r := _add(s, "reaper", Types.Team.PLAYER, Vector2i(1, 2))
+	var t := _add(s, "spitter", Types.Team.ENEMY, Vector2i(5, 2))
+	t.max_hp = 99
+	t.hp = 99
+	assert_true(ClassAbilities.melee_drawn(r), "the blade starts drawn")
+	assert_true(Rules.validate(s, {"type": Types.SHOOT, "unit": r.id, "target": t.id}) != "", "no Shoot with the blade out")
+	assert_true(Rules.validate(s, {"type": Types.OVERWATCH, "unit": r.id}) != "", "no Overwatch with the blade out")
+	assert_eq(Rules.validate(s, {"type": Types.ABILITY, "unit": r.id, "ability": "lunge", "target": t.id}), "", "Lunge works")
+	assert_true(_swap(s, r), "swap")
+	assert_eq(r.actions_left, Types.ACTIONS_PER_TURN - 1, "swapping costs 1 action and does not end the turn")
+	assert_true(ClassAbilities.gun_drawn(r))
+	assert_eq(Rules.validate(s, {"type": Types.SHOOT, "unit": r.id, "target": t.id}), "", "the gun shoots")
+	assert_true(Rules.validate(s, {"type": Types.ABILITY, "unit": r.id, "ability": "lunge", "target": t.id}) != "", "no Lunge with the gun out")
+	assert_true(_swap(s, r) or r.actions_left == 0, "swap back")
+
+
+func test_gun_drawn_soldier_gives_no_parting_blow() -> void:
+	var s := _state()
+	var r := _add(s, "reaper", Types.Team.PLAYER, Vector2i(1, 2))
+	assert_true(PartingBlow.can_swing(s, r))
+	_swap(s, r)
+	assert_true(not PartingBlow.can_swing(s, r), "a holstered blade swings at nothing")
+
+
+func test_other_soldiers_have_no_swap() -> void:
+	var s := _state()
+	var t := _add(s, "trooper", Types.Team.PLAYER, Vector2i(1, 2))
+	assert_true(not ClassAbilities.wields_melee(t))
+	assert_true(not _swap(s, t), "a rifle-only soldier has nothing to swap to")

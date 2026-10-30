@@ -38,8 +38,10 @@ func _every_objective_generates_valid_maps(biome: String) -> void:
 			var g := MapGen.generate(_spec(o, seed, biome))
 			var tag := "%s %s seed %d" % [biome, o, seed]
 			assert_true(not g.markers.is_empty(), tag + " did not fall back to the handmade map")
-			var low := 20 if o == "boss" else 22
-			assert_true(g.width >= low and g.width <= 28 and g.height >= low and g.height <= 28, tag + " size")
+			if o == "boss":
+				assert_true(g.width >= 20 and g.width <= 28 and g.height >= 20 and g.height <= 28, tag + " size")
+			else:   # district footprints: square, corner, wide, long and tall
+				assert_true(g.width >= 18 and g.width <= 46 and g.height >= 18 and g.height <= 38 and g.width * g.height >= 700, tag + " size")
 			assert_eq(g.biome, biome, tag + " biome")
 			assert_true(g.player_spawns.size() >= 4, tag + " deploy cells")
 			assert_true(g.enemy_spawns.size() >= MapGen.MIN_ENEMY_SPAWNS, tag + " enemy spawns")

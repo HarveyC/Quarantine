@@ -12,7 +12,8 @@ const SCREAM_ALLIES := 2
 const KINDS: Array[String] = ["fallen", "bloater", "broodling", "brute", "lurker", "shrieker",
 	"leaper", "drifter", "sharpshooter", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver", "cutter", "torchman", "fence", "shieldman", "overwatcher", "hound", "loader",
 	"packrat", "rigger", "lookout", "sergeant", "grenadier", "field_medic", "tender", "arc_welder",
-	"brood_mother", "colonel_hale", "the_source"]
+	"netter", "handler", "sterilizer", "collector", "acolyte", "cantor", "hush",
+	"brood_mother", "breaker", "broker", "colonel_hale", "director", "choir_prophet", "the_source", "bore_engine", "lantern_echoes"]
 
 
 static func handles(s: GameState, u: Unit) -> bool:
@@ -31,14 +32,32 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 	if u.kind == "brood_mother":
 		BroodMother.take_turn(s, u)
 		return true
+	if u.kind == "broker":
+		Broker.take_turn(s, u)
+	if u.kind == "breaker":
+		Breaker.take_turn(s, u)
+		return true
 	if u.kind == "colonel_hale":
 		ColonelHale.take_turn(s, u)
+		return true
+	if u.kind == "choir_prophet":
+		ChoirProphet.take_turn(s, u)
+	if u.kind == "director":
+		DirectorBoss.take_turn(s, u)
 		return true
 	if u.kind == "the_source":
 		SourceBoss.take_turn(s, u)
 		return true
+	if LanternEchoes.scripted(u):
+		LanternEchoes.boss_turn(s, u)
+		return true
+	if u.kind == "bore_engine":
+		BoreEngine.take_turn(s, u)
+		return true
+	if u.kind == "collector" and Recovery.collector_turn(s, u):
+		return true
 	if u.status.has("swelling"):
-		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "burst"})
+		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "bloom" if u.kind == "acolyte" else "burst"})
 		return true
 	if u.status.has("charge_dir"):
 		_try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "charge"})
@@ -65,6 +84,11 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 			return true
 		u.status.erase("hooked")
 		s.emit({"type": "lock_lost", "unit": u.id})
+	if u.status.has("hushing"):
+		if _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "silence"}):
+			return true
+		u.status.erase("hushing")
+		s.emit({"type": "lock_lost", "unit": u.id})
 	if u.status.has("sighted"):
 		if _try(s, {"type": Types.ABILITY, "unit": u.id, "ability": "snipe"}):
 			return true
@@ -77,6 +101,8 @@ static func custom_turn(s: GameState, u: Unit) -> bool:
 
 
 static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
+	if u.status.get("lantern_echo", false) or u.kind == "lantern_echoes":
+		return LanternEchoes.choose(s, u, hostiles)
 	if u.status.get("turned", false):
 		return cover_shooter(s, u, hostiles)
 	match u.kind:
@@ -109,6 +135,13 @@ static func choose(s: GameState, u: Unit, hostiles: Array[Unit]) -> Dictionary:
 		"field_medic": return Security.medic(s, u, hostiles)
 		"tender": return Automata.tender(s, u, hostiles)
 		"arc_welder": return Automata.welder(s, u, hostiles)
+		"netter": return Recovery.netter(s, u, hostiles)
+		"handler": return Recovery.handler(s, u, hostiles)
+		"sterilizer": return Recovery.sterilizer(s, u, hostiles)
+		"collector": return rush(s, u, hostiles, "claw")
+		"acolyte": return rush(s, u, hostiles, "bloom")
+		"cantor": return Choir.cantor(s, u, hostiles)
+		"hush": return Choir.hush(s, u, hostiles)
 	return {}
 
 
@@ -117,6 +150,9 @@ static func end_turn(s: GameState, u: Unit) -> void:
 	var hostiles := EnemyAI._hostiles(s, u)
 	if u.status.get("plate", false):
 		_face(s, u, hostiles)
+	if u.kind == "breaker":
+		Breaker.end_turn(s, u)
+	Choir.end_turn(s, u, hostiles)
 	if u.kind in ["bloater", "broodling"] and not u.status.has("swelling") and EnemyAI.is_alerted(u):
 		var need := 1 if u.kind == "broodling" else 2
 		if _adjacent(s, u.pos, hostiles) >= need:

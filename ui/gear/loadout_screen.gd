@@ -1,6 +1,6 @@
 extends Control
 ## Loadout screen (from the map, or during REWARD): squad bar, the selected soldier as a silhouette between two slot
-## columns (gear on the left, guns and what hangs on them on the right; click a spare gun to carry it), pockets, their tag strip with 3 pips per tag and the set bonuses, and the shared
+## columns (gear on the left, guns and what hangs on them on the right; spare guns ride in the stash), pockets, their tag strip with 3 pips per tag and the set bonuses, and the shared
 ## 4-item stash, and the soldier's graft body diagram. Drag a stash item onto a slot to equip it (the old item swaps into the stash),
 ## drag a slot onto the stash to store it, or click a stash item then a slot. While dragging or
 ## hovering a stash item, the tag strip previews the change (2→3 in gold) and the slots that
@@ -14,8 +14,8 @@ const W := preload("res://ui/widgets.gd")
 const GraftFigure := preload("res://ui/graft_figure.gd")
 
 const LEFT_SLOTS: Array[String] = ["head", "body", "offhand", "utility", "utility2"]
-const RIGHT_SLOTS: Array[String] = ["weapon", "ammo", "melee"]
-const PARTS := {"head": ["head"], "body": ["body"], "arms": ["offhand", "melee", "weapon", "ammo"], "legs": ["utility", "utility2"]}
+const RIGHT_SLOTS: Array[String] = ["gun", "weapon", "ammo", "melee"]
+const PARTS := {"head": ["head"], "body": ["body"], "arms": ["offhand", "melee", "gun", "weapon", "ammo"], "legs": ["utility", "utility2"]}
 
 var run: RunState
 var session
@@ -23,16 +23,17 @@ var _sid := -1
 var _held := -1          # stash index picked up by click
 var _preview_id := ""    # item being previewed in the tag strip
 var _dirty := false
+## Set when opened mid-fight: a read-only look at the soldiers as they are on the board (charges left,
+## nothing to change), without the stash.
+var fight: GameState
 
 var _squad_bar: HBoxContainer
 var _name: Label
 var _sub: Label
-var _guns: VBoxContainer
 var _col_l: VBoxContainer
 var _col_r: VBoxContainer
 var _figure: Control
 var _pockets: HBoxContainer
-var _grafts: HBoxContainer
 var _tags: VBoxContainer
 var _stash_row: HBoxContainer
 var _stash_title: Label
@@ -40,6 +41,9 @@ var _toast: Label
 var _supplies: Label
 var _build_box: VBoxContainer
 var _fit: Container
+var _stash_box: Control
+var _passive_box: VBoxContainer
+var _back: Button
 
 
 func setup(r: RunState, s) -> void:
@@ -72,6 +76,22 @@ static func open_over(host: Control, r: RunState, s, sid := -1) -> Control:
 	return scr
 
 
+## The same screen over a fight, read-only: slots, pockets with the charges left, grafts, passive
+## and build for every soldier in the squad. `state` is the live fight.
+static func open_in_fight(host: Control, r: RunState, s, state: GameState, sid := -1) -> Control:
+	var scr: Control = load("res://ui/gear/loadout_screen.gd").new()
+	scr.name = "FightLoadout"
+	scr.fight = state
+	scr.z_index = 10
+	host.add_child(scr)
+	scr.setup(r, s)
+	(scr.get_child(0) as ColorRect).color.a = 1.0
+	if sid != -1 and not r.get_soldier(sid).is_empty():
+		scr.focus(sid)
+	scr.closed.connect(scr.queue_free)
+	return scr
+
+
 ## Shows soldier `sid`.
 func focus(sid: int) -> void:
 	_sid = sid
@@ -89,7 +109,7 @@ func _editable_soldiers() -> Array:
 
 
 func _can_edit(r: Dictionary) -> bool:
-	return not r.is_empty() and _local_players().has(run.controller_of(r))
+	return fight == null and not r.is_empty() and _local_players().has(run.controller_of(r))
 
 
 func _queue_refresh() -> void:
@@ -133,7 +153,8 @@ func _build() -> void:
 	_supplies = UI.mono("", 16, UI.AMBER)
 	_supplies.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(_supplies)
-	var back := UI.button("Back", true, "Esc")
+	var back := UI.button("Close" if fight != null else "Back", true, "Esc")
+	_back = back
 	back.pressed.connect(_close)
 	head.add_child(back)
 	v.add_child(head)
@@ -157,6 +178,8 @@ func _build() -> void:
 	_sub.size_flags_vertical = Control.SIZE_SHRINK_END
 	name_row.add_child(_sub)
 	left.add_child(name_row)
+	_passive_box = VBoxContainer.new()
+	left.add_child(_passive_box)
 	# The soldier between two slot columns: head, body, offhand and utility on the left, the
 	# guns and what hangs on them on the right.
 	var sil := HBoxContainer.new()
@@ -171,18 +194,11 @@ func _build() -> void:
 	_col_r.add_theme_constant_override("separation", 8)
 	_col_r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sil.add_child(_col_r)
-	_guns = VBoxContainer.new()
-	_guns.add_theme_constant_override("separation", 6)
-	_col_r.add_child(_guns)
 	left.add_child(sil)
 	left.add_child(UI.caps("Pockets", 13, UI.DIM))
 	_pockets = HBoxContainer.new()
 	_pockets.add_theme_constant_override("separation", 10)
 	left.add_child(_pockets)
-	left.add_child(UI.caps("Grafts", 13, UI.DIM))
-	_grafts = HBoxContainer.new()
-	_grafts.add_theme_constant_override("separation", 18)
-	left.add_child(_grafts)
 	left.add_child(UI.caps("Build", 13, UI.DIM))
 	_build_box = VBoxContainer.new()
 	_build_box.add_theme_constant_override("separation", 4)
@@ -204,6 +220,8 @@ func _build() -> void:
 	body.add_child(tag_panel)
 	# Stash.
 	var st := VBoxContainer.new()
+	_stash_box = st
+	st.visible = fight == null
 	st.add_theme_constant_override("separation", 8)
 	var st_head := HBoxContainer.new()
 	_stash_title = UI.caps("", 13, UI.DIM)
@@ -230,47 +248,67 @@ func _refresh() -> void:
 		r = run.get_soldier(_sid)
 	if _held >= Loadout.stash(run).size():
 		_held = -1
-	_supplies.text = "%d Supplies" % run.supplies
+	_supplies.text = "" if fight != null else "%d Supplies" % run.supplies
 	_build_squad_bar()
 	# Take the old tiles out now: queued for deletion they still count toward the size, and the
 	# FitBox would zoom the next soldier out to fit both. Then fit the new content from full size.
-	for n in [_guns, _col_l, _col_r, _pockets, _grafts, _tags, _stash_row, _build_box]:
+	for n in [_col_l, _col_r, _pockets, _tags, _stash_row, _build_box]:
 		for c in n.get_children():
-			if c == _guns:
-				continue
 			n.remove_child(c)
 			c.queue_free()
 	_fit.refit()
 	if r.is_empty():
 		return
+	if fight != null:
+		r = _live(r)
+	for c in _passive_box.get_children():
+		_passive_box.remove_child(c)
+		c.queue_free()
+	var pas := PerkData.passive(str(r.kind))
+	if not pas.is_empty():
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 10)
+		line.add_child(UI.label(str(pas.name), 14, UI.TEXT, "bold"))
+		line.add_child(UI.text(str(pas.desc), 14, UI.DIM, 560))
+		_passive_box.add_child(line)
 	_name.text = UI.short_name(r).to_upper()
 	var rank = r.get("prog", {}).get("rank", null) if r.get("prog") is Dictionary else null
 	_sub.text = ("%s%s · %s" % ["Rank %d " % int(rank) if rank != null else "", UI.class_name_of(r), _player_name(r.owner)]).to_upper()
-	if not _can_edit(r):
+	if fight == null and not _can_edit(r):
 		_sub.text += "  ·  VIEW ONLY"
 	var feeding := _preview_tags()
 	for slot in LEFT_SLOTS:
 		_col_l.add_child(_slot_tile(r, slot, feeding))
-	var owned: Array = ([Weapons.id_for(r.kind)] if Loadout.has_primary(r) else []) + Loadout.guns(r)
-	owned.sort_custom(func(a, b): return Loadout.gun_id(r) == a and Loadout.gun_id(r) != b)
-	for id in owned:
-		_guns.add_child(_gun_tile(r, id))
-	_col_r.move_child(_guns, 0)
 	for slot in RIGHT_SLOTS:
 		_col_r.add_child(_slot_tile(r, slot, feeding))
+	_col_r.add_child(_graft_tile(r, "arm"))
+	_col_l.add_child(_graft_tile(r, "legs"))
 	_figure.setup(_lit_parts(r))
 	var ps := Loadout.pockets(r)
 	for i in ps.size():
 		_pockets.add_child(_pocket_tile(ps[i]))
-	_build_grafts(r)
 	_build_tags(r)
 	_build_stash(r)
 	_build_summary(r)
 
 
+## The record as the fight has it: pockets are what is left in the unit's pouches.
+func _live(r: Dictionary) -> Dictionary:
+	var out: Dictionary = r.duplicate(true)
+	for u in fight.units:
+		if u.team == Types.Team.PLAYER and int(u.status.get("sid", -1)) == int(r.id) and u.status.has("pockets"):
+			var ps: Array = u.status.pockets.duplicate(true)
+			for i in ps.size():
+				if ps[i] != null and int(ps[i].charges) <= 0:
+					ps[i] = null
+			Loadout.of(out).pockets = ps
+			break
+	return out
+
+
 ## Slot tiles on screen, in no particular order (the tests and the drop checks walk them).
 func slot_tiles() -> Array:
-	return _col_l.get_children() + _col_r.get_children().filter(func(c): return c != _guns)
+	return (_col_l.get_children() + _col_r.get_children()).filter(func(c): return c is DropTile)
 
 
 ## Which body parts of the figure have something on them.
@@ -278,7 +316,9 @@ func _lit_parts(r: Dictionary) -> Dictionary:
 	var out := {}
 	for part in PARTS:
 		out[part] = PARTS[part].any(func(slot): return Loadout.item_at(r, slot) != null)
-	out["arms"] = out.arms or Loadout.gun_id(r) != ""
+	var grafts := Grafts.of(r)
+	out["arms"] = out.arms or grafts.has("arm")
+	out["legs"] = out.legs or grafts.has("legs")
 	return out
 
 
@@ -377,7 +417,7 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 	head.add_child(sp)
 	if it != null:
 		var rar := GearData.rarity_of(it.id)
-		head.add_child(UI.caps("%s · Mk %s" % [GearData.RARITY_NAMES[rar], "II" if it.mk >= 2 else "I"], 12, UI.rarity_color(rar)))
+		head.add_child(UI.caps(_rarity_text(it), 12, UI.rarity_color(rar)))
 	v.add_child(head)
 	if it == null:
 		v.add_child(UI.caps("Empty", 20, UI.FAINT))
@@ -392,7 +432,11 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 		for tg in GearData.tags_of(it.id):
 			tags.add_child(UI.tag_chip(tg))
 		v.add_child(tags)
-		t.tooltip_text = "%s\nMk I: %s\nMk II: %s" % [GearData.item_name(it.id), GearData.desc(it.id, 1), GearData.desc(it.id, 2)]
+		if slot == "gun":
+			v.add_child(UI.mag_row(Weapons.mag_for(it.id, str(r.kind)), 11.0))
+			t.tooltip_text = "%s\nMagazine: %d rounds\n%s" % [GearData.item_name(it.id), Weapons.mag_for(it.id, str(r.kind)), GearData.desc(it.id, 1)]
+		else:
+			t.tooltip_text = "%s\nMk I: %s\nMk II: %s" % [GearData.item_name(it.id), GearData.desc(it.id, 1), GearData.desc(it.id, 2)]
 		_tag_terms(t, r, GearData.tags_of(it.id))
 	for n in v.find_children("*", "Control", true, false):
 		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -400,67 +444,34 @@ func _slot_tile(r: Dictionary, slot: String, feeding: Array) -> Control:
 	t.add_child(v)
 	var editable := _can_edit(r)
 	var sid: int = r.id
-	if editable and it != null:
+	if editable and it != null and slot != "gun":
 		t.drag_data = {"from": "slot", "slot": slot, "soldier": sid, "id": it.id}
 		t.drag_label = GearData.item_name(it.id)
 		t.drag_sub = GearData.SLOT_NAMES[slot]
 	t.can_drop = func(d) -> bool:
-		return editable and d is Dictionary and d.get("from") == "stash" and GearData.slots_for(GearData.slot_of(d.id)).has(slot)
+		return editable and d is Dictionary and d.get("from") == "stash" and GearData.slots_for(GearData.slot_of(d.id)).has(slot) \
+			and _can_hold(r, str(d.id))
 	t.dropped = func(d) -> void: _equip_from_stash(int(d.index))
 	t.drop_hover = func(d, on: bool) -> void:
 		if on and d is Dictionary and d.get("from") == "stash":
 			_show_toast(_swap_text(r, str(d.id)))
 	t.clicked = func() -> void:
-		if editable and _held >= 0 and GearData.slots_for(GearData.slot_of(Loadout.stash(run)[_held].id)).has(slot):
+		if editable and _held >= 0 and GearData.slots_for(GearData.slot_of(Loadout.stash(run)[_held].id)).has(slot) \
+				and _can_hold(r, str(Loadout.stash(run)[_held].id)):
 			_equip_from_stash(_held)
 	t.drag_state = func(on: bool, d) -> void: _set_preview(d.get("id", "") if on and d is Dictionary and d.get("from") == "stash" else "")
 	return t
 
 
-## One gun the soldier owns; the one in hand is framed amber. Click another to carry it.
-func _gun_tile(r: Dictionary, id: String) -> Control:
-	var g := Weapons.get_gun(id)
-	var carried := Loadout.gun_id(r) == id
-	var t := DropTile.new()
-	t.custom_minimum_size = Vector2(0, 96)
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.add_theme_stylebox_override("panel", UI.box(UI.HELD if carried else UI.PANEL_SOFT, UI.AMBER if carried else UI.BORDER, 2 if carried else 1, 0, 10))
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
-	var head := HBoxContainer.new()
-	head.add_child(UI.label("IN HAND" if carried else "SPARE", 11, UI.AMBER if carried else UI.FAINT, "mono"))
-	var sp := Control.new()
-	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(sp)
-	var rar: String = g.get("rarity", "")
-	head.add_child(UI.caps(GearData.RARITY_NAMES[rar] if rar != "" else "Class gun", 12, UI.rarity_color(rar) if rar != "" else UI.DIM))
-	v.add_child(head)
-	v.add_child(UI.caps(g.name, 19))
-	if g.get("tag", "") != "":
-		var tags := HBoxContainer.new()
-		tags.add_child(UI.tag_chip(g.tag))
-		v.add_child(tags)
-	var rounds := Weapons.mag_for(id, str(r.kind))
-	v.add_child(UI.mag_row(rounds, 11.0))
-	t.tooltip_text = "%s\nMagazine: %d rounds\n%s" % [g.name, rounds, g.desc]
-	if g.get("tag", "") != "":
-		_tag_terms(t, r, [g.tag])
-	for n in v.find_children("*", "Control", true, false):
-		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	t.add_child(v)
-	if _can_edit(r) and not carried:
-		var sid: int = r.id
-		t.clicked = func() -> void:
-			var msg := "%s now carries the %s" % [UI.short_name(r), g.name]
-			for p in GearTags.preview_gun(r, "" if id == Weapons.id_for(r.kind) else id):
-				if p.unlocks:
-					msg += ". %s set bonus on!" % p.tag
-				elif p.loses:
-					msg += ". %s set bonus off" % p.tag
-			_submit({"type": "gear_gun", "player": run.controller_of(r), "soldier": sid, "gun": "" if id == Weapons.id_for(r.kind) else id})
-			_show_toast(msg)
-	return t
+## Rarity and mark for a tile header. Guns have no marks.
+func _rarity_text(it: Dictionary) -> String:
+	var name: String = GearData.RARITY_NAMES.get(GearData.rarity_of(it.id), "")
+	return name if Weapons.is_item(it.id) else "%s · Mk %s" % [name, "II" if it.mk >= 2 else "I"]
+
+
+## Can this soldier take `id` into their hands? Only melee classes are picky (see Weapons.can_carry).
+func _can_hold(r: Dictionary, id: String) -> bool:
+	return not Weapons.is_item(id) or Weapons.can_carry(str(r.get("kind", "")), id)
 
 
 func _pocket_tile(p) -> Control:
@@ -645,38 +656,44 @@ func _build_summary(r: Dictionary) -> void:
 
 
 ## The body diagram and one line per slot: the part's name in its path colour, or open.
-func _build_grafts(r: Dictionary) -> void:
+## An Arm or Legs graft as a slot of the same kind as the gear around it. Grafts are for life:
+## they come from the hospital, the depot and nests, not from the stash.
+func _graft_tile(r: Dictionary, slot: String) -> Control:
 	var g := Grafts.of(r)
-	var locked := g.is_empty() and Grafts.eligible_error(run, r) not in ["", "Every slot is grafted"]
-	var fig := GraftFigure.new(Vector2(52, 78))
-	fig.setup(g, "", locked)
-	_grafts.add_child(fig)
-	if locked:
-		var why := UI.text("Body grafts open in Act %d, from Rank %d: a Machine Refit at the hospital or depot, or a Bloom part from nests." % [
-			GraftData.FROM_ACT, GraftData.FROM_RANK], 13, UI.FAINT, 420)
-		why.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		_grafts.add_child(why)
-		return
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 4)
-	grid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	for slot in GraftData.SLOTS:
-		grid.add_child(UI.caps(GraftData.SLOT_NAMES[slot], 12, UI.FAINT))
-		var id: String = g.get(slot, "")
-		var l := UI.label(GraftData.name_of(id) if id != "" else "Open", 15, GraftFigure.path_color(id) if id != "" else UI.FAINT, "bold" if id != "" else "body")
-		if id != "":
-			l.tooltip_text = GraftData.get_def(id).desc
-			Tips.term(l, "graft")
-			l.mouse_filter = Control.MOUSE_FILTER_PASS
-		grid.add_child(l)
-	_grafts.add_child(grid)
-	var floor_at := Grafts.floor_of(g)
-	if floor_at > 0:
-		var fl := UI.label("Infection floor %d" % floor_at, 13, UI.TEAL)
-		fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		_grafts.add_child(fl)
+	var id: String = g.get(slot, "")
+	var t := PanelContainer.new()
+	t.custom_minimum_size = Vector2(0, 84)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.add_theme_stylebox_override("panel", UI.box(UI.PANEL_SOFT, UI.BORDER, 1, 0, 14))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	var head := HBoxContainer.new()
+	head.add_child(UI.label("%s GRAFT" % GraftData.SLOT_NAMES[slot].to_upper(), 11, UI.FAINT, "mono"))
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(sp)
+	if id != "":
+		head.add_child(UI.caps("Bloom" if GraftData.is_bloom(id) else "Machine", 12, GraftFigure.path_color(id)))
+	v.add_child(head)
+	if id != "":
+		v.add_child(UI.caps(GraftData.name_of(id), 20, GraftFigure.path_color(id)))
+		var tip: String = GraftData.get_def(id).desc
+		var floor_at := Grafts.floor_of(g)
+		if GraftData.is_bloom(id) and floor_at > 0:
+			tip += "\nInfection floor %d" % floor_at
+		t.tooltip_text = "%s\n%s" % [GraftData.name_of(id), tip]
+		Tips.term(t, "graft")
+	else:
+		v.add_child(UI.caps("Open", 20, UI.FAINT))
+		var err := Grafts.eligible_error(run, r)
+		t.tooltip_text = err if err != "" and err != "Every slot is grafted" else "A Machine Refit at the hospital or depot, or a Bloom part from nests."
+		if err.begins_with("Grafts open") or err.begins_with("Needs Rank"):
+			v.add_child(UI.label("Act %d, Rank %d" % [GraftData.FROM_ACT, GraftData.FROM_RANK], 13, UI.FAINT))
+	for n in v.find_children("*", "Control", true, false):
+		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.add_child(v)
+	return t
 
 
 func _bonus_line(text: String, col: Color) -> Control:
@@ -708,7 +725,7 @@ func _build_stash(r: Dictionary) -> void:
 			var sp := Control.new()
 			sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			head.add_child(sp)
-			head.add_child(UI.caps("%s · Mk %s" % [GearData.RARITY_NAMES[rar], "II" if it.mk >= 2 else "I"], 12, UI.rarity_color(rar)))
+			head.add_child(UI.caps(_rarity_text(it), 12, UI.rarity_color(rar)))
 			v.add_child(head)
 			v.add_child(UI.caps(GearData.item_name(it.id), 19))
 			var tags := HBoxContainer.new()
@@ -716,7 +733,7 @@ func _build_stash(r: Dictionary) -> void:
 			for tg in GearData.tags_of(it.id):
 				tags.add_child(UI.tag_chip(tg))
 			v.add_child(tags)
-			t.tooltip_text = "%s (Mk %s)\n%s" % [GearData.item_name(it.id), "II" if it.mk >= 2 else "I", GearData.desc(it.id, it.mk)]
+			t.tooltip_text = "%s%s\n%s" % [GearData.item_name(it.id), "" if Weapons.is_item(it.id) else " (Mk %s)" % ("II" if it.mk >= 2 else "I"), GearData.desc(it.id, it.mk)]
 			# The stash is shared: viewing a teammate's soldier you can still pick from it. A click
 			# equips straight onto the soldier on screen (the old item swaps into the stash); from a
 			# teammate's view it jumps to one of your own soldiers with the item held. A drag also works,

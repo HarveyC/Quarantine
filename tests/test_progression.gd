@@ -179,15 +179,19 @@ func test_unlocked_classes_and_vector_unlock() -> void:
 
 # ---------------------------------------------------------------- passives and perks
 
-func test_shoulder_to_shoulder_and_steadfast() -> void:
+func test_covering_fire_and_steadfast() -> void:
 	var s := _state(["trooper", "marksman"])
 	var foe := _enemy(s, "spitter", Vector2i(1, 4))
-	var mk := _soldier(s, 1)
-	assert_eq(_term(Combat.hit_chance(s, foe, mk), "Shoulder to Shoulder"), -10, "+10 defense")
-	_give(_soldier(s, 0), ["steadfast"])
-	assert_eq(_term(Combat.hit_chance(s, foe, mk), "Shoulder to Shoulder"), -20, "Steadfast +20")
-	mk.pos = Vector2i(5, 0)
-	assert_eq(_term(Combat.hit_chance(s, foe, mk), "Shoulder to Shoulder"), 0, "not adjacent")
+	var tr := _soldier(s, 0)
+	assert_true(Weapons.has_trait(tr, "pin"), "any gun pins")
+	assert_true(not Weapons.has_trait(_soldier(s, 1), "pin"), "only the trooper")
+	foe.overwatch = true
+	Weapons.after_miss(s, tr, foe)
+	assert_true(foe.status.has("suppressed"), "a miss suppresses")
+	assert_true(foe.overwatch, "overwatch survives")
+	_give(tr, ["steadfast"])
+	Weapons.after_miss(s, tr, foe)
+	assert_true(not foe.overwatch, "Steadfast: a miss cancels overwatch")
 
 
 func test_steady_aim_and_relocate() -> void:
@@ -201,12 +205,11 @@ func test_steady_aim_and_relocate() -> void:
 	assert_eq(_term(Combat.hit_chance(s, mk, foe), "Steady Aim"), 10, "Relocate keeps it within 2 tiles")
 
 
-func test_point_blank_and_lockdown() -> void:
+func test_door_kicker_and_lockdown() -> void:
 	var s := _state(["breacher", "trooper"])
 	var foe := _enemy(s, "runner", Vector2i(2, 2))
-	assert_eq(Kit.shot_damage(s, _soldier(s, 0), foe, 4), 5, "+1 within 3")
-	foe.pos = Vector2i(9, 0)
-	assert_eq(Kit.shot_damage(s, _soldier(s, 0), foe, 4), 4, "not at range")
+	assert_true(Weapons.has_trait(_soldier(s, 0), "doorkick"), "ignores half cover with any gun")
+	assert_true(not Weapons.has_trait(_soldier(s, 1), "doorkick"), "only the breacher")
 	var tr := _soldier(s, 1)
 	_give(tr, ["lockdown"])
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": tr.id, "ability": "suppress", "target": foe.id}), "suppress")

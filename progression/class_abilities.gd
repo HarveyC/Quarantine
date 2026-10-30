@@ -22,6 +22,8 @@ const ABILITIES := {
 		"desc": "Dash up to 4 tiles to a visible enemy and cut it for 4-6, +1 per Infection tier. Only half cover counts. Kills on Infected add 5 Infection. Ends turn."},
 	"bash": {"name": "Shield Bash", "targeting": "unit", "cost": 1, "cooldown": 1,
 		"desc": "Hit an adjacent enemy for 3-5, knock it back a tile and stun it (it loses its next turn). +2 damage on Turned soldiers. 1 action."},
+	"swap_weapon": {"name": "Swap weapon", "targeting": "none", "cost": 1, "cooldown": 0,
+		"desc": "Switch between your melee weapon and your gun. Only the drawn weapon can attack. 1 action."},
 	"guard": {"name": "Brace", "targeting": "none", "cost": -1, "cooldown": 0,
 		"desc": "Until your next turn, Bash the first enemy that steps next to you. Ends turn."},
 	"shield_charge": {"name": "Shield Charge", "targeting": "unit", "cost": -1, "cooldown": 3,
@@ -80,7 +82,32 @@ static func handles(id: String) -> bool:
 
 
 static func _owns(u: Unit, id: String) -> bool:
+	if id == "swap_weapon":
+		return wields_melee(u)
 	return ABILITIES[id].get("any", false) or u.abilities.has(id)
+
+
+## The attacks a drawn melee weapon replaces Shoot with.
+const STRIKES := ["lunge", "bash", "shield_charge"]
+
+
+## A squad soldier carrying a melee weapon (Reaper blade, Trench maul) and a gun. One is drawn at a
+## time: the melee weapon at the start of a fight (status "drawn" absent), the gun after Swap weapon.
+static func wields_melee(u: Unit) -> bool:
+	return Kit.is_soldier(u) and not u.status.has("lantern_echo") and not u.status.has("mirror") \
+		and (u.abilities.has("lunge") or u.abilities.has("bash"))
+
+
+static func melee_drawn(u: Unit) -> bool:
+	return wields_melee(u) and u.status.get("drawn", "melee") == "melee"
+
+
+static func gun_drawn(u: Unit) -> bool:
+	return wields_melee(u) and u.status.get("drawn", "melee") == "gun"
+
+
+static func melee_weapon_name(u: Unit) -> String:
+	return "Reaper blade" if u.abilities.has("lunge") else "Trench maul"
 
 
 ## Same shape as Combat.available_abilities entries. Any-soldier actions only show when usable.
@@ -104,6 +131,13 @@ static func available(s: GameState, u: Unit) -> Array[Dictionary]:
 			entry["new"] = true
 		if id == "runner_leap":
 			entry["range"] = GraftData.LEAP_RANGE
+		if id == "swap_weapon":
+			var melee := melee_drawn(u)
+			entry["name"] = "Draw gun" if melee else "Draw %s" % melee_weapon_name(u).to_lower()
+			entry["desc"] = "Put away the %s and draw your gun. Only the drawn weapon can attack. 1 action." % melee_weapon_name(u).to_lower() \
+				if melee else "Holster the gun and draw the %s. Only the drawn weapon can attack. 1 action." % melee_weapon_name(u).to_lower()
+		if id in STRIKES and not entry.ready:
+			entry["reason"] = _extra_error(s, u, id)
 		out.append(entry)
 	return out
 
@@ -119,8 +153,12 @@ static func targets_for(s: GameState, u: Unit, id: String) -> Array[int]:
 
 
 static func _extra_error(s: GameState, u: Unit, id: String) -> String:
+	if Combat.has_status(s, u, "hushed") and not ABILITIES[id].get("any", false):
+		return "Hushed"
 	if Signatures.is_signature(id):
 		return Signatures.extra_error(s, u, id)
+	if id in STRIKES and gun_drawn(u):
+		return "Gun drawn: swap weapon first"
 	if id == "squad_order" and u.status.get("k_squad_order", false):
 		return "Already used this fight"
 	if id == "serum" and int(u.status.get("serum", 0)) <= 0:
@@ -175,7 +213,8 @@ static func validate(s: GameState, u: Unit, action: Dictionary) -> String:
 	var id: String = action.get("ability", "")
 	# A Turned Reaper or Warden keeps its melee strikes (EnemyAI uses them); nothing else.
 	var turned_strike: bool = u.status.get("turned", false) and id in ["lunge", "bash", "shield_charge"]
-	if not _owns(u, id) or not (Kit.is_soldier(u) or turned_strike):
+	var echo: bool = u.status.get("lantern_echo", false) or u.status.has("mirror")   # the Lantern Echoes copy the whole kit
+	if not _owns(u, id) or not (Kit.is_soldier(u) or turned_strike or echo):
 		return "Unknown ability"
 	var def: Dictionary = ABILITIES[id]
 	if int(u.cooldowns.get(id, 0)) > 0:
@@ -242,6 +281,10 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 		u.cooldowns[id] = cd
 	if id == "incinerate":
 		_incinerate(s, u, action.cell)
+		return
+	if id == "swap_weapon":
+		u.status["drawn"] = "gun" if melee_drawn(u) else "melee"
+		s.emit({"type": "swap_weapon", "unit": u.id, "drawn": u.status.drawn})
 		return
 	if id == "guard":
 		u.status["k_guard_until"] = Combat.phase_index(s) + 2

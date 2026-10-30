@@ -13,6 +13,8 @@ static func can_swing(s: GameState, w: Unit) -> bool:
 	if not w.is_alive() or w.status.get("stunned", false) or EnemyRoster.is_static(w):
 		return false
 	if w.team == Types.Team.PLAYER:
+		if ClassAbilities.gun_drawn(w):
+			return false   # the melee weapon is put away
 		return SOLDIER_MELEE.has(w.kind) or w.abilities.has("lunge") or w.abilities.has("bash")
 	return UnitData.is_melee_only(w.kind) and w.damage.y > 0
 
@@ -22,6 +24,8 @@ static func provoked(s: GameState, mover: Unit, from: Vector2i, to: Vector2i) ->
 	var out: Array[Unit] = []
 	if not enabled or mover.status.get("careful", false):
 		return out
+	if maxi(absi(to.x - from.x), absi(to.y - from.y)) > 1:
+		return out   # a zipline or a cellar tunnel slips free
 	for w in s.units:
 		if w != mover and w.is_enemy_of(mover) and can_swing(s, w) \
 				and int(w.status.get("pb_phase", -1)) != Combat.phase_index(s) \

@@ -152,7 +152,7 @@ static func preview(record, id: String) -> Array[Dictionary]:
 static func preview_gun(record, id: String) -> Array[Dictionary]:
 	var before := counts(record)
 	var after := before.duplicate()
-	var old := Weapons.tag_of(Loadout.gun(record))
+	var old := Weapons.tag_of(Loadout.gun_id(record))
 	if old != "":
 		after[old] = after.get(old, 0) - 1
 	var new := Weapons.tag_of(id)

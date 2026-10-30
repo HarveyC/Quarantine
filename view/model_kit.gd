@@ -17,6 +17,8 @@ const MODELS := {
 	"spore_nest": preload("res://assets/models/spore_nest.glb"),
 	"source_root": preload("res://assets/models/source_root.glb"),
 	"the_source": preload("res://assets/models/the_source.glb"),
+	"bore_engine": preload("res://assets/models/bore_engine.glb"),
+	"coolant_valve": preload("res://assets/models/coolant_valve.glb"),
 }
 ## Skinned characters (assets/characters, built by tools/build_characters.py from CC0
 ## Quaternius bodies and animations, see view/skinned_body.gd). Kinds listed here use
@@ -42,11 +44,12 @@ const CHARACTERS := {
 	"colonel_hale": preload("res://assets/characters/colonel_hale.glb"),
 	"lurker": preload("res://assets/characters/lurker.glb"),
 	"burrower": preload("res://assets/characters/burrower.glb"),
+	"lantern_echoes": preload("res://assets/characters/trooper.glb"),   # the Last Echo wears a soldier's body
 }
 ## Body size per kind (the characters share one skeleton; bosses and brutes read bigger).
 const SIZE := {
 	"broodling": 0.62, "brute": 1.32, "bloater": 1.15, "brood_mother": 1.85, "shrieker": 1.1,
-	"colonel_hale": 1.05,
+	"colonel_hale": 1.05, "lantern_echoes": 1.2,
 }
 const BODY_TEX := {
 	"male": [preload("res://assets/characters/textures/male_albedo.jpg"), preload("res://assets/characters/textures/male_normal.png")],

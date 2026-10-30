@@ -138,7 +138,6 @@ func _wordmark() -> Control:
 	var title := Styles.display("Carriers", 122, Styles.TEXT)
 	title.add_theme_font_override("font", Styles.font_copy(Styles.FONT_DISPLAY_BLACK, -2))
 	box.add_child(title)
-	box.add_child(Styles.label("Something down the shaft is calling your name.", 20, Styles.DIM))
 	return box
 
 

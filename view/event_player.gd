@@ -26,6 +26,8 @@ const CameraRig := preload("res://view/camera_rig.gd")
 const EnemyBeats := preload("res://view/enemy_beats.gd")
 const ItemBeats := preload("res://view/item_beats.gd")
 const BossBeats := preload("res://view/boss_beats.gd")
+const ChoirBeats := preload("res://view/choir_beats.gd")
+const FactionBeats := preload("res://view/faction_beats.gd")
 const ShotCamera := preload("res://view/shot_camera.gd")
 const GunFeel := preload("res://view/gun_feel.gd")
 const MeleeFx := preload("res://view/melee_beats.gd")
@@ -485,6 +487,9 @@ func _beat_team_phase(ev: Dictionary) -> Dictionary:
 		uv.set_statuses(false, false)
 		if uv.guard:
 			uv.set_guard(false)
+	if turn == 1 and view.state.grid.condition != "":
+		var cond: Dictionary = Conditions.KINDS.get(view.state.grid.condition, {})
+		view.hud.toast("%s: %s" % [cond.get("name", ""), cond.get("line", "")])
 	if turn == 1 and concealed:
 		view.hud.banner("SQUAD CONCEALED", Palette.STEALTH)
 		_sfx("sting_squad", -4.0)
@@ -544,6 +549,8 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 	var shoved: bool = ev.get("knockback", false)
 	if ev.get("tunnel", false):
 		return _tunnel_beat(ev, uv, cells, pts, seen)
+	if ev.has("link"):
+		return _link_beat(ev, uv, pts, seen)
 	if ev.get("leap", false) and not uv.is_soldier:
 		return _leap_move_beat(ev, uv, cells, pts)
 	if shoved:
@@ -566,6 +573,35 @@ func _beat_move(ev: Dictionary) -> Dictionary:
 		if not seen.is_empty():
 			uv.visible = bool(seen[seen.size() - 1])
 	return {"dur": STEP_TIME * steps * (0.6 if shoved else 1.0), "update": update, "finish": finish}
+
+
+## A zipline slide (the unit rides a short sagging arc) or a cellar tunnel (it sinks out of sight at one hatch
+## and climbs out of the other).
+func _link_beat(ev: Dictionary, uv: UnitView, pts: Array[Vector3], seen: Array) -> Dictionary:
+	var last: Vector2i = ev.path[0]
+	var zip: bool = ev.link == "zip"
+	if not seen.is_empty() and not seen.has(true):
+		uv.set_cell(last)
+		uv.visible = false
+		return {}
+	uv.set_moving(false)
+	uv.set_aim(0.0)
+	uv.face_towards(pts[1])
+	var update := func(t: float) -> void:
+		if zip:
+			var p := pts[0].lerp(pts[1], t)
+			p.y = lerpf(pts[0].y, pts[1].y, t) + sin(t * PI) * 0.35
+			uv.position = p
+		elif t < 0.45:
+			uv.position = pts[0] + Vector3(0, -1.8 * t / 0.45, 0)
+		else:
+			uv.position = pts[1] + Vector3(0, -1.8 * (1.0 - minf(1.0, (t - 0.55) / 0.45)) if t > 0.55 else -1.8, 0)
+		if enemy_phase and uv.visible:
+			view.camera_rig.focus(uv.position)
+	var finish := func() -> void:
+		uv.set_cell(last)
+		uv.set_moving(false)
+	return {"dur": 0.7 if zip else 1.0, "update": update, "finish": finish}
 
 
 ## A burrowed enemy digs along its trail: the body stays underground and a heaving mound of dirt
@@ -1048,6 +1084,22 @@ func _beat_reload(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.35 if free else 0.5}
 
 
+## Swap weapon: the drawn weapon named over the soldier, with a handling click.
+func _beat_swap_weapon(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	var gun: bool = str(ev.get("drawn", "")) == "gun"
+	view.fx.floating_text(_head(uv), "GUN" if gun else "MELEE", Palette.AMBER, 40)
+	view.fx.pulse(uv.position, Palette.AMBER, 0.4)
+	uv.flash(Palette.AMBER)
+	if gun:
+		_sfx(GunFeel.reload_sound(uv.weapon if uv.weapon != "" else Weapons.id_for(uv.kind)), 2.0)
+	else:
+		_sfx("bash", -12.0, 0.1)
+	return {"dur": 0.4}
+
+
 func _beat_hunker(ev: Dictionary) -> Dictionary:
 	return _status_beat(ev, false, "HUNKER DOWN")
 
@@ -1185,6 +1237,9 @@ const GEAR_PROCS := {
 	# Flat stats turned into effects: each one fires a visible beat of its own.
 	"laser_sight": {"text": "PAINTED", "color": Color("ff5c86"), "on_target": true, "sound": "flare_pop"},
 	"light_harness": {"text": "SLIPSTREAM  +1 ACTION", "color": Color("e0a050"), "sound": "cap_field"},
+	"steady_hands": {"text": "STEADY  +1 ACTION", "color": Color("6fc3ff"), "sound": "cap_field"},
+	"double_tap": {"text": "DOUBLE TAP", "color": Color("b9a7ff"), "sound": "impact_slug"},
+	"kill_chain": {"text": "KILL CHAIN  +1 ACTION", "color": Color("e0a050"), "sound": "cap_warrant"},
 	"kevlar_vest": {"text": "PLATE CRACKS", "color": Color("a9c46c"), "sound": "plate_clang"},
 	"ballistic_plate": {"text": "SPALL", "color": Color("a9c46c"), "on_target": true, "sound": "plate_clang"},
 	"plated_rig": {"text": "PLANTED", "color": Color("a9c46c"), "sound": "plate_clang"},
@@ -1329,9 +1384,10 @@ func _power_beat(ev: Dictionary, title: String, color: Color) -> Dictionary:
 ## Ability ids with a beat of their own below; the rest go to ItemBeats (gadgets, pocket items,
 ## class abilities) or, failing that, a bare label that tests/test_item_audit.gd catches.
 const OWN_ABILITY_BEATS := ["claw", "slam", "pounce", "maul", "spore_drop", "lunge", "riposte", "bash", "charge", "bloom_claw",
-	"burrow", "erupt", "leap", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull",
+	"burrow", "erupt", "leap", "airstrike", "smoke_screen", "stomp", "hurl", "danger_close", "lash", "core_slam", "pull", "piston", "bite",
 	"breach", "item:frag_grenade", "item:demo_charge", "spit", "suppress", "stim", "item:medkit",
-	"hook", "reel", "satchel", "firebomb", "mend", "snare", "flare", "order", "frag", "revive", "repair", "arc",
+	"hook", "reel", "satchel", "firebomb", "mend", "debris", "snare", "flare", "order", "frag", "revive", "repair", "arc",
+	"net", "designate", "sterilize", "drag", "bloom", "hush", "silence",
 	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
 
 ## Rank 2 signatures (Signatures): the sound, title and colour of each one's beat.
@@ -1392,6 +1448,7 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 		"charge":
 			if int(ev.get("target", -1)) >= 0:
 				return _melee_beat(ev)
+			return BossBeats.beat(self, ev)
 		"breach":
 			return _breach_beat(ev)
 		"item:frag_grenade", "item:demo_charge":
@@ -1495,6 +1552,8 @@ func _beat_ability(ev: Dictionary) -> Dictionary:
 			return beat
 		"siphon":
 			_show_heal(_uv(ev), int(ev.get("heal", 0)), int(ev.get("hp", 0)), false)
+	if FactionBeats.handles_ability(str(ev.get("ability", ""))):
+		return FactionBeats.ability_beat(self, ev)
 	if BossBeats.handles(str(ev.get("ability", ""))):
 		return BossBeats.beat(self, ev)
 	if ItemBeats.handles(ev):
@@ -1910,7 +1969,7 @@ func _beat_lapse(ev: Dictionary) -> Dictionary:
 	uv.set_lapsed(true)
 	uv.flash(Palette.DANGER)
 	view.fx.pulse(uv.position, Palette.DANGER, 0.9)
-	view.fx.floating_text(_head(uv), "LAPSED!", Palette.DANGER, 56)
+	view.fx.floating_text(_head(uv), "COMPELLED!" if ev.get("compelled", false) else "LAPSED!", Palette.TEAL if ev.get("compelled", false) else Palette.DANGER, 56)
 	_sfx("lapse")
 	view.camera_rig.shake(0.4)
 	return {"dur": 1.0}
@@ -2101,6 +2160,14 @@ func _beat_charge_blown(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.0}
 
 
+func _beat_gate_winching(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "WINCH", Palette.AMBER, "alert", false)
+
+
+func _beat_gate_open(ev: Dictionary) -> Dictionary:
+	return _site_beat(ev, "GATE OPEN", TileOverlays.color("evac"))
+
+
 func _beat_relay_hacking(ev: Dictionary) -> Dictionary:
 	return _site_beat(ev, "HACKING", Palette.AMBER, "radio", false)
 
@@ -2168,6 +2235,8 @@ func _beat_revealed_area(_ev: Dictionary) -> Dictionary:
 func _beat_unknown(ev: Dictionary) -> Dictionary:
 	if EnemyBeats.handles(ev):
 		return EnemyBeats.beat(self, ev)
+	if ChoirBeats.handles_event(ev):
+		return ChoirBeats.event_beat(self, ev)
 	generic_log.append("event:" + str(ev.get("type", "")))
 	print("[view] unhandled event: ", ev)
 	var uv := _uv(ev)

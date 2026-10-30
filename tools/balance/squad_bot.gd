@@ -477,6 +477,26 @@ static func _ok(s: GameState, a: Dictionary) -> bool:
 ## Reaper / Warden: Bash an adjacent enemy, else Lunge / Shield Charge the best target in reach,
 ## else (with 2 actions) close in to striking distance.
 static func _melee_attack(s: GameState, u: Unit) -> Dictionary:
+	if not ClassAbilities.wields_melee(u):
+		return _melee_attack_drawn(s, u)
+	var swap := {"type": Types.ABILITY, "unit": u.id, "ability": "swap_weapon"}
+	if ClassAbilities.gun_drawn(u):
+		# Gun out: swap back only when a strike is on offer, and then take it.
+		u.status["drawn"] = "melee"
+		var strike := _melee_attack_drawn(s, u)
+		u.status["drawn"] = "gun"
+		return swap if strike.get("type") == Types.ABILITY and strike.ability in ClassAbilities.STRIKES and _ok(s, swap) else {}
+	var a := _melee_attack_drawn(s, u)
+	if not a.is_empty() or u.actions_left < 2 or not _ok(s, swap):
+		return a
+	# Nothing to cut (out of reach, a flier): draw the gun if it has a shot, which leaves 1 action to take it.
+	u.status["drawn"] = "gun"
+	var shot := _best_shot(s, u, u.pos)
+	u.status["drawn"] = "melee"
+	return swap if not shot.is_empty() and shot.hit >= 30 else {}
+
+
+static func _melee_attack_drawn(s: GameState, u: Unit) -> Dictionary:
 	if not (u.abilities.has("lunge") or u.abilities.has("bash")):
 		return {}
 	var best := {}

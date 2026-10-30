@@ -110,12 +110,18 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return _c("Concealment lost. %s" % Concealment.cause_text(str(ev.get("cause", "")), by), Palette.DANGER)
 		"turned":
 			return _c("%s has TURNED" % who.call("unit"), Palette.TEAL)
+		"objective":
+			return _c("Objective progress %d of %d" % [int(ev.get("progress", 0)), int(ev.get("goal", 0))], Palette.AMBER)
 		"charge_armed":
 			return _c("Charge armed. Get clear before it blows", Palette.AMBER)
 		"charge_defused":
 			return _c("An enemy defused the charge", Palette.DANGER)
 		"charge_blown":
 			return _c("Charge detonated", Palette.AMBER)
+		"gate_winching":
+			return _c("Working the winch, %d more turn" % int(ev.get("left", 1)), Palette.AMBER)
+		"gate_open":
+			return _c("The gate is open. Everyone through", Palette.AMBER)
 		"relay_hacking":
 			return _c("Hacking the relay, %d more turn" % int(ev.get("left", 1)), Palette.AMBER)
 		"relay_hacked":

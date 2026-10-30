@@ -52,7 +52,7 @@ Rules for parallel work:
 ## Actions
 
 `{"type": Types.MOVE, "unit": id, "to": Vector2i}` costs 1 action, range `unit.mobility` (8-way, no corner cutting).
-`SHOOT` (`"target": id`) costs a soldier 1 action (an enemy's shot ends its turn); `OVERWATCH`, `HUNKER` end the unit's turn.
+`SHOOT` (`"target": id`), `OVERWATCH`, `HUNKER` end the unit's turn (gear such as Slipstream, Steady hands and Kill chain can give an action back).
 `ABILITY` (`"ability": id`, optional `"target"`/`"cell"`) and `MUTATION` (`"mutation": id`, ...) cost is defined by their module. `STRUGGLE` (no extra keys) is only legal for a soldier pinned by a Lurker: it costs no actions, once per team phase, and throws the Lurker off `Encounter.STRUGGLE_CHANCE`% of the time.
 
 ## Events
@@ -1065,9 +1065,10 @@ text walls.
   `reset_hints()` (for a settings screen). Each machine has its own profile, so online every player
   gets their own tips.
 - **Training mission**: `TutorialScript` (pure, like `Rules`) builds a fixed map (`maps/tutorial.txt`,
-  Trooper + Marksman for player 0) and runs 12 lessons in `STEPS`: welcome and camera, move, cover,
-  Ready / team phase, fog of war, hit chance, high ground, overwatch, clear, Infection and a mutation,
-  Turning, purge the nest. Each lesson has a goal read from the state (a soldier on a marked tile, an
+  Trooper + Breacher for player 0, with class rigs and a Demo charge) and runs 15 lessons in `STEPS`: briefing and camera, move, cover,
+  Ready / team phase, fog of war, hit chance (Shoot costs 1 action), high ground, overwatch, Parting blow and
+  Disengage, rigs, breaching the sealed wall, Concealment, Infection and a mutation, Turning, purge the nest.
+  Each lesson has a voiced Okafor line in `StoryData.TRAINING_LINES` (also on the voice manifest). Each lesson has a goal read from the state (a soldier on a marked tile, an
   enemy spotted, a reaction shot, a mutation used...) and a set-up when it starts (a Runner in the
   fog, a wave of two, a dose of Infection) that goes through `EnemyRoster` / `Encounter.spawn` /
   `Infection.add`, so the view plays it like any fight. A hidden spore nest walled into a corner keeps
@@ -1221,7 +1222,7 @@ World, Echoes and endings from the design doc's "World and story". Rules live in
   never arrives before the attack has played on screen (host and clients alike). Scenes are `story_scene.gd` (letterbox, title card, captions; Space next, Esc skip)
   over `story_stage.gd` (a 3D set from primitives plus the game's models, own SubViewport world).
 - **Voices** (local only, through `Soundscape.say(speaker, text, opts)` -> `view/voice_player.gd`). Okafor,
-  the Source, Hale and Halden-Voss speak recorded clips in `audio/voice/`; `VoiceLines` (story/voice_lines.gd)
+  the Source, Hale, Halden-Voss and the Choir Prophet speak recorded clips in `audio/voice/`; `VoiceLines` (story/voice_lines.gd)
   maps a filled caption back to its `StoryData` template and returns the clips, splicing a clip per
   `{name}` / `{wave}` (names from `RunSoldier.NAMES`, waves 1-60 in words). Okafor gets a radio key-up and
   release; in act 2 the words `StoryData.garble` blanked drop out under static (`VoicePlayer.dropouts`).

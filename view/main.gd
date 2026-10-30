@@ -275,6 +275,15 @@ func _build_environment() -> void:
 	env.adjustment_brightness = 1.0
 	env.adjustment_contrast = 1.12
 	env.adjustment_saturation = 0.82
+	match state.grid.condition:
+		"fog":   # a bank of pale fog over the whole map
+			env.fog_light_color = Color("5d6b6c")
+			env.fog_density = 0.07
+			env.volumetric_fog_density = 0.07
+			env.volumetric_fog_albedo = Color("b4c0bb")
+		"blackout":   # lights out: the board only shows what the lamps reach
+			env.ambient_light_energy *= 0.4
+			env.tonemap_exposure = 0.8
 	GameSettings.apply_environment(env)   # the quality preset drops the costly effects
 	var we := WorldEnvironment.new()
 	we.environment = env
@@ -545,6 +554,10 @@ func _autoplay_step() -> void:
 				var reload := {"type": Types.RELOAD, "unit": u.id}
 				if not Ammo.can_fire(u) and Rules.validate(state, reload) == "":
 					session.submit(reload)   # a dry gun reloads before anything else
+					return
+				var draw := {"type": Types.ABILITY, "unit": u.id, "ability": "swap_weapon"}
+				if ClassAbilities.melee_drawn(u) and Rules.validate(state, draw) == "":
+					session.submit(draw)   # autoplay shoots: draw the gun first
 					return
 				var targets := Combat.shot_targets(state, u)
 				var shot := {"type": Types.SHOOT, "unit": u.id, "target": targets[0].id} if not targets.is_empty() else {}

@@ -64,11 +64,16 @@ func test_lmg_miss_pins_the_target() -> void:
 	Combat.fire(s, h, t, false)
 	assert_true(Combat.has_status(s, t, "suppressed"), "target pinned")
 	assert_true(events.any(func(e): return e.type == "pinned"), "pinned event")
-	var tr := _add(s, "trooper", Types.Team.PLAYER, Vector2i(0, 1))
+	var br := _add(s, "breacher", Types.Team.PLAYER, Vector2i(0, 1))
 	var t2 := _add(s, "runner", Types.Team.ENEMY, Vector2i(5, 1))
+	br.aim = -500
+	Combat.fire(s, br, t2, false)
+	assert_true(not Combat.has_status(s, t2, "suppressed"), "shotgun misses do not pin")
+	var tr := _add(s, "trooper", Types.Team.PLAYER, Vector2i(0, 2))
+	var t3 := _add(s, "runner", Types.Team.ENEMY, Vector2i(5, 2))
 	tr.aim = -500
-	Combat.fire(s, tr, t2, false)
-	assert_true(not Combat.has_status(s, t2, "suppressed"), "rifle misses do not pin")
+	Combat.fire(s, tr, t3, false)
+	assert_true(Combat.has_status(s, t3, "suppressed"), "Covering Fire: a trooper's misses pin with a rifle")
 
 
 func test_carbine_snap_shots_skip_reaction_penalty() -> void:

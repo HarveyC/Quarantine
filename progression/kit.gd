@@ -13,8 +13,6 @@ extends RefCounted
 ##   "kit_mods": {stat: n}         stat deltas currently applied by refresh_stats
 ## Per-fight / per-turn bookkeeping keys are prefixed "k_" and are owned by this file.
 
-const SHOULDER_DEFENSE := 10
-const STEADFAST_DEFENSE := 20
 const TRIAGE_REACH := 3.0   # Triage Cover: nothing farther than this can target the patient
 const LAST_WALL_DEFENSE := 20
 const STEADY_AIM := 10
@@ -32,7 +30,6 @@ const FLASHOVER_DAMAGE := 3
 const FUEL_LINE_TURNS := 2
 const VEINS_RADIUS := 2
 const PERCH_FLARE_RADIUS := 3
-const LOW_PROFILE := 15
 const SHIELD_UP := 20
 
 
@@ -321,20 +318,12 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 	var crit := 0
 	# Defender side.
 	if is_soldier(target):
-		var shoulder := 0
-		for a in s.living(Types.Team.PLAYER):
-			if a != target and has_passive(a, "shoulder_to_shoulder") and cheb(a.pos, target.pos) == 1:
-				shoulder = maxi(shoulder, STEADFAST_DEFENSE if has_perk(a, "steadfast") else SHOULDER_DEFENSE)
-		if shoulder > 0:
-			breakdown.append(["Shoulder to Shoulder", -shoulder])
 		if target.status.has("k_triage") and Combat.has_status(s, target, "k_triage") and from.distance_to(target.pos) > TRIAGE_REACH:
 			breakdown.append(["Triage Cover", -100])
 		if target.status.has("k_wall") and Combat.has_status(s, target, "k_wall"):
 			breakdown.append(["Last Wall", -LAST_WALL_DEFENSE])
 		if target.status.has("k_provoke") and Combat.has_status(s, target, "k_provoke"):
 			breakdown.append(["Provoke", -Signatures.PROVOKE_DEFENSE])
-		if reaction and has_passive(target, "bloodlust"):
-			breakdown.append(["Low profile", -LOW_PROFILE])
 		if reaction and has_passive(target, "bulwark"):
 			breakdown.append(["Shield up", -SHIELD_UP])
 	# Attacker side.
@@ -363,8 +352,6 @@ static func modify_odds(s: GameState, attacker: Unit, target: Unit, from: Vector
 static func shot_damage(s: GameState, u: Unit, t: Unit, dmg: int) -> int:
 	if dmg <= 0:
 		return dmg
-	if has_passive(u, "point_blank") and u.pos.distance_to(t.pos) <= Combat.CLOSE_RANGE:
-		dmg += 1
 	u.status["k_shot_dmg"] = dmg
 	return dmg
 

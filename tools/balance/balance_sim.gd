@@ -5,7 +5,7 @@ extends SceneTree
 ##   godot --headless -s tools/balance/balance_sim.gd -- squad=trooper,medic act=1 node=skirmish n=50
 ##
 ## Args: squad (comma classes), act (1-3), node (skirmish|nest|boss), objective (default skirmish/boss), outbreak, n (fights),
-## bosshp (multiplies boss health), seed (first seed), enemies (comma enemy specs: overrides FightBuilder), rank (default by act),
+## boss (forces a boss kind, e.g. broker), bosshp (multiplies boss health), seed (first seed), enemies (comma enemy specs: overrides FightBuilder), rank (default by act),
 ## tag (free text echoed in every line), guns (comma weapon ids lined up with squad; "-" keeps
 ## the signature gun), order (a DeployOrders id every soldier deploys with, e.g. bloom_cache;
 ## "none" or unset means no starting gear), build (none|scattered|lane|full: gear, perks, mutations and
@@ -36,7 +36,9 @@ func _init() -> void:
 	var rank := int(args.get("rank", RANK_BY_ACT[act]))
 	objective_override = str(args.get("objective", ""))
 	boss_hp = float(args.get("bosshp", 1.0))
+	boss_kind = str(args.get("boss", ""))
 	build_level = str(args.get("build", "none"))
+	aspect_override = str(args.get("aspect", ""))
 	PartingBlow.enabled = not args.has("nopb")
 	SquadBot.skip_signatures = args.has("nosig")
 	SquadBot.skip_gear = args.has("nogear")
@@ -51,9 +53,11 @@ func _init() -> void:
 	quit(0)
 
 
+var boss_kind := ""   # boss= forces the act's boss (else the seed rolls it)
 var boss_hp := 1.0   # bosshp= scales the boss's health on top of FightBuilder's (for tuning)
 var objective_override := ""   # objective= (purge: the bot shoots the spore nests)
 var build_level := "none"       # build= (see build_quality.gd)
+var aspect_override := ""       # aspect=hunger|remembers|regrown for Source boss fights
 
 
 func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, seed: int, rank: int,
@@ -69,8 +73,13 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 	if objective_override != "":
 		objective = objective_override
 	var spec := {"act": act, "row": 2, "node": node, "objective": objective, "outbreak": outbreak,
-		"seed": seed, "players": kinds.size(), "squad": kinds.size(),
+		"seed": seed, "players": kinds.size(), "squad": kinds.size(), "boss": boss_kind,
 		"modifiers": {"boss_health_mult": boss_hp} if boss_hp != 1.0 else {}}
+	if boss_kind != "":
+		spec["boss"] = boss_kind
+	if aspect_override != "":
+		spec["aspect"] = aspect_override
+		spec["echo_names"] = ["Reyes", "Osei"]
 	var built := FightBuilder.build(spec)
 	var enemies: Array = built.enemies
 	var enc: Dictionary = built.encounter
@@ -78,7 +87,8 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 		enemies = Array(enemy_override.split(","))
 		enc = {}
 	var config := {"map": MatchConfig.MAP, "squad": squad, "enemies": enemies, "encounter": enc, "seed": seed,
-		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak}}
+		"map_spec": {"biome": RunMap.biome(act), "objective": objective, "seed": seed, "act": act, "row": 2, "outbreak": outbreak,
+			"boss": str(enc.get("boss", "")), "condition": Conditions.for_fight(seed, act, objective, node)}}
 	var s := MatchConfig.build(config)
 	if guns != "":
 		var gl := guns.split(",")
@@ -146,6 +156,10 @@ func run_fight(kinds: PackedStringArray, act: int, node: String, outbreak: int, 
 					"clear": counter.cover += 1
 		elif ev.type == "level_changed":
 			counter.roofs += 1
+		if ev.type in ["ability", "hunker", "overwatch"] and s.get_unit(int(ev.get("unit", -1))) != null \
+				and s.get_unit(int(ev.unit)).status.get("lantern_echo", false):
+			var key := "echo:" + str(ev.get("ability", ev.type))
+			boss_acts[key] = int(boss_acts.get(key, 0)) + 1
 		if boss_ids.has(int(ev.get("unit", -1))):
 			if ev.type == "ability":
 				boss_acts[str(ev.ability)] = int(boss_acts.get(str(ev.ability), 0)) + 1

@@ -403,7 +403,7 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 		var what := RunSoldier.absorb(r, Unit.from_dict(entry.unit), run.fights_won + 1)
 		if what == RunSoldier.TURNED:
 			run.echoes.append({"sid": r.id, "kind": r.kind, "name": r.name, "act": run.act,
-				"grafts": r.get("prog", {}).get("grafts", {}).duplicate()})
+				"grafts": Grafts.of(r).duplicate()})
 		if lost.has(what):
 			lost[what] += 1
 		if what != RunSoldier.ACTIVE:

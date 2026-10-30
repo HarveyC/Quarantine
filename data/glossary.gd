@@ -448,7 +448,7 @@ static func _build() -> Dictionary:
 		"stats": [["1", "HP a turn"], ["%d" % ClassAbilities.BLEED_TURNS, "turns"]],
 		"see": []}
 	t["pinned"] = {"name": "Pinned", "kind": "status", "icon": "pinned", "tone": "danger",
-		"line": "A Lurker has the soldier down: no actions until it lets go, and it mauls every turn.",
+		"line": "A Lurker or Collector has the soldier down: no actions until it lets go, and it mauls every turn.",
 		"art": "",
 		"stats": [["0", "actions"], ["%d%%" % Encounter.STRUGGLE_CHANCE, "struggle free"]],
 		"more": ["The pinned soldier can Struggle once a turn to try to throw it off.",
@@ -479,6 +479,19 @@ static func _build() -> Dictionary:
 		"more": ["Only offered while a melee fighter is next to you."],
 		"see": ["parting_blow"],
 		"aliases": ["Disengaged"]}
+	t["rig"] = {"name": "Rig", "kind": "gear", "icon": "weapon", "tone": "amber",
+		"line": "Utility gear that gives an action. Any soldier can carry any rig.",
+		"art": "",
+		"stats": [],
+		"more": ["Take the rig off and the action goes with it."],
+		"see": [],
+		"aliases": ["Rigs", "Utility slot"]}
+	t["covering_fire"] = {"name": "Covering Fire", "kind": "passive", "icon": "suppress", "tone": "amber",
+		"line": "The Trooper's passive: every miss still {suppress|suppresses} the target, whatever gun you fire.",
+		"art": "",
+		"stats": [],
+		"more": [],
+		"see": ["suppress"]}
 	t["ammo"] = {"name": "Ammo", "kind": "resource", "icon": "reload", "tone": "amber",
 		"line": "Your gun holds a few rounds. Each shot spends one, and an empty gun can't shoot or watch.",
 		"art": "magazine",
@@ -493,11 +506,20 @@ static func _build() -> Dictionary:
 		"line": "Fill the magazine again. It costs %d action, so you can still shoot afterwards." % Ammo.RELOAD_COST,
 		"art": "magazine",
 		"stats": [["%d" % Ammo.RELOAD_COST, "action"], ["full", "magazine"]],
-		"more": ["A shot costs 1 action, so move, reload, shoot fills a turn.",
+		"more": ["A shot ends your turn, so Reload before it: move, reload, shoot is all of a turn.",
 			"Nothing to reload when the magazine is full.",
 			"Some gear and perks make it free or give a bonus for it."],
 		"see": ["ammo", "actions"],
 		"aliases": ["Reloads", "Reloaded", "Reloading"]}
+	t["swap_weapon"] = {"name": "Swap weapon", "kind": "action", "icon": "reload", "tone": "amber",
+		"line": "Switch between your melee weapon and your gun. Only the drawn weapon can attack.",
+		"art": "",
+		"stats": [["1", "action"]],
+		"more": ["A melee weapon starts drawn: its strike takes the place of Shoot and ends your turn, and there is no {overwatch}.",
+			"Swap to the gun for anything out of reach, like fliers. Swapping does not end your turn.",
+			"The gun stays drawn until you swap back. A holstered melee weapon gives no {parting_blow|Parting blow}."],
+		"see": ["reload", "overwatch", "parting_blow"],
+		"aliases": ["Draw gun", "Drawn weapon"]}
 	t["suppress"] = {"name": "Suppressed", "kind": "status", "icon": "suppress", "tone": "danger",
 		"line": "Pinned down: worse aim on the next shot, and no overwatch.",
 		"art": "",
@@ -553,6 +575,13 @@ static func _build() -> Dictionary:
 		"more": ["The Infected walk through them unharmed, unless a soldier laid them: those cut for 2.", "Fire burns them away."],
 		"see": ["infection", "hazards", "hazard_fire"],
 		"aliases": ["Spore", "Spore cloud", "Spore tiles"]}
+	t["hazard_live"] = {"name": "Live rail", "kind": "hazard", "icon": "danger", "tone": Color("7fd0ff"),
+		"line": "A rail with current in it, crosshatched in pale blue. Hurts anyone who crosses it or ends a turn on it.",
+		"art": "tile", "art_ctx": {"overlay": "live"},
+		"stats": [["%d" % Hazards.KINDS.live.damage, "damage"], ["all", "teams"]],
+		"more": ["It never goes out.", "Appears with the Live rails condition."],
+		"see": ["hazards"],
+		"aliases": ["Live rails", "Electrified rail"]}
 	t["hazard_acid"] = {"name": "Acid", "kind": "hazard", "icon": "danger", "tone": TileOverlays.ACID,
 		"line": "Yellow-green puddles. Hurts anyone who crosses it or ends a turn in it.",
 		"art": "tile", "art_ctx": {"overlay": "acid"},
@@ -589,13 +618,13 @@ static func _build() -> Dictionary:
 		"see": ["smoke", "tile_blast"],
 		"labels": ["Aim area"]}
 	var evac := TileOverlays.color("evac")
-	t["zone_evac"] = {"name": "Evac zone", "kind": "objective", "icon": "flag", "tone": evac,
-		"line": "Get every soldier onto the green pad. The first one there fires a flare that wakes the area.",
+	t["zone_evac"] = {"name": "Gate", "kind": "objective", "icon": "flag", "tone": evac,
+		"line": "A sealed checkpoint. Work the winch to open it, then get everyone through.",
 		"art": "tile", "art_ctx": {"overlay": "evac"},
-		"stats": [["%d" % Objectives.EXTRACT_TURNS, "turns to make it"]],
-		"more": ["The dropship needs a round to land, so the win comes at the end of a later squad turn.", "When the dropship leaves, anyone off the pad is lost."],
+		"stats": [["%d" % Objectives.EXTRACT_TURNS, "turns to get through"]],
+		"more": ["Stay on the gate 2 squad turns in a row to open it. The winch is loud and wakes the area.", "Once it is open, every soldier must be on the gate at the end of a squad turn.", "When time runs out, anyone not through is lost."],
 		"see": ["actions"],
-		"aliases": ["Evac", "Evac pad", "Evac zone"]}
+		"aliases": ["Gate", "Evac", "Evac pad", "Evac zone"]}
 	t["zone_beacon"] = {"name": "Beacon", "kind": "objective", "icon": "flag", "tone": "amber",
 		"line": "Wakes every enemy after turn one. Lost if only enemies hold the zone.",
 		"art": "tile", "art_ctx": {"overlay": "beacon"},
@@ -610,10 +639,10 @@ static func _build() -> Dictionary:
 		"more": ["If every civilian dies, killing every enemy still wins."],
 		"aliases": ["Drop zone"]}
 	t["zone_charge"] = {"name": "Charge site", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("charge"),
-		"line": "End a squad turn on it to arm the charge. It blows %d rounds later, hurting anyone near it." % Objectives.CHARGE_FUSE,
+		"line": "Stand on it and end the turn to arm the charge. It blows %d rounds later, hurting anyone near it." % Objectives.CHARGE_FUSE,
 		"art": "tile", "art_ctx": {"overlay": "charge"},
 		"stats": [["%d" % Objectives.CHARGE_FUSE, "round fuse"], ["%d" % Objectives.DEMOLISH_TURNS, "rounds to finish"]],
-		"more": ["An enemy standing on an armed charge defuses it.", "The blast breaks walls and roofs like a demo charge."],
+		"more": ["Grenades and shots do not arm it. Only a soldier standing on it at the end of the turn does.", "Once armed you can walk away, but get clear before it blows.", "An enemy standing on an armed charge defuses it.", "The blast breaks walls and roofs like a demo charge."],
 		"aliases": ["Charge sites"]}
 	t["zone_relay"] = {"name": "Relay", "kind": "objective", "icon": "flag", "tone": TileOverlays.color("relay"),
 		"line": "Keep a soldier on it for %d squad turns in a row to hack it." % Objectives.HACK_TURNS,
@@ -628,7 +657,7 @@ static func _build() -> Dictionary:
 		"more": ["A carrier who falls drops it.", "An enemy ending a round on a loose sample destroys it."],
 		"aliases": ["Sample points"]}
 	t["courier"] = {"name": "Courier", "kind": "objective", "icon": "flag", "tone": "amber",
-		"line": "Any player can move it, %d tiles a turn. It cannot attack. Lead it to the evac zone." % Objectives.ESCORT_MOVE,
+		"line": "Any player can move it, %d tiles a turn. It cannot attack. Lead it to the gate." % Objectives.ESCORT_MOVE,
 		"stats": [["%d" % Objectives.ESCORT_HP, "courier HP"]],
 		"more": ["If the courier dies the mission is lost."],
 		"aliases": ["Courier"]}
@@ -652,11 +681,32 @@ static func _build() -> Dictionary:
 		"more": ["Anyone standing on it falls when it goes."],
 		"see": ["high_ground", "rubble"],
 		"aliases": ["Scaffolds", "Scaffolding", "Catwalk"]}
+	t["zipline"] = {"name": "Zipline", "kind": "terrain", "icon": "rank", "tone": "text",
+		"line": "A one way cable down from a roof. Chevrons point downhill. Pick the far end to ride it.",
+		"art": "",
+		"stats": [["%d" % Links.ZIP_COST, "move"], ["1 way", "direction"]],
+		"more": ["Sliding leaves no Parting blow behind."],
+		"see": ["high_ground", "parting_blow"],
+		"aliases": ["Ziplines", "Zip line"]}
+	t["cellar_tunnel"] = {"name": "Cellar tunnel", "kind": "terrain", "icon": "rank", "tone": "text",
+		"line": "Hatches share a letter and colour. Hover one to see its exit; pick the other to go through.",
+		"art": "",
+		"stats": [["%d" % Links.TUNNEL_COST, "moves"], ["2 way", "direction"]],
+		"more": ["Going through leaves no Parting blow behind.", "Enemies use it too."],
+		"see": ["parting_blow"],
+		"aliases": ["Cellar tunnels", "Cellar hatch", "Cellar hatches"]}
+	t["flooded_ground"] = {"name": "Flooded ground", "kind": "terrain", "icon": "alert", "tone": "text",
+		"line": "A pool of water over the floor. Wading in costs one extra step.",
+		"art": "",
+		"stats": [["+1", "move"]],
+		"more": ["Fire can't burn on it."],
+		"see": ["hazards"],
+		"aliases": ["Flooded pool", "Flooded pools"]}
 	t["actions"] = {"name": "Actions", "kind": "rule", "icon": "turn", "tone": "amber",
 		"line": "Each soldier gets %d actions in a squad phase, in any order." % Types.ACTIONS_PER_TURN,
 		"art": "",
 		"stats": [["%d" % Types.ACTIONS_PER_TURN, "per turn"]],
-		"more": ["Moving, shooting and Reload cost 1 each, so you can shoot twice or move and shoot in either order. Overwatch, Hunker and big moves like Suppress or Breach end the turn.", "Press Ready when done; enemies move once everyone is ready."],
+		"more": ["Moving and Reload cost 1 each. A shot, Overwatch, Hunker and big moves like Suppress or Breach end the turn, unless gear gives an action back.", "Press Ready when done; enemies move once everyone is ready."],
 		"see": ["overwatch", "hunker"],
 		"aliases": ["Action", "Action points"]}
 	t["line_of_sight"] = {"name": "Line of sight", "kind": "rule", "icon": "reveal", "tone": "text",
@@ -914,6 +964,7 @@ static func _build() -> Dictionary:
 		t["node_" + type] = {"name": n[0], "kind": "map node", "icon": n[1], "tone": n[2], "line": n[3],
 			"art": "intel" if type == RunMap.UNKNOWN else "", "stats": n[4], "see": ["outbreak"], "scan": false}
 	_add_enemy_terms(t)
+	_add_director_terms(t)
 	_add_rules_terms(t)
 	return t
 
@@ -922,6 +973,25 @@ static func _build() -> Dictionary:
 ## cards open from the enemy's nameplate; the mechanic cards from the bold words in their text and
 ## from the intent words (HOOKING, SATCHEL, FROZEN, MENDING). The common-word ones stay out of prose.
 static func _add_enemy_terms(t: Dictionary) -> void:
+	t["compel"] = {"name": "Compel", "kind": "enemy ability", "icon": "enemy", "tone": "teal",
+		"line": "The Prophet links to the most Infected soldier he sees. If it holds a round, they fight for him.",
+		"art": "", "stats": [["1 to 2", "rounds"], ["1/2", "their damage"]],
+		"more": ["A compelled soldier shoots their own squad. Alone, they stand transfixed and lose the rounds.",
+			"Break line of sight, {suppress} the Prophet, or cure the soldier and the hold ends at once."],
+		"see": ["infection", "lapse", "suppress"],
+		"aliases": ["Compelled", "Fix", "Fixed"], "labels": ["Compelling"]}
+	t["hymn_ring"] = {"name": "Hymn ring", "kind": "enemy ability", "icon": "enemy", "tone": "teal",
+		"line": "The Prophet's circle. The Choir inside hits harder and soldiers inside gain Infection each round.",
+		"art": "", "stats": [["%d-%d" % [int(ChoirProphet.RING[3]), int(ChoirProphet.RING[1])], "tiles"], ["+%d-%d" % [ChoirProphet.RING_INFECTION[1], ChoirProphet.RING_INFECTION[3]], "Infection a round"]],
+		"more": ["The Cantors round him soak %d damage from every hit while they sing. Kill them first." % ChoirProphet.GUARD,
+			"The ring shrinks each phase and bites harder. {suppress} the Prophet and it falls silent for a round."],
+		"see": ["infection", "suppress"], "aliases": ["Cantors guard"]}
+	t["crescendo"] = {"name": "Crescendo", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "Every third round the hymn peaks: every tile he can see takes damage and Infection.",
+		"art": "", "stats": [["%d" % ChoirProphet.CRESCENDO_DAMAGE, "damage"], ["+%d" % ChoirProphet.CRESCENDO_INFECTION, "Infection"]],
+		"more": ["The red tiles show what he sees. Stand behind a wall, a pillar or a building and it misses you.",
+			"{suppress} him before it lands and the hymn is cut."],
+		"see": ["suppress", "infection"], "aliases": ["The hymn peaks"]}
 	t["hook"] = {"name": "Hook", "kind": "enemy ability", "icon": "enemy", "tone": "danger", "scan": false,
 		"line": "A Hooker's locked line. Next turn it yanks the soldier on it toward the Hooker.",
 		"art": "", "stats": [["%d" % EnemyRoster.HOOK_PULL, "tiles pulled"], ["%d" % EnemyRoster.HOOK_DAMAGE, "damage"]],
@@ -975,6 +1045,12 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 			"A stolen item does nothing for its owner while it is away."],
 		"see": ["overwatch"],
 		"labels": ["Fleeing"]}
+	t["haul"] = {"name": "Haul", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "At two thirds health the Broker lifts each soldier's best item and runs for the gate. A hit shakes one back.",
+		"art": "", "stats": [["1", "item per soldier"], ["1", "item back per hit"]],
+		"more": ["At the gate, or at one third health, whatever he still holds burns for the rest of the fight.",
+			"Builds that lean on one item lose it here. Overlapping pieces carry on."],
+		"labels": ["Haul"]}
 	t["loot"] = {"name": "Loot", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
 		"line": "A Fence carries a sack of colony supplies and leaves the map once the fight runs long.",
 		"art": "", "stats": [["+%d" % EnemyRoster.FENCE_SUPPLIES, "Supplies"], ["%d" % EnemyRoster.FENCE_LEAVES_TURN, "turn it leaves"]],
@@ -1067,13 +1143,86 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 		"art": "", "stats": [["%d" % EnemyRoster.CARRIER_DROP, "Hounds"], ["%d" % EnemyRoster.CARRIER_EVERY, "rounds"]],
 		"more": ["It never moves. A countdown over it shows the next drop.",
 			"It stops dropping once the fight already holds as many enemies as it allows."]}
+	# The Lantern Echoes boss (enemies/lantern_echoes.gd).
+	t["lantern_echo"] = {"name": "Lantern Echo", "kind": "enemy", "icon": "skull", "tone": "danger",
+		"line": "A dead soldier of Lantern Company, raised by the Source in that soldier's class.",
+		"art": "", "stats": [["1", "per soldier"], ["0", "items"]],
+		"more": ["It uses {suppress}, {overwatch}, {hunker} and the class signature.", "Its hits carry no {infection}. Its fall leaves spores.",
+			"The Last Echo is shielded until every Echo is down."],
+		"see": ["suppress", "overwatch", "hunker", "infection"],
+		"aliases": ["Lantern Echoes"]}
+	t["taken"] = {"name": "Taken", "kind": "enemy trait", "icon": "enemy", "tone": "danger",
+		"line": "A fallen Echo's body, taken by the Source. Each one alive pulses {infection} through the squad every round.",
+		"art": "", "stats": [["+%d" % LanternEchoes.TAKEN_PULSE[2], "Infection per husk"]],
+		"more": ["Kill the husk to stop its pulse.", "They all collapse into spores when the last Echo falls."],
+		"see": ["infection"]}
+	t["enemy_lantern_echoes"] = {"name": "The Last Echo", "kind": "enemy", "icon": "enemy", "tone": "danger",
+		"line": "Waits on the dais, shielded while any {lantern_echo} stands. Then it wears the weakest soldier's shape.",
+		"art": "", "stats": [["%d" % int(UnitData.ENEMIES.lantern_echoes.max_hp), "HP"]],
+		"more": ["Once it is open it fights with that soldier's class and signature."], "see": ["lantern_echo", "taken"]}
+	t["netted"] = {"name": "Netted", "kind": "status", "icon": "pinned", "tone": "danger",
+		"line": "A Netter has the soldier in a containment net: no actions until the hold breaks.",
+		"art": "", "stats": [["0", "actions"], ["%d%%" % Encounter.STRUGGLE_CHANCE, "struggle free"]],
+		"more": ["The netted soldier can Struggle once a turn, and any teammate who hits the Netter frees them.",
+			"A Collector takes a netted soldier over and {capture|drags} them to the map edge."],
+		"see": ["pinned", "capture"],
+		"labels": ["Netted", "Net"]}
+	t["capture"] = {"name": "Capture", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "A Collector drags a netted soldier %d tiles a turn toward the nearest map edge. At the edge they are lost." % EnemyRoster.DRAG_STEPS,
+		"art": "", "stats": [["%d" % EnemyRoster.DRAG_STEPS, "tiles a turn"], ["Edge", "soldier lost"]],
+		"more": ["The red tiles show the path it will drag along next.",
+			"Kill the Collector and the soldier drops free."],
+		"see": ["pinned"],
+		"labels": ["Dragging", "Collecting", "Drag"]}
+	t["designated"] = {"name": "Designated", "kind": "status", "icon": "enemy", "tone": "danger",
+		"line": "A Handler has marked the soldier: every Halden-Voss Recovery enemy gets +%d aim against them." % EnemyRoster.DESIGNATE_AIM,
+		"art": "", "stats": [["+%d" % EnemyRoster.DESIGNATE_AIM, "aim against"], ["1", "Handler holds it"]],
+		"more": ["It goes after the most Infected soldier it can see.",
+			"A red line joins the Handler to the soldier. Kill the Handler and the mark lapses."],
+		"labels": ["Designate", "Designating", "Handling"]}
+	t["sterilize"] = {"name": "Sterilize", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "A Sterilizer's cone of red floor. Everything standing in it when it goes off burns.",
+		"art": "", "stats": [["%d" % EnemyRoster.STERILIZE_DAMAGE, "damage"], ["-%d" % EnemyRoster.STERILIZE_CLEANSE, "Infection"]],
+		"more": ["The flame burns spores off the ground and cleanses each soldier in it of %d {infection}." % EnemyRoster.STERILIZE_CLEANSE,
+			"The Infected in the cone burn too.",
+			"Step out of the red tiles, or break line of sight with {smoke}."],
+		"see": ["infection", "smoke"],
+		"labels": ["Flame cone"]}
+	t["bloom_burst"] = {"name": "Bloom burst", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "An Acolyte swells beside a soldier, then blooms in a 5x5 next turn: %d Infection and no damage." % EnemyRoster.BLOOM_INFECTION,
+		"art": "", "stats": [["+%d" % EnemyRoster.BLOOM_INFECTION, "Infection"], ["5x5", "burst"]],
+		"more": ["Kill it before it swells and it is just dead. Kill it while swelling and it blooms anyway.",
+			"Inside a {chant} it blooms for %d more Infection." % EnemyRoster.CHANT_INFECTION],
+		"see": ["infection", "chant"],
+		"labels": ["Blooming", "Rushing"]}
+	t["chant"] = {"name": "Chant", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "Enemies within %d tiles of a Cantor, in its sight, hit for +%d damage." % [EnemyRoster.CHANT_RADIUS, EnemyRoster.CHANT_DAMAGE],
+		"art": "", "stats": [["+%d" % EnemyRoster.CHANT_DAMAGE, "damage"], ["%d" % EnemyRoster.CHANT_RADIUS, "tiles"]],
+		"more": ["Teal threads join the Cantor to each voice it lifts.",
+			"Break its line of sight or kill it to end the bonus."],
+		"labels": ["Chanting"]}
+	t["hushed"] = {"name": "Hushed", "kind": "status", "icon": "enemy", "tone": "danger",
+		"line": "A Hush has silenced the soldier: no class abilities or signature for two rounds.",
+		"art": "", "stats": [["2", "rounds"], ["%d" % EnemyRoster.HUSH_RANGE, "tiles, range"]],
+		"more": ["It locks on one turn and silences the next. Break line of sight or {suppress} it in between.",
+			"It goes for the soldier with the most abilities ready."],
+		"see": ["suppress"],
+		"labels": ["Hush", "Silencing", "Hushing", "Silence"]}
 	var cards := {
+		"netter": ["Human contractor. Its hit leaves a soldier {netted}.", ["netted"]],
+		"handler": ["Keeps back and marks the most Infected soldier as {designated}.", ["designated"]],
+		"sterilizer": ["Lays a flame cone that will {sterilize} the ground.", ["sterilize"]],
+		"collector": ["Takes a {netted} soldier and {capture|drags} them off the map.", ["netted", "capture"]],
+		"acolyte": ["Fast and fragile. Swells beside a soldier, then {bloom_burst|blooms}.", ["bloom_burst"]],
+		"cantor": ["Stays behind its flock. Its {chant} makes them hit harder.", ["chant"]],
+		"hush": ["Locks onto a soldier, then leaves them {hushed}.", ["hushed"]],
 		"hound": ["Fast, fragile drone that hunts the weakest soldier and ignores the rest. {relayed}.", ["relayed"]],
 		"loader": ["Armoured frame that charges through cover. {relayed}.", ["relayed"]],
 		"relay": ["A signal mast. While it stands, nearby machines act three times a turn.", ["relayed"]],
 		"shieldman": ["A {riot_shield} turns every shot from the front. Flank it.", ["riot_shield"]],
 		"overwatcher": ["Holds its post and is {watchful}. Do not cross its view in the open.", ["watchful"]],
 		"emplacement": ["A sandbag gun that never moves. Its {crossfire} cone hits everyone in it.", ["crossfire"]],
+		"broker": ["Harrow's biggest looter. His {haul} takes the squad's best gear and runs for the gate.", ["haul", "firebomb"]],
 		"cutter": ["Human looter. Its hit will {snatch} an item, then it runs.", ["snatch"]],
 		"torchman": ["Lobs a {firebomb}. Its fuel tank burns when it dies.", ["firebomb"]],
 		"fence": ["Hangs back with the {loot} and leaves the map. Kill it in time.", ["loot"]],
@@ -1100,6 +1249,35 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 			"more": [], "see": cards[kind][1]}
 
 
+## Cards for the Act 2 boss Halden-Voss Recovery: the Director, its Collectors and the retrieval mechanics.
+static func _add_director_terms(t: Dictionary) -> void:
+	t["retrieval_mark"] = {"name": "Retrieval mark", "kind": "status", "icon": "tag", "tone": "danger",
+		"line": "The Director has flagged this soldier for retrieval. she calls the cage down on them.",
+		"art": "", "stats": [["+%d" % Retrieval.MARK_DAMAGE, "damage taken"], ["0", "cover vs the Director"]],
+		"more": ["Every enemy hit on the marked soldier deals extra damage.",
+			"The Director's shots ignore their cover.",
+			"A {pinned} soldier is easy prey for a Collector."],
+		"see": ["pinned", "cover"],
+		"labels": ["Marked for retrieval"]}
+	t["retrieval"] = {"name": "Retrieval cage", "kind": "enemy ability", "icon": "enemy", "tone": "danger",
+		"line": "A red 3x3 the Director calls down. Next enemy phase it hurts every soldier inside.",
+		"art": "", "stats": [["%d" % Retrieval.CAGE_DAMAGE, "damage"], ["3x3", "cage"]],
+		"more": ["A soldier a Netter or Collector holds is taken the moment the cage lands.",
+			"Step off the red tiles, or free the soldier first.",
+			"It is aimed where a pinned soldier lies, else on the marked soldier."],
+		"see": ["pinned"],
+		"labels": ["Retrieval", "Caged"]}
+	var cards := {
+		"director": ["Snipes from the roofs and {retrieval_mark|marks} a soldier. Untouchable while a post lives.", ["retrieval_mark"]],
+	}
+	for kind in cards:
+		var st: Dictionary = UnitData.ENEMIES[kind]
+		t["enemy_" + kind] = {"name": st.name, "kind": "enemy", "icon": "enemy", "tone": "danger",
+			"line": cards[kind][0], "art": "",
+			"stats": [["%d" % int(st.max_hp), "HP"], ["%d-%d" % [int(st.damage[0]), int(st.damage[1])] if int(st.damage[1]) > 0 else "0", "damage"]],
+			"more": [], "see": cards[kind][1]}
+
+
 ## Soldier abilities and enemy traits, read from their rules tables so a new one is
 ## explained wherever its name shows up in text. Names another entry already covers (Purge,
 ## Stim, Suppress, ...) or that are also a gear tag (Guard) are left to that entry.
@@ -1115,7 +1293,7 @@ static func _add_rules_terms(t: Dictionary) -> void:
 		var a: Dictionary = abilities[id]
 		if taken.has(str(a.name).to_lower()):
 			continue
-		var e := {"name": a.name, "kind": "ability", "icon": id if ABILITY_ICONS.has(id) else "ability", "tone": "amber",
+		var e := {"name": a.name, "kind": "ability", "icon": "reload" if id == "swap_weapon" else (id if ABILITY_ICONS.has(id) else "ability"), "tone": "amber",
 			"line": _first_sentence(str(a.get("desc", ""))), "art": "", "stats": [], "aliases": ABILITY_ALIASES.get(id, [])}
 		var cd := int(a.get("cooldown", 0))
 		if cd > 0:

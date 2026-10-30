@@ -205,7 +205,7 @@ func _on_run_event(ev: Dictionary) -> void:
 				_queue_scene("act:%d:%d" % [run.seed, ev.act], act_spec(run, ev.act))
 		"fight_start":
 			if ev.kind == RunMap.BOSS:
-				var boss: String = EnemyRoster.BOSS_OF_ACT.get(run.act, "")
+				var boss: String = run.act_boss()
 				_queue_scene("boss:%d:%d" % [run.seed, run.act], boss_spec(run, boss))
 		"ending":
 			_queue_scene("ending:%d" % run.seed, ending_spec(run))
@@ -277,17 +277,35 @@ func _on_beat_finished(ev: Dictionary) -> void:
 				_bark("turned", {"name": _surname(u)})
 		"boss_phase":
 			_boss_bark("%s_%d" % [ev.get("boss", ""), int(ev.get("phase", 0))])
+			if ev.get("boss", "") == "the_source":
+				_source_aspect_line(int(ev.get("phase", 0)))
 		"untethered":
 			var u := st.get_unit(ev.unit)
 			if u != null:
 				_boss_bark(u.kind + "_open")
+		"core_sealed":
+			var u := st.get_unit(ev.unit)
+			if u != null:
+				_boss_bark(u.kind + "_sealed")
 
 
 ## Boss fight lines (StoryData.BARKS "<boss>_<phase>", "<boss>_open"), each once a fight.
 func _boss_bark(key: String) -> void:
-	if StoryData.BARKS.has(key) and not _boss_said.has(key):
+	if (StoryData.BARKS.has(key) or StoryData.SQUAD_BARKS.has(key)) and not _boss_said.has(key):
 		_boss_said[key] = true
 		_bark(key, {})
+
+
+## The Source's line for its aspect as the fight turns, each once a fight.
+func _source_aspect_line(phase: int) -> void:
+	var aspect := str(_state.encounter.get("aspect", ""))
+	var lines: Dictionary = StoryData.SOURCE_ASPECT_LINES.get(aspect, {})
+	var key: String = {1: "regrow", 2: "open", 3: "collapse"}.get(phase, "")
+	if key == "" or not lines.has(key) or _boss_said.has("source_" + key):
+		return
+	_boss_said["source_" + key] = true
+	_radio("SOURCE", lines[key], Styles.TEAL)
+	_say("SOURCE", lines[key])
 
 
 func _surname(u: Unit) -> String:
@@ -337,7 +355,7 @@ static func tier_rule(tier: int) -> String:
 func _bark(key: String, vars: Dictionary) -> void:
 	if _run == null:
 		return
-	var lines: Array = StoryData.BARKS.get(key, [])
+	var lines: Array = StoryData.BARKS.get(key, StoryData.SQUAD_BARKS.get(key, []))
 	if lines.is_empty():
 		return
 	var clean := StoryData.fill(lines[_rng.randi() % lines.size()], vars)
@@ -374,7 +392,7 @@ func _radio(who: String, text: String, col: Color) -> void:
 	var box := Styles.vbox(3)
 	f.add_child(box)
 	var head := Styles.hbox(8)
-	head.add_child(Styles.caps("Radio" if col == Styles.AMBER else "Field log", 11, Styles.MUTED))
+	head.add_child(Styles.caps("Radio" if col == Styles.AMBER else ("Heard" if who == "SOURCE" else "Field log"), 11, Styles.MUTED))
 	head.add_child(Styles.caps(who, 12, col))
 	box.add_child(head)
 	var l := Styles.label(text, 16, Styles.TEXT)
@@ -429,6 +447,9 @@ static func intro_spec(run: RunState) -> Dictionary:
 			key = "burn"
 	var lines: Array = StoryData.INTRO_OPENERS[key].duplicate()
 	lines.append_array(StoryData.INTRO_ORDERS if key == "first" else StoryData.INTRO_ORDERS.slice(2))
+	var warn: Array = StoryData.INTRO_BY_BOSS.get(run.act_boss(), [])
+	for i in warn.size():
+		lines.insert(lines.size() - 1 + i, warn[i])   # before the closing order, so it ends on the mission
 	var vars := {"wave": st.get("wave", StoryData.FIRST_WAVE), "last_wave": st.get("last_wave", 0)}
 	return {"stage": "wall", "title": "Wave %d" % vars.wave, "sub": "Lantern Company · The Cordon, Harrow",
 		"lines": _lines(run, lines, vars), "cast": cast_of(run)}
@@ -436,9 +457,14 @@ static func intro_spec(run: RunState) -> Dictionary:
 
 static func act_spec(run: RunState, act: int) -> Dictionary:
 	var a: Dictionary = StoryData.ACT_SCENES.get(act, {})
+	var by_boss: Dictionary = StoryData.ACT_SCENES_BY_BOSS.get(run.act_boss(), {})
+	if not by_boss.is_empty() and run.act == act:
+		a = by_boss
 	if a.is_empty():
 		return {}
 	var lines: Array = a.lines.duplicate()
+	if act == 3:
+		SourceBoss.aspect_for(run)   # the Source's aspect is chosen as Act 3 opens
 	if act == 3 and run.story.get("source_reached", false):
 		lines[1] = StoryData.SOURCE_REMEMBERS
 	return {"stage": a.stage, "title": a.title, "sub": a.sub, "lines": _lines(run, lines), "cast": cast_of(run)}
@@ -449,9 +475,15 @@ static func boss_spec(run: RunState, boss: String) -> Dictionary:
 	if b.is_empty():
 		return {}
 	var lines: Array = b.lines.duplicate()
-	if boss == "the_source" and run.story.get("last_ending", "") == "burn":
-		lines.insert(1, StoryData.SOURCE_BURNED)
-	return {"stage": "boss", "boss": boss, "title": b.title, "sub": b.sub, "lines": _lines(run, lines),
+	var sub: String = b.sub
+	if boss == "the_source":
+		var aspect: String = SourceBoss.aspect_for(run)
+		if StoryData.SOURCE_ASPECT_LINES.has(aspect):
+			lines.insert(1, StoryData.SOURCE_ASPECT_LINES[aspect].intro)
+			sub += " \u00b7 " + SourceBoss.ASPECT_NAMES[aspect]
+		elif run.story.get("last_ending", "") == "burn":
+			lines.insert(1, StoryData.SOURCE_BURNED)
+	return {"stage": "boss", "boss": boss, "title": b.title, "sub": sub, "lines": _lines(run, lines),
 		"cast": cast_of(run)}
 
 
@@ -467,8 +499,11 @@ static func ending_spec(run: RunState) -> Dictionary:
 		if cast[i].sid == run.story.get("carrier", -1):
 			carrier = i
 			name = "%s %s" % [UnitData.SOLDIERS[cast[i].kind].name, cast[i].name]
+	var lines: Array = e.lines.duplicate()
+	if run.act >= 3 and run.act_boss() == "lantern_echoes" and StoryData.ENDING_AFTER_ECHOES.has(id):
+		lines.insert(1, StoryData.ENDING_AFTER_ECHOES[id])   # the Echoes colour how the run ends
 	var raw: Array = []
-	for l in e.lines:
+	for l in lines:
 		# the carrier says their own last words
 		raw.append([name, l[1]] if id == "carry" and l[0] == "SQUAD" and name != "" else l)
 	return {"stage": e.stage, "title": e.title, "sub": e.sub, "lines": _lines(run, raw, {"name": name}),

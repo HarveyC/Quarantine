@@ -57,6 +57,16 @@ const ENEMIES := {
 	"tender": {"name": "Tender", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["repair"], "melee_only": true, "infects": false, "machine": true},
 	"carrier": {"name": "Carrier", "max_hp": 10, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true, "infects": false, "machine": true},
 	"arc_welder": {"name": "Arc-welder", "max_hp": 4, "aim": 0, "mobility": 4, "damage": [2, 3], "abilities": ["arc"], "melee_only": true, "infects": false, "machine": true},
+	# Halden-Voss Recovery (the company's contractors): human, hits deal damage only. They want a
+	# soldier alive (Netter holds one, Collector drags a held one off the map).
+	"netter": {"name": "Netter", "max_hp": 6, "aim": 70, "mobility": 5, "damage": [1, 2], "abilities": ["net"], "melee_only": true, "infects": false},
+	"handler": {"name": "Handler", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["designate"], "melee_only": true, "infects": false},
+	"sterilizer": {"name": "Sterilizer", "max_hp": 6, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["sterilize"], "melee_only": true, "infects": false},
+	"collector": {"name": "Collector", "max_hp": 7, "aim": 60, "mobility": 5, "damage": [1, 2], "abilities": ["claw", "drag"], "melee_only": true, "infects": false},
+	# The Choir (survivors who followed the song): their hits carry Infection like the rest of the Infected.
+	"acolyte": {"name": "Acolyte", "max_hp": 3, "aim": 0, "mobility": 6, "damage": [0, 0], "abilities": ["bloom"], "melee_only": true},
+	"cantor": {"name": "Cantor", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": [], "melee_only": true},
+	"hush": {"name": "Hush", "max_hp": 5, "aim": 0, "mobility": 4, "damage": [0, 0], "abilities": ["hush", "silence"], "melee_only": true},
 	"broodling": {"name": "Broodling", "max_hp": 3, "aim": 0, "mobility": 3, "damage": [0, 0], "abilities": ["burst"], "melee_only": true},
 	"hive_node": {"name": "Hive node", "max_hp": 12, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
 	"egg_sac": {"name": "Egg sac", "max_hp": 4, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
@@ -64,7 +74,14 @@ const ENEMIES := {
 	"source_root": {"name": "Root", "max_hp": 12, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true},
 	# Bosses
 	"brood_mother": {"name": "The Brood Mother", "max_hp": 40, "aim": 65, "mobility": 0, "damage": [3, 5], "abilities": ["claw", "spit", "acid_rain", "burrow", "erupt", "leap", "rockfall"], "melee_only": true},
+	"broker": {"name": "The Broker", "max_hp": 30, "aim": 70, "mobility": 5, "damage": [2, 3], "abilities": ["firebomb", "slam"], "infects": false},
+	"breaker": {"name": "The Breaker", "max_hp": 40, "aim": 70, "mobility": 4, "damage": [4, 6], "abilities": ["slam", "charge", "debris"], "melee_only": true, "plate": true, "infects": false},
 	"colonel_hale": {"name": "Colonel Hale", "max_hp": 36, "aim": 70, "mobility": 5, "damage": [3, 5], "abilities": ["airstrike", "flashbang", "smoke_screen", "slam", "charge", "stomp", "hurl", "danger_close"]},
+	"lantern_echoes": {"name": "The Last Echo", "max_hp": 30, "aim": 65, "mobility": 0, "damage": [1, 2], "abilities": []},
+	"choir_prophet": {"name": "The Choir Prophet", "max_hp": 40, "aim": 70, "mobility": 0, "damage": [3, 4], "abilities": ["verse", "fix", "compel", "quell", "crescendo"]},
+	"director": {"name": "The Director", "max_hp": 34, "aim": 85, "mobility": 5, "damage": [3, 5], "abilities": ["sight", "snipe", "smoke_screen", "flag", "retrieve"], "infects": false},
+	"coolant_valve": {"name": "Coolant valve", "max_hp": 8, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": [], "melee_only": true, "static": true, "infects": false, "machine": true},
+	"bore_engine": {"name": "The Bore Engine", "max_hp": 30, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": ["piston", "bite"], "melee_only": true, "infects": false},
 	"the_source": {"name": "The Source", "max_hp": 30, "aim": 0, "mobility": 0, "damage": [0, 0], "abilities": ["pull", "core_slam", "lash"], "melee_only": true},
 }
 

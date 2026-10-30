@@ -465,13 +465,73 @@ func _set_boss() -> void:
 	var kind := boss if boss != "" else "brood_mother"
 	var size := ModelKit.size_of(kind)
 	var col := TEAL
+	var echoed := false
 	match kind:
+		"lantern_echoes":
+			echoed = true
+			kind = String(cast[0].kind) if not cast.is_empty() else "trooper"   # the Last Echo wears a soldier of the squad
+			size = 1.2
+			for i in 5:   # hanging lanterns, each one a name
+				var lx := -5.5 + 2.75 * i
+				_box(Vector3(0.22, 0.34, 0.22), Vector3(lx, 3.2 + 0.4 * (i % 2), -3.5), SODIUM, 0.0, 3.0)
+				_omni(Vector3(lx, 3.0, -3.5), SODIUM, 1.4, 6.0, true)
+			var shown := cast.slice(0, 4)
+			for i in shown.size():   # the Echoes stand behind it in formation, in the squad's classes
+				var a := PI * (0.2 + 0.6 * (i + 0.5) / shown.size())
+				_unit(String(shown[i].kind), -1, 100, Vector3(cos(a) * 3.6, 0, -sin(a) * 2.6 - 1.0), Vector3(0, 0, 10), true)
+			_omni(Vector3(0, 3, 0), TEAL, 6.0, 14.0, true)
+			_spores(Vector3(0, 2, -1), Vector3(7, 3, 5), TEAL, 90)
 		"colonel_hale":
 			col = Color("e8f0ff")
 			for x in [-6.0, 6.0]:
 				_box(Vector3(2.5, 1.2, 1.0), Vector3(x, 0.6, -2.0), CONCRETE, 0.3 * signf(x))
 			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
 			_omni(Vector3(-4, 1, -4), Color("ff4a33"), 2.0, 8.0, true)
+		"broker":
+			col = SODIUM
+			for x in [-6.0, 6.0]:   # his haul: crate stacks either side, lamps hung over them
+				_box(Vector3(2.2, 1.2, 1.4), Vector3(x, 0.6, -2.4), Color("3a3226"), 0.2 * signf(x))
+				_box(Vector3(1.5, 1.0, 1.2), Vector3(x * 0.95, 1.7, -2.4), Color("4a3d2a"), -0.25 * signf(x))
+				_omni(Vector3(x * 0.8, 2.6, -1.6), SODIUM, 3.0, 7.0, true)
+			_unit("cutter", -1, 0, Vector3(-3.0, 0, -1.2), Vector3(0, 0, 1))
+			_unit("cutter", -1, 0, Vector3(3.0, 0, -1.2), Vector3(0, 0, 1))
+			_spot(Vector3(0, 8, 4), Vector3(0, 0, 0), SODIUM, 6.0, 15.0, 24.0)
+		"choir_prophet":
+			# The circle: the Choir kneels in a ring round the dais, the ring itself burning teal on the floor.
+			for i in 8:
+				var a := TAU * i / 8.0 + 0.2
+				_unit("shrieker", -1, 0, Vector3(cos(a) * 4.2, 0, sin(a) * 3.0 - 1.0), Vector3(-cos(a), 0, -sin(a)))
+			_omni(Vector3(0, 0.3, -1.0), TEAL, 6.0, 7.0, true)
+			_spores(Vector3(0, 2, -1), Vector3(5, 3, 4), TEAL, 90)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), TEAL, 6.0, 16.0, 22.0)
+		"director":   # three posts on the roofs behind her, red laser lines laid across the shot
+			col = Color("e8f0ff")
+			for x in [-6.5, 6.5]:
+				_box(Vector3(3.0, 3.0, 2.2), Vector3(x, 1.5, -4.5), CONCRETE, 0.0)
+				var post := _unit("sharpshooter", -1, 0, Vector3(x, 3.0, -4.5), Vector3(0, 0, 10))
+				_white(post)
+				var beam := _box(Vector3(0.03, 0.03, 12.0), Vector3(x * 0.35, 2.6, 1.0), Color("ff3a2a"), 0.0, 4.0)
+				beam.rotation.y = -0.35 * signf(x)
+			_box(Vector3(4.0, 4.4, 2.6), Vector3(0, 2.2, -5.5), CONCRETE, 0.0)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 7.0, 16.0, 22.0)
+			_omni(Vector3(-3, 1, -3), Color("ff4a33"), 1.5, 8.0, true)
+		"bore_engine":
+			col = Color("ffc470")
+			for i in 3:
+				var a := TAU * i / 3.0 + 1.5708
+				_unit("coolant_valve", -1, 0, Vector3(cos(a) * 4.5, 0, sin(a) * 4.5 - 1.0), Vector3(0, 0, -1))
+			_omni(Vector3(0, 3, 0), Color("ff7a33"), 7.0, 16.0, true)
+			_spot(Vector3(0, 9, 4), Vector3(0, 0, 0), col, 6.0, 16.0, 22.0)
+		"breaker":   # the demolition yard: stacked blocks and hazard lamps, the rig lit from behind
+			col = Color("ffb347")
+			for i in 5:
+				var x := -7.0 + i * 3.5
+				_box(Vector3(2.4, 0.9 + 0.5 * float(i % 3), 1.0), Vector3(x, 0.45, -3.4 - 0.4 * float(i % 2)), CONCRETE.darkened(0.15), 0.12 * float(i - 2))
+			_box(Vector3(0.5, 7.0, 0.5), Vector3(-5.5, 3.5, -6.0), CONCRETE.darkened(0.3))
+			_box(Vector3(11.0, 0.4, 0.5), Vector3(0.0, 7.0, -6.0), CONCRETE.darkened(0.3))
+			_spot(Vector3(0, 9, 3), Vector3(0, 0, 0), col, 8.0, 16.0, 26.0)
+			_omni(Vector3(-4, 1.2, -3), Color("ff9a3d"), 2.5, 8.0, true)
+			_omni(Vector3(4, 1.2, -3), Color("ff9a3d"), 2.5, 8.0, true)
 		"the_source":
 			for i in 6:
 				var a := TAU * i / 6.0
@@ -485,7 +545,7 @@ func _set_boss() -> void:
 			_growth(Vector3(-3, 0, -3), 7, 1.6)
 			_growth(Vector3(3.5, 0, -2.5), 6, 1.4)
 			_spores(Vector3(0, 2, -1), Vector3(6, 3, 5))
-	_unit(kind, -1, 0, Vector3.ZERO, Vector3(0, 0, 10))
+	_unit(kind, -1, 100 if echoed else 0, Vector3.ZERO, Vector3(0, 0, 10), echoed)
 	_omni(Vector3(0, 0.4, 2.5), col, 3.0, 8.0, true)
 	_omni(Vector3(0, 4.0, -4.0), col, 4.0, 12.0)
 	var h := 1.7 * size

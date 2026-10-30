@@ -22,7 +22,8 @@ const COST := {"runner": 1, "spitter": 1, "fallen": 2, "bloater": 2, "lurker": 2
 	"shieldman": 2, "overwatcher": 2, "emplacement": 2,
 	"hound": 1, "loader": 3, "relay": 2,
 	"packrat": 2, "rigger": 2, "lookout": 2, "sergeant": 2, "grenadier": 2, "field_medic": 2,
-	"tender": 2, "carrier": 3, "arc_welder": 2}
+	"tender": 2, "carrier": 3, "arc_welder": 2,
+	"netter": 2, "handler": 2, "sterilizer": 2, "collector": 3, "acolyte": 1, "cantor": 2, "hush": 2}
 ## First act an enemy appears in as a regular.
 const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "leaper": 1, "brute": 2, "lurker": 2,
 	"drifter": 2, "sharpshooter": 2, "shrieker": 3, "burrower": 3,
@@ -31,27 +32,21 @@ const FROM_ACT := {"runner": 1, "spitter": 1, "fallen": 1, "bloater": 1, "leaper
 	"shieldman": 2, "overwatcher": 2, "emplacement": 2,
 	"hound": 3, "loader": 3, "relay": 3,
 	"packrat": 1, "rigger": 2, "lookout": 2, "sergeant": 2, "grenadier": 2, "field_medic": 2,
-	"tender": 3, "carrier": 3, "arc_welder": 3}
+	"tender": 3, "carrier": 3, "arc_welder": 3,
+	"netter": 2, "handler": 2, "sterilizer": 2, "collector": 3, "acolyte": 2, "cantor": 2, "hush": 3}
 ## Each act's signature enemies are twice as likely to be bought there, so acts feel different:
 ## act 1 the cordon (Fallen, Leaper), act 2 the port (Drifter, Sharpshooter, Brute), act 3 the bore.
 const SIGNATURE := {1: ["fallen", "leaper", "cutter", "torchman", "packrat"], 2: ["drifter", "sharpshooter", "brute", "sapper", "carapace", "fence", "shieldman", "overwatcher", "emplacement",
 	"rigger", "lookout", "sergeant", "grenadier", "field_medic"],
 	3: ["burrower", "shrieker", "lurker", "stalker", "weaver", "hound", "loader", "relay", "tender", "carrier", "arc_welder"]}
-## The human and machine factions: which kinds belong to each. FightBuilder and the boss pools read this
-## to fill an Act with the faction its boss brings. The Infected are everything else.
-const FACTIONS := {
-	"scavengers": ["cutter", "torchman", "fence", "packrat", "rigger", "lookout"],
-	"security": ["shieldman", "overwatcher", "emplacement", "sergeant", "grenadier", "field_medic"],
-	"automata": ["hound", "loader", "relay", "tender", "carrier", "arc_welder"],
-}
 ## Kinds that never arrive as reinforcements: static, fleeing or support kinds that need a squad to fight beside.
 const NOT_REINFORCEMENT: Array[String] = ["lurker", "fence", "emplacement", "relay", "carrier", "rigger", "tender", "field_medic", "lookout", "sergeant"]
 ## Ranged enemies: they shoot or spit from a distance. Fights are built mostly from melee infected
 ## that rush the squad; ranged kinds are supporting threats (FightBuilder caps their share).
-const RANGED: Array[String] = ["spitter", "fallen", "sharpshooter", "hooker", "overwatcher", "lookout", "sergeant", "grenadier", "field_medic", "arc_welder"]
+const RANGED: Array[String] = ["spitter", "fallen", "sharpshooter", "hooker", "overwatcher", "lookout", "sergeant", "grenadier", "field_medic", "arc_welder", "handler", "sterilizer", "hush"]
 ## How often a kind is bought in each act relative to the others (1 when missing). The Runner is
 ## the staple infected, the most common enemy at any budget; later acts lean on their signatures.
-const WEIGHT := {"runner": {1: 3, 2: 2, 3: 2}}
+const WEIGHT := {"runner": {1: 3, 2: 3, 3: 3}}
 ## First act an enemy can be an elite in.
 const ELITE_FROM_ACT := {"brute": 1, "lurker": 1, "fallen": 1, "leaper": 1, "bloater": 2, "shrieker": 2,
 	"sharpshooter": 2, "burrower": 3, "hooker": 2, "sapper": 2, "carapace": 2, "stalker": 3, "weaver": 3,
@@ -111,8 +106,38 @@ const ARC_CHAIN_LINKS := 2
 const ARC_CHAIN_DAMAGE := 2
 const CARRIER_DROP := 2
 const CARRIER_EVERY := 3
-const BOSSES: Array[String] = ["brood_mother", "colonel_hale", "the_source"]
+## Halden-Voss Recovery (enemies/recovery.gd).
+const DESIGNATE_RANGE := 9
+const DESIGNATE_AIM := 20          # aim bonus Recovery gets against the designated soldier
+const STERILIZE_RANGE := 5
+const STERILIZE_LENGTH := 4
+const STERILIZE_DAMAGE := 2
+const STERILIZE_CLEANSE := 25      # Infection a soldier loses to the flame, one tier step
+const DRAG_STEPS := 2
+## The Choir (enemies/choir.gd).
+const BLOOM_RADIUS := 2
+const BLOOM_INFECTION := 30
+const CHANT_RADIUS := 3
+const CHANT_DAMAGE := 1
+const CHANT_INFECTION := 10
+const HUSH_RANGE := 8
+const HUSH_PHASES := 4             # two full rounds of the soldier's turns
+## Which faction a kind fights for, for the boss dispatch that weights an Act's faction.
+const FACTIONS := {
+	"scavengers": ["cutter", "torchman", "fence", "packrat", "rigger", "lookout"],
+	"security": ["shieldman", "overwatcher", "emplacement", "sergeant", "grenadier", "field_medic"],
+	"automata": ["hound", "loader", "relay", "tender", "carrier", "arc_welder"],
+	"recovery": ["netter", "handler", "sterilizer", "collector"],
+	"choir": ["acolyte", "cantor", "hush"],
+}
+const BOSSES: Array[String] = ["brood_mother", "breaker", "broker", "colonel_hale", "director", "choir_prophet", "the_source", "bore_engine", "lantern_echoes"]
 const BOSS_OF_ACT := {1: "brood_mother", 2: "colonel_hale", 3: "the_source"}
+## The bosses an act can roll, in a fixed order (a boss node's seed picks one). A new boss joins
+## its act's pool here once its module, arena, intro scene and view beats are in.
+const BOSS_POOL := {1: ["brood_mother", "breaker", "broker"], 2: ["colonel_hale", "director", "choir_prophet"], 3: ["the_source", "bore_engine", "lantern_echoes"]}
+## Regular enemies an act leans on when that boss waits at its end (twice as likely, like the Act
+## signatures), so the Act foreshadows the boss. A new boss lists its faction's kinds here.
+const BOSS_PACK := {"breaker": ["hound", "loader"], "broker": ["cutter", "torchman"], "director": ["sharpshooter", "overwatcher"], "choir_prophet": ["acolyte", "cantor", "hush"]}
 const ARMOURED_REDUCTION := 2
 const ELITE_HP_MULT := 2
 
@@ -143,6 +168,8 @@ static func make(spec: String) -> Unit:
 		u.status["tether"] = "source_root"
 	if parsed.kind == "brood_mother":
 		u.status["tether"] = "egg_sac"
+	if parsed.kind == "bore_engine":
+		u.status["tether"] = "coolant_valve"
 	if stats.get("flying", false):
 		u.status["flying"] = true
 	if stats.get("shield", false):
@@ -203,9 +230,24 @@ static func has_affix(u: Unit, affix: String) -> bool:
 
 ## False for enemies whose hits deal damage only (the Fallen fire bullets).
 static func infects(source: Unit) -> bool:
+	if source.status.get("lantern_echo", false):
+		return false   # the Echoes hit like soldiers; their Infection comes from the husks' pulse and the spores
 	if source.status.get("turned", false):
 		return true
 	return UnitData.ENEMIES.get(source.kind, {}).get("infects", true)
+
+
+## The boss an act rolls for the boss node with this `seed`.
+static func boss_for(act: int, seed: int) -> String:
+	var pool: Array = BOSS_POOL.get(act, [])
+	if pool.is_empty():
+		return BOSS_OF_ACT.get(act, "")
+	return pool[absi(seed) % pool.size()]
+
+
+## The kinds a boss's faction adds weight to, or [].
+static func pack_of(boss: String) -> Array:
+	return BOSS_PACK.get(boss, [])
 
 
 ## Regular enemies available in `act` (1-3).

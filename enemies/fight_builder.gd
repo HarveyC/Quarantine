@@ -28,6 +28,11 @@ const SQUAD_BOSS_HEALTH := {1: 0.35, 2: 0.4, 3: 0.6, 4: 1.0}
 ## Spore nests a Purge objective places, by squad size.
 const PURGE_NESTS := {1: 2, 2: 2, 3: 2, 4: 3}
 const PURGE_BUDGET_CUT := 2
+## Boss HP as a share of its base, by squad size. Each boss module owns its table.
+const BOSS_HEALTH := {"brood_mother": BroodMother.HEALTH, "breaker": Breaker.HEALTH, "broker": Broker.HEALTH, "colonel_hale": ColonelHale.HEALTH, "director": DirectorBoss.HEALTH, "choir_prophet": ChoirProphet.HEALTH, "the_source": SourceBoss.HEALTH, "bore_engine": BoreEngine.HEALTH,
+	"lantern_echoes": LanternEchoes.HEALTH}
+## The Broker's convoy on the field when the fight starts (more arrive as waves, see Broker.WAVE_KINDS).
+const BROKER_ADDS := {1: [], 2: ["cutter"], 3: ["cutter", "cutter"], 4: ["cutter", "cutter", "torchman"]}
 const HALE_ADDS := {1: [], 2: ["shieldman"], 3: ["shieldman", "overwatcher", "fallen"], 4: ["shieldman", "overwatcher", "emplacement", "sharpshooter"]}
 ## A lone soldier can't break a Lurker's pin (a teammate has to hit it), so it never meets one.
 const SOLO_BANNED: Array[String] = ["lurker"]
@@ -66,6 +71,15 @@ static func elite_odds(act: int, st: int) -> float:
 ## Threat budget Outbreak adds to a regular fight (not a boss).
 static func outbreak_budget(outbreak: int) -> int:
 	return mini(OUTBREAK_BUDGET_CAP, maxi(0, outbreak) * 2 / 3)
+
+
+## The boss waiting at this act's end: the spec's "boss" (set from the run map), else what the
+## seed rolls from the act's pool.
+static func _boss_of(spec: Dictionary, act: int) -> String:
+	var boss := str(spec.get("boss", ""))
+	if EnemyRoster.BOSS_POOL.get(act, []).has(boss):
+		return boss
+	return EnemyRoster.boss_for(act, int(spec.get("seed", 1)))
 
 
 static func build(spec: Dictionary) -> Dictionary:
@@ -111,18 +125,30 @@ static func build(spec: Dictionary) -> Dictionary:
 				if budget >= c2 + 1:
 					enemies.append(EnemyRoster.spec(second, true, _affixes(rng, 1, false)))
 					budget -= c2
+	var boss := _boss_of(spec, act)
+	var pack: Array = EnemyRoster.pack_of(boss)
 	if node == "boss":
-		enc["boss"] = EnemyRoster.BOSS_OF_ACT[act]
-		if act == 2:
+		enc["boss"] = boss
+		if boss == "colonel_hale":
 			enemies.append_array(HALE_ADDS[squad])
-		var share: Dictionary = [BroodMother.HEALTH, ColonelHale.HEALTH, SourceBoss.HEALTH][act - 1]
+		if boss == "broker":
+			enemies.append_array(BROKER_ADDS[squad])
+		if boss == "breaker":
+			enemies.append_array(Breaker.ADDS[squad])
+		if boss == "the_source" and str(spec.get("aspect", "")) != "":
+			enc["aspect"] = str(spec.aspect)
+			enc["echo_names"] = spec.get("echo_names", [])
+		var share: Dictionary = BOSS_HEALTH[boss]
 		var mult := float(mods.get("boss_health_mult", 1.0)) * float(share[squad])
 		if mult != 1.0:
 			enc["boss_health_mult"] = mult
 	var pool := EnemyRoster.pool(act)
+	for k in pack:   # the boss's faction fills the act's fights even before its usual act
+		if not pool.has(k):
+			pool.append(k)
 	if squad == 1:
 		pool = pool.filter(func(k: String) -> bool: return not SOLO_BANNED.has(k))
-	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else mini(SQUAD_MIN_START[squad], cap), act, cap)
+	budget = _buy(rng, pool, budget, enemies, 0 if node == "boss" else mini(SQUAD_MIN_START[squad], cap), act, cap, pack)
 	# Spare budget past the cap: an affix on a regular, or an earlier reinforcement wave.
 	if st >= 2 and node != "boss":
 		enc.waves.append({"turn": 3 if st >= 4 else 4, "every": 3 if st >= 4 else 0, "kinds": _wave(rng, pool, 1 if squad <= 2 else 2, act)})
@@ -172,8 +198,8 @@ static func preview(spec: Dictionary) -> Dictionary:
 			var name: String = UnitData.ENEMIES[elite_kind].name
 			return {"title": "Infested nest: Elite " + name, "elite": elite_kind}
 		"boss":
-			var boss: String = EnemyRoster.BOSS_OF_ACT[act]
-			return {"title": UnitData.ENEMIES[boss].name, "elite": ""}
+			var boss := _boss_of(spec, act)
+			return {"title": UnitData.ENEMIES[boss].name, "elite": "", "boss": boss}
 		"ambush":
 			return {"title": "Ambush", "elite": ""}
 	return {"title": "Skirmish", "elite": ""}
@@ -186,7 +212,7 @@ static func ranged_limit(cap: int) -> int:
 
 ## Buys regulars until the budget or the cap runs out. Returns the budget left. Mostly melee: ranged
 ## kinds stop once ranged_limit is reached, and Runners (the staple) fit any budget.
-static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, enemies: Array[String], min_start: int, act: int = 1, cap: int = ENEMY_CAP) -> int:
+static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, enemies: Array[String], min_start: int, act: int = 1, cap: int = ENEMY_CAP, pack: Array = []) -> int:
 	var ranged := 0
 	for e in enemies:
 		if EnemyRoster.is_ranged(EnemyRoster.parse(e).kind):
@@ -209,7 +235,7 @@ static func _buy(rng: RandomNumberGenerator, pool: Array[String], budget: int, e
 		for k in affordable:
 			if EnemyRoster.COST[k] >= mini(target, top) or k == "runner":
 				preferred.append(k)
-		var kind := _pick_weighted(rng, preferred, act)
+		var kind := _pick_weighted(rng, preferred, act, pack)
 		if EnemyRoster.is_ranged(kind):
 			ranged += 1
 		enemies.append(kind)
@@ -276,10 +302,12 @@ static func _affixes(rng: RandomNumberGenerator, n: int, allow_tether: bool) -> 
 
 ## Like _pick, with each kind counted EnemyRoster.weight times and the act's signature enemies
 ## counted twice as often.
-static func _pick_weighted(rng: RandomNumberGenerator, from: Array[String], act: int) -> String:
+static func _pick_weighted(rng: RandomNumberGenerator, from: Array[String], act: int, pack: Array = []) -> String:
 	var bag: Array[String] = []
 	for k in from:
 		var n: int = EnemyRoster.weight(k, act) * (2 if EnemyRoster.SIGNATURE.get(act, []).has(k) else 1)
+		if pack.has(k):
+			n *= 2
 		for i in n:
 			bag.append(k)
 	return _pick(rng, bag)

@@ -408,6 +408,25 @@ func test_killing_round_drops_the_body_at_impact() -> void:
 	v.free()
 
 
+func test_zipline_and_tunnel_moves_play_and_land() -> void:
+	var v := _make_view()
+	v.player.flush()
+	var soldier := v.state.controllable_units(0)[0]
+	var uv := v.view_for(soldier.id)
+	for kind in ["zip", "cellar"]:
+		var from := soldier.pos
+		var to := from + Vector2i(6, 0)
+		v.player.enqueue({"type": "move", "unit": soldier.id, "from": from, "path": [to], "link": kind})
+		var steps := 0
+		while v.player.pending() > 0 and steps < 400:
+			v.player.advance(1.0 / 30.0)
+			steps += 1
+		v.player.flush()
+		assert_eq(uv.cell, to, "%s ends on the far cell" % kind)
+		soldier.pos = to
+	v.free()
+
+
 func test_characters_are_rigged() -> void:
 	var ModelKit := preload("res://view/model_kit.gd")
 	var SkinnedBody := preload("res://view/skinned_body.gd")
@@ -914,7 +933,7 @@ func test_shoot_cycles_onto_a_fuel_barrel() -> void:
 	v.player.flush()
 	var shots: Array = s.log.filter(func(ev): return ev.type == "barrel_shot")
 	assert_eq(shots.size(), 1, "one Shoot at the barrel")
-	assert_eq(u.actions_left, 1, "a shot costs one action")
+	assert_eq(u.actions_left, 0, "it ended the turn")
 	assert_eq(not shots[0].hit, s.grid.is_volatile(cell), "the barrel went up only on a hit")
 	v.free()
 
@@ -971,7 +990,7 @@ func test_objective_zones_are_labelled_on_the_map() -> void:
 	assert_eq(b.zones(), ["evac"] as Array[String])
 	assert_eq(b.zone_at(Vector2i(4, 1)), "evac")
 	var label: Label3D = b._fixed.find_child("ZoneLabel", true, false)
-	assert_true(label != null and label.text == "EVAC", "the evac pad is named on the map")
+	assert_true(label != null and label.text == "GATE", "the gate is named on the map")
 	assert_true(b.active_overlays().has("evac"), "and listed in the map key")
 	b.free()
 
@@ -1050,3 +1069,14 @@ func test_mutation_growths_dim_while_dormant() -> void:
 	uv.set_infection(80, Infection.tier(80))
 	assert_true((nodes.rampage[0] as MeshInstance3D).material_override == null, "and wakes when Infection climbs")
 	uv.free()
+
+
+func test_zipline_has_no_floating_word() -> void:
+	var g := Grid.from_rows(PackedStringArray(["..........", "..........", "..........", ".........."]))
+	g.add_link(Vector2i(1, 1), Vector2i(8, 1), 1, "zip", false)
+	var b: Node3D = load("res://view/board.gd").new()
+	b.build(g)
+	assert_true(b.find_child("ZoneLabel", true, false) == null, "a zipline is named by its hover card, not a floating word")
+	b.show_link_hint(Vector2i(1, 1))
+	assert_true(b.find_child("ZoneLabel", true, false) == null, "and hovering it adds a ring, not a word")
+	b.free()

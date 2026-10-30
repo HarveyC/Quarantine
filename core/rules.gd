@@ -233,6 +233,7 @@ static func run_enemy_phase(s: GameState) -> void:
 	s.phase = Types.Phase.ENEMY
 	s.emit({"type": "enemy_phase", "turn": s.turn})
 	Encounter.on_enemy_phase_start(s)
+	Conditions.on_enemy_phase_start(s)
 	Kit.on_enemy_phase_start(s)
 	for u in s.living(Types.Team.ENEMY):
 		if s.phase == Types.Phase.ENDED:
@@ -306,7 +307,15 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 			PartingBlow.resolve(s, u, swingers)
 			if not u.is_alive() or s.phase == Types.Phase.ENDED:
 				return
-		if s.grid.edge(prev, c - prev) == Grid.EDGE_CLOSED:
+		var link := s.grid.link_kind(prev, c) if Kit.cheb(prev, c) > 1 else ""
+		if link != "":
+			# A zipline or tunnel is a beat of its own: flush the walk so far, then jump.
+			if not segment.is_empty():
+				s.emit({"type": "move", "unit": u.id, "from": from, "path": segment.duplicate()})
+				segment.clear()
+			s.emit({"type": "move", "unit": u.id, "from": prev, "path": [c] as Array[Vector2i], "link": link})
+			from = c
+		elif s.grid.edge(prev, c - prev) == Grid.EDGE_CLOSED:
 			# Opening a door ends the walk so far, so the view shows the door swing before the next step.
 			if not segment.is_empty():
 				s.emit({"type": "move", "unit": u.id, "from": from, "path": segment.duplicate()})
@@ -315,7 +324,8 @@ static func move_along(s: GameState, u: Unit, to: Vector2i) -> void:
 			open_door(s, prev, c - prev, u)
 		prev = c
 		u.pos = c
-		segment.append(c)
+		if link == "":
+			segment.append(c)
 		walked.append(c)
 		Vision.on_step(s, u)
 		var spot := Concealment.spotter(s, u)

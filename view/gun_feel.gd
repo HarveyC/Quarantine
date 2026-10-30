@@ -124,11 +124,11 @@ static func reload_sound(weapon_id: String) -> String:
 static func body_impact(kind: String, is_squad: bool) -> String:
 	if is_squad:
 		return "impact_armor"
-	if kind in ["carapace", "brute", "burrower", "brood_mother", "lurker", "leaper", "stalker"]:
+	if kind in ["carapace", "brute", "burrower", "brood_mother", "lurker", "leaper", "stalker", "breaker"]:
 		return "impact_chitin"
 	if kind in ["bloater", "spitter", "broodling", "drifter", "weaver"]:
 		return "impact_ichor"
-	if kind in ["fallen", "sharpshooter", "colonel_hale", "sapper"]:
+	if kind in ["fallen", "sharpshooter", "colonel_hale", "sapper", "director", "collector"]:
 		return "impact_human"
 	return "impact_flesh"
 

@@ -62,7 +62,7 @@ const TABLE := {
 		"desc": "+2 damage, +20% crit, no range penalty to 16 tiles. -20 aim at 3 tiles or less, -1 movement. Pierce: the round carries on and hits the next enemy in line for half damage."},
 	"scout_carbine": {"name": "Scout carbine", "mag": 6, "classes": ["marksman", "medic"], "rarity": "uncommon", "tag": "Close",
 		"look": "pdw", "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3, "crit": 10, "trait": "skirmish",
-		"desc": "+10% crit, +10 aim within 3 tiles. Skirmisher: after a move of 3 or more tiles, your first shot this turn costs no action."},
+		"desc": "+10% crit, +10 aim within 3 tiles. Skirmisher: after a move of 3 or more tiles, your first shot this turn doesn't end your turn."},
 	"flechette_smg": {"name": "Flechette SMG", "mag": 8, "classes": ["medic", "vector", "breacher"], "rarity": "uncommon", "tag": "Close",
 		"look": "pdw", "close": 3.0, "close_aim": 25, "falloff": 5.0, "falloff_aim": 6, "graze": 20, "trait": "spread", "also": "barbs",
 		"desc": "+25 aim within 3 tiles, falls off fast past 5. Spread: wider graze band. Barbs: a hit leaves a barb, and a barbed enemy that moves takes 1 damage per barb."},
@@ -112,7 +112,7 @@ const TABLE := {
 const BY_KIND := {
 	"trooper": "rifle", "marksman": "dmr", "medic": "pdw", "breacher": "shotgun",
 	"hazmat": "lmg", "vector": "carbine", "reaper": "sidearm", "warden": "revolver",
-	"fallen": "rifle", "colonel_hale": "rifle", "sharpshooter": "dmr", "spitter": "spit",
+	"fallen": "rifle", "broker": "sidearm", "colonel_hale": "rifle", "director": "dmr", "choir_prophet": "pdw", "sharpshooter": "dmr", "spitter": "spit",
 	"field_medic": "sidearm", "lookout": "carbine",
 }
 
@@ -160,6 +160,19 @@ static func display_name(kind: String, weapon: String = "") -> String:
 ## Signature gun whose view (feel, model) `id` borrows.
 static func look_of(id: String) -> String:
 	return TABLE.get(id, {}).get("look", id)
+
+
+## Guns a soldier can hold as gear: every gun but the Spitter's acid.
+static func is_item(id: String) -> bool:
+	return TABLE.has(id) and id != "spit"
+
+
+## A gun as a gear item (GearData.get_item): it sits in the Gun slot and moves through the stash like any other gear.
+static func item_def(id: String) -> Dictionary:
+	var g: Dictionary = TABLE[id]
+	var tag := str(g.get("tag", ""))
+	return {"id": id, "name": g.name, "slot": "gun", "rarity": str(g.get("rarity", "common")), "tag": tag,
+		"tags": [tag] if tag != "" else [], "desc": str(g.get("desc", "")), "desc_mk2": str(g.get("desc", ""))}
 
 
 static func is_alternate(id: String) -> bool:
@@ -243,7 +256,16 @@ static func mag_for(id: String, kind: String = "") -> int:
 
 static func has_trait(u: Unit, t: String) -> bool:
 	var g := of(u)
-	return g.get("trait", "") == t or g.get("also", "") == t
+	return g.get("trait", "") == t or g.get("also", "") == t or passive_trait(u) == t
+
+
+## The gun trait a class passive gives every gun its soldier fires ("" if none).
+static func passive_trait(u: Unit) -> String:
+	if Kit.has_passive(u, "covering_fire"):
+		return "pin"
+	if Kit.has_passive(u, "door_kicker"):
+		return "doorkick"
+	return ""
 
 
 ## Appends the weapon's range term (if any) for a shot over `dist` tiles to `breakdown`.
@@ -273,6 +295,8 @@ static func graze_band(u: Unit, base: int) -> int:
 static func after_miss(s: GameState, u: Unit, t: Unit) -> void:
 	if has_trait(u, "pin") and t.is_alive():
 		t.status["suppressed"] = Combat.phase_index(s) + 2
+		if Kit.has_perk(u, "steadfast"):
+			t.overwatch = false
 		s.emit({"type": "pinned", "unit": u.id, "target": t.id})
 
 
@@ -332,7 +356,7 @@ static func after_hit(s: GameState, u: Unit, t: Unit, dmg: int, crit: bool) -> v
 		s.emit({"type": "perk", "unit": u.id, "perk": "recoil", "target": t.id})
 
 
-## Skirmisher: after a move of SKIRMISH_STEPS or more, the first shot each turn costs no action.
+## Skirmisher: after a move of SKIRMISH_STEPS or more, the first shot each turn doesn't end your turn.
 static func skirmish_free(s: GameState, u: Unit) -> bool:
 	if not has_trait(u, "skirmish") or int(u.status.get("gear_moved_turn", -1)) != s.turn \
 			or int(u.status.get("gear_move_len", 0)) < SKIRMISH_STEPS or int(u.status.get("w_skirmish_turn", -1)) == s.turn:

@@ -20,6 +20,17 @@ var biome := ""
 var markers := {}
 ## Set by MapGen: the fight's objective ("skirmish", "extract", ...); "" for handmade maps.
 var objective := ""
+## Set by MapGen for run fights (see Conditions): the fight's map condition ("" for none) and the
+## flooded cells it laid down (set). Wading into a flooded cell costs one extra step and fire cannot burn on it.
+var condition := ""
+var water := {}
+## Live rail cells (set) laid by the Live rails condition; Conditions.setup turns them into hazards.
+var rails := {}
+## Links: jumps that are not a step to a neighbour. A zipline slides one way from a roof anchor to the
+## ground or another roof; a cellar tunnel joins two hatches both ways. [{"a", "b", "cost", "kind", "both"}],
+## see Links. Pathing treats each as one step of `cost`; a unit that takes one slips free of Parting blows.
+var links: Array = []
+var _link_from := {}   # cell -> [[to, cost, kind]], built from `links`
 ## High ground: level per cell (0 ground, 1 roof, 2 upper roof), row-major like `tiles`.
 ## Empty = all ground. Change it in a fight only through Elevation.set_level so the view hears about it.
 var levels := PackedByteArray()
@@ -189,6 +200,7 @@ func to_dict() -> Dictionary:
 	return {"width": width, "height": height, "tiles": tiles.duplicate(),
 		"player_spawns": player_spawns.duplicate(), "enemy_spawns": enemy_spawns.duplicate(),
 		"biome": biome, "markers": markers.duplicate(true), "objective": objective,
+		"condition": condition, "water": water.keys(), "rails": rails.keys(), "links": links.duplicate(true),
 		"levels": levels.duplicate(), "ladders": ladders.keys(), "stairs": stairs.keys(), "fragile": fragile.keys(),
 		"wear": wear.duplicate(), "volatile": volatile.keys(), "hard": hard.keys(), "rubble": rubble.duplicate(),
 		"edges": edges.duplicate(), "edge_wear": edge_wear.duplicate(), "roofed": roofed.keys()}
@@ -204,6 +216,13 @@ static func from_dict(d: Dictionary) -> Grid:
 	g.biome = d.get("biome", "")
 	g.markers = d.get("markers", {}).duplicate(true)
 	g.objective = d.get("objective", "")
+	g.condition = d.get("condition", "")
+	for c in d.get("water", []):
+		g.water[c] = true
+	for c in d.get("rails", []):
+		g.rails[c] = true
+	g.links = d.get("links", []).duplicate(true)
+	g._index_links()
 	g.levels = d.get("levels", PackedByteArray())
 	for c in d.get("ladders", []):
 		g.ladders[c] = true
@@ -456,6 +475,7 @@ func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_lev
 	var to := from + d
 	if not is_walkable(to) or blocked.has(to):
 		return -1
+	var wade := 1 if water.has(to) else 0
 	var diagonal := d.x != 0 and d.y != 0
 	if diagonal:
 		var a := from + Vector2i(d.x, 0)
@@ -464,8 +484,8 @@ func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_lev
 			return -1
 		if not ignore_levels and (level(a) != level(from) or level(b) != level(from) or level(to) != level(from)):
 			return -1
-		return 1
-	var extra := 0
+		return 1 + wade
+	var extra := wade
 	match edge(from, d):
 		EDGE_WALL: return -1
 		EDGE_WINDOW, EDGE_LOW: extra = VAULT_COST
@@ -478,6 +498,37 @@ func step_cost(from: Vector2i, d: Vector2i, blocked: Dictionary = {}, ignore_lev
 	if absi(rise) == 1 and (is_ladder(from) or is_ladder(to)):
 		return (1 if climb else LADDER_COST) + extra
 	return -rise + extra if rise < 0 else -1
+
+
+## Adds a link between two cells (see `links`); `both` makes it usable either way.
+func add_link(a: Vector2i, b: Vector2i, cost: int, kind: String, both: bool) -> void:
+	links.append({"a": a, "b": b, "cost": cost, "kind": kind, "both": both})
+	_index_links()
+
+
+func _index_links() -> void:
+	_link_from.clear()
+	for l in links:
+		if not _link_from.has(l.a):
+			_link_from[l.a] = []
+		_link_from[l.a].append([l.b, l.cost, l.kind])
+		if l.both:
+			if not _link_from.has(l.b):
+				_link_from[l.b] = []
+			_link_from[l.b].append([l.a, l.cost, l.kind])
+
+
+## The links leaving `c`: [[to, cost, kind]], empty for most cells.
+func links_from(c: Vector2i) -> Array:
+	return _link_from.get(c, [])
+
+
+## The link kind of the jump from `a` to `b` ("" when it is an ordinary step).
+func link_kind(a: Vector2i, b: Vector2i) -> String:
+	for l in links_from(a):
+		if l[0] == b:
+			return l[2]
+	return ""
 
 
 ## Compatibility wrapper: whether the step can be taken at all.
@@ -550,5 +601,15 @@ func _search(from: Vector2i, max_cost: int, blocked: Dictionary, ignore_levels: 
 				while buckets.size() <= nd:
 					buckets.append([])
 				buckets[nd].append(n)
+			for l in links_from(c):
+				var to: Vector2i = l[0]
+				var ld: int = k + int(l[1])
+				if ld > max_cost or not is_walkable(to) or blocked.has(to) or (dist.has(to) and dist[to] <= ld):
+					continue
+				dist[to] = ld
+				parent[to] = c
+				while buckets.size() <= ld:
+					buckets.append([])
+				buckets[ld].append(to)
 		k += 1
 	return {"dist": dist, "parent": parent}

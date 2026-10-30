@@ -55,7 +55,9 @@ func test_echo_joins_a_fight_as_a_named_turned_enemy() -> void:
 	RunRules.start_run(run)
 	_settle(run)
 	run.fights_won = 1
-	var plain := MatchConfig.for_fight(RunRules.new_run(1, 21), {"kind": RunMap.SKIRMISH, "objective": "extract", "seed": 99})
+	var plain_run := RunRules.new_run(1, 21)
+	plain_run.map = run.map   # the same map, so the same boss and faction pack
+	var plain := MatchConfig.for_fight(plain_run, {"kind": RunMap.SKIRMISH, "objective": "extract", "seed": 99})
 	var cfg := MatchConfig.for_fight(run, {"kind": RunMap.SKIRMISH, "objective": "extract", "seed": 99})
 	assert_eq(cfg.echo.get("key", ""), "w7_3", "the echo is in this fight")
 	assert_eq(cfg.enemies.size(), plain.enemies.size() - 1, "the echo takes one enemy's place")
@@ -205,7 +207,7 @@ func test_scene_specs() -> void:
 	var run := RunRules.new_run(1, 51)
 	var intro := Director.intro_spec(run)
 	assert_eq(intro.title, "Wave %d" % StoryData.FIRST_WAVE, "wave title")
-	assert_eq(intro.lines.size(), StoryData.INTRO_OPENERS.first.size() + StoryData.INTRO_ORDERS.size(), "full first briefing")
+	assert_eq(intro.lines.size(), StoryData.INTRO_OPENERS.first.size() + StoryData.INTRO_ORDERS.size() + StoryData.INTRO_BY_BOSS.get(run.act_boss(), []).size(), "full first briefing")
 	assert_eq(intro.cast.size(), 4, "the squad is in the shot")
 	run.story.source_reached = true
 	assert_eq(Director.act_spec(run, 3).lines[1], StoryData.SOURCE_REMEMBERS, "the Source remembers")

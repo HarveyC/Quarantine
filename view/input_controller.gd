@@ -88,6 +88,8 @@ func _aimed() -> Variant:
 
 ## Everything `u` can Shoot, in cycling order: units first, then the fuel barrels in sight.
 func shoot_candidates(u: Unit) -> Array:
+	if ClassAbilities.melee_drawn(u):
+		return []
 	var out: Array = Combat.shot_targets(view.state, u).map(func(t: Unit) -> int: return t.id)
 	out.append_array(Combat.shot_barrels(view.state, u))
 	return out
@@ -285,6 +287,7 @@ func _update_hover(force: bool) -> void:
 	hover_cell = c
 	view.hud.hide_move_warning()
 	view.board.set_hover(c, c != NO_CELL and can_act())
+	view.board.show_link_hint(c)
 	view.board.clear_path()
 	var u := selected_unit()
 	if u != null and can_act() and c != NO_CELL:
@@ -319,7 +322,7 @@ func _update_hover(force: bool) -> void:
 ## Area items (smoke, flashbang, flare, concussion): the square they cover around the aimed tile.
 func _show_move_preview(u: Unit, c: Vector2i) -> void:
 	var path := view.state.grid.find_path(u.pos, c, view.state.occupied(u.id), false, Grafts.climbs(u))
-	view.board.show_path(path, spotted_step(path))
+	view.board.show_path(path, spotted_step(path), u.pos)
 	view.board.show_cover(c, view.state.grid.cover_sides(c))
 	# Whoever would land a Parting blow along this path glows red and is named on a warning card.
 	var swingers := blow_swingers(u, c)
@@ -424,6 +427,12 @@ func tile_terms(c: Vector2i) -> Array:
 		out.append("ladder")
 	elif g.is_stairs(c):
 		out.append("stairs")
+	for l in g.links:
+		if l.a == c or (l.both and l.b == c) or (l.b == c and l.kind == "zip"):
+			out.append("zipline" if l.kind == "zip" else "cellar_tunnel")
+			break
+	if g.water.has(c):
+		out.append("flooded_ground")
 	if g.is_fragile(c):
 		out.append("scaffold")
 	if g.is_volatile(c):
@@ -515,25 +524,33 @@ func actions() -> Array[Dictionary]:
 			"desc": "%d%% chance to throw the Lurker off. Costs nothing, once a turn." % Encounter.STRUGGLE_CHANCE})
 		return out
 	var has_ap := u.actions_left > 0
-	var gun: Dictionary = Weapons.of(u)
-	out.append({"key": "shoot", "label": "Shoot", "targeting": "shoot", "type": Types.SHOOT, "enabled": has_ap,
-		"desc": "%s: %s" % [gun.name, gun.desc]})
-	out.append({"key": "overwatch", "label": "Overwatch", "targeting": "none", "type": Types.OVERWATCH, "enabled": has_ap})
+	var melee := ClassAbilities.melee_drawn(u)
+	if not melee:
+		var gun: Dictionary = Weapons.of(u)
+		out.append({"key": "shoot", "label": "Shoot", "targeting": "shoot", "type": Types.SHOOT, "enabled": has_ap,
+			"desc": "%s: %s" % [gun.name, gun.desc]})
+		out.append({"key": "overwatch", "label": "Overwatch", "targeting": "none", "type": Types.OVERWATCH, "enabled": has_ap})
 	out.append({"key": "hunker", "label": "Hunker", "targeting": "none", "type": Types.HUNKER, "enabled": has_ap})
 	if PartingBlow.enabled and PartingBlow.threatened(view.state, u):
 		out.append({"key": "disengage", "label": "Disengage", "targeting": "cell", "type": Types.MOVE, "careful": true,
 			"enabled": has_ap, "cells": PartingBlow.careful_cells(view.state, u),
 			"desc": "Move up to %d tiles without a Parting blow." % PartingBlow.CAREFUL_RANGE})
-	if Ammo.tracked(u):
+	if Ammo.tracked(u) and not melee:
 		var dry := Ammo.reload_error(view.state, u)
 		out.append({"key": "reload", "label": "Reload", "targeting": "none", "type": Types.RELOAD, "enabled": has_ap and dry == "",
 			"reason": dry, "desc": "Refill the magazine (%d of %d rounds). Costs %s." % [Ammo.rounds(u), Ammo.mag_size(u),
 			"no action" if Ammo.reload_is_free(view.state, u) else "1 action"]})
+	var strike_at := 0   # a drawn melee weapon's strike takes Shoot's place at the front
 	for a in Combat.available_abilities(view.state, u):
-		out.append({"key": "ability:%s" % a.id, "label": str(a.get("name", a.id)), "targeting": str(a.get("targeting", "none")),
+		var entry := {"key": "ability:%s" % a.id, "label": str(a.get("name", a.id)), "targeting": str(a.get("targeting", "none")),
 			"type": Types.ABILITY, "id": a.id, "enabled": has_ap and a.get("ready", true), "desc": str(a.get("desc", "")),
 			"targets": a.get("targets", []), "reach": int(a.get("reach", a.get("range", 0))), "new": a.get("new", false),
-			"cooldown": int(a.get("cooldown", 0)), "reason": str(a.get("reason", ""))})
+			"cooldown": int(a.get("cooldown", 0)), "reason": str(a.get("reason", ""))}
+		if melee and a.id in ClassAbilities.STRIKES:
+			out.insert(strike_at, entry)
+			strike_at += 1
+		else:
+			out.append(entry)
 	for m in Infection.available_mutations(view.state, u):
 		var lbl := str(m.get("name", m.id))
 		if m.has("cost"):
@@ -783,6 +800,9 @@ func _action_input(e: InputEvent) -> void:
 	elif e.is_action_pressed("shot_cams"):
 		GameSettings.set_value("gameplay", "shot_cams", not EventPlayer.cinematics)
 		view.hud.toast("Shot cameras " + ("on" if EventPlayer.cinematics else "off"))
+	elif e.is_action_pressed("loadout"):
+		if view.hud != null:
+			view.hud.open_loadout()
 	elif e.is_action_pressed("mute"):
 		view.sfx.set_muted(not Sfx.muted)
 		view.hud.toast("Sound " + ("off" if Sfx.muted else "on"))
