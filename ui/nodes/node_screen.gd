@@ -35,7 +35,7 @@ func setup(r: RunState, s) -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 56 if side in ["left", "right"] else 26)
+		margin.add_theme_constant_override("margin_" + side, 56 if side in ["left", "right"] else (18 if side == "top" else 12))
 	add_child(margin)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -208,7 +208,7 @@ func footer(note: String, can_leave := true, leave_text := "Leave") -> Control:
 	# The scroll box clips, so keep the leave buttons' glow clear of its right and bottom edges.
 	var pad := MarginContainer.new()
 	pad.add_theme_constant_override("margin_right", 22)
-	pad.add_theme_constant_override("margin_bottom", 14)
+	pad.add_theme_constant_override("margin_bottom", 22)
 	pad.add_child(row)
 	return pad
 
