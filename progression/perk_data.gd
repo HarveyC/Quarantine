@@ -158,7 +158,7 @@ const PERKS := {
 	"long_stride": {"class": "reaper", "name": "Long Stride", "tag": "Close", "rare": false,
 		"desc": "Lunge reaches 6 tiles."},
 	"riposte": {"class": "reaper", "name": "Riposte", "tag": "Guard", "rare": false,
-		"desc": "Once per enemy phase, strike back at the first enemy that claws at you."},
+		"desc": "Once per enemy phase, strike back at the first enemy that hits you in melee."},
 	"hamstring": {"class": "reaper", "name": "Hamstring", "tag": "Close", "rare": false,
 		"desc": "Melee hits cost the target 2 mobility on its next turn."},
 	"red_mist": {"class": "reaper", "name": "Red Mist", "tag": "Strain", "rare": true,

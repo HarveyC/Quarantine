@@ -64,7 +64,7 @@ func setup(c: Dictionary, rec: Dictionary, index: int) -> void:
 	key.size_flags_horizontal = Control.SIZE_SHRINK_END
 	v.add_child(key)
 	for n in v.get_children():
-		if n is Control:
+		if n is Control and not n.has_method("tip_at"):   # rules text keeps the pointer for its bold terms
 			n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Parts with a hover card (tag chips, set previews, Mk II, ...) still take the pointer;
 	# PASS hands their clicks on to the card.

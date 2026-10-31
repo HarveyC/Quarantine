@@ -31,6 +31,8 @@ static var _link_color: Variant = null   # set by bbcode() for the links it writ
 const ABILITY_ICONS := ["incinerate", "siphon", "lunge", "bash", "shield_charge", "bloom_claw", "breach", "runner_leap",
 	"lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]
 ## Short names an ability goes by in text ("Bash the first enemy...").
+## Abilities named like a gear tag or status, kept out of plain-word linking.
+const ABILITY_NAMED_LIKE_TERMS := ["suppress", "tag"]
 const ABILITY_ALIASES := {"bash": ["Bash", "Bashes"], "talk_down": ["Talked down", "Talking down"], "incinerate": ["Incinerates"]}
 
 
@@ -1298,10 +1300,16 @@ static func _add_rules_terms(t: Dictionary) -> void:
 	abilities.merge(Combat.ABILITIES)
 	for id in abilities:
 		var a: Dictionary = abilities[id]
-		if taken.has(str(a.name).to_lower()):
+		# Suppress and Mark share their names with a gear tag and a status, so only "<name> ability"
+		# links to the ability card ("Grants the Suppress ability").
+		var shared: bool = id in ABILITY_NAMED_LIKE_TERMS
+		if taken.has(str(a.name).to_lower()) and not shared:
 			continue
 		var e := {"name": a.name, "kind": "ability", "icon": "reload" if id == "swap_weapon" else (id if ABILITY_ICONS.has(id) else "ability"), "tone": "amber",
-			"line": _first_sentence(str(a.get("desc", ""))), "art": "", "stats": [], "aliases": ABILITY_ALIASES.get(id, [])}
+			"line": _first_sentence(str(a.get("desc", ""))), "art": "", "stats": [],
+			"aliases": ["%s ability" % a.name] if shared else ABILITY_ALIASES.get(id, [])}
+		if shared:
+			e["scan"] = false
 		var cd := int(a.get("cooldown", 0))
 		if cd > 0:
 			e.stats = [["%d" % cd, "{cooldown} turns"]]
