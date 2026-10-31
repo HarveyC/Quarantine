@@ -512,6 +512,7 @@ func _indoor_cells() -> Dictionary:
 ## the rules).
 const ROOF_THICK := 0.06
 const ROOF_LINE := 0.07
+const ROOF_LIFT := 0.02
 
 
 func _build_roofs() -> void:
@@ -520,8 +521,9 @@ func _build_roofs() -> void:
 	var look := BiomeLook.of(grid.biome)
 	var line := Palette.emissive(look.trim.lightened(0.35), 0.8)
 	var layer := _layer("Roofs")
-	var y := EDGE_HEIGHT + ROOF_THICK * 0.5
 	for c in grid.roofed:
+		# Wall trim caps and posts top out at EDGE_HEIGHT + 0.06, so sit clear above them (and above the floor level).
+		var y := RAISE * grid.level(c) + EDGE_HEIGHT + 0.06 + ROOF_LIFT + ROOF_THICK * 0.5
 		for d in Grid.DIRS4:
 			if grid.roofed.has(c + d):
 				continue
