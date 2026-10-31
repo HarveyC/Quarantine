@@ -148,23 +148,40 @@ func build(g: Grid) -> void:
 	add_child(_hover)
 
 
-## Flooded cells (Grid.water): a shallow translucent pool over the floor with a paler sheen on top.
+const WATER_SHADER := """
+shader_type spatial;
+render_mode cull_back;
+
+void fragment() {
+	vec2 p = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
+	float a = sin(p.x * 5.0 + TIME * 0.6 + sin(p.y * 3.0 + TIME * 0.3) * 1.5);
+	float b = sin(p.y * 6.5 - TIME * 0.45 + sin(p.x * 2.5 - TIME * 0.2) * 1.2);
+	float r = (a + b) * 0.25 + 0.5;
+	float ring = smoothstep(0.82, 1.0, r);
+	ALBEDO = mix(vec3(0.07, 0.13, 0.19), vec3(0.13, 0.23, 0.31), r) + vec3(0.05, 0.08, 0.10) * ring;
+	ROUGHNESS = 0.2;
+	METALLIC = 0.0;
+	SPECULAR = 0.5;
+}
+"""
+
+
+## Flooded cells (Grid.water): a dark, opaque pool with a slow ripple. Opaque so it writes depth and the
+## fog of war pass dims it like the ground around it.
 func _build_water() -> void:
 	if grid.water.is_empty():
 		return
 	var layer := _layer("Water")
-	var pool := Palette.overlay(Color(0.2, 0.42, 0.62, 0.62))
-	var sheen := Palette.overlay(Color(0.55, 0.78, 0.95, 0.18))
+	var sh := Shader.new()
+	sh.code = WATER_SHADER
+	var pool := ShaderMaterial.new()
+	pool.shader = sh
 	var cells: Array = grid.water.keys()
 	cells.sort()
 	for c in cells:
 		var plate := Palette.box(Vector3(1.0, 0.04, 1.0), pool)
 		plate.position = cell_to_world(c, 0.0) + Vector3(0, 0.03, 0)
 		layer.add_child(plate)
-		var h := _hash(c)
-		var glint := Palette.box(Vector3(0.5, 0.01, 0.12), sheen)
-		glint.position = cell_to_world(c, 0.0) + Vector3(float(h % 5) / 10.0 - 0.2, 0.06, float((h >> 3) % 5) / 10.0 - 0.2)
-		layer.add_child(glint)
 
 
 ## Each link has its own colour; both ends and the cable share it, and a tunnel's two hatches carry the same letter.
