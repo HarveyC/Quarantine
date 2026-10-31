@@ -167,7 +167,7 @@ func _build_water() -> void:
 		layer.add_child(glint)
 
 
-## Each link has its own colour; both ends and the cable share it, and a tunnel's two hatches carry the same letter.
+## Each link has its own colour; both ends and the cable share it,.
 const LINK_COLORS: Array[Color] = [Color("ffb938"), Color("b48cff"), Color("8be28b"), Color("ff8fa3")]
 var _link_ends := {}        # cell -> index into grid.links
 var _link_layer: Node3D     # hover hint: the line to the other end
@@ -186,7 +186,7 @@ func _strip(a: Vector3, b: Vector3, width: float, material: Material) -> MeshIns
 
 
 ## Zipline cables with chevrons pointing downhill, and cellar hatches. Linked ends share a colour; the
-## tunnel's two hatches share a letter; the zipline is named by its hover card.
+## tunnel's two hatches share a colour; the hover card names them.
 func _build_links() -> void:
 	_link_ends.clear()
 	if grid.links.is_empty():
@@ -229,7 +229,6 @@ func _build_links() -> void:
 				tip.transform = Transform3D(Basis.looking_at(dir, Vector3.UP) * Basis(Vector3.RIGHT, -PI / 2), top[0].lerp(top[1], t))
 				layer.add_child(tip)
 		else:
-			var letter := char(65 + i)
 			for c in ends:
 				var base := cell_to_world(c)
 				var hatch := Palette.box(Vector3(0.82, 0.03, 0.82), dark)
@@ -239,9 +238,6 @@ func _build_links() -> void:
 					var bar := Palette.box(Vector3(0.06 if side.x != 0 else 0.92, 0.05, 0.06 if side.z != 0 else 0.92), glow)
 					bar.position = base + side + Vector3(0, 0.05, 0)
 					layer.add_child(bar)
-				var label := zone_label(letter, col)
-				label.position = base + Vector3(0, 0.9, 0)
-				layer.add_child(label)
 	_link_layer = _layer("LinkHint")
 
 
@@ -288,10 +284,6 @@ func _mark_link_exits(cells: Dictionary) -> void:
 			ring.position = cell_to_world(end, 0.04)
 			ring.scale.y = 0.2
 			_range_layer.add_child(ring)
-			if l.kind != "zip":
-				var label := zone_label(char(65 + i), link_color(i))
-				label.position = cell_to_world(end) + Vector3(0, 1.0, 0)
-				_range_layer.add_child(label)
 
 
 ## Four L-shaped corner marks round a cell (the hover cursor, aimed cells). `half` is the
