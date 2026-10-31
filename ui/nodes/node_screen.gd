@@ -35,12 +35,12 @@ func setup(r: RunState, s) -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 56 if side in ["left", "right"] else 34)
+		margin.add_theme_constant_override("margin_" + side, 56 if side in ["left", "right"] else (18 if side == "top" else 12))
 	add_child(margin)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	margin.add_child(_scroll)
-	_body = NodeUi.vbox(22)
+	_body = NodeUi.vbox(14)
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_body)
 	run.event.connect(_on_run_event)
