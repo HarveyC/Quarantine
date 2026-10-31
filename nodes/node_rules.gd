@@ -11,7 +11,7 @@ extends RefCounted
 ##   node_timeout                     event: the choice timer ran out (fills defaults)
 ##   node_leave                       done with this node; it closes once every present player has left
 ##   node_timeout is the host's (the view's timer ran out); everything else is any present player's.
-##   depot:     node_buy {index, soldier?, slot?}  node_sell {soldier, slot}  node_reroll
+##   depot:     node_buy {index, soldier?, slot?}  node_sell {soldier, slot} or {stash: index}  node_reroll
 ##   hospital:  node_treat {soldier, treatment}
 ##   survivors: node_claim
 

@@ -174,6 +174,9 @@ static func validate(run, ns: Dictionary, action: Dictionary) -> String:
 				return "Not enough Supplies"
 			return ""
 		"node_sell":
+			if action.has("stash"):
+				var i: int = action.stash
+				return "" if i >= 0 and i < Loadout.stash(run).size() else "nothing there"
 			var rec = _own(run, player, action.get("soldier", -1))
 			if rec == null:
 				return "pick one of your soldiers"
@@ -218,6 +221,11 @@ static func apply(run, ns: Dictionary, action: Dictionary) -> void:
 			RunAccess.emit(run, {"type": "depot_bought", "player": player, "item": entry.id, "price": cost,
 				"soldier": rec.id if rec != null else -1})
 		"node_sell":
+			if action.has("stash"):
+				var spare: Dictionary = Loadout.stash(run).pop_at(action.stash)
+				RunAccess.add_supplies(run, sell_price(spare.id))
+				RunAccess.emit(run, {"type": "depot_sold", "player": player, "item": spare.id, "soldier": -1})
+				return
 			var rec = RunAccess.soldier(run, action.soldier)
 			var id: String = Loadout.item_at(rec, action.slot).id
 			Loadout.of(rec).slots[action.slot] = null
