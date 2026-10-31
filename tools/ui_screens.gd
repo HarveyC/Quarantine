@@ -118,7 +118,7 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 				for i in 4:
 					await tree.process_frame
 				view._map.set_hover(run.reachable_nodes()[0])
-		"event", "depot", "depot_sell", "hospital", "survivors", "depot_grafts", "hospital_grafts":
+		"event", "depot", "depot_sell", "depot_armorer", "hospital", "survivors", "depot_grafts", "hospital_grafts":
 			var run := RunRules.new_run(players, 31)
 			GearRun.init_run(run)
 			RunRules.start_run(run)
@@ -136,7 +136,13 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 					RunAccess.add_random_mutation(run, r)
 				if i % 4 == 0:
 					Loadout.equip(run, r, GearData.items_with("", "uncommon", "body")[0])
-			var kind := "depot" if screen == "depot_sell" else screen.trim_suffix("_grafts")
+			var kind := "depot" if screen in ["depot_sell", "depot_armorer"] else screen.trim_suffix("_grafts")
+			if screen == "depot_armorer":
+				# Worst case for the Armorer's list: every soldier geared in every slot.
+				for r in run.squad():
+					for slot in ["head", "body", "offhand", "weapon", "ammo", "utility", "utility2"]:
+						var ids := GearData.items_with("", "", slot.trim_suffix("2"))
+						Loadout.equip(run, r, ids[run.squad().find(r) % ids.size()] if slot != "utility2" else ids[(run.squad().find(r) + 1) % ids.size()])
 			if screen == "depot_sell":
 				Loadout.stash_add(run, GearData.items_with("", "uncommon", "utility")[0])
 			if screen != kind and screen.ends_with("_grafts"):   # Act 2, Rank 3: Refit and Amputate on offer
@@ -144,8 +150,12 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 				GearDemo._graft_squad(run.squad())
 				run.squad()[0].prog.grafts["arm"] = "bloom_limb"
 			NodeRules.enter(run, kind, "the_trial" if screen == "event" else "")
+			if screen == "depot_armorer":
+				run.node_state.stock[7].id = "armorer"
 			var scr: Control = NodeRules.screen(kind).new()
 			_full_screen(root, scr, run)
+			if screen == "depot_armorer":
+				scr._select(7)
 			if screen == "depot_sell":
 				scr._set_tab("sell")
 		"reward", "loadout", "loadout_veteran", "doctrine", "kit", "reward_grafts", "loadout_grafts":

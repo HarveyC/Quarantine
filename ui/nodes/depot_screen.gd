@@ -23,8 +23,12 @@ func _build(into: VBoxContainer) -> void:
 	tabs.add_theme_constant_override("margin_top", 10)
 	tabs.add_child(_tabs())
 	main.add_child(tabs)
+	if _tab == "upgrade" and _armorer() < 0:
+		_tab = "buy"
 	if _tab == "sell":
 		main.add_child(_sell_list())
+	elif _tab == "upgrade":
+		main.add_child(_upgrade_list())
 	else:
 		var row := NodeUi.hbox(20)
 		var grid := GridContainer.new()
@@ -46,7 +50,10 @@ func _build(into: VBoxContainer) -> void:
 
 func _tabs() -> Control:
 	var row := NodeUi.hbox(12)
-	for t in [["buy", "Buy", "buy"], ["sell", "Sell back", "sell"]]:
+	var tabs := [["buy", "Buy", "buy"], ["sell", "Sell back", "sell"]]
+	if _armorer() >= 0:
+		tabs.insert(1, ["upgrade", "Upgrade", "rank"])
+	for t in tabs:
 		var b := NodeUi.button(t[1], true, _tab == t[0], "", t[2])
 		b.pressed.connect(_set_tab.bind(t[0]))
 		row.add_child(b)
@@ -67,7 +74,64 @@ func _set_tab(t: String) -> void:
 
 func _select(i: int) -> void:
 	_sel = i
+	# The Armorer has a list of its own, as wide as the Sell back one.
+	if i == _armorer():
+		_tab = "upgrade"
 	rebuild()
+
+
+## Index of the unsold Armorer in the stock, or -1.
+func _armorer() -> int:
+	for i in ns().stock.size():
+		var e: Dictionary = ns().stock[i]
+		if e.type == "service" and e.id == "armorer" and not e.sold:
+			return i
+	return -1
+
+
+## Every equipped item that can still go to Mk II, with the soldier carrying it.
+func _upgrade_list() -> Control:
+	var panel := NodeUi.panel(Color(0, 0, 0, 0), 20)
+	var v := NodeUi.vbox(12)
+	panel.add_child(v)
+	var head := NodeUi.hbox(10)
+	head.add_child(W.Icon.new("rank", NodeUi.AMBER, 24, 1.9))
+	head.add_child(NodeUi.title("Armorer", 20))
+	v.add_child(head)
+	v.add_child(NodeUi.effect_row("Upgrade an equipped item to Mk II.", 14))
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 20)
+	grid.add_theme_constant_override("v_separation", 6)
+	var i := _armorer()
+	for a in _buy_actions(i):
+		var rec = RunAccess.soldier(run, a.action.soldier)
+		var id: String = Loadout.item_at(rec, a.action.slot).id
+		var h := NodeUi.hbox(12)
+		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var ic := W.Icon.new(a.action.slot, NodeUi.AMBER, 24, 1.8)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(ic)
+		var names := NodeUi.vbox(0)
+		names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		names.custom_minimum_size.x = 120
+		names.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var nm := NodeUi.label(GearData.item_name(id), 16)
+		nm.clip_text = true
+		names.add_child(nm)
+		names.add_child(NodeUi.caption(rec.name, NodeUi.player_color(rec.owner), 11))
+		h.add_child(names)
+		var b := NodeUi.button("Mk II %d" % GearData.upgrade_price(id), a.ok, false, a.reason)
+		b.custom_minimum_size.y = 34
+		b.pressed.connect(submit.bind(a.action))
+		_hook(b, a.text, a.action)
+		_compare(b, ns().stock[i], a)
+		h.add_child(b)
+		grid.add_child(h)
+	if grid.get_child_count() == 0:
+		v.add_child(NodeUi.label("Nothing to upgrade", 14, NodeUi.FAINT))
+	v.add_child(grid)
+	return panel
 
 
 ## One shelf tile: icon, name, kind and price. Click to see it in the detail panel.
@@ -173,6 +237,7 @@ func _sell_list() -> Control:
 	for i in stash.size():
 		grid.add_child(_sell_row(stash[i].id, GearData.get_item(stash[i].id).slot, "Spare · Stash", NodeUi.FAINT,
 			{"type": "node_sell", "player": p0, "stash": i}))
+	grid.columns = 3 if grid.get_child_count() > 16 else 2
 	if grid.get_child_count() == 0:
 		v.add_child(NodeUi.label("Nothing to sell", 14, NodeUi.FAINT))
 	v.add_child(grid)
