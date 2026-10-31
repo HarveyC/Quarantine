@@ -74,7 +74,7 @@ const PERKS := {
 	"bleed_out": ["wound", "Melee hits make the target bleed", [["1", "per turn"], ["2", "turns"]]],
 	"harvest": ["health", "Melee kills heal you", [["+2", "HP"]]],
 	"long_stride": ["lunge", "A longer Lunge", [["6", "tiles"]]],
-	"riposte": ["attack", "Strike back at the first claw", [["1", "per enemy phase"]]],
+	"riposte": ["attack", "Strike back at the first melee attacker", [["1", "per enemy phase"]]],
 	"hamstring": ["wound", "Melee hits slow the target", [["-2", "enemy move"]]],
 	"red_mist": ["attack", "Never miss in melee at Critical", [["100%", "melee hit"]]],
 	"cleave": ["lunge", "Lunge hits everything around you", []],
