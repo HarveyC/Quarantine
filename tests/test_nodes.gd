@@ -372,6 +372,17 @@ func test_depot_armorer_reroll_sell_quartermaster() -> void:
 	assert_eq(Depot.reroll_price(run, ns), 30, "quartermaster -15%")
 
 
+func test_depot_sells_stash_spares() -> void:
+	var run := _run()
+	run.supplies = 10
+	NodeRules.enter(run, "depot")
+	Loadout.stash_add(run, "laser_sight")
+	assert_true(not _act(run, "node_sell", 0, {"stash": 5}), "no such spare")
+	assert_true(_act(run, "node_sell", 0, {"stash": 0}), "sell a spare")
+	assert_eq(run.supplies, 10 + Depot.sell_price("laser_sight"), "paid")
+	assert_eq(Loadout.stash(run).size(), 0, "left the stash")
+
+
 func test_depot_duplicate_upgrades_and_stash() -> void:
 	var run := _run()
 	var rec: Dictionary = run.get_soldier(1)
