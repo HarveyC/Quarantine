@@ -33,7 +33,7 @@ static func _progression_defaults(run: RunState) -> Array:
 		if RunHooks.call_static("Progression", "pending_picks", [r], 0) > 0:
 			var offer: Array = RunHooks.call_static("Progression", "perk_offer", [run, r], [])
 			if not offer.is_empty():
-				out.append({"type": "prog_perk_pick", "player": who, "sid": r.id, "perk": offer[0]})
+				out.append({"type": "prog_perk_pick", "player": who, "sid": r.id, "perk": offer[0], "replace": RunHooks.call_static("Progression", "default_replace", [r], "")})
 		var prog: Dictionary = r.get("prog", {})
 		if not prog.get("offers", []).is_empty():
 			out.append({"type": "prog_skip_offer", "player": who, "sid": r.id})

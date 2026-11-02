@@ -19,6 +19,9 @@ const MAX_RANK := 5
 const RANK_FIGHTS: Array[int] = [1, 3, 5, 7]
 const RARE_FROM_RANK := 4
 const OFFER_SIZE := 3
+## Class perks each take one of these slots. The four rank-up picks fill them exactly; any
+## extra pick (reward cards, Train) has to replace a perk the soldier already carries.
+const PERK_SLOTS := 4
 const INOCULATED_FIGHTS := 2
 ## Serum samples for one full cure (2 doses of 2 samples).
 const CURE_SAMPLES := 4
@@ -200,10 +203,23 @@ static func _draw(r: RandomNumberGenerator, pool: Array[String], n: int) -> Arra
 	return out
 
 
-static func take_perk(record: Dictionary, id: String) -> void:
+static func perk_slots_full(record: Dictionary) -> bool:
+	return (_prog(record).get("perks", []) as Array).size() >= PERK_SLOTS
+
+
+## The perk a bot gives up when its slots are full ("" while one is free).
+static func default_replace(record: Dictionary) -> String:
+	return str(_prog(record).perks[0]) if perk_slots_full(record) else ""
+
+
+## Takes perk `id`. With every slot full, `replace` names the owned perk it pushes out (that perk
+## goes back into the pool); it is ignored while a slot is free.
+static func take_perk(record: Dictionary, id: String, replace := "") -> void:
 	var p := _prog(record)
 	if not p.has("perks"):
 		p.perks = []
+	if replace != "" and (p.perks.size() >= PERK_SLOTS) and p.perks.has(replace):
+		p.perks.erase(replace)
 	p.perks.append(id)
 	p.picks_taken = int(p.get("picks_taken", 0)) + 1
 
@@ -341,7 +357,7 @@ static func mutation_card_for(id: String) -> Dictionary:
 ## One perk reward card (an extra pick from the class pool, no rank change), {} if none left.
 static func perk_card(rng: RandomNumberGenerator, record: Dictionary) -> Dictionary:
 	var pool := perk_pool(record)
-	if pool.is_empty():
+	if pool.is_empty() or perk_slots_full(record):
 		return {}
 	var id: String = pool[rng.randi() % pool.size()]
 	var p: Dictionary = PerkData.PERKS[id]
@@ -355,6 +371,8 @@ static func apply_card(record: Dictionary, card: Dictionary) -> String:
 		"perk":
 			if _prog(record).get("perks", []).has(card.id):
 				return "Already has that perk"
+			if perk_slots_full(record):
+				return "Perk slots are full"
 			take_perk(record, card.id)
 			return ""
 		"mutation":
@@ -475,7 +493,7 @@ static func _unlock(run: RunState, kind: String) -> void:
 # ---------------------------------------------------------------- run actions
 
 ## prog_perk_pick {sid, perk}, prog_graft {sid, mutation, partner?} (from a queued offer),
-## prog_skip_offer {sid}, prog_skip_pick {sid}, prog_serum {sid} (full cure for 4 of the player's Serum samples).
+## (with every perk slot full it also needs replace: an owned perk id), prog_skip_offer {sid}, prog_skip_pick {sid}, prog_serum {sid} (full cure for 4 of the player's Serum samples).
 static func validate(run: RunState, action: Dictionary) -> String:
 	var r := run.get_soldier(int(action.get("sid", -1)))
 	if r.is_empty() or r.get("status", "") != RunSoldier.ACTIVE:
@@ -491,6 +509,8 @@ static func validate(run: RunState, action: Dictionary) -> String:
 				return "No perk pick waiting"
 			if not perk_offer(run, r).has(str(action.get("perk", ""))):
 				return "Not on offer"
+			if perk_slots_full(r) and not (p.get("perks", []) as Array).has(str(action.get("replace", ""))):
+				return "Perk slots are full: pick a perk to replace"
 		"prog_skip_pick":
 			if pending_picks(r) <= 0:
 				return "No perk pick waiting"
@@ -526,7 +546,7 @@ static func apply(run: RunState, action: Dictionary) -> void:
 		"prog_perk_pick":
 			if Signatures.intro_for(r) != "":
 				p.sig_seen = true
-			take_perk(r, action.perk)
+			take_perk(r, action.perk, str(action.get("replace", "")))
 			if int(p.get("picks", 0)) > 0:
 				p.picks = int(p.picks) - 1
 			else:
@@ -566,7 +586,8 @@ static func autoplay_actions(run: RunState) -> Array:
 		if pending_picks(r) > 0:
 			var offer := perk_offer(run, r)
 			if not offer.is_empty():
-				out.append({"type": "prog_perk_pick", "player": player, "sid": r.id, "perk": offer[0]})
+				out.append({"type": "prog_perk_pick", "player": player, "sid": r.id, "perk": offer[0],
+					"replace": default_replace(r)})
 		elif not _prog(r).get("offers", []).is_empty():
 			out.append({"type": "prog_skip_offer", "player": player, "sid": r.id})
 	return out
