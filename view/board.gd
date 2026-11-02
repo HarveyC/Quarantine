@@ -264,9 +264,21 @@ func _build_links() -> void:
 	_link_layer = _layer("LinkHint")
 
 
-## Ziplines and hatches glow on top of the fog pass, so hide a link unless the squad can see one of its
+var _fog := PackedByteArray()   # last Vision.fog_grid picture (empty: everything counts as seen)
+
+
+func _cell_in_sight(c: Vector2i) -> bool:
+	var k := c.y * grid.width + c.x
+	return _fog.is_empty() or (k < _fog.size() and _fog[k] == Vision.VISIBLE)
+
+
+## Ziplines, hatches and hazards (live rails, fire, spores) glow on top of the fog pass, so hide a link unless the squad can see one of its
 ## ends right now. `cells` is a Vision.fog_grid picture.
 func apply_fog(cells: PackedByteArray) -> void:
+	_fog = cells
+	for c in _hazard_nodes:
+		_hazard_nodes[c].visible = _cell_in_sight(c)
+	_outline_hazards()
 	for i in _link_nodes.size():
 		var l: Dictionary = grid.links[i]
 		var seen := false
@@ -653,6 +665,7 @@ func set_hazard(cells: Array, kind: String) -> void:
 		_hazard_layer.add_child(n)
 		_hazard_nodes[c] = n
 		_hazard_kinds[c] = kind
+		n.visible = _cell_in_sight(c)
 		if kind == "smoke":
 			_add_smoke(n, c, color)
 			continue
@@ -755,7 +768,7 @@ func _outline_hazards() -> void:
 	var by_kind := {}
 	for c in _hazard_kinds:
 		var k: String = _hazard_kinds[c]
-		if k == "smoke":
+		if k == "smoke" or not _cell_in_sight(c):
 			continue
 		if not by_kind.has(k):
 			by_kind[k] = {}

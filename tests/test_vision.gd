@@ -277,6 +277,11 @@ func test_ziplines_hide_while_both_ends_are_out_of_sight() -> void:
 	cells[1 * s.grid.width + 2] = Vision.VISIBLE
 	v.board.apply_fog(cells)
 	assert_true(v.board.get_node("Links/Link0").visible, "shown once an end is in sight")
+	v.board.set_hazard([Vector2i(5, 1)], "live")
+	assert_true(not v.board._hazard_nodes[Vector2i(5, 1)].visible, "a live rail out of sight is hidden")
+	cells[1 * s.grid.width + 5] = Vision.VISIBLE
+	v.board.apply_fog(cells)
+	assert_true(v.board._hazard_nodes[Vector2i(5, 1)].visible, "and shown when in sight")
 	v.free()
 
 
