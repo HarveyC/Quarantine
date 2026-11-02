@@ -198,7 +198,7 @@ func test_a_grenadier_lobs_a_frag_over_a_wall_and_leaves_cover_standing() -> voi
 	var hp := sol.hp
 	s.turn += 1
 	Encounter._resolve_telegraphs(s)
-	assert_eq(sol.hp, hp - EnemyRoster.FRAG_DAMAGE, "it goes off for 3")
+	assert_eq(sol.hp, hp - EnemyRoster.FRAG_DAMAGE, "it goes off for 4")
 	assert_eq(s.grid.tile(Vector2i(6, 5)), Types.Tile.LOW, "the cover is still there")
 
 
