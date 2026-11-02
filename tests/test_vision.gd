@@ -263,6 +263,28 @@ func test_view_hides_unseen_enemies_and_draws_fog() -> void:
 	v.free()
 
 
+func test_ziplines_hide_while_both_ends_are_out_of_sight() -> void:
+	var s := make_blank(_room(20, 3))
+	s.grid.add_link(Vector2i(2, 1), Vector2i(17, 1), 1, "zip", false)
+	var v: MissionView = MAIN.instantiate()
+	v.start(s)
+	v.player.flush()
+	var cells := PackedByteArray()
+	cells.resize(s.grid.width * s.grid.height)
+	cells.fill(Vision.EXPLORED)
+	v.board.apply_fog(cells)
+	assert_true(not v.board.get_node("Links/Link0").visible, "hidden when neither end is in sight")
+	cells[1 * s.grid.width + 2] = Vision.VISIBLE
+	v.board.apply_fog(cells)
+	assert_true(v.board.get_node("Links/Link0").visible, "shown once an end is in sight")
+	v.board.set_hazard([Vector2i(5, 1)], "live")
+	assert_true(not v.board._hazard_nodes[Vector2i(5, 1)].visible, "a live rail out of sight is hidden")
+	cells[1 * s.grid.width + 5] = Vision.VISIBLE
+	v.board.apply_fog(cells)
+	assert_true(v.board._hazard_nodes[Vector2i(5, 1)].visible, "and shown when in sight")
+	v.free()
+
+
 func test_raised_tiles_block_ground_sight() -> void:
 	var s := make_blank(_room(12, 3))
 	for y in 3:
