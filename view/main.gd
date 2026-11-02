@@ -352,6 +352,7 @@ func _on_state_event(ev: Dictionary) -> void:
 func show_vision(ev: Dictionary, instant := false) -> void:
 	if ev.has("_fog"):
 		fog.show_fog(ev._fog, instant)
+		board.apply_fog(ev._fog)
 	if not ev.has("_unseen"):
 		return
 	var unseen: Array = ev._unseen

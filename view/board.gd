@@ -188,6 +188,7 @@ func _build_water() -> void:
 const LINK_COLORS: Array[Color] = [Color("ffb938"), Color("b48cff"), Color("8be28b"), Color("ff8fa3")]
 var _link_ends := {}        # cell -> index into grid.links
 var _link_layer: Node3D     # hover hint: the line to the other end
+var _link_nodes: Array[Node3D] = []   # one group per link, hidden while both ends are out of sight
 
 
 static func link_color(i: int) -> Color:
@@ -206,13 +207,18 @@ func _strip(a: Vector3, b: Vector3, width: float, material: Material) -> MeshIns
 ## tunnel's two hatches share a colour; the hover card names them.
 func _build_links() -> void:
 	_link_ends.clear()
+	_link_nodes.clear()
 	if grid.links.is_empty():
 		return
-	var layer := _layer("Links")
+	var root := _layer("Links")
 	var steel := Palette.mat(Color("8c97a0"), 0.5)
 	var dark := Palette.overlay(Color(0.02, 0.02, 0.03, 0.92))
 	for i in grid.links.size():
 		var l: Dictionary = grid.links[i]
+		var layer := Node3D.new()
+		layer.name = "Link%d" % i
+		root.add_child(layer)
+		_link_nodes.append(layer)
 		var col := link_color(i)
 		var glow := Palette.emissive(col, 1.0)
 		var mark := Palette.overlay(Color(col, 0.5))
@@ -256,6 +262,19 @@ func _build_links() -> void:
 					bar.position = base + side + Vector3(0, 0.05, 0)
 					layer.add_child(bar)
 	_link_layer = _layer("LinkHint")
+
+
+## Ziplines and hatches glow on top of the fog pass, so hide a link unless the squad can see one of its
+## ends right now. `cells` is a Vision.fog_grid picture.
+func apply_fog(cells: PackedByteArray) -> void:
+	for i in _link_nodes.size():
+		var l: Dictionary = grid.links[i]
+		var seen := false
+		for c in [l.a, l.b]:
+			var k: int = c.y * grid.width + c.x
+			if k < cells.size() and cells[k] == Vision.VISIBLE:
+				seen = true
+		_link_nodes[i].visible = seen
 
 
 ## The link whose end is `c`, as an index into Grid.links (-1 for none).
