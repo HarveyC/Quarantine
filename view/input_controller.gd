@@ -516,6 +516,8 @@ func actions() -> Array[Dictionary]:
 	var u := selected_unit()
 	if u == null:
 		return out
+	if Objectives.is_civilian(u):
+		return out   # a civilian only ever moves (Rules.validate enforces it): click a tile, no action buttons
 	if u.status.has("pinned_by"):
 		# Pinned: the only thing left to do is fight the Lurker off.
 		var why := Encounter.validate_struggle(view.state, u)
@@ -882,6 +884,8 @@ func open_quick_menu() -> void:
 			return
 	var parent := view.hud.get_parent() if view.hud != null else null
 	if parent == null:
+		return
+	if actions().is_empty():
 		return
 	var menu := QuickMenu.new()
 	menu.setup(u.display_name if u.display_name != "" else u.kind.capitalize(), actions())
