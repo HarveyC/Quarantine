@@ -89,7 +89,7 @@ func test_demo_charge_blows_a_doorway() -> void:
 	assert_eq(s.grid.edge(Vector2i(5, 2), Vector2i(-1, 0)), Grid.EDGE_NONE, "doorway through the wall")
 	assert_eq(s.grid.edge(Vector2i(5, 1), Vector2i(-1, 0)), Grid.EDGE_WALL, "walls beside it only crack")
 	assert_eq(int(s.grid.edge_wear.get(Grid.edge_key(Vector2i(5, 1), Vector2i(-1, 0)), 0)), 1, "cracked")
-	assert_eq(foe.hp, maxi(0, hp - 3), "3 damage beyond the wall")
+	assert_eq(foe.hp, maxi(0, hp - Destruction.DEMO.damage), "demo damage beyond the wall")
 	assert_eq(b.hp, bhp, "the Breacher is not hurt by their own charge")
 	assert_eq(_events(s, "explosion")[0].kind, "demo", "explosion event")
 	assert_true(Combat.can_see(s, Vector2i(3, 2), Vector2i(8, 2)), "sight through the new doorway")
@@ -117,8 +117,8 @@ func test_shoot_a_barrel_chains_and_burns() -> void:
 	assert_true(shot.size() == 1 and shot[0].hit, "one barrel shot, a hit")
 	assert_true(not s.grid.is_volatile(Vector2i(8, 1)) and not s.grid.is_volatile(Vector2i(9, 1)), "both barrels went")
 	assert_eq(_events(s, "explosion").size(), 2, "the second one chained")
-	assert_eq(near.hp, 17, "hit by the first blast only")
-	assert_eq(far.hp, 17, "hit by the chained blast")
+	assert_eq(near.hp, 20 - Destruction.BARREL.damage, "hit by the first blast only")
+	assert_eq(far.hp, 20 - Destruction.BARREL.damage, "hit by the chained blast")
 	assert_true(s.grid.is_volatile(Vector2i(8, 4)), "the lone barrel two rows down survives (fire doesn't reach it)")
 	assert_eq(Hazards.at(s, Vector2i(9, 2)).get("kind", ""), "fire", "burning")
 	assert_true(s.grid.is_walkable(Vector2i(8, 1)), "barrel cell is floor now")
@@ -213,6 +213,8 @@ func test_roof_collapses_into_a_ramp_and_drops_its_occupant() -> void:
 func test_frag_on_a_scaffold_still_drops_it() -> void:
 	var s := make_blank(PackedStringArray(["......", ".~~...", "......"]))
 	var foe := _add(s, "runner", Types.Team.ENEMY, Vector2i(1, 1))
+	foe.max_hp = 30
+	foe.hp = 30
 	Destruction.explode(s, Vector2i(1, 2), Destruction.FRAG, null, "frag")
 	assert_eq(s.grid.level(Vector2i(2, 1)), 0, "scaffold down in one hit")
 	assert_eq(s.grid.rubble.get(Vector2i(2, 1)), "scaffold", "scaffold debris")

@@ -59,7 +59,7 @@ const AFFIX_INFO := {
 	"virulent": {"name": "Virulent", "desc": "Its hits add +25 Infection instead of +10.", "counter": "Needs Guard or Purge for the Infection."},
 	"hasted": {"name": "Hasted", "desc": "Takes 3 actions a turn.", "counter": "Needs Suppress or Overwatch to slow it."},
 	"tethered": {"name": "Tethered", "desc": "Immune to damage while the Hive node lives.", "counter": "Needs Close range, or a Breach on the node."},
-	"volatile": {"name": "Volatile", "desc": "Explodes on death: 2 damage in a 3x3 to everyone and it cracks cover.", "counter": "Kill it from range, or Guard the soldier beside it."},
+	"volatile": {"name": "Volatile", "desc": "Explodes on death: 3 damage in a 3x3 to everyone and it cracks cover.", "counter": "Kill it from range, or Guard the soldier beside it."},
 	"rallying": {"name": "Rallying", "desc": "Infected within 3 tiles hit for +1 damage.", "counter": "Needs a Mark and focus fire, or Suppress."},
 }
 ## Ground rules for the kinds added in the 2026-10-25 enemy sprint.
@@ -68,7 +68,7 @@ const HOOK_MIN := 3
 const HOOK_PULL := 3
 const HOOK_DAMAGE := 2
 const SATCHEL_RANGE := 5
-const SATCHEL_DAMAGE := 3
+const SATCHEL_DAMAGE := 4
 const PLATE_REDUCTION := 3
 const STALK_BONUS_MOVE := 3
 const STALK_BONUS_DAMAGE := 2
@@ -77,9 +77,9 @@ const MEND_RANGE := 6
 const MEND_HEAL := 3
 const RALLY_RADIUS := 3
 const RALLY_DAMAGE := 1
-const VOLATILE_BLAST := {"radius": 1, "centre": 1, "ring": 1, "damage": 2}
+const VOLATILE_BLAST := {"radius": 1, "centre": 1, "ring": 1, "damage": 3}
 ## Scavengers (enemies/scavengers.gd).
-const FIREBOMB_DAMAGE := 2
+const FIREBOMB_DAMAGE := 3
 const FIREBOMB_FIRE_TURNS := 2
 const TANK_FIRE_TURNS := 2
 const FENCE_LEAVES_TURN := 6
@@ -95,7 +95,7 @@ const CROSSFIRE_DAMAGE := 3
 const CROSSFIRE_CONE := 0.8   # dot product with the facing: about 37 degrees either side
 const ORDER_RANGE := 9
 const FRAG_RANGE := 8
-const FRAG_DAMAGE := 3
+const FRAG_DAMAGE := 4
 const REVIVE_ROUNDS := 2
 ## Automata (enemies/automata.gd).
 const RELAY_RANGE := 8

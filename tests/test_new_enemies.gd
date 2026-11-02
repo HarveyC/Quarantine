@@ -298,7 +298,7 @@ func test_volatile_elite_blows_up_on_death() -> void:
 	var v := _enemy(s, "runner+volatile", Vector2i(5, 2))
 	var friend := _enemy(s, "runner", Vector2i(6, 2))
 	Rules.deal_damage(s, v, 99, a)
-	assert_eq(a.hp, a.max_hp - EnemyRoster.VOLATILE_BLAST.damage, "2 damage to a soldier beside it")
+	assert_eq(a.hp, a.max_hp - EnemyRoster.VOLATILE_BLAST.damage, "3 damage to a soldier beside it")
 	assert_eq(friend.hp, friend.max_hp - EnemyRoster.VOLATILE_BLAST.damage, "and to its friends")
 	assert_eq(_events(s, "explosion").filter(func(e): return e.kind == "volatile").size(), 1, "an explosion event")
 
