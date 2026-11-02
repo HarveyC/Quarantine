@@ -79,6 +79,12 @@ func _card(rec: Dictionary) -> Control:
 		v.add_child(d)
 		return card
 	if not rec.owner in local_players():
+		# Cards share a row height, so pin the waiting line to the card bottom: it then sits at
+		# the same height on every card instead of following each card's own content.
+		var gap := Control.new()
+		gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(gap)
 		var w := NodeUi.hbox(8)
 		w.add_child(W.Icon.new("waiting", pcol, 18, 1.8))
 		w.add_child(NodeUi.caption("%s is deciding" % NodeUi.player_name(session, rec.owner), pcol, 14))
