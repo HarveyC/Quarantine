@@ -190,7 +190,7 @@ func test_gadget_and_pocket_abilities_through_rules() -> void:
 	u.actions_left = 1
 	var ehp := e.hp
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:frag_grenade", "cell": e.pos}), "frag")
-	assert_eq(e.hp, maxi(0, ehp - 3), "frag damage")
+	assert_eq(e.hp, maxi(0, ehp - Destruction.FRAG.damage), "frag damage")
 
 
 func test_full_shot_runs_through_hooks() -> void:
