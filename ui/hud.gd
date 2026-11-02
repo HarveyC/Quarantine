@@ -506,7 +506,11 @@ func show_tooltip(uv: UnitView) -> void:
 
 
 ## What the unit's statuses mean: a "Shift more" hint, or with Shift held one short row each.
+## An enemy leads with what it does, then its armour and other traits, elite affixes and statuses.
 func _unit_terms(box: VBoxContainer, uv: UnitView, u: Unit, sel: Unit) -> void:
+	var rows: Array = []
+	if not uv.is_soldier:
+		_enemy_rows(rows, uv, u)
 	var keys: Array[String] = []
 	if uv.turned:
 		keys.append("turning")
@@ -531,35 +535,80 @@ func _unit_terms(box: VBoxContainer, uv: UnitView, u: Unit, sel: Unit) -> void:
 			keys.append("restrained")
 		if sel != null and sel.id != u.id and sel.is_enemy_of(u) and Combat.shot_targets(view.state, sel).has(u):
 			keys.append("flank" if Combat.hit_chance(view.state, sel, u).get("flanked", false) else "cover")
-	if keys.is_empty():
+	for k in keys:
+		var e := Glossary.entry(k)
+		var stats: Array = e.get("stats", [])
+		rows.append({"icon": str(e.icon), "name": str(e.name), "col": Glossary.tone(k),
+			"value": str(stats[0][0]) if not stats.is_empty() else "",
+			"label": Glossary.plain(str(stats[0][1])) if not stats.is_empty() else "",
+			"line": Glossary.plain(str(e.line))})
+	if rows.is_empty():
 		return
 	if not Tips.expanded():
 		var hint := Styles.hbox(6)
 		hint.add_child(Styles.spacer())
 		hint.add_child(W.keycap("Shift", 10))
-		hint.add_child(Styles.caps("what this means", 10, Styles.MUTED, false))
+		hint.add_child(Styles.caps("what this does" if not uv.is_soldier else "what this means", 10, Styles.MUTED, false))
 		box.add_child(hint)
 		return
-	for k in keys:
-		var e := Glossary.entry(k)
-		var col := Glossary.tone(k)
+	for r in rows:
 		var sep := ColorRect.new()
 		sep.color = Styles.BORDER_SOFT
 		sep.custom_minimum_size = Vector2(0, 1)
 		box.add_child(sep)
 		var head := Styles.hbox(6)
-		head.add_child(W.Icon.new(str(e.icon), col, 14, 1.6))
-		head.add_child(Styles.caps(str(e.name), 12, col))
+		head.add_child(W.Icon.new(str(r.icon), r.col, 14, 1.6))
+		head.add_child(Styles.caps(str(r.name), 12, r.col))
 		head.add_child(Styles.spacer())
-		var stats: Array = e.get("stats", [])
-		if not stats.is_empty():
-			head.add_child(Styles.mono(str(stats[0][0]), 11, Styles.TEXT))
-			head.add_child(Styles.caps(Glossary.plain(str(stats[0][1])), 9, Styles.MUTED, false))
+		if str(r.value) != "":
+			head.add_child(Styles.mono(str(r.value), 11, Styles.TEXT))
+			head.add_child(Styles.caps(str(r.label), 9, Styles.MUTED, false))
 		box.add_child(head)
-		var line := Styles.label(Glossary.plain(str(e.line)), 12, Styles.DIM)
+		var line := Styles.label(str(r.line), 12, Styles.DIM)
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		line.custom_minimum_size = Vector2(230, 0)
 		box.add_child(line)
+
+
+## The Shift rows for an enemy: its card, then armour, plate, shield, flight, elite affixes.
+func _enemy_rows(rows: Array, uv: UnitView, u: Unit) -> void:
+	var col := Styles.DANGER
+	var base_kind: String = uv.kind
+	var card := Glossary.entry("enemy_" + base_kind)
+	if not card.is_empty():
+		var st: Array = card.get("stats", [])
+		rows.append({"icon": "enemy", "name": "What it does", "col": col,
+			"value": str(st[1][0]) if st.size() > 1 else "", "label": str(st[1][1]) if st.size() > 1 else "",
+			"line": Glossary.plain(str(card.line))})
+	if u == null:
+		return
+	var armour := int(u.status.get("armour", 0))
+	if EnemyRoster.has_affix(u, "armoured"):
+		armour = maxi(armour, EnemyRoster.ARMOURED_REDUCTION)
+	if armour > 0:
+		rows.append({"icon": "enemy", "name": "Armour", "col": col, "value": "-%d" % armour, "label": "per hit",
+			"line": Glossary.plain(str(Glossary.entry("armour").line))})
+	if u.status.get("shield", false):
+		rows.append(_trait_row("riot_shield", col))
+	elif u.status.get("plate", false):
+		rows.append(_trait_row("plate", col))
+	if EnemyRoster.is_flying(u):
+		rows.append(_trait_row("flying", col))
+	if EnemyRoster.is_static(u):
+		rows.append(_trait_row("immobile", col))
+	for a in u.status.get("affixes", []):
+		var info: Dictionary = EnemyRoster.AFFIX_INFO.get(str(a), {})
+		if not info.is_empty() and str(a) != "armoured":
+			rows.append({"icon": "enemy", "name": str(info.name), "col": col, "value": "", "label": "", "line": str(info.desc)})
+
+
+func _trait_row(key: String, col: Color) -> Dictionary:
+	var e := Glossary.entry(key)
+	var stats: Array = e.get("stats", [])
+	return {"icon": "enemy", "name": str(e.name), "col": col,
+		"value": str(stats[0][0]) if not stats.is_empty() else "",
+		"label": Glossary.plain(str(stats[0][1])) if not stats.is_empty() else "",
+		"line": Glossary.plain(str(e.line))}
 
 
 func _on_tips_expanded(_on: bool) -> void:

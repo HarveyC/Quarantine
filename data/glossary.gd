@@ -974,6 +974,7 @@ static func _build() -> Dictionary:
 			"art": "intel" if type == RunMap.UNKNOWN else "", "stats": n[4], "see": ["outbreak"], "scan": false}
 	_add_enemy_terms(t)
 	_add_director_terms(t)
+	_add_core_enemy_cards(t)
 	_add_rules_terms(t)
 	return t
 
@@ -1256,6 +1257,52 @@ static func _add_enemy_terms(t: Dictionary) -> void:
 			"line": cards[kind][0], "art": "",
 			"stats": [["%d" % int(st.max_hp), "HP"], ["%d-%d" % [int(st.damage[0]), int(st.damage[1])] if int(st.damage[1]) > 0 else "0", "damage"]],
 			"more": [], "see": cards[kind][1]}
+
+
+## Cards for the Infected, the nest props and the bosses, so every enemy kind explains itself on
+## its nameplate and in the Shift view of the unit tooltip (ui/hud.gd).
+static func _add_core_enemy_cards(t: Dictionary) -> void:
+	t["armour"] = {"name": "Armour", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "Every hit does this much less damage, down to 1.",
+		"art": "", "stats": [["-N", "damage per hit"], ["1", "least per hit"]],
+		"more": ["Armoured elites take %d less." % EnemyRoster.ARMOURED_REDUCTION], "labels": ["Armoured"]}
+	t["flying"] = {"name": "Flying", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "Moves over walls and gaps.", "art": "", "stats": [], "more": [], "labels": ["Flyer"]}
+	t["immobile"] = {"name": "Immobile", "kind": "enemy trait", "icon": "enemy", "tone": "danger", "scan": false,
+		"line": "Never moves.", "art": "", "stats": [], "more": [], "labels": ["Static"]}
+	var cards := {
+		"runner": "Fast melee Infected that rushes the nearest soldier.",
+		"spitter": "Spits at range.",
+		"fallen": "A turned soldier with a rifle. Damage only.",
+		"bloater": "Bursts when it dies or reaches a soldier: %d damage and extra {infection} in a 3x3." % EnemyAbilities.BURST_DAMAGE,
+		"brute": "Charges in a line, slams, and smashes {cover}.",
+		"lurker": "Hidden until it strikes. Pounces on a soldier and pins them until a teammate hits it.",
+		"shrieker": "Its scream wakes enemies within %d tiles and spurs them on." % int(EnemyAbilities.SCREAM_RADIUS),
+		"leaper": "Leaps at soldiers on {high_ground}, lands in a 3x3 and knocks them back.",
+		"drifter": "Flies over walls and drops spores.",
+		"sharpshooter": "Locks on, then fires a shot that never misses. Damage only.",
+		"burrower": "Tunnels under the map and erupts in a 3x3 for %d damage." % EnemyAbilities.ERUPT_DAMAGE,
+		"broodling": "Small spawn of the Brood Mother. Bursts for %d damage." % EnemyAbilities.BROODLING_BURST_DAMAGE,
+		"hive_node": "Spawns Runners until it is destroyed. Tethered elites cannot be hurt while it lives.",
+		"egg_sac": "The Brood Mother lays these. She takes no damage while one stands, and each spawns Runners.",
+		"spore_nest": "Spawns Runners until it is destroyed.",
+		"source_root": "The Source takes no damage while a root stands.",
+		"coolant_valve": "The Bore Engine takes no damage while a valve stands.",
+		"brood_mother": "Takes no damage while an egg sac stands. Burrows, erupts, and rains acid on the squad.",
+		"breaker": "Plated front. Charges through walls and drops debris on soldiers. Damage only.",
+		"colonel_hale": "Fights from high ground with air strikes, flashbangs and smoke, and calls in reinforcements.",
+		"choir_prophet": "Compels the most Infected soldier and sings a {hymn_ring} that builds to a {crescendo}.",
+		"bore_engine": "Takes no damage while a valve stands. Pistons strike marked lanes and it bites soldiers beside it.",
+		"the_source": "Roots guard its core. Lashes at range, pulls soldiers in and raises Echoes.",
+	}
+	for kind in cards:
+		var st: Dictionary = UnitData.ENEMIES[kind]
+		var dmg: Array = st.damage
+		var stats: Array = [["%d" % int(st.max_hp), "HP"]]
+		if int(dmg[1]) > 0:
+			stats.append(["%d-%d" % [int(dmg[0]), int(dmg[1])], "damage"])
+		t["enemy_" + kind] = {"name": st.name, "kind": "enemy", "icon": "enemy", "tone": "danger",
+			"line": cards[kind], "art": "", "stats": stats, "more": [], "see": []}
 
 
 ## Cards for the Act 2 boss Halden-Voss Recovery: the Director, its Collectors and the retrieval mechanics.
