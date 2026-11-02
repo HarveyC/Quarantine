@@ -812,8 +812,8 @@ static func _build() -> Dictionary:
 	t["perk"] = {"name": "Perk", "kind": "progress", "icon": "perk", "tone": "amber",
 		"line": "A class skill picked at each {rank}.",
 		"art": "",
-		"stats": [["4", "per soldier"]],
-		"more": ["Some perks also count toward {gear_tag|tags}."],
+		"stats": [["%d" % Progression.PERK_SLOTS, "perk slots"]],
+		"more": ["Each perk fills one slot. With every slot full, a new perk replaces one you carry.", "Some perks also count toward {gear_tag|tags}."],
 		"see": ["rank", "set_bonus"],
 		"aliases": ["Perks"], "labels": ["Doctrine"]}
 	t["reserve"] = {"name": "Reserve", "kind": "squad", "icon": "recruit", "tone": "hp",

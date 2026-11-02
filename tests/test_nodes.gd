@@ -407,7 +407,7 @@ func test_hospital_treatments() -> void:
 	assert_eq(run.outbreak, 0, "train is free of Outbreak")
 	assert_eq(_events(run, "perk_pick_granted").size(), 1, "perk pick")
 	assert_eq(Progression.pending_picks(run.get_soldier(2)), 1, "the pick waits for the hospital screen to open it")
-	var pick := {"type": "prog_perk_pick", "player": 0, "sid": 2, "perk": Progression.perk_offer(run, run.get_soldier(2))[0]}
+	var pick := {"type": "prog_perk_pick", "player": 0, "sid": 2, "perk": Progression.perk_offer(run, run.get_soldier(2))[0], "replace": Progression.default_replace(run.get_soldier(2))}
 	assert_eq(Progression.validate(run, pick), "", "pick is legal inside the hospital")
 	Progression.apply(run, pick)
 	assert_eq(Progression.pending_picks(run.get_soldier(2)), 0, "pick spent")
@@ -436,25 +436,24 @@ func test_hospital_purge_costs_supplies() -> void:
 	assert_eq(run.outbreak, 1, "+1 Outbreak")
 
 
-## Training again and again drains the class's perk pool; Train is then refused, no pick is left
-## waiting without cards, and a stray bonus pick pays Supplies, so a run can never softlock.
+## Training again and again never leaves a pick waiting without cards: once the perk slots are
+## full each pick swaps a perk (so Train stays available), and with the whole class pool owned
+## Train is refused and a stray bonus pick pays Supplies, so a run can never softlock.
 func test_training_never_outruns_the_perk_pool() -> void:
 	var run := _run()
 	var rec := run.get_soldier(1)
-	var pool := Progression.perk_pool(rec).size()
-	var trained := 0
-	for i in pool + 3:
+	var rounds := Progression.PERK_SLOTS + 2
+	for i in rounds:
 		NodeRules.enter(run, "hospital")
-		if not _act(run, "node_treat", 0, {"soldier": 1, "treatment": "train"}):
-			break
-		trained += 1
+		assert_true(_act(run, "node_treat", 0, {"soldier": 1, "treatment": "train"}), "trained")
 		assert_eq(Progression.pending_picks(rec), 1, "one pick waits with cards")
-		var pick := {"type": "prog_perk_pick", "player": 0, "sid": 1, "perk": Progression.perk_offer(run, rec)[0]}
+		var pick := {"type": "prog_perk_pick", "player": 0, "sid": 1, "perk": Progression.perk_offer(run, rec)[0], "replace": Progression.default_replace(rec)}
 		assert_eq(Progression.validate(run, pick), "", "pick is legal")
 		Progression.apply(run, pick)
-	assert_eq(trained, pool, "trained once per perk, then refused")
+	assert_eq(rec.prog.perks.size(), Progression.PERK_SLOTS, "slots cap the perks")
 	assert_eq(Progression.pending_picks(rec), 0, "nothing waiting")
 	assert_true(not Progression.has_pending(run), "reward phase is not held")
+	rec.prog.perks = Array(PerkData.pool(rec.kind))
 	NodeRules.enter(run, "hospital")
 	assert_true(FieldHospital.blocker(run, run.node_state, rec, "train") != "", "Train refused")
 	var before := run.supplies

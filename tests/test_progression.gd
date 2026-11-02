@@ -104,6 +104,25 @@ func test_perk_offer_rares_from_rank_4_and_run_pick() -> void:
 	assert_true(Progression.perk_offer(run, r) != offer or not Progression.perk_offer(run, r).has(offer[0]), "owned perk not offered again")
 
 
+func test_perk_slots_cap_and_replace() -> void:
+	var run := RunRules.new_run(1, 78)
+	RunRules.start_run(run)
+	var r: Dictionary = run.squad()[0]
+	r.prog.rank = 5
+	var pool := Progression.perk_pool(r)
+	for i in Progression.PERK_SLOTS:
+		Progression.take_perk(r, pool[i])
+	assert_true(Progression.perk_slots_full(r), "slots full")
+	Progression.grant_perk_pick(run, r)
+	var offer := Progression.perk_offer(run, r)
+	assert_true(not RunRules.apply(run, {"type": "prog_perk_pick", "player": 0, "sid": r.id, "perk": offer[0]}), "full needs a replace")
+	assert_true(not RunRules.apply(run, {"type": "prog_perk_pick", "player": 0, "sid": r.id, "perk": offer[0], "replace": "bogus"}), "replace must be owned")
+	assert_true(RunRules.apply(run, {"type": "prog_perk_pick", "player": 0, "sid": r.id, "perk": offer[0], "replace": pool[0]}), "replace")
+	assert_eq(r.prog.perks.size(), Progression.PERK_SLOTS, "still capped")
+	assert_true(r.prog.perks.has(offer[0]) and not r.prog.perks.has(pool[0]), "swapped")
+	assert_true(Progression.perk_card(RandomNumberGenerator.new(), r).is_empty(), "no perk reward card while full")
+
+
 func test_recruit_joins_one_rank_below() -> void:
 	var lost := Progression.new_record("medic")
 	lost.rank = 4

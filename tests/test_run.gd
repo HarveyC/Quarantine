@@ -139,7 +139,7 @@ func _take_rank_up_picks(run: RunState) -> void:
 		while Progression.pending_picks(r) > 0 and guard < 10:
 			guard += 1
 			var offer := Progression.perk_offer(run, r)
-			var act := {"type": "prog_perk_pick", "player": run.controller_of(r), "sid": r.id, "perk": offer[0] if offer.size() > 0 else ""}
+			var act := {"type": "prog_perk_pick", "player": run.controller_of(r), "sid": r.id, "perk": offer[0] if offer.size() > 0 else "", "replace": Progression.default_replace(r)}
 			var err := RunRules.validate(run, act)
 			assert_eq(err, "", "perk pick")
 			if err != "":

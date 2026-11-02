@@ -32,6 +32,8 @@ var _sel := -1
 ## Stat tiles of the soldier on screen, by stat key, for the hover preview.
 var _tiles := {}
 var _portrait: W.Portrait
+## A perk picked while every slot is full, waiting for the owned perk it replaces.
+var _replacing := ""
 
 
 func setup(p_run: RunState, p_session) -> void:
@@ -86,6 +88,8 @@ func rebuild() -> void:
 	for w in waiting:
 		if w[1].id == _sel:
 			cur = w
+	if cur[1].id != _sel:
+		_replacing = ""
 	_sel = cur[1].id
 	if waiting.size() > 1:
 		# The scroll box clips, so leave room above the strip for the lit tab's glow.
@@ -149,6 +153,7 @@ func _strip(waiting: Array) -> Control:
 		b.pressed.connect(func() -> void:
 			Feel.sound("pick")
 			_sel = sid
+			_replacing = ""
 			rebuild())
 		h.add_child(b)
 	return h
@@ -242,6 +247,14 @@ func _rank_row(r: Dictionary, picks: int) -> Control:
 		chips.add_child(W.chip("%d picks" % picks, Styles.AMBER, false, 14))
 	if chips.get_child_count() > 0:
 		v.add_child(chips)
+	var slots := Styles.hbox(8)
+	slots.add_child(Styles.caps("Perks", 14, Styles.DIM))
+	var sp := W.Pips.new(Vector2(22, 8))
+	sp.set_values(Progression.PERK_SLOTS, (r.prog.get("perks", []) as Array).size(), 0, Styles.AMBER)
+	sp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slots.add_child(sp)
+	Tips.term(slots, "perk")
+	v.add_child(slots)
 	row.add_child(v)
 	return row
 
@@ -314,13 +327,15 @@ func _reveal(id: String) -> Control:
 func _cards(p: int, r: Dictionary) -> Control:
 	var row := Styles.hbox(14)
 	var counts := GearTags.counts(r)
-	if Progression.pending_picks(r) > 0:
+	if Progression.pending_picks(r) > 0 and _replacing != "":
+		row.add_child(_replace_cards(p, r, counts))
+	elif Progression.pending_picks(r) > 0:
 		for id in Progression.perk_offer(run, r):
 			var perk: Dictionary = PerkData.PERKS[id]
 			var b := PerkBrief.perk(id)
 			var col := GearData.tag_color(perk.tag) if perk.tag != "" else Styles.AMBER
 			var card := _card(b.icon, col, perk.name, perk.tag, counts, b.chips, b.short, "", perk.desc, perk.rare, [],
-				func(): _submit({"type": "prog_perk_pick", "player": p, "sid": r.id, "perk": id}))
+				func(): _choose(p, r, id))
 			card.mouse_entered.connect(func(): _preview(perk))
 			card.mouse_exited.connect(func(): _preview({}))
 			row.add_child(card)
@@ -348,6 +363,35 @@ func _cards(p: int, r: Dictionary) -> Control:
 		skip.pressed.connect(func(): _submit({"type": "prog_skip_offer", "player": p, "sid": r.id}))
 		row.add_child(skip)
 	return row
+
+
+## A perk was picked: straight away if a slot is free, else the soldier chooses which perk goes.
+func _choose(p: int, r: Dictionary, id: String) -> void:
+	if Progression.perk_slots_full(r):
+		_replacing = id
+		rebuild()
+		return
+	_submit({"type": "prog_perk_pick", "player": p, "sid": r.id, "perk": id})
+
+
+## The soldier's carried perks as cards: the one clicked is replaced by the new perk.
+func _replace_cards(p: int, r: Dictionary, counts: Dictionary) -> Control:
+	var col := Styles.hbox(14)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for id in r.prog.get("perks", []):
+		var perk: Dictionary = PerkData.PERKS[id]
+		var b := PerkBrief.perk(id)
+		var pc := GearData.tag_color(perk.tag) if perk.tag != "" else Styles.AMBER
+		var owned: String = id
+		col.add_child(_card(b.icon, pc, perk.name, perk.tag, counts, b.chips, b.short, "", perk.desc, perk.rare, [],
+			func(): _submit({"type": "prog_perk_pick", "player": p, "sid": r.id, "perk": _replacing, "replace": owned})))
+	var back := Styles.icon_button("Back", "close", "ghost", 19, 54)
+	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	back.pressed.connect(func() -> void:
+		_replacing = ""
+		rebuild())
+	col.add_child(back)
+	return col
 
 
 ## "+15" next to the Infection icon: what grafting costs.
@@ -631,6 +675,7 @@ func _graft(p: int, r: Dictionary, id: String) -> void:
 
 
 func _submit(action: Dictionary) -> void:
+	_replacing = ""
 	if session != null and session.has_method("submit_run"):
 		session.submit_run(action)
 	else:
