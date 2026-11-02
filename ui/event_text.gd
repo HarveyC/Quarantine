@@ -144,7 +144,9 @@ static func describe(ev: Dictionary, name_of: Callable) -> String:
 			return _c("[b]MISSION %s[/b]" % ("COMPLETE" if r == Types.Result.VICTORY else "FAILED" + (": " + why.to_upper() if why != "" else "")), Palette.AMBER)
 	if EnemyBeats.handles(ev):
 		return EnemyBeats.describe(ev, name_of)
-	return _c(("[%s] %s" % [str(ev.get("type", "?")), str(ev)]).replace("[", "[lb]"), Color(0.55, 0.55, 0.55))
+	# Events with no log text (map syncs, state payloads, bookkeeping) stay out of the log; dumping
+	# str(ev) here once printed a whole map grid into the chat.
+	return ""
 
 
 static func _target_text(ev: Dictionary, who: Callable) -> String:

@@ -7,6 +7,7 @@ extends TestCase
 const MAIN := preload("res://scenes/main.tscn")
 const InputController := preload("res://view/input_controller.gd")
 const Palette := preload("res://view/palette.gd")
+const EventText := preload("res://ui/event_text.gd")
 
 
 func _make_view(begin := true) -> MissionView:
@@ -90,7 +91,7 @@ func test_synthetic_events_play_without_errors() -> void:
 	assert_eq(sv.tier, 2, "infection tier")
 	assert_true(sv.turned, "turned flag")
 	assert_true(v.hud.end_overlay.visible, "end overlay shown")
-	assert_true(v.hud.combat_log.line_count() >= events.size(), "every event logged")
+	assert_true(v.hud.combat_log.line_count() >= events.filter(func(e): return EventText.describe(e, v.unit_name) != "").size(), "every described event logged")
 	v.free()
 
 
@@ -700,11 +701,10 @@ func test_melee_class_events_play() -> void:
 	assert_eq(guard_seen, [false], "a Guard bash spends the stance")
 	assert_true(wv.guard, "guard shown again")
 	assert_eq(v.view_for(foe.id).cell, foe.pos + Vector2i(0, 1), "knocked back")
-	assert_true(v.hud.combat_log.line_count() >= events.size(), "every event logged")
+	assert_true(v.hud.combat_log.line_count() >= events.filter(func(e): return EventText.describe(e, v.unit_name) != "").size(), "every described event logged")
 	v.player.enqueue({"type": "team_phase", "turn": 2})
 	v.player.flush()
 	assert_true(not wv.guard, "guard ends at the next squad phase")
-	var EventText := preload("res://ui/event_text.gd")
 	var line := EventText.describe(events[1], func(id: int) -> String: return str(id))
 	assert_true(line.contains("lunges at") and line.contains("80%"), "lunge log line")
 	v.free()
