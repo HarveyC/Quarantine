@@ -34,6 +34,7 @@ from mathutils import Matrix, Vector  # noqa: E402
 
 ROOT = G.ROOT
 OUT = os.path.join(ROOT, "assets", "characters")
+TEXTURES = os.path.join(OUT, "textures")
 SRC = os.path.expanduser("~/cc0/x")
 UBC = "Quaternius_UniversalBaseCharacters_Standard/Universal Base Characters[Standard]/Base Characters/Godot - UE/"
 UAL1 = "Quaternius_UniversalAnimationLibrary_Standard/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb"
@@ -784,7 +785,7 @@ class Creature(Rig):
     """A Quaternius animated creature (own skeleton and clips, kept in the export),
     scaled to `width` metres across and dressed with growths."""
 
-    def __init__(self, name, src_rel, width, roles=None, keep_actions=None):
+    def __init__(self, name, src_rel, width, roles=None, keep_actions=None, tex_role=None):
         G.fresh_scene()
         self.name = name
         objs = import_glb(os.path.join(SRC, src_rel))
@@ -801,6 +802,21 @@ class Creature(Rig):
         k = width / extent
         root.scale = root.scale * k
         bpy.context.view_layer.update()
+        self.tex_name = None
+        if tex_role:   # a Sketchfab body: keep its albedo texture (shared dir) and tag the mesh for the game
+            for slot in mesh.material_slots:
+                for n in slot.material.node_tree.nodes:
+                    if n.type == "TEX_IMAGE" and n.image and any(l.to_socket.name == "Base Color" for l in n.outputs[0].links):
+                        img = n.image
+                        if max(img.size) > 1024:
+                            img.scale(1024, 1024)
+                        os.makedirs(TEXTURES, exist_ok=True)
+                        img.filepath_raw = os.path.join(TEXTURES, name + "_albedo.jpg")
+                        img.file_format = "JPEG"
+                        img.save()
+                        self.tex_name = name
+            mesh.name = "tex_" + name
+            roles = {m.material.name: tex_role for m in mesh.material_slots}
         for slot in mesh.material_slots:
             old = slot.material.name
             col = slot.material.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value if slot.material.use_nodes else (0, 0, 0, 1)
@@ -890,7 +906,15 @@ def _broodling(rnd):
     r.export()
 
 
-CREATURES = {"hound": _hound, "hooker": _hooker, "broodling": _broodling}
+def _stalker(rnd):
+    """Stalker: a tall teal-black predator on its own rig (Alien Ninja Creature, CC BY, Jungle Jim)
+    with its own idle, walk, run and strike clips."""
+    r = Creature("stalker", "sk/stalker_src.glb", 1.4, tex_role="body",
+                 keep_actions=lambda n: n in ("A_idle", "A_walk_F", "A_run_F", "A_atk_01", "A_atk_02", "A_defence", "A_back_dash", "A_rise1"))
+    r.export()
+
+
+CREATURES = {"hound": _hound, "hooker": _hooker, "broodling": _broodling, "stalker": _stalker}
 
 NAMES = {
     "anims": lambda: (build_anims(UAL1, CLIPS_UAL1, "anims_ual1"), build_anims(UAL2, CLIPS_UAL2, "anims_ual2")),
@@ -904,7 +928,7 @@ NAMES = {
 }
 for _k in ("runner", "spitter", "leaper", "shrieker", "brute", "bloater", "brood_mother"):
     NAMES[_k] = (lambda k: lambda: build_infected(k))(_k)
-for _k in ("lurker", "burrower", "hound", "hooker", "broodling"):
+for _k in ("lurker", "burrower", "hound", "hooker", "broodling", "stalker"):
     NAMES[_k] = (lambda k: lambda: build_creature(k))(_k)
 for _k in ("fallen", "sharpshooter", "colonel_hale"):
     NAMES[_k] = (lambda k: lambda: build_turned(k))(_k)

@@ -33,3 +33,12 @@ built from code with the primitives in `tools/gen_models.py`.
 
 Then reopen the project in Godot so it reimports. `view/skinned_body.gd` plays the clips;
 `view/model_kit.gd` maps material names to the character shader's roles.
+
+## Sketchfab models (CC BY 4.0, credit required)
+
+Credited in game under Settings, Credits. Sources are fetched with `tools/fetch_sketchfab.py`
+and retargeted by `tools/build_characters.py`.
+
+| Used for | Model | Author | Link |
+|---|---|---|---|
+| Stalker | Alien Ninja Creature with 45 animations | Jungle Jim | https://sketchfab.com/3d-models/alien-ninja-creature-with-45-animations-d332cac883f54a2c98492e85f41455b2 |

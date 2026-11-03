@@ -18,7 +18,7 @@ extends RefCounted
 
 const GunModels := preload("res://view/gun_models.gd")
 
-const BODY := {"sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker",
+const BODY := {"sapper": "runner", "carapace": "brute", "weaver": "shrieker",
 	"cutter": "runner", "torchman": "fallen", "fence": "fallen", "broker": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
 	"loader": "brute", "relay": "shrieker",
@@ -27,7 +27,7 @@ const BODY := {"sapper": "runner", "carapace": "brute", "stalker": "runner", "we
 	"netter": "fallen", "handler": "fallen", "sterilizer": "fallen", "collector": "fallen",
 	"acolyte": "runner", "cantor": "shrieker", "hush": "shrieker",
 	"director": "colonel_hale"}
-const SIZE := {"sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95, "broker": 1.35,
+const SIZE := {"sapper": 0.88, "carapace": 1.1, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95, "broker": 1.35,
 	"shieldman": 1.1, "overwatcher": 1.0, "emplacement": 1.0,
 	"loader": 1.2, "relay": 0.7, "breaker": 1.7, "choir_prophet": 1.45,
 	"netter": 1.05, "handler": 0.95, "sterilizer": 1.1, "collector": 1.15,
@@ -40,7 +40,6 @@ const SHED := {"breaker": {2: ["plate_front"], 3: ["skirts"]}}
 const TINT := {
 	"sapper": {"body": -0.1, "rags": -0.2},
 	"carapace": {"body": -0.15},
-	"stalker": {"body": 0.35, "skin": 0.35, "flesh": 0.3, "chitin": 0.3},
 	"weaver": {"body": 0.3, "skin": 0.3, "flesh": 0.25},
 	"cutter": {"body": 0.15, "rags": 0.1},
 	"torchman": {"body": -0.1},
@@ -98,8 +97,6 @@ static func dress(model: Node3D, kind: String) -> void:
 			_attach(sk, "spine_03", "skirts", _breaker_skirts())
 			_attach(sk, "spine_03", "stacks", _breaker_stacks())
 			_attach(sk, "lowerarm_r", "ram", _breaker_ram())
-		"stalker":
-			_attach(sk, "spine_03", "back_spines", _spines())
 		"torchman":
 			_attach(sk, "spine_03", "fuel_tank", _tank())
 		"broker":
