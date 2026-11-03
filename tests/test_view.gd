@@ -437,6 +437,8 @@ func test_characters_are_rigged() -> void:
 		var body := SkinnedBody.new()
 		body.setup(m, kind not in ["trooper", "marksman", "medic", "breacher", "civilian"])
 		for pose in ["idle", "walk", "death"]:
+			if pose == "death" and kind in ModelKit.NO_DEATH_CLIP:
+				continue   # these rigs topple procedurally
 			assert_true(body.has_clip(pose), "%s has a %s clip" % [kind, pose])
 		if kind in ["trooper", "marksman", "medic", "breacher"]:
 			assert_true(body.armed, "%s carries a weapon" % kind)

@@ -8,7 +8,7 @@ signal closed
 
 const Styles := preload("res://ui/styles.gd")
 const TABS := [["graphics", "Graphics"], ["audio", "Audio"], ["gameplay", "Gameplay"],
-	["accessibility", "Accessibility"], ["controls", "Controls"]]
+	["accessibility", "Accessibility"], ["controls", "Controls"], ["credits", "Credits"]]
 const VOLUME_LABELS := {"Master": "Master", "Music": "Music", "Ambience": "Ambience", "SFX": "Effects", "UI": "Interface"}
 const MODIFIER_KEYS := [KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META]
 
@@ -121,6 +121,7 @@ func show_tab(id: String) -> void:
 		"gameplay": _gameplay()
 		"accessibility": _accessibility()
 		"controls": _controls()
+		"credits": _credits()
 	if _tab_buttons.has(id) and is_inside_tree():
 		_tab_buttons[id].grab_focus.call_deferred()
 
@@ -207,6 +208,24 @@ func _accessibility() -> void:
 		"Applies to each screen as it opens.", true)
 	_section("Motion")
 	_slider("Screen shake", "accessibility", "screen_shake", 0.0, 1.0, 0.1, "%d%%", 100.0, "Also scales the recoil punch on shots. 0% turns both off.")
+
+
+## Models and animation we did not make. Free to use with credit (CC BY) or public domain (CC0).
+const CREDITS := [
+	["Stalker", "Alien Ninja Creature by Jungle Jim (CC BY 4.0, Sketchfab)"],
+	["Humans, clips, Hound, Hooker, Broodling, Lurker", "Quaternius (CC0): Universal Base Characters, Animation Libraries, Animated Animals and Enemies"],
+]
+
+
+func _credits() -> void:
+	_section("Art")
+	for c in CREDITS:
+		var head := Styles.label(c[0], 15, Styles.TEXT)
+		_content.add_child(head)
+		var l := Styles.label(c[1], 13, Styles.MUTED)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD
+		l.custom_minimum_size.x = 700
+		_content.add_child(l)
 
 
 func _controls() -> void:

@@ -126,6 +126,7 @@ var _death_dir := Vector3.ZERO   # away from the blow (world, flat)
 var _death_shove := 0.0          # how far the blow carries the body
 var _death_heavy := false
 var _death_landed := false
+var _death_topple := false       # rig without a death clip: falls over backwards
 var _death_glow := 0.0           # enemy glow at the moment of death, fading out
 var _death_emit := {}            # infected: glowing material -> its emission at death
 # fitting the body to stairs and ramps under its feet (see _fit_ground)
@@ -191,6 +192,8 @@ func _build_model() -> void:
 	if ModelKit.is_skinned(_model):
 		_skin = SkinnedBody.new()
 		_skin.setup(_model, not soldier_body)
+		if ModelKit.AIM_BONE.get(kind, "x") == "":
+			_aim_local = ModelKit.bounds(_model, _rig).get_center()
 		_skin.speed = {"runner": 1.3, "leaper": 1.2, "broodling": 1.4, "brood_mother": 0.7, "brute": 0.85, "breaker": 0.75, "carapace": 0.8, "sapper": 1.3}.get(kind, 1.0)
 	else:
 		_prop = ModelKit.find(_model, "body")
@@ -573,7 +576,9 @@ func muzzle_world() -> Vector3:
 ## skinned body (or a crawler's thorax), else the middle of the model itself, so a low egg
 ## sac or spore nest is shot down at and the floating Drifter up at. Never a fixed height.
 func aim_point() -> Vector3:
-	var p: Variant = _bone_world(["spine_03", "Thorax"])
+	if ModelKit.AIM_BONE.get(kind, "x") == "":
+		return _to_world(_rig, _aim_local)
+	var p: Variant = _bone_world([ModelKit.AIM_BONE.get(kind, "spine_03"), "spine_03", "Thorax"])
 	if p != null:
 		return p
 	var bob := _prop.position.y - _prop_y if _prop != null else 0.0
@@ -835,8 +840,9 @@ func start_death(from_world: Vector3, heavy := false) -> void:
 		var style := "knockdown" if heavy and not big else "collapse"
 		var rate := (1.0 if style == "knockdown" else 1.45) * (0.8 if big else 1.0)
 		_death_land = _skin.start_death(style, rate)
-		if _death_land <= 0.0:
-			_death_land = 0.4
+		_death_topple = _death_land <= 0.0   # no death clip on its own rig: it topples
+		if _death_topple:
+			_death_land = 0.5
 		_death_shove = (0.45 if style == "knockdown" else 0.18) * (0.5 if big else 1.0)
 	else:
 		_death_land = 0.32
@@ -869,6 +875,8 @@ func _advance_death(delta: float) -> void:
 		# the blow carries the body back as it falls, easing out on the floor
 		var local := _body.basis.inverse() * _death_dir
 		_rig.position = local * _death_shove * (1.0 - pow(1.0 - k, 3.0))
+		if _death_topple:
+			_rig.rotation.x = -(PI * 0.5) * (1.0 - pow(1.0 - k, 3.0))
 	elif _model != null:
 		_animate_rupture()
 	if not _death_landed and _death_t >= _death_land:

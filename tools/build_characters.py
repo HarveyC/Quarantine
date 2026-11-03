@@ -34,6 +34,7 @@ from mathutils import Matrix, Vector  # noqa: E402
 
 ROOT = G.ROOT
 OUT = os.path.join(ROOT, "assets", "characters")
+TEXTURES = os.path.join(OUT, "textures")
 SRC = os.path.expanduser("~/cc0/x")
 UBC = "Quaternius_UniversalBaseCharacters_Standard/Universal Base Characters[Standard]/Base Characters/Godot - UE/"
 UAL1 = "Quaternius_UniversalAnimationLibrary_Standard/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb"
@@ -784,7 +785,7 @@ class Creature(Rig):
     """A Quaternius animated creature (own skeleton and clips, kept in the export),
     scaled to `width` metres across and dressed with growths."""
 
-    def __init__(self, name, src_rel, width):
+    def __init__(self, name, src_rel, width, roles=None, keep_actions=None, tex_role=None):
         G.fresh_scene()
         self.name = name
         objs = import_glb(os.path.join(SRC, src_rel))
@@ -801,9 +802,32 @@ class Creature(Rig):
         k = width / extent
         root.scale = root.scale * k
         bpy.context.view_layer.update()
+        self.tex_name = None
+        if tex_role:   # a Sketchfab body: keep its albedo texture (shared dir) and tag the mesh for the game
+            for slot in mesh.material_slots:
+                for n in slot.material.node_tree.nodes:
+                    if n.type == "TEX_IMAGE" and n.image and any(l.to_socket.name == "Base Color" for l in n.outputs[0].links):
+                        img = n.image
+                        if max(img.size) > 1024:
+                            img.scale(1024, 1024)
+                        os.makedirs(TEXTURES, exist_ok=True)
+                        img.filepath_raw = os.path.join(TEXTURES, name + "_albedo.jpg")
+                        img.file_format = "JPEG"
+                        img.save()
+                        self.tex_name = name
+            mesh.name = "tex_" + name
+            roles = {m.material.name: tex_role for m in mesh.material_slots}
         for slot in mesh.material_slots:
+            old = slot.material.name
             col = slot.material.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value if slot.material.use_nodes else (0, 0, 0, 1)
-            slot.material.name = "glow" if col[0] > 0.3 and col[1] < 0.2 else "chitin"
+            if roles and old in roles:   # per-material roles for the creature
+                slot.material.name = roles[old]
+            else:
+                slot.material.name = "glow" if col[0] > 0.3 and col[1] < 0.2 else "chitin"
+        if keep_actions:   # drop duplicate / unused clips from the export
+            for act in list(bpy.data.actions):
+                if not keep_actions(act.name):
+                    bpy.data.actions.remove(act)
         self.parts, self.origins, self.empties = {}, {}, []
         self.scale = k
 
@@ -826,6 +850,9 @@ def build_creature(kind):
         blisters(r, "Abdomen", ab + Vector((0, 0.25, 0.05)), 8, 0.05, rnd, spread=0.14)
         blisters(r, "Head", hd + Vector((0, -0.05, 0.05)), 4, 0.03, rnd, spread=0.05)
         crystals(r, "Thorax", th + Vector((0, 0, 0.12)), 3, 0.14, rnd, up=(0, 0.2, 1))
+    elif kind in CREATURES:
+        CREATURES[kind](rnd)
+        return
     else:   # burrower: bigger, armoured, ridged for digging
         r = Creature(kind, SPIDER, 2.2)
         ab, th, hd = r.at("Abdomen"), r.at("Thorax"), r.at("Head")
@@ -841,6 +868,54 @@ def build_creature(kind):
     r.export()
 
 
+WOLF = "Quaternius_AnimatedAnimalPack_polypizza_glb/Wolf.glb"
+SNAKE = "Quaternius_AnimatedEnemies_polypizza_glb/Snake.glb"
+RAT = "Quaternius_AnimatedEnemies_polypizza_glb/Rat.glb"
+
+
+def _hound(rnd):
+    """Hound drone: a wolf's quadruped frame and gallop, plated in dark steel with amber optics."""
+    r = Creature("hound", WOLF, 1.5, roles={"Main": "chitin", "Main_Light": "chitin", "Eyes_Black": "lamp", "Nose": "chitin"},
+                 keep_actions=lambda n: "|" in n)
+    to, hd = r.at("Torso2"), r.at("Head")
+    for i in range(4):
+        r.add("Torso2", G.sphere(0.13, tuple(to + Vector((0, 0.1 - i * 0.16, 0.13))), (1.2, 1.0, 0.35)), "chitin", "plates")
+    r.add("Head", G.sphere(0.07, tuple(hd + Vector((0.0, 0.1, 0.06))), (1.6, 1.0, 0.8)), "lamp", "visor")
+    r.export()
+
+
+def _hooker(rnd):
+    """Hooker: a snake body (coil, strike, lunge) with a barbed spine and glowing sacs."""
+    r = Creature("hooker", SNAKE, 1.7, roles={"DarkGreen": "flesh", "LightGreen": "skin", "Red": "flesh_raw", "Teeth": "chitin",
+                                              "Purple": "flesh_raw", "Yellow": "chitin", "DarkRed": "flesh_raw"},
+                 keep_actions=lambda n: "|" in n)
+    ch, hd = r.at("Chest"), r.at("Head")
+    crystals(r, "Chest", ch + Vector((0, 0.12, 0.06)), 6, 0.2, rnd, up=(0, 0.5, 1))
+    blisters(r, "Body", r.at("Body") + Vector((0, 0.05, 0.08)), 6, 0.05, rnd, spread=0.1)
+    for s_ in (-1, 1):
+        r.add("Head", G.shard(tuple(hd + Vector((0.05 * s_, -0.08, 0.02))), (0.5 * s_, -1, 0.2), 0.22, 0.03), "chitin", "barbs")
+    r.export()
+
+
+def _broodling(rnd):
+    """Broodling: a rat-sized scurrying thing, bare flesh with a spore sac on its back."""
+    r = Creature("broodling", RAT, 0.8, roles={"Grey": "flesh", "Pink": "flesh_raw"}, keep_actions=lambda n: "|" in n)
+    to = r.at("Torso")
+    blisters(r, "Torso", to + Vector((0, 0.04, 0.1)), 4, 0.04, rnd, spread=0.06)
+    crystals(r, "Back", r.at("Back") + Vector((0, 0.0, 0.08)), 3, 0.1, rnd, up=(0, 0.3, 1))
+    r.export()
+
+
+def _stalker(rnd):
+    """Stalker: a tall teal-black predator on its own rig (Alien Ninja Creature, CC BY, Jungle Jim)
+    with its own idle, walk, run and strike clips."""
+    r = Creature("stalker", "sk/stalker_src.glb", 1.4, tex_role="body",
+                 keep_actions=lambda n: n in ("A_idle", "A_walk_F", "A_run_F", "A_atk_01", "A_atk_02", "A_defence", "A_back_dash", "A_rise1"))
+    r.export()
+
+
+CREATURES = {"hound": _hound, "hooker": _hooker, "broodling": _broodling, "stalker": _stalker}
+
 NAMES = {
     "anims": lambda: (build_anims(UAL1, CLIPS_UAL1, "anims_ual1"), build_anims(UAL2, CLIPS_UAL2, "anims_ual2")),
     "trooper": lambda: build_soldier("trooper"),
@@ -851,9 +926,9 @@ NAMES = {
     "vector": lambda: build_soldier("vector"),
     "civilian": build_civilian,
 }
-for _k in ("runner", "spitter", "leaper", "shrieker", "broodling", "brute", "bloater", "brood_mother"):
+for _k in ("runner", "spitter", "leaper", "shrieker", "brute", "bloater", "brood_mother"):
     NAMES[_k] = (lambda k: lambda: build_infected(k))(_k)
-for _k in ("lurker", "burrower"):
+for _k in ("lurker", "burrower", "hound", "hooker", "broodling", "stalker"):
     NAMES[_k] = (lambda k: lambda: build_creature(k))(_k)
 for _k in ("fallen", "sharpshooter", "colonel_hale"):
     NAMES[_k] = (lambda k: lambda: build_turned(k))(_k)

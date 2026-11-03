@@ -18,18 +18,18 @@ extends RefCounted
 
 const GunModels := preload("res://view/gun_models.gd")
 
-const BODY := {"hooker": "spitter", "sapper": "runner", "carapace": "brute", "stalker": "runner", "weaver": "shrieker",
+const BODY := {"sapper": "runner", "carapace": "brute", "weaver": "shrieker",
 	"cutter": "runner", "torchman": "fallen", "fence": "fallen", "broker": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
-	"hound": "runner", "loader": "brute", "relay": "shrieker",
+	"loader": "brute", "relay": "shrieker",
 	"packrat": "brute", "rigger": "runner", "lookout": "fallen", "sergeant": "fallen", "grenadier": "fallen", "field_medic": "fallen",
 	"tender": "shrieker", "carrier": "brute", "arc_welder": "runner", "breaker": "brute", "choir_prophet": "shrieker",
 	"netter": "fallen", "handler": "fallen", "sterilizer": "fallen", "collector": "fallen",
 	"acolyte": "runner", "cantor": "shrieker", "hush": "shrieker",
 	"director": "colonel_hale"}
-const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95, "broker": 1.35,
+const SIZE := {"sapper": 0.88, "carapace": 1.1, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95, "broker": 1.35,
 	"shieldman": 1.1, "overwatcher": 1.0, "emplacement": 1.0,
-	"hound": 0.8, "loader": 1.2, "relay": 0.7, "breaker": 1.7, "choir_prophet": 1.45,
+	"loader": 1.2, "relay": 0.7, "breaker": 1.7, "choir_prophet": 1.45,
 	"netter": 1.05, "handler": 0.95, "sterilizer": 1.1, "collector": 1.15,
 	"acolyte": 0.85, "cantor": 1.0, "hush": 0.95,
 	"packrat": 0.95, "rigger": 0.9, "lookout": 0.95, "sergeant": 1.05, "grenadier": 1.0, "field_medic": 1.0,
@@ -38,10 +38,8 @@ const SIZE := {"hooker": 1.0, "sapper": 0.88, "carapace": 1.1, "stalker": 1.12, 
 const SHED := {"breaker": {2: ["plate_front"], 3: ["skirts"]}}
 ## Role tints: kind -> {role: lighten (+) or darken (-) amount}.
 const TINT := {
-	"hooker": {"body": -0.25, "flesh": -0.15},
 	"sapper": {"body": -0.1, "rags": -0.2},
 	"carapace": {"body": -0.15},
-	"stalker": {"body": 0.35, "skin": 0.35, "flesh": 0.3, "chitin": 0.3},
 	"weaver": {"body": 0.3, "skin": 0.3, "flesh": 0.25},
 	"cutter": {"body": 0.15, "rags": 0.1},
 	"torchman": {"body": -0.1},
@@ -50,7 +48,6 @@ const TINT := {
 	"shieldman": {"body": 0.2},
 	"overwatcher": {"body": -0.2},
 	"emplacement": {"body": 0.1},
-	"hound": {"body": -0.3, "skin": -0.3, "flesh": -0.3},
 	"loader": {"body": -0.25, "skin": -0.25},
 	"relay": {"body": -0.3, "skin": -0.3, "flesh": -0.3},
 	"packrat": {"body": 0.1, "rags": 0.25},
@@ -91,9 +88,6 @@ static func dress(model: Node3D, kind: String) -> void:
 	var sk := skels[0] as Skeleton3D
 	model.set_meta("variant", kind)
 	match kind:
-		"hooker":
-			_attach(sk, "lowerarm_r", "hook_arm", _hook_arm())
-			_attach(sk, "pelvis", "line_coil", _coil())
 		"sapper":
 			_attach(sk, "spine_03", "satchels", _satchels())
 		"carapace":
@@ -103,8 +97,6 @@ static func dress(model: Node3D, kind: String) -> void:
 			_attach(sk, "spine_03", "skirts", _breaker_skirts())
 			_attach(sk, "spine_03", "stacks", _breaker_stacks())
 			_attach(sk, "lowerarm_r", "ram", _breaker_ram())
-		"stalker":
-			_attach(sk, "spine_03", "back_spines", _spines())
 		"torchman":
 			_attach(sk, "spine_03", "fuel_tank", _tank())
 		"broker":
@@ -170,27 +162,6 @@ static func _attach(sk: Skeleton3D, bone: String, nm: String, mesh: Mesh) -> Mes
 	mi.mesh = mesh
 	att.add_child(mi)
 	return mi
-
-
-static func _hook_arm() -> Mesh:
-	var p := [
-		["metal", "tube", Vector3(0.0, 0.05, 0.04), Vector3(0.0, 0.36, 0.08), 0.04],
-		["metal", "tube", Vector3(0.0, 0.36, 0.08), Vector3(0.0, 0.56, 0.0), 0.022],
-		["metal", "tube", Vector3(0.0, 0.56, 0.0), Vector3(0.0, 0.66, -0.12), 0.016],
-		["metal", "tube", Vector3(0.0, 0.66, -0.12), Vector3(0.0, 0.58, -0.2), 0.012],
-		["glow", "ball", Vector3(0.0, 0.2, 0.07), 0.02],
-	]
-	for i in 3:
-		p.append(["metal", "box", Vector3(0.0, 0.12 + i * 0.08, 0.075), Vector3(0.012, 0.03, 0.05), Vector3(0.5, 0, 0)])
-	return GunModels.build_mesh(p, {}, {"metal": Color("8a8a7c")})
-
-
-static func _coil() -> Mesh:
-	var p := []
-	for i in 4:
-		p.append(["leather", "tube", Vector3(0.17, -0.02 + i * 0.03, -0.06), Vector3(0.17, -0.02 + i * 0.03, 0.06), 0.045 - i * 0.003])
-	p.append(["glow", "ball", Vector3(0.17, 0.1, 0.0), 0.02])
-	return GunModels.build_mesh(p, {}, {"leather": Color("2a2420")})
 
 
 static func _satchels() -> Mesh:

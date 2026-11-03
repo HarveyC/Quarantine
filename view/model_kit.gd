@@ -44,13 +44,21 @@ const CHARACTERS := {
 	"colonel_hale": preload("res://assets/characters/colonel_hale.glb"),
 	"lurker": preload("res://assets/characters/lurker.glb"),
 	"burrower": preload("res://assets/characters/burrower.glb"),
+	"hound": preload("res://assets/characters/hound.glb"),
+	"hooker": preload("res://assets/characters/hooker.glb"),
+	"stalker": preload("res://assets/characters/stalker.glb"),
 	"lantern_echoes": preload("res://assets/characters/trooper.glb"),   # the Last Echo wears a soldier's body
 }
 ## Body size per kind (the characters share one skeleton; bosses and brutes read bigger).
 const SIZE := {
-	"broodling": 0.62, "brute": 1.32, "bloater": 1.15, "brood_mother": 1.85, "shrieker": 1.1,
-	"colonel_hale": 1.05, "lantern_echoes": 1.2,
+	"broodling": 1.0, "brute": 1.32, "bloater": 1.15, "brood_mother": 1.85, "shrieker": 1.1,
+	"colonel_hale": 1.05, "lantern_echoes": 1.2, "stalker": 1.0,
 }
+## Bone shots aim at on creature rigs that have no "spine_03" or "Thorax"; "" means the middle of the
+## mesh (rigs whose bones carry scale-compensation, like the Stalker's).
+const AIM_BONE := {"stalker": "", "hound": "Torso2", "hooker": "Neck", "broodling": "Torso"}
+## Creature rigs with no death clip: they topple over (see UnitView._death_topple).
+const NO_DEATH_CLIP := ["hooker", "stalker"]
 const BODY_TEX := {
 	"male": [preload("res://assets/characters/textures/male_albedo.jpg"), preload("res://assets/characters/textures/male_normal.png")],
 	"female": [preload("res://assets/characters/textures/female_albedo.jpg"), preload("res://assets/characters/textures/female_normal.png")],
@@ -178,6 +186,12 @@ static func _skinned(m: ShaderMaterial, role: String, mesh_name: String, is_sold
 	if role == "cloth_team" and is_soldier:
 		m.set_shader_parameter("camo", 0.8)
 	if role != "body":
+		return
+	if mesh_name.begins_with("tex_"):   # a body with its own albedo texture (Sketchfab models)
+		m.set_shader_parameter("textured", true)
+		m.set_shader_parameter("albedo_tex", load("res://assets/characters/textures/%s_albedo.jpg" % mesh_name.trim_prefix("tex_")))
+		m.set_shader_parameter("skin_tint", Color(1, 1, 1))
+		m.set_shader_parameter("skin_all", 1.0)
 		return
 	var tex: Array = BODY_TEX.female if mesh_name.contains("Female") else BODY_TEX.male
 	m.set_shader_parameter("textured", true)

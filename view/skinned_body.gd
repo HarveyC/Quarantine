@@ -103,15 +103,19 @@ func set_feral(on: bool) -> void:
 ## Pose -> clip for a creature's own clips ("..._Idle", "..._Walk", "..._Attack", ...).
 static func creature_clips(ap: AnimationPlayer) -> Dictionary:
 	var out := {}
-	var by := {"_Idle": ["idle", "aim", "crouch"], "_Walk": ["walk"], "_Run": ["walk"], "_Attack": ["melee", "shoot"],
-		"_Death": ["death"], "_Jump": ["leap"]}
+	# the part of the clip name after the rig prefix ("SpiderArmature|Spider_Walk" -> "walk")
+	var by := {"idle": ["idle", "aim", "crouch"], "walk": ["walk"], "run": ["walk"], "gallop": ["walk"],
+		"attack": ["melee", "shoot"], "death": ["death"], "jump": ["leap"],
+		"idle_hitreact_left": ["hit"], "hitreact": ["hit"],
+		"walk_f": ["walk"], "run_f": ["walk"], "atk_01": ["melee", "shoot"], "defence": ["hit"], "rise1": ["leap"]}
 	for nm in ap.get_animation_list():
+		var key := String(nm).get_slice("|", String(nm).get_slice_count("|") - 1).to_lower()
 		for suffix in by:
-			if String(nm).ends_with(suffix):
+			if key == suffix or key.ends_with("_" + suffix):
 				for pose in by[suffix]:
-					if not out.has(pose) or suffix == "_Walk":
+					if not out.has(pose) or suffix == "walk":
 						out[pose] = nm
-				if suffix in ["_Idle", "_Walk", "_Run"]:
+				if suffix in ["idle", "walk", "run", "gallop"]:
 					ap.get_animation(nm).loop_mode = Animation.LOOP_LINEAR
 	return out
 
