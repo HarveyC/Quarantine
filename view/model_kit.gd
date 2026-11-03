@@ -54,6 +54,11 @@ const SIZE := {
 	"broodling": 1.0, "brute": 1.32, "bloater": 1.15, "brood_mother": 1.85, "shrieker": 1.1,
 	"colonel_hale": 1.05, "lantern_echoes": 1.2, "stalker": 1.0,
 }
+## Bone shots aim at on creature rigs that have no "spine_03" or "Thorax"; "" means the middle of the
+## mesh (rigs whose bones carry scale-compensation, like the Stalker's).
+const AIM_BONE := {"stalker": "", "hound": "Torso2", "hooker": "Neck", "broodling": "Torso"}
+## Creature rigs with no death clip: they topple over (see UnitView._death_topple).
+const NO_DEATH_CLIP := ["hooker", "stalker"]
 const BODY_TEX := {
 	"male": [preload("res://assets/characters/textures/male_albedo.jpg"), preload("res://assets/characters/textures/male_normal.png")],
 	"female": [preload("res://assets/characters/textures/female_albedo.jpg"), preload("res://assets/characters/textures/female_normal.png")],

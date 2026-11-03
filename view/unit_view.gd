@@ -192,6 +192,8 @@ func _build_model() -> void:
 	if ModelKit.is_skinned(_model):
 		_skin = SkinnedBody.new()
 		_skin.setup(_model, not soldier_body)
+		if ModelKit.AIM_BONE.get(kind, "x") == "":
+			_aim_local = ModelKit.bounds(_model, _rig).get_center()
 		_skin.speed = {"runner": 1.3, "leaper": 1.2, "broodling": 1.4, "brood_mother": 0.7, "brute": 0.85, "breaker": 0.75, "carapace": 0.8, "sapper": 1.3}.get(kind, 1.0)
 	else:
 		_prop = ModelKit.find(_model, "body")
@@ -574,7 +576,9 @@ func muzzle_world() -> Vector3:
 ## skinned body (or a crawler's thorax), else the middle of the model itself, so a low egg
 ## sac or spore nest is shot down at and the floating Drifter up at. Never a fixed height.
 func aim_point() -> Vector3:
-	var p: Variant = _bone_world(["spine_03", "Thorax"])
+	if ModelKit.AIM_BONE.get(kind, "x") == "":
+		return _to_world(_rig, _aim_local)
+	var p: Variant = _bone_world([ModelKit.AIM_BONE.get(kind, "spine_03"), "spine_03", "Thorax"])
 	if p != null:
 		return p
 	var bob := _prop.position.y - _prop_y if _prop != null else 0.0
