@@ -71,7 +71,7 @@ const GRAFTS := {
 		"desc": "Ending a move lower than it began drops you on an adjacent enemy for 4 damage and a stun. Ladders cost a normal step.",
 		"look": "Hydraulic braces from hip to boot"},
 	"runner_legs": {"name": "Runner legs", "slot": "legs", "path": BLOOM, "tag": "Close",
-		"desc": "Leap: once per fight, jump up to 4 tiles, over cover and past overwatch. 1 action.",
+		"desc": "Leap: once per fight, jump up to 4 tiles, over cover and past overwatch.",
 		"look": "Reverse-jointed, bark-like legs with spines"},
 }
 

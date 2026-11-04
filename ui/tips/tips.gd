@@ -49,6 +49,16 @@ static func soldier_class(c: Control, kind: String, locked := false) -> Control:
 	return c
 
 
+## Hovering `c` shows the action card for `a` (an action button's dict: label, key, id, desc,
+## cost, cooldown, reason; see ActionCard). Replaces the control's plain tooltip.
+static func action(c: Control, a: Dictionary) -> Control:
+	c.set_meta(META, {"terms": [], "ctx": {"action": a}})
+	c.tooltip_text = ""
+	if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		c.mouse_filter = Control.MOUSE_FILTER_PASS
+	return c
+
+
 ## Hovering `c` shows an item compare card (ui/gear/compare_view.gd). `data` is a
 ## GearCompare.compare() result or a Callable returning one, worked out on first hover.
 ## `who_color` tints the soldier's name (their player colour); `note` (why the choice is
