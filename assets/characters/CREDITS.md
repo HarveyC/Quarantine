@@ -45,3 +45,4 @@ and retargeted by `tools/build_characters.py`.
 | Brute | Chainsaw Brute (FPS Creator) | Yopp | https://sketchfab.com/3d-models/chainsaw-brute-fps-creator-95abe0a7474649ebaaaa3fcab0fdb9ab |
 | Cutter | Axe Brute (FPS Creator) | Yopp | https://sketchfab.com/3d-models/axe-brute-fps-creator-c7d5a117ab0e4bb4a90542c0cc67347c |
 | Hush | Numen Drone Rig | DM-913 | https://sketchfab.com/3d-models/numen-drone-rig-8add0f00f72a489f90ce36167942ae5d |
+| Loader frame | Mech Drone | Willy Decarpentrie | https://sketchfab.com/3d-models/mech-drone-8d06874aac5246c59edb4adbe3606e0e |

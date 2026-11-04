@@ -958,9 +958,9 @@ def _stalker(rnd):
     r.export()
 
 
-def _sk_body(kind, src, height, keep=None, slices=None):
+def _sk_body(kind, src, height, keep=None, slices=None, renames=None):
     """A textured Sketchfab humanoid or creature, scaled to `height` metres, all its own clips kept."""
-    Creature(kind, "sk/%s.glb" % src, 0, tex_role="body", height=height, keep_actions=keep, slices=slices).export()
+    Creature(kind, "sk/%s.glb" % src, 0, tex_role="body", height=height, keep_actions=keep, slices=slices, renames=renames).export()
 
 
 # One-clip Sketchfab bodies: the clip serves as idle and walk, the game adds procedural lunge,
@@ -968,6 +968,7 @@ def _sk_body(kind, src, height, keep=None, slices=None):
 CREATURES = {"brute": lambda rnd: _sk_body("brute", "chainsaw_brute", 2.0, slices={"Brute_Idle": (1, 22)}),
              "cutter": lambda rnd: _sk_body("cutter", "axe_brute", 1.9, keep=lambda n: False),
              "hush": lambda rnd: _sk_body("hush", "numen_drone", 1.9, slices={"Hush_Walk": (1, 29)}),
+             "loader": lambda rnd: _sk_body("loader", "mech_drone", 2.1, renames={"Take 001": "Loader_Idle"}),
              "hound": _hound, "hooker": _hooker, "broodling": _broodling, "stalker": _stalker}
 
 NAMES = {
@@ -982,7 +983,7 @@ NAMES = {
 }
 for _k in ("runner", "spitter", "leaper", "shrieker", "bloater", "brood_mother"):
     NAMES[_k] = (lambda k: lambda: build_infected(k))(_k)
-for _k in ("lurker", "burrower", "hound", "hooker", "broodling", "stalker", "brute", "cutter", "hush"):
+for _k in ("lurker", "burrower", "hound", "hooker", "broodling", "stalker", "brute", "cutter", "hush", "loader"):
     NAMES[_k] = (lambda k: lambda: build_creature(k))(_k)
 NAMES["hulk"] = lambda: build_infected("brute", out="hulk")
 for _k in ("fallen", "sharpshooter", "colonel_hale"):
