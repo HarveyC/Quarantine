@@ -139,19 +139,19 @@ static func build(card: Control, box: VBoxContainer, a: Dictionary, inner: float
 
 ## The fact row: cells are [value, label, ...]; the first is the cost and is amber. "END" draws
 ## the ends-turn glyph. Shared by action cards and gear cards.
-static func fact_row(cells: Array, inner: float, tone := Styles.AMBER, hover_terms := false) -> HBoxContainer:
-	var row := Styles.hbox(10)
+static func fact_row(cells: Array, inner: float, tone := Styles.AMBER, hover_terms := false) -> Control:
+	# Cells keep their natural width and wrap to a second line when the card is narrow.
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 16)
+	row.add_theme_constant_override("v_separation", 6)
+	row.custom_minimum_size.x = inner
 	for i in cells.size():
 		var cell := Styles.vbox(0)
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if cells[i][0] == "END":
 			cell.add_child(EndGlyph.new(tone))
 		else:
 			cell.add_child(Styles.mono(str(cells[i][0]), 20, tone if i == 0 else Styles.TEXT))
-		var l := Styles.caps(str(cells[i][1]), 10, Styles.MUTED, false)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.custom_minimum_size.x = (inner - 10 * (cells.size() - 1)) / cells.size()
-		cell.add_child(l)
+		cell.add_child(Styles.caps(str(cells[i][1]), 10, Styles.MUTED, false))
 		var term: String = {"Cooldown": "cooldown", "Per fight": "once_per_fight", "Ends turn": "actions", "Action": "actions", "Actions": "actions"}.get(str(cells[i][1]), "")
 		if term != "" and hover_terms:
 			Tips.term(cell, term)
