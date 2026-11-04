@@ -52,7 +52,7 @@ func test_every_icon_draws_its_own_shape() -> void:
 		"sound", "mute", "music", "ambience", "effects", "interface", "keyboard", "close", "copy", "reveal", "loadout",
 		"menu", "health", "infection", "kill", "wound", "skull", "turned", "rank", "perk", "route", "turn", "vote",
 		"buy", "reroll", "sell", "recruit", "patch", "purge", "train", "cure", "lock", "doctrine", "squad", "waiting",
-		"trophy", "weapon", "ammo", "armor", "gadget", "hazmat", "vector", "arrow_right", "arrow_left"]
+		"trophy", "weapon", "ammo", "armor", "gadget", "hazmat", "vector", "arrow_right", "arrow_left", "power"]
 	var src := FileAccess.get_file_as_string("res://ui/icons.gd")
 	for id in ids:
 		assert_true(src.contains('"%s"' % id), "icon %s is drawn" % id)
@@ -126,7 +126,15 @@ func test_menus_build() -> void:
 	p._ready()
 	var labels := p.find_children("*", "Button", true, false).map(func(b): return b.text)
 	assert_true(labels.has("Resume") and labels.has("Controls"), "pause menu buttons: %s" % str(labels))
+	assert_true(labels.has("Quit to desktop") and labels.has("Leave to title"), "pause menu leave and quit: %s" % str(labels))
 	p.free()
+	var t: Control = PauseMenu.new()
+	t.show_leave = false
+	tree.root.add_child(t)
+	t._ready()
+	labels = t.find_children("*", "Button", true, false).map(func(b): return b.text)
+	assert_true(not labels.has("Leave to title") and labels.has("Quit to desktop"), "title pause menu: %s" % str(labels))
+	t.free()
 
 
 func test_run_end_board_builds() -> void:
