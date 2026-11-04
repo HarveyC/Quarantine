@@ -28,17 +28,17 @@ const NO_CELL := Vector2i(-999, -999)
 ## Ability table. "cost": actions spent, or -1 for "all actions" (ends the turn).
 const ABILITIES := {
 	"suppress": {"name": "Suppress", "targeting": "unit", "cost": -1, "cooldown": 2,
-		"desc": "Pin a visible enemy: -30 aim on its next shot and cancels its overwatch. Ends turn."},
+		"desc": "Pin a visible enemy: -30 aim on its next shot and cancels its overwatch."},
 	"tag": {"name": "Mark", "targeting": "unit", "cost": 1, "cooldown": 2,
-		"desc": "Mark a visible enemy until the end of the next enemy phase: all soldiers get +15 aim against it. 1 action."},
+		"desc": "Mark a visible enemy until the end of the next enemy phase: all soldiers get +15 aim against it."},
 	"stim": {"name": "Stim", "targeting": "unit", "cost": 1, "cooldown": 2,
-		"desc": "Self or adjacent ally: heal 3 and reduce infection by 15. 1 action."},
+		"desc": "Self or adjacent ally: heal 3 and reduce infection by 15."},
 	"breach": {"name": "Breach", "targeting": "unit", "cost": -1, "cooldown": 3,
-		"desc": "Hit an enemy within 2 tiles for 4-6, ignoring cover, and knock its cover down a step. Never misses. Ends turn."},
+		"desc": "Hit an enemy within 2 tiles for 4-6, ignoring cover, and knock its cover down a step. Never misses."},
 	"claw": {"name": "Claw", "targeting": "unit", "cost": -1, "cooldown": 0,
-		"desc": "Melee attack on an adjacent enemy. Only half cover counts. Ends turn."},
+		"desc": "Melee attack on an adjacent enemy. Only half cover counts."},
 	"spit": {"name": "Spit", "targeting": "cell", "cost": -1, "cooldown": 3,
-		"desc": "Lob a glob at a cell within 7 tiles: 2 damage to every unit within 1 tile. Ends turn."},
+		"desc": "Lob a glob at a cell within 7 tiles: 2 damage to every unit within 1 tile."},
 }
 
 const STIM_HEAL := 3

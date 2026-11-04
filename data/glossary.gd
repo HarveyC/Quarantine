@@ -418,7 +418,7 @@ static func _build() -> Dictionary:
 		"see": ["rubble", "cover"],
 		"aliases": ["Reinforced wall", "Reinforced walls", "Wall block", "Wall blocks"]}
 	t["overwatch"] = {"name": "Overwatch", "kind": "action", "icon": "overwatch", "tone": "amber",
-		"line": "End the turn watching: shoot the first enemy that moves in sight.",
+		"line": "Watch the area: shoot the first enemy that moves in sight.",
 		"art": "overwatch",
 		"stats": [["1", "reaction shot"], ["-%d" % Combat.REACTION_PENALTY, "aim"]],
 		"more": ["Fires in the enemy phase.", "If the enemy stands in a {fuel_barrel|fuel barrel}'s blast (and no squadmate does), the shot goes into the barrel.", "A {suppress|Suppressed} soldier loses their overwatch."],
@@ -482,7 +482,7 @@ static func _build() -> Dictionary:
 		"see": ["disengage"],
 		"aliases": ["Parting blows"]}
 	t["disengage"] = {"name": "Disengage", "kind": "action", "icon": "hunker", "tone": "amber",
-		"line": "Back away up to %d tiles with no {parting_blow|Parting blow}. Costs 1 action." % PartingBlow.CAREFUL_RANGE,
+		"line": "Back away up to %d tiles with no {parting_blow|Parting blow}." % PartingBlow.CAREFUL_RANGE,
 		"art": "",
 		"stats": [["%d" % PartingBlow.CAREFUL_RANGE, "tiles"], ["1", "action"]],
 		"more": ["Only offered while a melee fighter is next to you."],
@@ -512,7 +512,7 @@ static func _build() -> Dictionary:
 		"see": ["reload", "overwatch", "suppress"],
 		"aliases": ["Magazine", "Out of ammo"]}
 	t["reload"] = {"name": "Reload", "kind": "action", "icon": "reload", "tone": "amber",
-		"line": "Fill the magazine again. It costs %d action, so you can still shoot afterwards." % Ammo.RELOAD_COST,
+		"line": "Fill the magazine again.",
 		"art": "magazine",
 		"stats": [["%d" % Ammo.RELOAD_COST, "action"], ["full", "magazine"]],
 		"more": ["A shot ends your turn, so Reload before it: move, reload, shoot is all of a turn.",

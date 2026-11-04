@@ -25,6 +25,11 @@ func _init() -> void:
 		"gallery": [["cover", false, {}], ["high_ground", false, {}], ["infection", true, {"value": 62}], ["flank", false, {}],
 			["hit_chance", false, {"hit": 58, "graze": 10}], ["overwatch", true, {}], ["lapse", false, {}], ["outbreak", false, {"value": 7}],
 			["tag_mark", true, {"count": 2}], ["severity", false, {"value": 3}], ["hazards", false, {}], ["rank", false, {}]],
+		"actions": [["", false, {"action": {"key": "reload", "label": "Reload", "cost": 1, "desc": "Refill the magazine (5 of 6 rounds)."}}],
+			["", false, {"action": {"key": "ability:lunge", "id": "lunge", "label": "Lunge", "cost": -1, "cooldown": 0, "desc": "Dash up to 4 tiles to a visible enemy and cut it for 4-6, +1 per Infection tier. Only half cover counts. Kills on Infected add 5 Infection.", "reason": "Gun drawn: swap weapon first"}}],
+			["", true, {"action": {"key": "ability:lunge", "id": "lunge", "label": "Lunge", "cost": -1, "cooldown": 2, "desc": "Dash up to 4 tiles to a visible enemy and cut it for 4-6, +1 per Infection tier. Only half cover counts. Kills on Infected add 5 Infection."}}],
+			["", false, {"action": {"key": "ability:swap_weapon", "id": "swap_weapon", "label": "Draw reaper blade", "cost": 1, "desc": "Holster the gun and draw the reaper blade. Only the drawn weapon can attack."}}],
+			["", false, {"action": {"key": "hunker", "label": "Hunker", "cost": -1}}]],
 		"gallery2": [["turning", false, {}], ["crit", false, {}], ["healing", false, {}],
 			["hunker", false, {}], ["set_bonus", true, {"count": 3}], ["mutation", false, {"value": 30}], ["suppress", true, {}]],
 	}
@@ -32,7 +37,7 @@ func _init() -> void:
 	var y := 20.0
 	var col_h := 0.0
 	for spec in sets.get(mode, sets.gallery):
-		var c := TipCard.new([spec[0]], "", spec[2])
+		var c := TipCard.new([spec[0]] if spec[0] != "" else [], "", spec[2])
 		c.set_expanded(spec[1])
 		holder.add_child(c)
 		await process_frame
