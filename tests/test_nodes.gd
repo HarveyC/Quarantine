@@ -426,6 +426,22 @@ func test_hospital_treatments() -> void:
 	assert_true(not _act(run, "node_treat", 1, {"soldier": 4, "treatment": "purge"}), "already clean")
 
 
+## Serum is its own currency: a Full cure doesn't use up the soldier's one treatment.
+func test_hospital_cure_is_free_of_treatment() -> void:
+	var run := _run()
+	run.get_soldier(1).infection = 60
+	run.get_soldier(1).hp = 2
+	run.get_soldier(2).infection = 60
+	run.serum[0] = 8
+	NodeRules.enter(run, "hospital")
+	assert_true(_act(run, "node_treat", 0, {"soldier": 1, "treatment": "cure"}), "cure first")
+	assert_true(_act(run, "node_treat", 0, {"soldier": 1, "treatment": "patch"}), "then a treatment")
+	assert_true(not _act(run, "node_treat", 0, {"soldier": 1, "treatment": "train"}), "still one treatment")
+	assert_true(_act(run, "node_treat", 0, {"soldier": 2, "treatment": "train"}), "treat first")
+	assert_true(_act(run, "node_treat", 0, {"soldier": 2, "treatment": "cure"}), "then cure")
+	assert_eq(run.get_soldier(2).infection, 0, "clean after treatment")
+
+
 func test_hospital_purge_costs_supplies() -> void:
 	var run := _run()
 	run.get_soldier(1).infection = 45
