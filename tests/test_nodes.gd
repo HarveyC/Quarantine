@@ -1,6 +1,6 @@
 extends TestCase
 
-const OPS := ["gun", "supplies", "intel", "outbreak", "infection", "heal_pct", "hurt_pct", "mutation",
+const OPS := ["gun", "supplies", "outbreak", "infection", "heal_pct", "hurt_pct", "mutation",
 	"remove_mutation", "perk_pick", "serum", "recruit", "item", "modifier", "mark", "fight",
 	"send_home", "chance", "if_infected", "sit_out", "bloom_graft"]
 
@@ -76,7 +76,6 @@ func test_every_event_finishes_on_timeouts() -> void:
 		for act in [1, 2, 3]:
 			var run := _run(act * 31)
 			run.act = act
-			run.intel = 3
 			run.soldiers[0].infection = 60
 			run.soldiers[1].hp = 2
 			NodeRules.enter(run, "event", id)
@@ -181,7 +180,6 @@ func test_checkpoint_volunteer_scan() -> void:
 	assert_true(_choose(run, 1, "volunteer", 3), "volunteer accepted")
 	assert_true(not _choose(run, 0, "volunteer", 1), "first claim only")
 	assert_eq(run.get_soldier(3).sit_out, 1, "exposed volunteer held out")
-	assert_eq(run.intel, 3, "+2 intel")
 	assert_true(run.node_state.finished, "done")
 
 

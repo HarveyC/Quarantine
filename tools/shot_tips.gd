@@ -25,7 +25,7 @@ func _init() -> void:
 		"gallery": [["cover", false, {}], ["high_ground", false, {}], ["infection", true, {"value": 62}], ["flank", false, {}],
 			["hit_chance", false, {"hit": 58, "graze": 10}], ["overwatch", true, {}], ["lapse", false, {}], ["outbreak", false, {"value": 7}],
 			["tag_mark", true, {"count": 2}], ["severity", false, {"value": 3}], ["hazards", false, {}], ["rank", false, {}]],
-		"gallery2": [["turning", false, {}], ["crit", false, {}], ["intel", false, {}], ["healing", false, {}],
+		"gallery2": [["turning", false, {}], ["crit", false, {}], ["healing", false, {}],
 			["hunker", false, {}], ["set_bonus", true, {"count": 3}], ["mutation", false, {"value": 30}], ["suppress", true, {}]],
 	}
 	var x := 20.0

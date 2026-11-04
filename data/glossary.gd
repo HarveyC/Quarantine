@@ -837,14 +837,8 @@ static func _build() -> Dictionary:
 		"line": "The squad's shared money for the depot and the hospital.",
 		"art": "",
 		"stats": [["%d" % RunRules.START_SUPPLIES, "to start"], ["+%d" % RunRules.INCOME[RunMap.SKIRMISH].supplies, "per fight"]],
-		"see": ["serum", "intel"],
+		"see": ["serum"],
 		"aliases": ["Supply"]}
-	t["intel"] = {"name": "Intel", "kind": "resource", "icon": "intel", "tone": "text",
-		"line": "Spend 1 to reveal what a hidden ? node really is.",
-		"art": "intel",
-		"stats": [["%d" % RunRules.START_INTEL, "to start"], ["1", "per reveal"]],
-		"see": ["supplies"],
-		"labels": ["Reveal"]}
 	t["serum"] = {"name": "Serum", "kind": "resource", "icon": "serum", "tone": "teal",
 		"line": "Samples that cure a soldier's {infection}.",
 		"art": "",
@@ -966,12 +960,12 @@ static func _build() -> Dictionary:
 		RunMap.DEPOT: ["Depot", "depot", Color("c9a24a"), "A shop: spend {supplies} on gear, pockets and Serum.", []],
 		RunMap.HOSPITAL: ["Field hospital", "hospital", "hp", "One treatment per soldier: patch up, {purge} or train.", [["+1", "{outbreak} if used"]]],
 		RunMap.SURVIVORS: ["Survivors", "survivors", "hp", "People to bring home: a recruit for the {reserve}.", [["+%d" % RunRules.BONUS_SUPPLIES, "{supplies}"], ["1", "recruit"]]],
-		RunMap.UNKNOWN: ["Hidden node", "unknown", "dim", "Usually an event. Spend {intel} to see it first.", [["1", "{intel} to reveal"]]],
+		RunMap.UNKNOWN: ["Hidden node", "unknown", "dim", "Usually an event. Could be an ambush, a depot or survivors.", []],
 	}
 	for type in nodes:
 		var n: Array = nodes[type]
 		t["node_" + type] = {"name": n[0], "kind": "map node", "icon": n[1], "tone": n[2], "line": n[3],
-			"art": "intel" if type == RunMap.UNKNOWN else "", "stats": n[4], "see": ["outbreak"], "scan": false}
+			"art": "", "stats": n[4], "see": ["outbreak"], "scan": false}
 	_add_enemy_terms(t)
 	_add_director_terms(t)
 	_add_core_enemy_cards(t)

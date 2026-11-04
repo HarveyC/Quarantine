@@ -35,7 +35,6 @@ var _outbreak: Label
 var _outbreak_tier: Label
 var _outbreak_bar: OutbreakBar
 var _supplies: Label
-var _intel: Label
 var _serum: Label
 var _map: MapBoard
 ## Co-op pings and drawing on the route map.
@@ -46,9 +45,8 @@ var _vote_box: VBoxContainer
 var _vote_note: Label
 var _log: Label
 var _log_title: Label
-var _reveal_btn: Button
 var _top: HBoxContainer
-## The words beside the Supplies / Intel / Serum counts; dropped first when the top bar is tight.
+## The words beside the Supplies / Serum counts; dropped first when the top bar is tight.
 var _res_captions: Array[Label] = []
 var _top_buttons: Array[Button] = []
 var _loadout_btn: Button
@@ -60,7 +58,6 @@ var _screen: Control
 var _screen_key := ""
 ## node id -> the map's node control (kept for dev tools and tests).
 var _node_buttons := {}
-var _reveal_mode := false
 var _log_lines: Array[String] = []
 var _auto_t := 0.0
 
@@ -160,24 +157,12 @@ func _build() -> void:
 	var res := Styles.hbox(24)
 	res.alignment = BoxContainer.ALIGNMENT_CENTER
 	_supplies = _resource(res, "supplies", NodeInfo.DEPOT_GOLD, "Supplies")
-	_intel = _resource(res, "intel", Styles.DIM, "Intel")
 	_serum = _resource(res, "serum", Styles.TEAL, "Serum")
 	Tips.term(_supplies.get_parent(), "supplies")
-	Tips.term(_intel.get_parent(), "intel")
 	Tips.term(_serum.get_parent(), "serum")
 	top.add_child(res)
 	var btns := Styles.hbox(10)
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
-	_reveal_btn = _top_button("Reveal", "reveal")
-	_reveal_btn.tooltip_text = "Spend 1 Intel to see what a hidden node is."
-	Tips.term(_reveal_btn, "intel")
-	_reveal_btn.toggle_mode = true
-	_reveal_btn.toggled.connect(func(on: bool) -> void:
-		_reveal_mode = on
-		_map.reveal_mode = on
-		_map.refresh()
-		_refresh_vote_panel())
-	btns.add_child(_reveal_btn)
 	_loadout_btn = _top_button("Loadout", "loadout")
 	_loadout_btn.pressed.connect(_open_loadout)
 	btns.add_child(_loadout_btn)
@@ -330,19 +315,11 @@ func refresh() -> void:
 	_outbreak_bar.queue_redraw()
 	Tips.term(_outbreak_bar.get_parent(), "outbreak", {"value": run.outbreak})
 	_supplies.text = str(run.supplies)
-	_intel.text = str(run.intel)
 	_serum.text = _serum_text()
 	var on_map := run.phase == RunState.Phase.MAP
-	_reveal_btn.visible = on_map
 	_loadout_btn.visible = on_map and RunHooks.has("GearRun", "loadout_screen")
 	if _loadout != null and not on_map:
 		_close_loadout()
-	_reveal_btn.disabled = run.intel < 1 or not run.map.any(func(n: Dictionary) -> bool: return n.hidden)
-	if _reveal_btn.disabled and _reveal_btn.button_pressed:
-		_reveal_btn.button_pressed = false
-	Styles.icon_only(_reveal_btn, false)
-	_reveal_btn.text = "REVEAL  1"
-	_reveal_btn.set_meta("full_text", _reveal_btn.text)
 	_fit_top()
 	_map.names = session.player_names if session != null else {}
 	_map.refresh()
@@ -498,8 +475,6 @@ func _refresh_vote_panel() -> void:
 			notes.append(_vote_status())
 			if run.modifiers.get("force_nest_next", false):
 				notes.append("Air support: the squad must hit the nest.")
-			if _reveal_mode:
-				notes.append("Reveal: click a dashed ? node to spend 1 Intel and see what it is.")
 		RunState.Phase.FIGHT:
 			_vote_title.text = "DEPLOYING"
 			notes.append("The squad is moving in.")
@@ -591,10 +566,6 @@ func _vote_status() -> String:
 
 func _on_node_pressed(id: int) -> void:
 	var n := run.get_node(id)
-	if _reveal_mode and n.hidden:
-		session.submit_run({"type": RunRules.REVEAL, "player": session.local_players()[0], "node": id})
-		_reveal_btn.button_pressed = false
-		return
 	if run.reachable_nodes().has(id):
 		_vote(id)
 
@@ -694,7 +665,7 @@ func _close_loadout() -> void:
 		_full_holder.visible = _screen != null and _screen.get_parent() == _full_holder
 
 
-## Pieces first-time tips point at (ui/tutorial/coach.gd): map, next_node, outbreak, reveal, loadout,
+## Pieces first-time tips point at (ui/tutorial/coach.gd): map, next_node, outbreak, loadout,
 ## squad, vote, and the open full-screen screen ("screen") or loadout ("loadout_screen").
 func hint_target(key: String) -> Control:
 	match key:
@@ -703,7 +674,6 @@ func hint_target(key: String) -> Control:
 			var opts := run.reachable_nodes() if run != null else []
 			return _map.dots.get(opts[0]) if not opts.is_empty() else null
 		"outbreak": return _outbreak_bar.get_parent() as Control
-		"reveal": return _reveal_btn
 		"loadout": return _loadout_btn
 		"squad": return _squad_row
 		"vote": return _vote_box
@@ -882,7 +852,6 @@ func _on_run_event(ev: Dictionary) -> void:
 	var line := ""
 	match ev.type:
 		"supplies": line = "%+d Supplies (%s)" % [ev.amount, ev.reason]
-		"intel": line = "%+d Intel (%s)" % [ev.amount, ev.reason]
 		"outbreak": line = "Outbreak %+d → %d" % [ev.amount, ev.total]
 		"serum": line = "%+d Serum sample%s" % [ev.amount, "" if abs(ev.amount) == 1 else "s"]
 		"reveal": line = "Revealed: %s" % RunMap.NAMES.get(ev["as"], ev["as"])
