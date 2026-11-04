@@ -50,7 +50,7 @@ const GEAR_GRAFTS := {
 		"desc": "Each hit also Marks a second enemy within 3 tiles of the target.",
 		"look": "A large targeting lens with a range-finder in place of one mask optic"},
 	"lattice_sight": {"name": "Lattice sight", "slot": "head", "path": BLOOM, "tag": "Overwatch",
-		"desc": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers come through as +1 Intel after each fight.",
+		"desc": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers pay +10 Supplies after each fight.",
 		"look": "The mask cracked open, teal crystals growing through the visor"},
 	"plated_ribs": {"name": "Plated ribs", "slot": "chest", "path": MACHINE, "tag": "Guard",
 		"desc": "A single hit can take at most 3 HP; the excess vents at the attacker. Infection from spores and Spitters is halved.",

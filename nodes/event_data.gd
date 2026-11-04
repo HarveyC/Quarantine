@@ -21,7 +21,7 @@ extends RefCounted
 ##             "owner"      only the owner of the subject decides
 ##   prompt    the question
 ##   options   [{id, label, desc, requires?, target?, target_requires?, effects?, outcome?, next?, default?}]
-##             requires: {"supplies": n, "intel": n, "waived_by": class} (waived_by drops the cost
+##             requires: {"supplies": n, "waived_by": class} (waived_by drops the cost
 ##                       requirement when that class is in the squad; pair it with unless_class on the effect)
 ##             target "own_soldier": the chooser picks one of their own soldiers ({soldier} in text)
 ##             target_requires: {"has_mutation": true, "infection_at_least": n, "infection_below": n,
@@ -36,7 +36,7 @@ extends RefCounted
 ##   skip_if_class  {"class", "to", "outcome"}: jump straight to another step when the squad has that class
 ##
 ## Effects: {"op": ..., ...}
-##   supplies / intel / outbreak  {amount, unless_class?}
+##   supplies / outbreak  {amount, unless_class?}
 ##   infection {amount, who}  heal_pct {pct, who}  hurt_pct {pct, who}
 ##   mutation {who}  remove_mutation {who, serum}  perk_pick {who}
 ##   bloom_graft {who}           a Bloom graft in a random free slot, with its Infection (Grafts)
@@ -68,7 +68,7 @@ const EVENTS := {
 					{"id": "pay", "label": "Pay them off", "desc": "-30 Supplies", "requires": {"supplies": 30},
 						"effects": [{"op": "supplies", "amount": -30}],
 						"outcome": "The crate changes hands. The gate grinds open and nobody looks anyone in the eye."},
-					{"id": "scan", "label": "Take the blood scan", "desc": "A volunteer is scanned. If Exposed or worse they're held for a fight, but the guards trade 2 Intel", "next": "scan"},
+					{"id": "scan", "label": "Take the blood scan", "desc": "A volunteer is scanned. If Exposed or worse they're held for a fight, but the guards pay 30 Supplies", "next": "scan"},
 					{"id": "force", "label": "Force the gate", "desc": "Fight your way through (Extract)",
 						"effects": [{"op": "fight", "objective": "extract"}],
 						"outcome": "Someone kills the floodlights. The guards start shouting into their radios."},
@@ -80,7 +80,7 @@ const EVENTS := {
 				"options": [
 					{"id": "volunteer", "label": "I'll do it", "desc": "Pick one of your soldiers", "target": "own_soldier",
 						"effects": [{"op": "if_infected", "at_least": 25, "who": "soldier",
-							"then": [{"op": "sit_out", "who": "soldier"}, {"op": "intel", "amount": 2}],
+							"then": [{"op": "sit_out", "who": "soldier"}, {"op": "supplies", "amount": 30}],
 							"else": []}],
 						"outcome": "{soldier} holds out an arm. The scanner hums, then clicks."},
 				],
@@ -371,8 +371,8 @@ const EVENTS := {
 					{"id": "rest", "label": "Rest", "desc": "Every soldier heals 20% of max HP",
 						"effects": [{"op": "heal_pct", "pct": 20, "who": "all"}],
 						"outcome": "An hour of sleep on hard wood. It's the best hour any of you have had since the wall."},
-					{"id": "search", "label": "Search it", "desc": "+1 Intel, 50% chance of a small ambush",
-						"effects": [{"op": "intel", "amount": 1}, {"op": "chance", "p": 0.5,
+					{"id": "search", "label": "Search it", "desc": "+15 Supplies, 50% chance of a small ambush",
+						"effects": [{"op": "supplies", "amount": 15}, {"op": "chance", "p": 0.5,
 							"then": [{"op": "fight", "objective": "ambush", "ambush": true, "small": true}],
 							"else": []}],
 						"outcome": "Behind the altar, a Halden-Voss courier bag. Inside, a survey log that mentions \"the Lattice\" a year before the drilling."},
@@ -422,8 +422,8 @@ const EVENTS := {
 				"kind": "vote",
 				"prompt": "What do you do with the signal?",
 				"options": [
-					{"id": "decode", "label": "Decode it", "desc": "Spend 2 Intel: the boss starts with 20% less health", "requires": {"intel": 2},
-						"effects": [{"op": "intel", "amount": -2}, {"op": "modifier", "key": "boss_health_mult", "value": 0.8}],
+					{"id": "decode", "label": "Decode it", "desc": "-30 Supplies: the boss starts with 20% less health", "requires": {"supplies": 30},
+						"effects": [{"op": "supplies", "amount": -30}, {"op": "modifier", "key": "boss_health_mult", "value": 0.8}],
 						"outcome": "It's a map of the Source, drawn from the inside. Someone down there wanted you to find the soft parts."},
 					{"id": "jam", "label": "Jam it", "desc": "Outbreak -1",
 						"effects": [{"op": "outbreak", "amount": -1}],
@@ -461,8 +461,8 @@ const EVENTS := {
 				"options": [
 					{"id": "walk", "label": "Let them walk", "desc": "Nothing", "default": true,
 						"outcome": "They back off with their hands where you can see them. Their drone follows the squad for the next mile."},
-					{"id": "rob", "label": "Take their kit", "desc": "Fight them for it (Hold); +1 Intel from their datapad",
-						"effects": [{"op": "intel", "amount": 1}, {"op": "fight", "objective": "hold"}],
+					{"id": "rob", "label": "Take their kit", "desc": "Fight them for it (Hold); +15 Supplies from their pockets",
+						"effects": [{"op": "supplies", "amount": 15}, {"op": "fight", "objective": "hold"}],
 						"outcome": "The lead grabs for his radio. More white suits are already coming up the street."},
 				],
 			},
@@ -505,8 +505,8 @@ const EVENTS := {
 				"kind": "vote",
 				"prompt": "How do you cross?",
 				"options": [
-					{"id": "swim", "label": "Swim the tunnel", "desc": "Every soldier loses 15% HP; +1 Intel from a drowned courier",
-						"effects": [{"op": "hurt_pct", "pct": 15, "who": "all"}, {"op": "intel", "amount": 1}],
+					{"id": "swim", "label": "Swim the tunnel", "desc": "Every soldier loses 15% HP; +15 Supplies from a drowned courier",
+						"effects": [{"op": "hurt_pct", "pct": 15, "who": "all"}, {"op": "supplies", "amount": 15}],
 						"outcome": "Cold enough to stop your heart. Halfway across, a Halden-Voss courier floats past, case still cuffed to his wrist."},
 					{"id": "roof", "label": "Run the tram roofs", "desc": "50% chance of an ambush from the water",
 						"effects": [{"op": "chance", "p": 0.5,
@@ -531,13 +531,13 @@ const EVENTS := {
 				"kind": "vote",
 				"prompt": "What do you do with the terminal?",
 				"options": [
-					{"id": "download", "label": "Download everything", "desc": "+2 Intel, 50% chance the alarm brings a fight",
-						"effects": [{"op": "intel", "amount": 2}, {"op": "chance", "p": 0.5,
+					{"id": "download", "label": "Download everything", "desc": "+30 Supplies, 50% chance the alarm brings a fight",
+						"effects": [{"op": "supplies", "amount": 30}, {"op": "chance", "p": 0.5,
 							"then": [{"op": "fight", "objective": "skirmish", "ambush": true}],
 							"else": []}],
 						"outcome": "The drive fills slowly. They knew the fungus was aware before the first drill went in. They drilled anyway."},
-					{"id": "skim", "label": "Skim it and go", "desc": "+1 Intel", "default": true,
-						"effects": [{"op": "intel", "amount": 1}],
+					{"id": "skim", "label": "Skim it and go", "desc": "+15 Supplies", "default": true,
+						"effects": [{"op": "supplies", "amount": 15}],
 						"outcome": "You photograph the first page and leave the rest. Nobody wants to read the rest."},
 					{"id": "wipe", "label": "Wipe the servers", "desc": "Outbreak -1: nobody else gets to weaponise this",
 						"effects": [{"op": "outbreak", "amount": -1}],
@@ -610,9 +610,6 @@ const EVENTS := {
 					{"id": "buy", "label": "Buy a crate", "desc": "-30 Supplies: an Uncommon item", "target": "own_soldier", "requires": {"supplies": 30},
 						"effects": [{"op": "supplies", "amount": -30}, {"op": "item", "count": 1, "rarity": "uncommon", "who": "soldier"}],
 						"outcome": "No receipt. The crate is lighter than it should be, but what's inside works."},
-					{"id": "intel", "label": "Buy a rumour", "desc": "-15 Supplies: +1 Intel", "requires": {"supplies": 15},
-						"effects": [{"op": "supplies", "amount": -15}, {"op": "intel", "amount": 1}],
-						"outcome": "The clerk writes a grid reference on a napkin and eats the napkin."},
 					{"id": "nothing", "label": "Just looking", "desc": "Nothing", "default": true},
 				],
 			},

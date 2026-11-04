@@ -35,7 +35,6 @@ enum Look { FUTURE, OPTION, CURRENT, VISITED, PASSED }
 var run: RunState
 ## node id -> NodeDot
 var dots := {}
-var reveal_mode := false
 ## player -> display name, for vote chips.
 var names := {}
 var hover := -1
@@ -51,7 +50,6 @@ class NodeDot extends Control:
 	var id := -1
 	var type := ""
 	var look: int = 0
-	var revealable := false
 	var hovered := false
 	var pulse := 0.0
 	## Smaller rings on a short board (a small window at a big Interface scale).
@@ -114,10 +112,6 @@ class NodeDot extends Control:
 			fill = Color("2a0d1e")
 			border = Styles.DANGER
 			width = maxf(width, 3.0)
-		if revealable:
-			border = Styles.AMBER
-			icon_col = Styles.AMBER
-			width = 3.0
 		if hovered:
 			fill = fill.lightened(0.08)
 			border = border.lightened(0.25)
@@ -127,7 +121,7 @@ class NodeDot extends Control:
 			_blob_line(c, r, border, width, 1 + id % 5)
 		else:
 			draw_circle(c, r, fill)
-			if type == RunMap.UNKNOWN and not revealable:
+			if type == RunMap.UNKNOWN:
 				for k in 16:
 					var a0 := k * TAU / 16.0
 					draw_arc(c, r, a0, a0 + TAU / 32.0, 6, border, width, true)
@@ -245,8 +239,7 @@ func refresh() -> void:
 			d.look = Look.PASSED
 		else:
 			d.look = Look.FUTURE
-		d.revealable = reveal_mode and n.hidden and run.phase == RunState.Phase.MAP and run.intel > 0
-		var clickable: bool = d.look == Look.OPTION or d.revealable
+		var clickable: bool = d.look == Look.OPTION
 		d.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if clickable else Control.CURSOR_ARROW
 		d.queue_redraw()
 	_layout()
@@ -347,8 +340,6 @@ func _card_hint(n: Dictionary) -> String:
 	var d: NodeDot = dots.get(n.id)
 	if d == null:
 		return ""
-	if d.revealable:
-		return "Click to reveal · 1 Intel"
 	if d.look == Look.OPTION:
 		return "Click to choose" if run.is_solo() else "Click to vote"
 	return ""
@@ -460,8 +451,6 @@ func _draw() -> void:
 			if n.objective != "" and type != RunMap.UNKNOWN:
 				t += " · " + NodeInfo.OBJECTIVE_NAMES.get(n.objective, n.objective)
 			_text_c(font, t.to_upper(), below, 14, lc, 1.5)
-			if type == RunMap.UNKNOWN:
-				_text_c(body, "1 Intel to reveal", below + Vector2(0, 17), 12, Styles.MUTED)
 
 	# Key numbers on the open routes, matching the vote panel (keys 1-4).
 	for i in mini(reach.size(), 4):

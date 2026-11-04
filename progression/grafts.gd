@@ -442,10 +442,10 @@ static func claw(s: GameState, u: Unit, t: Unit) -> void:
 # ---------------------------------------------------------------- after a fight
 
 ## Called from Progression.on_fight_end for every fight: Lattice sight at Critical hears the
-## Source's Whispers (+1 Intel per soldier), whatever the result.
+## Source's Whispers (+10 Supplies per soldier), whatever the result.
 static func on_fight_end(run, outcome: Dictionary) -> void:
 	for e in outcome.get("soldiers", []):
 		var u := Unit.from_dict(e.unit)
 		if u.is_alive() and not u.status.get("turned", false) and has(u, "lattice_sight") \
 				and Infection.tier(u.infection) == Infection.Tier.CRITICAL:
-			RunRules.add_intel(run, 1, "Whispers")
+			RunRules.add_supplies(run, 10, "Whispers")

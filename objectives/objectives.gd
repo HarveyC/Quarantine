@@ -595,7 +595,7 @@ static func _squad_units(s: GameState) -> Array[Unit]:
 		return u.status.get("turned", false) or (Kit.is_soldier(u) and not is_civilian(u) and not u.status.has("deployable")))
 
 
-## Whether the fight's bonus objective was met (+10 Supplies, +1 Intel in a run). Only after a win.
+## Whether the fight's bonus objective was met (+10 Supplies in a run). Only after a win.
 static func bonus_met(s: GameState) -> bool:
 	if s.result != Types.Result.VICTORY or s.objective.is_empty():
 		return false
