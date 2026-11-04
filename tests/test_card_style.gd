@@ -58,3 +58,19 @@ func test_action_cards_build() -> void:
 			c.set_expanded(full)
 			assert_true(c.get_child_count() > 0, "%s builds (expanded %s)" % [a.label, full])
 			c.free()
+
+
+func test_gear_facts() -> void:
+	assert_eq(ActionCard.gear_effect("Once per fight, free: +15 Infection to yourself"), "+15 Infection to yourself")
+	assert_eq(ActionCard.gear_effect("Cooldown 3: Mark every enemy"), "Mark every enemy")
+	assert_eq(ActionCard.gear_effect("Hits Mark the target"), "Hits Mark the target")
+	var flare := ActionCard.gear_cells("flare_launcher", 1)
+	assert_eq(flare[0][1], "Action", "cost comes first")
+	assert_true(flare.any(func(c): return c[1] == "Cooldown" and c[0] == "3"), "cooldown cell")
+	var pump := ActionCard.gear_cells("adrenal_pump", 2)
+	assert_eq(pump[0][0], "0", "a free action shows 0")
+	assert_true(pump.any(func(c): return c[1] == "Per fight" and c[0] == "2"), "uses per fight")
+	assert_eq(ActionCard.gear_cells("tracer_rounds", 1).size(), 0, "passive gear has no fact row")
+	for id in GearFx.GADGETS:
+		for mk in [1, 2]:
+			assert_true(ActionCard.gear_effect(GearData.desc(id, mk)).length() > 0, "%s mk%d effect" % [id, mk])

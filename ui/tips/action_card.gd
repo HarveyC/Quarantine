@@ -9,6 +9,7 @@ const Styles := preload("res://ui/styles.gd")
 const W := preload("res://ui/widgets.gd")
 const Icons := preload("res://ui/icons.gd")
 const TipArt := preload("res://ui/tips/tip_art.gd")
+const Tips := preload("res://ui/tips/tips.gd")
 
 ## Range and damage per ability id, read from the rules constants. Anything not listed shows
 ## neither cell (a Mark has no damage, Hunker has no range).
@@ -107,20 +108,7 @@ static func build(card: Control, box: VBoxContainer, a: Dictionary, inner: float
 	var cd := max_cooldown(str(a.get("id", "")))
 	if cd > 0:
 		cells.append([str(cd), "Cooldown", false])
-	var row := Styles.hbox(10)
-	for i in cells.size():
-		var cell := Styles.vbox(0)
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		if cells[i][0] == "END":
-			cell.add_child(EndGlyph.new(tone))
-		else:
-			cell.add_child(Styles.mono(str(cells[i][0]), 20, tone if i == 0 else Styles.TEXT))
-		var l := Styles.caps(str(cells[i][1]), 10, Styles.MUTED, false)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.custom_minimum_size.x = (inner - 10 * (cells.size() - 1)) / cells.size()
-		cell.add_child(l)
-		row.add_child(cell)
-	box.add_child(row)
+	box.add_child(fact_row(cells, inner, tone))
 	var state := ""
 	var cooling := int(a.get("cooldown", 0))
 	if cooling > 0:
@@ -147,6 +135,62 @@ static func build(card: Control, box: VBoxContainer, a: Dictionary, inner: float
 			r.add_child(dot_box)
 			r.add_child(card.rich(str(line), inner - 12, 13, Styles.DIM))
 			box.add_child(r)
+
+
+## The fact row: cells are [value, label, ...]; the first is the cost and is amber. "END" draws
+## the ends-turn glyph. Shared by action cards and gear cards.
+static func fact_row(cells: Array, inner: float, tone := Styles.AMBER, hover_terms := false) -> HBoxContainer:
+	var row := Styles.hbox(10)
+	for i in cells.size():
+		var cell := Styles.vbox(0)
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if cells[i][0] == "END":
+			cell.add_child(EndGlyph.new(tone))
+		else:
+			cell.add_child(Styles.mono(str(cells[i][0]), 20, tone if i == 0 else Styles.TEXT))
+		var l := Styles.caps(str(cells[i][1]), 10, Styles.MUTED, false)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size.x = (inner - 10 * (cells.size() - 1)) / cells.size()
+		cell.add_child(l)
+		var term: String = {"Cooldown": "cooldown", "Per fight": "once_per_fight", "Ends turn": "actions", "Action": "actions", "Actions": "actions"}.get(str(cells[i][1]), "")
+		if term != "" and hover_terms:
+			Tips.term(cell, term)
+			cell.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_child(cell)
+	return row
+
+
+## Fact cells for a gear gadget or consumable (cost first, then tiles, cooldown, uses per fight);
+## empty for gear that has no action.
+static func gear_cells(id: String, mk: int) -> Array:
+	var d: Dictionary = {}
+	if GearFx.GADGETS.has(id):
+		var g: Dictionary = GearFx.GADGETS[id]
+		d = {"cost": g.cost, "range": g.get("range", 0.0), "cooldown": g.cooldown[mk - 1], "uses": g.uses[mk - 1]}
+	elif GearFx.CONSUMABLE_USE.has(id):
+		var c: Dictionary = GearFx.CONSUMABLE_USE[id]
+		d = {"cost": c.cost, "range": c.get("range", 0.0), "cooldown": 0, "uses": 0}
+	if d.is_empty():
+		return []
+	var cells: Array = [_cost_cell({"cost": d.cost})]
+	if float(d.range) >= 2.0:
+		cells.append([str(int(d.range)), "Tiles", false])
+	if int(d.cooldown) > 0:
+		cells.append([str(d.cooldown), "Cooldown", false])
+	if int(d.uses) > 0:
+		cells.append([str(d.uses), "Per fight", false])
+	return cells
+
+
+## Gear effect text without its leading limit ("Once per fight:", "Cooldown 3:"), which the fact
+## row shows instead.
+static func gear_effect(text: String) -> String:
+	var re := RegEx.create_from_string("^(Once per fight|Twice per fight|Cooldown \\d)(, free)?: ")
+	var m := re.search(text)
+	if m == null:
+		return text
+	var rest := text.substr(m.get_end())
+	return rest.substr(0, 1).to_upper() + rest.substr(1)
 
 
 ## Cost cell: [value, label]. "1 Action", the ends-turn glyph, or "0 Actions" when free.
