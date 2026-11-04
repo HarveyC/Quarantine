@@ -1,0 +1,68 @@
+class_name EnemyLore
+extends RefCounted
+## One short in-world line per enemy kind, shown above the mechanics in the Shift view of the
+## unit tooltip (ui/hud.gd). Every UnitData.ENEMIES
+## kind needs a line (tests/test_enemy_lore.gd).
+
+const LINES := {
+	"runner": "A Harrow resident the Source ran out of patience with.",
+	"spitter": "Its throat swelled shut years ago. The rest still works.",
+	"fallen": "A cordon soldier who kept his rifle and lost the rest.",
+	"bloater": "Full of spores and in no hurry to hold them.",
+	"brute": "Whatever the Source built it from was already large.",
+	"lurker": "Went to ground in the walls and learned to wait.",
+	"shrieker": "It sings, and anything nearby remembers how to hunt.",
+	"leaper": "It has never stood still on level ground.",
+	"drifter": "Lighter than a body should be. The spores carry it.",
+	"sharpshooter": "A colony marksman who keeps one eye, and uses it.",
+	"burrower": "The shaft taught it that the ground is optional.",
+	"broodling": "The Brood Mother's smallest, and the loudest when it goes.",
+	"hive_node": "A wet knot in the wall that keeps the colony coming.",
+	"egg_sac": "Warm to the touch, and something moves inside.",
+	"spore_nest": "The floor here breathes.",
+	"source_root": "A root of the Source, thick as a drill pipe.",
+	"coolant_valve": "The Engine's lifeline, still hissing.",
+	"hooker": "A dockhand's grapple, turned on people.",
+	"sapper": "Harrow's demolition crew never got the all clear.",
+	"carapace": "Bone grew where the armour should have been.",
+	"stalker": "It only moves when no one is looking.",
+	"weaver": "Threads itself through the wounded and sews them shut.",
+	"cutter": "A looter with a pry bar and nothing left to lose.",
+	"torchman": "Carries the fire it will not put down.",
+	"fence": "Sells what the others steal, and leaves before the bill.",
+	"packrat": "Wears everything it has ever taken.",
+	"rigger": "Strings wire across doorways for a living.",
+	"lookout": "Paid to see you first and shout.",
+	"shieldman": "Colony Security's last wall, held at arm's length.",
+	"overwatcher": "Has not left this post since the cordon closed.",
+	"emplacement": "Sandbags, a gun and orders nobody cancelled.",
+	"sergeant": "Still gives orders to a cordon that is gone.",
+	"grenadier": "Throws first and counts the survivors later.",
+	"field_medic": "Brings the cordon's dead back for one more shift.",
+	"hound": "A kennel drone left running after the kennel closed.",
+	"loader": "Built to move cargo. It still does.",
+	"relay": "A signal mast that never stopped broadcasting.",
+	"tender": "Repairs what it is told to, and nothing else.",
+	"carrier": "A drone bay bolted to a lift, still on schedule.",
+	"arc_welder": "A repair tool with the safety taken off.",
+	"netter": "Halden-Voss pays by the head, and the head must be alive.",
+	"handler": "Watches from the back and chooses who goes home.",
+	"sterilizer": "Contracted to burn the colony clean, and not particular.",
+	"collector": "Delivers the catch to the nearest edge of the map.",
+	"acolyte": "Followed the song until there was nothing else.",
+	"cantor": "Gives the Choir its voice and its courage.",
+	"hush": "Where it walks, the radio goes quiet.",
+	"brood_mother": "The first Harrow resident the Source finished with.",
+	"breaker": "A demolition rig that learned it can choose its walls.",
+	"broker": "Sold Harrow's supplies twice. Now he is selling it the rest.",
+	"colonel_hale": "The cordon's commander, who held the line until it held him.",
+	"choir_prophet": "Says the Source is a mercy, and means it.",
+	"director": "Halden-Voss sent her to recover the asset. You are the asset.",
+	"bore_engine": "The machine that dug the shaft. It remembers the way down.",
+	"lantern_echoes": "The Source wears the people it has lost.",
+	"the_source": "It has been waiting at the bottom of the shaft since the drill broke through.",
+}
+
+
+static func line(kind: String) -> String:
+	return str(LINES.get(kind, ""))
