@@ -36,14 +36,14 @@ const TAG_INFO := {
 	"Suppress": {"color": Color("#b9a7ff"), "about": "Pinning enemies down",
 		"bonus": "a Suppressed enemy that moves gives you a free shot, and Suppressed enemies hit you for 1 less"},
 	"Overwatch": {"color": Color("#6fc3ff"), "about": "Reaction fire in the enemy phase",
-		"bonus": "an overwatch kill keeps your overwatch up and heals you 1 HP",
+		"bonus": "an overwatch kill keeps your overwatch up and removes 5 Infection from you",
 		"capstone_name": "Field of Fire", "capstone": "Your overwatch fires at every enemy that moves in range, not just the first"},
 	"Close": {"color": Color("#e0a050"), "about": "Fighting within 3 tiles",
-		"bonus": "once per turn a kill within 3 tiles refunds a move and heals you 1 HP"},
+		"bonus": "once per turn a kill within 3 tiles refunds a move and removes 5 Infection from you"},
 	"Strain": {"color": Color("#3fe0c5"), "about": "Powers fed by Infection",
 		"bonus": "active mutations cost 5 less Infection, and while Exposed or higher Infected hit you for 1 less"},
 	"Purge": {"color": Color("#e9e4d4"), "about": "Removing or moving Infection",
-		"bonus": "Allies you purge also heal 1 HP, you gain no Infection on a turn you purge someone, and you and allies within 2 tiles take a quarter less Infection"},
+		"bonus": "Allies you purge also gain no Infection for 2 turns, you gain no Infection on a turn you purge someone, and you and allies within 2 tiles take a quarter less Infection"},
 	"Guard": {"color": Color("#a9c46c"), "about": "Protecting adjacent allies",
 		"bonus": "Adjacent allies get +5 defense, you and adjacent allies take a quarter less Infection, and once per enemy phase you take a hit meant for an adjacent ally",
 		"capstone_name": "Aegis", "capstone": "One hit can't kill you from above 1 HP, and damage you take for an ally goes back to the attacker"},
@@ -147,8 +147,8 @@ const ITEMS := {
 		"desc_mk2": "A third pocket. A move that ends next to an enemy slams it back a tile, Suppresses it and deals 2 damage"},
 	# Strain
 	"bio_mesh": {"name": "Graft weave", "tag": "Strain", "slot": "body", "rarity": "common",
-		"desc": "Each awake mutation heals you 2 HP every team phase",
-		"desc_mk2": "Each awake mutation heals you 3 HP every team phase"},
+		"desc": "Each awake mutation removes 2 Infection from you every team phase",
+		"desc_mk2": "Each awake mutation removes 3 Infection from you every team phase"},
 	"spore_rounds": {"name": "Spore-laced rounds", "tag": "Strain", "slot": "ammo", "rarity": "uncommon",
 		"desc": "+1 damage per awake mutation; each shot adds 2 Infection to you",
 		"desc_mk2": "+1 damage per awake mutation, +1 more; each shot adds 2 Infection to you"},
@@ -160,7 +160,7 @@ const ITEMS := {
 		"desc_mk2": "Pay mutation use costs with HP instead of Infection, 1 HP per 10 (not if it would drop you)"},
 	# Purge
 	"filter_mask": {"name": "Filter mask", "tag": "Purge", "slot": "head", "rarity": "common",
-		"desc": "Spore zones don't infect you", "desc_mk2": "Spore zones don't infect you, and a Purge on you also heals 3 HP"},
+		"desc": "Spore zones don't infect you", "desc_mk2": "Spore zones don't infect you, and a Purge on you also clears Burning, Suppressed and stun"},
 	"med_injector": {"name": "Med-injector", "tag": "Purge", "slot": "utility", "rarity": "common",
 		"desc": "Once per fight, 1 action: an adjacent ally loses 15 Infection",
 		"desc_mk2": "Once per fight, 1 action: an adjacent ally loses 25 Infection"},
@@ -211,8 +211,8 @@ const ITEMS := {
 		"desc": "When you are hit, the attacker's tile is splashed with acid for 2 turns, once a turn",
 		"desc_mk2": "When you are hit, the attacker's tile and the tiles around it are splashed with acid for 2 turns"},
 	"leech_rounds": {"name": "Leech rounds", "tag": "Strain", "slot": "ammo", "rarity": "rare",
-		"desc": "While Exposed or higher, hits heal you 1 HP and add 2 Infection to you",
-		"desc_mk2": "While Exposed or higher, hits heal you 1 HP and add 1 Infection to you"},
+		"desc": "While Exposed or higher, hits Mark the target for a turn and add 2 Infection to you",
+		"desc_mk2": "While Exposed or higher, hits Mark the target for a turn and add 1 Infection to you"},
 	"purge_canister": {"name": "Purge canister", "tag": "Purge", "slot": "ammo", "rarity": "common",
 		"desc": "Each kill removes 5 Infection from you", "desc_mk2": "Each kill removes 10 Infection from you"},
 	"ballistic_plate": {"name": "Spall liner", "tag": "Guard", "slot": "body", "rarity": "common",
@@ -293,8 +293,8 @@ const ITEMS := {
 		"desc": "A single hit can take at most 3 HP; the excess vents at the attacker. Infection from spores and Spitters is halved.",
 		"desc_mk2": "A single hit can take at most 3 HP; the excess vents at the attacker. Infection from spores and Spitters is halved."},
 	"heart_knot": {"name": "Heart knot", "tag": "Strain", "slot": "body", "rarity": "rare",
-		"desc": "Regenerate 1 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for a turn.",
-		"desc_mk2": "Regenerate 1 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for a turn."},
+		"desc": "Once per fight, while Mutating or higher, grow a one-hit shield. Enemies that hit you in melee are slowed for a turn.",
+		"desc_mk2": "Once per fight, while Mutating or higher, grow a one-hit shield. Enemies that hit you in melee are slowed for a turn."},
 	# Class rigs: the active a class starts with, as gear any soldier can swap in or out.
 	"rig_suppress": {"name": "Suppression rig", "tag": "Suppress", "slot": "utility", "rarity": "common",
 		"desc": "Grants the Suppress ability",
@@ -356,7 +356,7 @@ const PROTOTYPES := {
 	"hold_position": {"name": "Hold position", "tags": ["Guard", "Suppress"], "slot": "offhand",
 		"desc": "Suppress costs 1 action instead of ending your turn"},
 	"feral_grip": {"name": "Feral grip", "tags": ["Close", "Strain"], "slot": "body",
-		"desc": "Every hit within 3 tiles, mutation attacks included, heals you 1 HP"},
+		"desc": "Every hit within 3 tiles, mutation attacks included, removes 3 Infection from you"},
 	"bloodletting": {"name": "Bloodletting", "tags": ["Strain", "Purge"], "slot": "utility",
 		"desc": "Once per turn, Purge an ally: the Infection moves to you and you gain 1 action"},
 	"quarantine_field": {"name": "Quarantine field", "tags": ["Guard", "Purge"], "slot": "utility",
@@ -374,6 +374,7 @@ const PROTOTYPES := {
 ## Pocket consumables, used up. Charges stack per pocket.
 const CONSUMABLES := {
 	"medkit": {"name": "Medkit", "price": 12, "desc": "Heal 4 HP and clear Burning, Suppressed and stun. At full HP it gives a one-hit shield instead."},
+	"triage_dose": {"name": "Triage dose", "price": 18, "desc": "Fuel for the Medic's Stim: each Stim uses up one dose. Stim heals 3 and removes 15 Infection."},
 	"flashbang": {"name": "Flashbang", "price": 15, "desc": "Stuns enemies in radius 1: they lose their next turn"},
 	"smoke_grenade": {"name": "Smoke grenade", "price": 15, "desc": "A 3x3 smoke cloud for 2 turns: +20 defense inside, and you can't be spotted in it"},
 	"recon_drone": {"name": "Recon drone", "price": 15, "desc": "Reveals a 6-tile radius for the fight and Marks every enemy in it."},
@@ -389,11 +390,13 @@ const CONSUMABLE_CHARGES := 2  # a consumable reward card gives 2 charges
 ## Every soldier starts a run (or joins as a recruit) with one charge of a class consumable.
 ## A class not listed here gets a random one from STARTER_FALLBACK.
 const STARTER_CONSUMABLES := {
-	"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit",
+	"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "triage_dose",
 	"breacher": "demo_charge", "hazmat": "suppressant_shot", "vector": "stim",
 }
 const STARTER_FALLBACK: Array[String] = ["medkit", "flashbang", "smoke_grenade"]
 const STARTER_CHARGES := 1
+## A class whose starting consumable is its own ability fuel starts with more than one charge.
+const STARTER_CHARGES_BY_CLASS := {"medic": 3}
 
 ## Squad-wide passives voted on after each act boss (stored in run.modifiers.doctrines).
 const DOCTRINES := {

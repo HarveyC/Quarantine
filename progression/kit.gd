@@ -19,7 +19,6 @@ const STEADY_AIM := 10
 const LURE_AIM := 15
 const LURE_RADIUS := 6.0
 const DEADEYE_CRIT := 100   # Deadeye: a Marked enemy in the open is always a crit
-const CLOT_HEAL := 3
 const BONES_FAR := 5
 const WILLING_HOST_FLOOR := 25
 const SPORE_VEIL_DAMAGE := 2
@@ -163,9 +162,11 @@ static func on_team_phase_start(s: GameState) -> void:
 				if a != u and is_soldier(a) and cheb(a.pos, u.pos) == 1 and a.infection > 0:
 					Infection.add(s, a, -medic_cure(a, 5))
 		if awake(u, "clotting_blood") and u.hp * 2 <= u.max_hp:
-			_heal(s, u, CLOT_HEAL, "clotting_blood")
+			_shield_once(s, u, "k_clot_shield", "clotting_blood")
 		if awake(u, "regenerator"):
-			_heal(s, u, 3, "regenerator")
+			if not u.status.get("k_medshield", false):
+				u.status["k_medshield"] = true
+				s.emit({"type": "mutation", "unit": u.id, "mutation": "regenerator"})
 			Infection.add(s, u, 2)
 		Grafts.on_team_phase_start(s, u)
 		_ride_the_wave_tick(s, u)
@@ -201,6 +202,20 @@ static func on_enemy_phase_start(s: GameState) -> void:
 				u.actions_left = 0
 	for u in s.units:
 		refresh_stats(s, u)
+
+
+## Infection relief: what the old passive heals became. Nothing in the game restores HP over and
+## over any more; Stim, medkits, the field hospital and event rests are the only ways back.
+static func _cleanse(s: GameState, u: Unit, amount: int) -> void:
+	if amount > 0 and u.infection > 0:
+		Infection.add(s, u, -medic_cure(u, amount))
+
+
+## A one-hit shield (the medkit's overflow shield), granted once per `key` per fight.
+static func _shield_once(s: GameState, u: Unit, key: String, why: String) -> void:
+	if not u.status.get("k_medshield", false) and _once(u, key):
+		u.status["k_medshield"] = true
+		s.emit({"type": "mutation", "unit": u.id, "mutation": why})
 
 
 static func _heal(s: GameState, u: Unit, amount: int, why: String) -> void:
@@ -571,9 +586,9 @@ static func on_death(s: GameState, dead: Unit, source: Unit) -> void:
 	if is_soldier(source) and cheb(source.pos, dead.pos) == 1:
 		source.status["close_kills"] = int(source.status.get("close_kills", 0)) + 1   # Reaper unlock
 	if has_perk(source, "feed"):
-		_heal(s, source, 2, "feed")
-		if EnemyRoster.infects(dead) and source.infection > 0:
-			Infection.add(s, source, -medic_cure(source, 10))
+		_cleanse(s, source, 10)
+		if EnemyRoster.infects(dead):
+			_cleanse(s, source, 10)
 	if has_perk(source, "open_veins") and Infection.tier(source.infection) >= Infection.Tier.EXPOSED:
 		for o in s.living():
 			if source.is_enemy_of(o) and cheb(o.pos, dead.pos) <= VEINS_RADIUS:
@@ -586,7 +601,7 @@ static func on_death(s: GameState, dead: Unit, source: Unit) -> void:
 				s.emit({"type": "perk", "unit": source.id, "perk": "high_perch", "target": o.id})
 	if has_perk(source, "adrenaline") and source.pos.distance_to(dead.pos) <= Combat.CLOSE_RANGE \
 			and _once(source, "k_adrenaline", s.turn):
-		_heal(s, source, 2, "adrenaline")
+		_cleanse(s, source, 10)
 	if has_perk(source, "double_tap") and source.status.get("k_first_action", false) and _once(source, "k_double_tap", s.turn):
 		source.actions_left += 1
 		source.status.erase("k_shoot_only")
@@ -631,7 +646,7 @@ static func ability_cost(u: Unit, id: String, cost: int) -> int:
 static func ability_cooldown(u: Unit, id: String, cd: int) -> int:
 	match id:
 		"stim":
-			return 1 if has_perk(u, "field_kit") else cd
+			return cd
 		"tag":
 			return 1 if has_perk(u, "hunters_mark") else cd
 		"incinerate":

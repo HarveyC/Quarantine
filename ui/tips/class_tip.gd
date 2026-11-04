@@ -97,7 +97,7 @@ static func build(card: Control, box: VBoxContainer, kind: String, locked: bool,
 		box.add_child(_kit_row(card, str(id), inner, full))
 	var cons := str(GearData.STARTER_CONSUMABLES.get(kind, ""))
 	if cons != "":
-		box.add_child(_consumable_row(card, cons, inner, full))
+		box.add_child(_consumable_row(card, cons, inner, full, kind))
 	if Weapons.starts_on_sidearm(kind):
 		var cg := Weapons.get_gun(Weapons.id_for(kind))
 		box.add_child(Styles.caps("finds a %s in a run" % str(cg.get("name", "")).to_lower(), 10, Styles.MUTED, false))
@@ -223,11 +223,11 @@ static func _kit_row(card: Control, id: String, inner: float, full: bool) -> Con
 
 
 ## The starting consumable: its first sentence, with the charge count.
-static func _consumable_row(card: Control, id: String, inner: float, full: bool) -> Control:
+static func _consumable_row(card: Control, id: String, inner: float, full: bool, kind: String = "") -> Control:
 	var desc := str(GearData.CONSUMABLES.get(id, {}).get("desc", ""))
 	if not full:
 		desc = desc.split(". ")[0].trim_suffix(".")
-	return _item_row(card, id, GearData.item_name(id), desc, "x%d" % GearData.STARTER_CHARGES, inner, "consumable")
+	return _item_row(card, id, GearData.item_name(id), desc, "x%d" % int(GearData.STARTER_CHARGES_BY_CLASS.get(kind, GearData.STARTER_CHARGES)), inner, "consumable")
 
 
 static func _rule() -> ColorRect:

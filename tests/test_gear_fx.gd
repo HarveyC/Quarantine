@@ -464,7 +464,10 @@ func test_exo_frame_riot_shield_and_filter_mask_mk2() -> void:
 	ally.hp = 2
 	ally.infection = 30
 	GearFx.on_purge(s, md, ally, 15)
-	assert_eq(ally.hp, 2 + GearFx.FILTER_HEAL, "Purge heals through a Mk II filter mask")
+	ally.status["burning"] = 9
+	GearFx.on_purge(s, md, ally, 15)
+	assert_eq(ally.hp, 2, "a Purge never heals, even through a Mk II filter mask")
+	assert_true(not ally.status.has("burning"), "a Mk II filter mask clears Burning on Purge")
 
 
 # ---------------------------------------------------------------- extra shots

@@ -142,7 +142,7 @@ func test_plated_ribs_halve_spitter_infection() -> void:
 	assert_true(u.infection > 0 and u.infection < pu.infection, "halved (and cut 10%%): %d vs %d" % [u.infection, pu.infection])
 
 
-func test_bloom_claw_strikes_and_heals_on_kill() -> void:
+func test_bloom_claw_strikes_and_cleanses_on_kill() -> void:
 	var s := _state("trooper", {"arm": "bloom_limb"}, 55)
 	var u := _me(s)
 	assert_true(u.abilities.has("bloom_claw"), "claw granted")
@@ -160,7 +160,7 @@ func test_bloom_claw_strikes_and_heals_on_kill() -> void:
 		Rules.apply(s, a)
 		hit = not foe.is_alive()
 	assert_true(hit, "claw kills")
-	assert_eq(u.hp, u.max_hp - 1, "kill heals 1")
+	assert_eq(u.hp, u.max_hp - 2, "a kill no longer heals")
 
 
 func test_runner_leap_ignores_overwatch_once_per_fight() -> void:
@@ -178,12 +178,13 @@ func test_runner_leap_ignores_overwatch_once_per_fight() -> void:
 	assert_true(Rules.validate(s, {"type": Types.ABILITY, "unit": u.id, "ability": "runner_leap", "cell": Vector2i(3, 9)}) != "", "range")
 
 
-func test_heart_knot_regenerates_and_slows_melee() -> void:
+func test_heart_knot_shields_once_and_slows_melee() -> void:
 	var s := _state("trooper", {"chest": "heart_knot"}, 55)
 	var u := _me(s)
 	u.hp = u.max_hp - 2
 	Kit.on_team_phase_start(s)
-	assert_eq(u.hp, u.max_hp - 1, "+1 HP at Mutating")
+	assert_eq(u.hp, u.max_hp - 2, "no regeneration")
+	assert_true(u.status.get("k_medshield", false), "a one-hit shield at Mutating")
 	var foe := s.add_unit(UnitData.make("runner", Types.Team.ENEMY), Vector2i(1, 0))
 	var mob := foe.mobility
 	Kit.after_melee(s, foe, u, 2)

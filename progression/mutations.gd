@@ -281,11 +281,10 @@ static func _melee(s: GameState, u: Unit, t: Unit) -> int:
 
 static func _leech(s: GameState, u: Unit, t: Unit, ev: Dictionary) -> void:
 	var dmg := _melee(s, u, t)
-	var healed := mini(dmg, u.max_hp - u.hp)
-	s.emit(ev.merged({"hit": dmg > 0, "damage": dmg, "healed": healed}))
+	s.emit(ev.merged({"hit": dmg > 0, "damage": dmg}))
 	if dmg > 0:
 		Rules.deal_damage(s, t, dmg, u)
-		u.hp += healed
+		Kit._cleanse(s, u, dmg * 3)
 	if t.team == Types.Team.ENEMY:
 		Infection.add(s, u, LEECH_INFECTED_EXTRA)
 

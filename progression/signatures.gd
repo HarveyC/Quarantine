@@ -24,7 +24,7 @@ const BRING_DOWN_DAMAGE := 4
 const BRING_DOWN_SPLASH := 2
 const FIELD_RADIUS := 2
 const FIELD_TURNS := 4   # phases: two full turns
-const FIELD_HEAL := 1
+const FIELD_CURE := 5
 const FIELD_AIM := 15
 const FLASHOVER_DAMAGE := 4
 const FLASHOVER_SPLASH := 2
@@ -255,11 +255,11 @@ static func field_over(s: GameState, cell: Vector2i, team: int) -> Unit:
 	return null
 
 
-## Start of the squad's turn: soldiers inside a field heal.
+## Start of the squad's turn: soldiers inside a field shed Infection.
 static func on_team_phase_start(s: GameState) -> void:
 	for u in s.living(Types.Team.PLAYER):
-		if Kit.is_soldier(u) and u.hp < u.max_hp and field_over(s, u.pos, Types.Team.PLAYER) != null:
-			Kit._heal(s, u, FIELD_HEAL, "quarantine_field")
+		if Kit.is_soldier(u) and u.infection > 0 and field_over(s, u.pos, Types.Team.PLAYER) != null:
+			Kit._cleanse(s, u, FIELD_CURE)
 
 
 static func field_blocks_infection(s: GameState, u: Unit) -> bool:

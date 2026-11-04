@@ -266,15 +266,14 @@ static func after_shot(s: GameState, u: Unit, t: Unit, hit: bool, reaction: bool
 		if close and has(u, "firestarter"):
 			ignite(s, u, t, 1)
 	if hit and has(u, "leech_rounds") and Infection.tier(u.infection) >= Infection.Tier.EXPOSED:
-		if u.hp < u.max_hp:
-			u.hp += 1
-			s.emit({"type": "gear", "unit": u.id, "item": "leech_rounds", "heal": 1, "hp": u.hp})
+		_mark(s, t, 2, u)
+		s.emit({"type": "gear", "unit": u.id, "item": "leech_rounds", "target": t.id})
 		Infection.add(s, u, 2 if mk(u, "leech_rounds") < 2 else 1)
 	if hit and t.team == Types.Team.ENEMY and has(u, "purifier_rounds") and u.infection > 0:
 		Infection.add(s, u, -(3 if mk(u, "purifier_rounds") < 2 else 5))
-	if hit and close and has(u, "feral_grip") and u.hp < u.max_hp:
-		u.hp += 1
-		s.emit({"type": "gear", "unit": u.id, "item": "feral_grip", "heal": 1, "hp": u.hp})
+	if hit and close and has(u, "feral_grip") and u.infection > 0:
+		Infection.add(s, u, -3)
+		s.emit({"type": "gear", "unit": u.id, "item": "feral_grip", "amount": 3})
 	if hit and close and dmg > 0 and has(u, "choke"):
 		for o in s.living():
 			if o != t and u.is_enemy_of(o) and _cheb(o.pos, t.pos) == 1:
@@ -334,13 +333,13 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		u.overwatch = true
 		u.status["ow_until"] = Combat.phase_index(s) + 2
 		s.emit({"type": "overwatch", "unit": u.id})
-		_heal_one(s, u, "overwatch_set")
+		Infection.add(s, u, -5)
 	if has_set(u, "Close") and _dist(u.pos, t.pos) <= CLOSE and u.status.get("gear_refund_turn", -1) != s.turn \
 			and s.phase == Types.Phase.TEAM and not reaction:
 		u.status["gear_refund_turn"] = s.turn
 		u.actions_left += 1
 		s.emit({"type": "gear", "unit": u.id, "item": "close_set", "actions": u.actions_left})
-		_heal_one(s, u, "close_set_heal")
+		Infection.add(s, u, -5)
 	if was_marked and t.status.get("warrant", false) and has_capstone(u, "Mark") and s.phase == Types.Phase.TEAM \
 			and u.status.get("warrant_turn", -1) != s.turn:
 		u.status["warrant_turn"] = s.turn
@@ -365,12 +364,6 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 		for o in s.living():
 			if u.is_enemy_of(o) and _cheb(o.pos, t.pos) <= radius:
 				ignite(s, u, o, 1)
-
-
-static func _heal_one(s: GameState, u: Unit, item: String) -> void:
-	if u.hp < u.max_hp:
-		u.hp += 1
-		s.emit({"type": "gear", "unit": u.id, "item": item, "heal": 1, "hp": u.hp})
 
 
 static func _mark(s: GameState, t: Unit, phases: int, u: Unit = null) -> void:
@@ -720,7 +713,7 @@ static func ward_factor(s: GameState, u: Unit) -> float:
 
 
 ## `u` took `amount` Infection off ally `t` (Purge, Decon, Siphon, Stim, Med-injector,
-## Suppressant shot). Purge set heals them 1 HP; Bloodletting takes the Infection onto `u` once
+## Suppressant shot). Purge set seals them from Infection; Bloodletting takes the Infection onto `u` once
 ## a turn for +1 action. `self_took`: the ability already moved it onto `u` (Siphon).
 static func on_purge(s: GameState, u: Unit, t: Unit, amount: int, self_took := false) -> void:
 	if t == null or t == u or amount <= 0 or not u.status.has("gear"):
@@ -732,13 +725,14 @@ static func on_purge(s: GameState, u: Unit, t: Unit, amount: int, self_took := f
 		s.emit({"type": "gear", "unit": u.id, "item": "bloodletting", "actions": u.actions_left})
 		Infection.add(s, u, amount)
 	u.status["purged_turn"] = s.turn
-	if has(t, "filter_mask") and mk(t, "filter_mask") >= 2 and t.hp < t.max_hp:
-		t.hp = mini(t.max_hp, t.hp + FILTER_HEAL)
-		s.emit({"type": "gear", "unit": t.id, "item": "filter_mask", "heal": FILTER_HEAL, "hp": t.hp})
+	if has(t, "filter_mask") and mk(t, "filter_mask") >= 2:
+		for st in ["burning", "suppressed", "k_skip_turn", "rooted", "wound"]:
+			t.status.erase(st)
+		s.emit({"type": "gear", "unit": t.id, "item": "filter_mask", "cleared": true})
 	GearLinks.on_purge(s, u, t)
-	if has_set(u, "Purge") and t.hp < t.max_hp:
-		t.hp += 1
-		s.emit({"type": "gear", "unit": t.id, "item": "purge_set", "heal": 1, "hp": t.hp})
+	if has_set(u, "Purge"):
+		t.status["contained"] = Combat.phase_index(s) + 2
+		s.emit({"type": "gear", "unit": t.id, "item": "purge_set", "until": Combat.phase_index(s) + 2})
 
 
 ## Action cost of a built ability after gear (Combat._spend). Hold position: Suppress costs 1.
@@ -765,7 +759,6 @@ static func mutation_cost(s: GameState, u: Unit, cost: int) -> int:
 
 ## Thrown pocket items: a Servo arm graft throws them further.
 const WARD_POINTS := 3
-const FILTER_HEAL := 3
 const SPORE_DIV := 8
 const SPORE_RADIUS := 2
 const THROWN := ["frag_grenade", "flashbang", "smoke_grenade"]

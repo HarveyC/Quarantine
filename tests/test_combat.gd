@@ -256,12 +256,18 @@ func test_stim() -> void:
 	var far := _add(s, "trooper", Types.Team.PLAYER, Vector2i(4, 2))
 	ally.hp = 2
 	ally.infection = 40
+	assert_true(not Rules.apply(s, {"type": Types.ABILITY, "unit": med.id, "ability": "stim", "target": ally.id}), "no Triage dose, no Stim")
+	med.status["pockets"] = [{"id": "triage_dose", "charges": 1}, null]
 	assert_true(not Rules.apply(s, {"type": Types.ABILITY, "unit": med.id, "ability": "stim", "target": far.id}), "too far rejected")
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": med.id, "ability": "stim", "target": ally.id}), "stim")
 	assert_eq(ally.hp, 5, "healed 3")
 	assert_eq(ally.infection, 25, "infection -15")
 	assert_eq(med.actions_left, 1, "one action")
 	assert_eq(med.cooldowns.get("stim"), 2, "cooldown")
+	assert_eq(GearFx.charges(med, "triage_dose"), 0, "the Stim used up its dose")
+	med.cooldowns.clear()
+	med.actions_left = 2
+	assert_true(not Rules.apply(s, {"type": Types.ABILITY, "unit": med.id, "ability": "stim", "target": ally.id}), "out of doses")
 
 
 func test_breach() -> void:

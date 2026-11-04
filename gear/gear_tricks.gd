@@ -8,7 +8,7 @@ extends RefCounted
 const BLADE_DAMAGE := [3, 5]
 const KNOCK_DAMAGE := [2, 3]
 const WICK_LENGTH := [2, 4]
-const WEAVE_HEAL := [2, 3]
+const WEAVE_CURE := [2, 3]
 const SLIP_STEPS := [4, 3]
 const NEAR := 3.0
 const TAP_PENALTY := 20
@@ -285,15 +285,15 @@ static func on_reload(s: GameState, u: Unit) -> void:
 	_busy = false
 
 
-## Start of the team phase: Graft weave heals, Wounding rounds' wounds open.
+## Start of the team phase: Graft weave sheds Infection, Wounding rounds' wounds open.
 static func on_team_phase_start(s: GameState) -> void:
 	for u in s.living(Types.Team.PLAYER):
-		if _has(u, "bio_mesh") and u.hp < u.max_hp:
+		if _has(u, "bio_mesh") and u.infection > 0:
 			var n := GearFx.awake_mutations(u)
 			if n > 0:
-				var heal: int = mini(u.max_hp - u.hp, n * WEAVE_HEAL[1 if _m2(u, "bio_mesh") else 0])
-				u.hp += heal
-				_gear(s, u, "bio_mesh", null, {"heal": heal, "hp": u.hp})
+				var cure: int = n * WEAVE_CURE[1 if _m2(u, "bio_mesh") else 0]
+				Infection.add(s, u, -cure)
+				_gear(s, u, "bio_mesh", null, {"cure": cure})
 	for e in s.living():
 		if e.status.has("wound"):
 			var w: Dictionary = e.status.wound

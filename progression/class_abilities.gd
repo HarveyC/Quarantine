@@ -11,7 +11,7 @@ const ABILITIES := {
 	"incinerate": {"name": "Incinerate", "targeting": "cell", "cost": -1, "cooldown": 2,
 		"desc": "3-tile cone: 3 damage to every unit in it (allies too), ignoring cover. Leaves fire for 1 turn. Ends turn."},
 	"siphon": {"name": "Siphon", "targeting": "unit", "cost": 1, "cooldown": 1,
-		"desc": "Move up to 15 Infection from an adjacent ally onto yourself and heal 1 HP per 5 moved. 1 action."},
+		"desc": "Move up to 15 Infection from an adjacent ally onto yourself. 1 action."},
 	"purge": {"name": "Flush", "targeting": "unit", "cost": -1, "cooldown": 3,
 		"desc": "Remove 30 Infection from an adjacent ally. Ends turn."},
 	"decon": {"name": "Decon Shower", "targeting": "unit", "cost": 1, "cooldown": 2,
@@ -34,7 +34,7 @@ const ABILITIES := {
 		"desc": "Full cure for an adjacent ally: Infection to 0, every mutation wiped, ends a Lapse. 2 actions, uses a Serum."},
 	# Bloom grafts (Grafts): a Bloom limb's claw and Runner legs' jump.
 	"bloom_claw": {"name": "Bloom Claw", "targeting": "unit", "cost": 1, "cooldown": 1,
-		"desc": "Rake an adjacent enemy for 3-5, +1 per Infection tier. A kill heals 1 HP. 1 action."},
+		"desc": "Rake an adjacent enemy for 3-5, +1 per Infection tier. A kill removes 10 Infection from you. 1 action."},
 	"runner_leap": {"name": "Leap", "targeting": "cell", "cost": 1, "cooldown": 0,
 		"desc": "Once per fight: jump up to 4 tiles to a free cell, over cover and past overwatch. 1 action."},
 	# Rank 3 signatures (Signatures): one per class, each carries a gear tag.
@@ -43,7 +43,7 @@ const ABILITIES := {
 	"deadeye": {"name": "Deadeye", "targeting": "unit", "cost": 1, "cooldown": 4, "sig": true,
 		"desc": "Shoot a visible enemy: never misses, ignores cover, deals 3 extra damage and Marks it. 1 action."},
 	"quarantine_field": {"name": "Quarantine Field", "targeting": "none", "cost": 1, "cooldown": 5, "sig": true,
-		"desc": "Seal the ground within 2 tiles of you for 2 turns. Soldiers inside gain no Infection and heal 1 each turn. Enemies inside lose 15 aim. 1 action."},
+		"desc": "Seal the ground within 2 tiles of you for 2 turns. Soldiers inside gain no Infection and lose 5 Infection each turn. Enemies inside lose 15 aim. 1 action."},
 	"bring_down": {"name": "Bring Down", "targeting": "unit", "cost": -1, "cooldown": 4, "sig": true,
 		"desc": "Collapse the cover around a visible enemy within 5 tiles: 4 damage to it and 2 to enemies next to it, ignoring cover. Ends turn."},
 	"flashover": {"name": "Flashover", "targeting": "none", "cost": 1, "cooldown": 4, "sig": true,
@@ -71,7 +71,7 @@ const BLADE_DAMAGE := Vector2i(4, 6)
 const MAUL_DAMAGE := Vector2i(3, 5)
 const QUARANTINE_DAMAGE := 2
 const FEED_INFECTION := 5
-const HARVEST_HEAL := 2
+const HARVEST_CURE := 10
 const BLEED_TURNS := 2
 const STERILIZE_CURE := 5
 const NO_CELL := Vector2i(-1, -1)
@@ -308,9 +308,7 @@ static func apply(s: GameState, u: Unit, action: Dictionary) -> void:
 	match id:
 		"siphon":
 			var moved := mini(DEEP_SIPHON_AMOUNT if Kit.has_perk(u, "deep_siphon") else SIPHON_AMOUNT, t.infection)
-			var healed := mini(moved / 5, u.max_hp - u.hp)
-			u.hp += healed
-			ev.merge({"moved": moved, "heal": healed, "hp": u.hp})
+			ev.merge({"moved": moved})
 			s.emit(ev)
 			Infection.add(s, t, -moved)
 			Infection.add(s, u, moved)
@@ -502,7 +500,7 @@ static func _after_melee_kill(s: GameState, u: Unit, t: Unit) -> void:
 	if u.kind == "reaper" and EnemyRoster.infects(t):
 		Infection.add(s, u, FEED_INFECTION)
 	if Kit.has_perk(u, "harvest"):
-		Kit._heal(s, u, HARVEST_HEAL, "harvest")
+		Kit._cleanse(s, u, HARVEST_CURE)
 
 
 ## A Bash landed: knock back and stun (bosses and rooted things stand firm), then perks.

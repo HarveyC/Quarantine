@@ -148,7 +148,7 @@ func _cases() -> Dictionary:
 		"check": func(x): return "" if Combat.has_status(x.s, x.foe, "suppressed") else "not Suppressed"}
 	c["tag"] = {"kind": "marksman", "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if Combat.has_status(x.s, x.foe, "tagged") else "not Marked"}
-	c["stim"] = {"kind": "medic", "pre": func(x): x.ally.hp = 2, "act": func(x): return {"target": x.ally.id},
+	c["stim"] = {"kind": "medic", "pockets": ["triage_dose"], "pre": func(x): x.ally.hp = 2, "act": func(x): return {"target": x.ally.id},
 		"check": func(x): return "" if x.ally.hp > 2 else "no heal"}
 	c["breach"] = {"kind": "breacher", "act": func(x): return {"target": x.near.id},
 		"check": func(x): return "" if x.near.hp < x.near.max_hp else "no damage"}
@@ -233,6 +233,8 @@ func test_every_active_item_and_ability_has_a_case() -> void:
 	for id in _all_active_ids():
 		assert_true(cases.has(id), "%s has no audit case in tests/test_item_audit.gd" % id)
 	for id in GearData.CONSUMABLES:
+		if id == Combat.DOSE:
+			continue   # fuel for the Stim ability, which has its own case
 		assert_true(GearFx.CONSUMABLE_USE.has(id), "consumable %s can't be used in a fight" % id)
 
 
@@ -533,10 +535,9 @@ func _probes() -> Dictionary:
 		return _expect(x.foe.hp < x.foe.max_hp, "no stab at the adjacent enemy")
 	p["bio_mesh"] = func(x):
 		x.u.infection = 30
-		x.u.hp = x.u.max_hp - 5
-		var hp: int = x.u.hp
+		var inf: int = x.u.infection
 		GearFx.on_team_phase_start(x.s)
-		return _expect(x.u.hp > hp, "no heal per awake mutation")
+		return _expect(x.u.infection < inf, "no Infection shed per awake mutation")
 	p["spore_rounds"] = func(x):
 		GearFx.after_shot(x.s, x.u, x.foe, false, false)
 		return _expect(x.u.infection == 2, "no self Infection")
@@ -548,9 +549,8 @@ func _probes() -> Dictionary:
 		return _expect(Hazards.at(x.s, x.foe.pos).get("kind", "") == "acid", "no acid on the attacker")
 	p["leech_rounds"] = func(x):
 		x.u.infection = 30
-		x.u.hp = 3
 		GearFx.after_shot(x.s, x.u, x.foe, true, false, 3)
-		return _expect(x.u.hp == 4, "no heal")
+		return _expect(Combat.has_status(x.s, x.foe, "tagged"), "the hit didn't Mark")
 	p["filter_mask"] = func(x): return _expect(GearFx.hazard_hit(x.s, x.u, {"kind": "spore"}, 0, 10).y == 0, "spores still infect")
 	p["hazard_liner"] = func(x): return _expect(GearFx.bite_infection(x.s, x.u, 10) == 5, "full Infection")
 	p["purifier_rounds"] = func(x):
@@ -596,9 +596,9 @@ func _probes() -> Dictionary:
 		Rules.apply(x.s, {"type": Types.ABILITY, "unit": x.u.id, "ability": "suppress", "target": x.foe.id})
 		return _expect(x.u.actions_left == 1, "Suppress still ended the turn")
 	p["feral_grip"] = func(x):
-		x.u.hp = 3
+		x.u.infection = 20
 		GearFx.after_shot(x.s, x.u, x.near, true, false, 3)
-		return _expect(x.u.hp == 4, "no heal")
+		return _expect(x.u.infection == 17, "no Infection removed")
 	p["bloodletting"] = func(x):
 		x.u.actions_left = 1
 		GearFx.on_purge(x.s, x.u, x.ally, 15)
@@ -633,9 +633,8 @@ func _probes() -> Dictionary:
 		return _expect(x.u.hp == hp - GraftData.RIBS_CAP, "hit not capped")
 	p["heart_knot"] = func(x):
 		x.u.infection = 55
-		x.u.hp = x.u.max_hp - 2
 		Kit.on_team_phase_start(x.s)
-		return _expect(x.u.hp == x.u.max_hp - 1, "no regeneration")
+		return _expect(x.u.status.get("k_medshield", false), "no one-hit shield")
 	for rig in ["suppress", "tag", "stim", "breach", "incinerate", "siphon"]:
 		p["rig_" + rig] = func(x): return _expect(x.u.abilities.has(rig), "%s not granted" % rig)
 	for sig in ["lockdown", "deadeye", "quarantine_field", "bring_down", "flashover", "vent", "death_sweep", "provoke"]:
@@ -752,12 +751,13 @@ func test_set_bonuses_do_what_they_say() -> void:
 	set_on.call("Strain")
 	u.infection = 30
 	assert_eq(Mutations.use_cost(u, "adrenal_surge"), maxi(5, MutationData.base_use_cost("adrenal_surge") - 5), "Strain set: cheaper mutations")
-	# Purge: purged allies heal 1, and no Infection for you that turn.
+	# Purge: purged allies are sealed from Infection, and no Infection for you that turn.
 	set_on.call("Purge")
 	u.infection = 0
 	x.ally.hp = 3
 	GearFx.on_purge(s, u, x.ally, 10)
-	assert_eq(x.ally.hp, 4, "Purge set: ally heals")
+	assert_eq(x.ally.hp, 3, "Purge set: nobody heals")
+	assert_true(Combat.has_status(s, x.ally, "contained"), "Purge set: ally sealed from Infection")
 	Infection.add(s, u, 10)
 	assert_eq(u.infection, 0, "Purge set: no Infection on a purge turn")
 	# Guard: +5 to adjacent allies, and takes one hit meant for them each enemy phase.

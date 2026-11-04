@@ -398,9 +398,9 @@ func test_bosses_drop_a_gun() -> void:
 
 func test_everyone_starts_with_a_consumable() -> void:
 	var run := make_run()
-	var want := {"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit", "breacher": "demo_charge"}
+	var want := {"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "triage_dose", "breacher": "demo_charge"}
 	for r in run.soldiers:
-		assert_eq(Loadout.pockets(r)[0], {"id": want[r.kind], "charges": 1}, "%s starter" % r.kind)
+		assert_eq(Loadout.pockets(r)[0], {"id": want[r.kind], "charges": 3 if r.kind == "medic" else 1}, "%s starter" % r.kind)
 		assert_eq(Loadout.pockets(r)[1], null, "one pocket used")
 	var odd := {"id": 9, "kind": "mystery", "player": 0}
 	run.soldiers.append(odd)
@@ -414,4 +414,4 @@ func test_run_recruits_get_a_starter() -> void:
 	for r in run.soldiers:
 		assert_true(Loadout.pockets(r)[0] != null, "%s (%s) has a starter" % [r.kind, r.status])
 	var rec := RunRules.add_recruit(run, 0, "medic")
-	assert_eq(Loadout.pockets(rec)[0].id, "medkit", "mid-run recruit too")
+	assert_eq(Loadout.pockets(rec)[0].id, "triage_dose", "mid-run recruit too")
