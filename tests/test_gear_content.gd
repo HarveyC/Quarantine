@@ -156,3 +156,33 @@ func test_prototypes() -> void:
 	assert_eq(hit.x, 0, "fire doesn't hurt")
 	for id in ["firestarter", "pinpoint", "overlook", "cauterizer"]:
 		assert_eq(GearData.PROTOTYPES[id].tags.size(), 2, id + " has a tag pair")
+
+
+func test_shield_soaks_before_hp_and_infection_still_lands() -> void:
+	var s := _state()
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	var e := _add(s, "runner", Types.Team.ENEMY, Vector2i(3, 2))
+	u.status[Shield.KEY] = 3
+	var hp := u.hp
+	Rules.deal_damage(s, u, 2, e)
+	assert_eq(Shield.pips(u), 1, "two pips soaked")
+	assert_eq(u.hp, hp, "no HP lost")
+	assert_true(u.infection > 0, "the Infected blow still infects")
+	Rules.deal_damage(s, u, 3, e)
+	assert_eq(Shield.pips(u), 0, "shield gone")
+	assert_eq(u.hp, hp - 2, "the excess went to HP")
+
+
+func test_capacitor_vest_gives_an_action_at_four_shield_once_a_turn() -> void:
+	var s := _state()
+	s.phase = Types.Phase.TEAM
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	_gear(u, ["capacitor_vest"])
+	u.actions_left = 1
+	Shield.add(s, u, 4, "capacitor_vest")
+	assert_eq(u.actions_left, 2, "charged: +1 action")
+	u.status[Shield.KEY] = 0
+	Shield.add(s, u, 4, "capacitor_vest")
+	assert_eq(u.actions_left, 2, "only once a turn")
+	Shield.add(s, u, 20, "capacitor_vest")
+	assert_eq(Shield.pips(u), Shield.CAP, "capped")

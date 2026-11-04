@@ -469,6 +469,7 @@ func show_tooltip(uv: UnitView) -> void:
 	sub.add_child(Styles.spacer())
 	var hp := W.HpPips.new(Vector2(9, 5), 3.0)
 	hp.set_values(uv.max_hp, uv.hp, 0, Styles.HP if uv.is_soldier else Styles.DANGER)
+	hp.set_shield(uv.shield)
 	hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	sub.add_child(hp)
 	box.add_child(sub)

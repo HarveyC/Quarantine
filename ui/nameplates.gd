@@ -161,6 +161,7 @@ func _plate(uv: UnitView, selected: bool, targeted: bool, shooter: Unit) -> Cont
 	if targeted and shooter != null:
 		lose = mini(shooter.damage.y, uv.hp)
 	hp.set_values(uv.max_hp, uv.hp, lose, Styles.HP if uv.is_soldier else Styles.DANGER)
+	hp.set_shield(uv.shield)
 	hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(hp)
 	if uv.is_soldier and uv.tier >= 2:

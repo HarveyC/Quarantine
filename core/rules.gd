@@ -397,6 +397,16 @@ static func deal_damage(s: GameState, target: Unit, amount: int, source: Unit = 
 	if amount <= 0:
 		return
 	amount = Kit.modify_incoming(s, target, amount, source)
+	var struck_for := amount
+	amount = Shield.absorb(s, target, amount, source)
+	if amount <= 0:
+		# Soaked by Shield: no HP lost, but Infection from the blow still lands.
+		if source != null and source.is_enemy_of(target):
+			Vision.expose(s, source)
+		Concealment.on_damage(s, target, source)
+		if source and EnemyRoster.infects(source):
+			Infection.on_damaged(s, target, source, struck_for)
+		return
 	amount = GearFx.aegis_hold(s, target, amount)
 	target.hp = max(0, target.hp - amount)
 	s.emit({"type": "damage", "unit": target.id, "amount": amount, "hp": target.hp, "source": source.id if source else -1, "cause": cause})

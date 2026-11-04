@@ -543,6 +543,12 @@ static func _build() -> Dictionary:
 		"more": ["Lasts until the end of the next enemy phase."],
 		"see": ["tag_mark", "hit_chance"],
 		"aliases": ["Marksman Tag", "Marks"], "labels": ["Mark"]}
+	t["shield"] = {"name": "Shield", "kind": "status", "icon": "armor", "tone": Color("#6fb0ee"),
+		"line": "Blue pips above HP. Each pip soaks 1 damage before HP does. Gone when the fight ends.",
+		"art": "",
+		"more": ["Infection from the blow still lands.", "Nobody starts with Shield. Gear and perks add pips."],
+		"see": ["hp_multiplier"],
+		"aliases": ["Shields"], "labels": ["Shield"]}
 	t["burning"] = {"name": "Burning", "kind": "status", "icon": "alert", "tone": Color("#ff7a45"),
 		"line": "On fire: damage at the start of each of its turns.",
 		"art": "hazards",

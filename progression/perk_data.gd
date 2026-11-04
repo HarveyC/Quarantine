@@ -37,6 +37,8 @@ const PERKS := {
 		"desc": "A miss from you also cancels the target's overwatch."},
 	"return_fire": {"class": "trooper", "name": "Return Fire", "tag": "Overwatch", "rare": false,
 		"desc": "Once per enemy phase, shoot back at the first enemy that shoots you."},
+	"overwatch_discharge": {"class": "trooper", "name": "Overwatch Discharge", "tag": "Overwatch", "rare": false,
+		"desc": "Each Overwatch shot you land gives you 1 Shield."},
 	"hold_the_line": {"class": "trooper", "name": "Hold the Line", "tag": "Guard", "rare": false,
 		"desc": "Hunker also covers every ally next to you."},
 	"last_stand": {"class": "trooper", "name": "Last Stand", "tag": "Guard", "rare": true,

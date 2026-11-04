@@ -242,6 +242,8 @@ static func shot_damage(s: GameState, u: Unit, t: Unit, dmg: int, reaction: bool
 static func after_shot(s: GameState, u: Unit, t: Unit, hit: bool, reaction: bool, dmg: int = 0) -> void:
 	if not u.status.has("gear"):
 		return
+	if hit and reaction and Kit.has_perk(u, "overwatch_discharge"):
+		Shield.add(s, u, 1, "overwatch_discharge")
 	var close := _dist(u.pos, t.pos) <= CLOSE
 	GearLinks.after_shot(s, u, t, hit, reaction, dmg)
 	GearTricks.after_shot(s, u, t, hit, reaction, dmg)
@@ -328,6 +330,8 @@ static func on_kill(s: GameState, u: Unit, t: Unit, reaction: bool) -> void:
 	Ammo.on_kill(s, u)
 	GearLinks.on_kill(s, u, t)
 	GearTricks.on_kill(s, u, t)
+	if has(u, "capacitor_vest"):
+		Shield.add(s, u, 2 if mk(u, "capacitor_vest") >= 2 else 1, "capacitor_vest")
 	var was_marked := t.status.has("tagged") and int(t.status.tagged) > Combat.phase_index(s)
 	GearLinks.on_kill_signature(s, u, t, was_marked)
 	if reaction and has_set(u, "Overwatch"):

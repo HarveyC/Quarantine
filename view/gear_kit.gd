@@ -39,7 +39,7 @@ const COLORS := {
 
 ## Armour id -> the part set that dresses it.
 const ARMOR_LOOK := {
-	"kevlar_vest": "vest", "ballistic_plate": "ballistic", "plated_rig": "rig", "riot_shield": "shield",
+	"kevlar_vest": "vest", "capacitor_vest": "vest", "ballistic_plate": "ballistic", "plated_rig": "rig", "riot_shield": "shield",
 	"light_harness": "harness", "exo_frame": "exo", "bio_mesh": "bio", "symbiotic_suit": "symbiote",
 	"mycelial_weave": "weave", "filter_mask": "filter", "hazard_liner": "hazard", "flame_coat": "coat",
 	"ember_plating": "ember", "ghillie_cloak": "ghillie", "cauterizer": "cauterizer",

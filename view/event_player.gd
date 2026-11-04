@@ -994,6 +994,24 @@ func _impact_style(at: Vector3, imp: Dictionary, dir: Vector3, style: String, co
 				_sfx("ricochet", -9.0)
 
 
+## Shield pips gained or soaked: the row updates and a number floats in steel blue.
+func _beat_shield(ev: Dictionary) -> Dictionary:
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	var d := int(ev.get("delta", 0))
+	uv.shield = int(ev.get("pips", 0))
+	var col := Color("6fb0ee")
+	if d < 0:
+		uv.flash(col)
+		view.fx.floating_text(_head(uv), "-%d SHIELD" % -d, col, 56)
+		_sfx("plate_clang")
+		return {"dur": 0.4}
+	view.fx.floating_text(_head(uv) + Vector3(0, 0.2, 0), "+%d SHIELD" % d, col, 40)
+	_sfx("cap_field", -6.0)
+	return {"dur": 0.3}
+
+
 func _beat_damage(ev: Dictionary) -> Dictionary:
 	var uv := _uv(ev)
 	if uv == null:
@@ -1242,6 +1260,8 @@ const GEAR_PROCS := {
 	"kill_chain": {"text": "KILL CHAIN  +1 ACTION", "color": Color("e0a050"), "sound": "cap_warrant"},
 	"kevlar_vest": {"text": "PLATE CRACKS", "color": Color("a9c46c"), "sound": "plate_clang"},
 	"ballistic_plate": {"text": "SPALL", "color": Color("a9c46c"), "on_target": true, "sound": "plate_clang"},
+	"capacitor_vest": {"text": "CHARGED  +1 ACTION", "color": Color("6fb0ee"), "sound": "cap_field"},
+	"reactive_plating": {"text": "SHIELD BREAKS  MARKED", "color": Color("ff5c86"), "on_target": true, "sound": "flare_pop"},
 	"plated_rig": {"text": "PLANTED", "color": Color("a9c46c"), "sound": "plate_clang"},
 	"extended_mag": {"text": "DRUM SWAP", "color": Color("6fc3ff"), "on_target": true, "sound": "impact_slug"},
 	"bio_mesh": {"text": "GRAFT WEAVE", "color": Palette.TEAL, "sound": "heal"},

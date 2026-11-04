@@ -40,6 +40,7 @@ var is_soldier := true
 var soldier_body := true
 var cell := Vector2i.ZERO
 var hp := 1
+var shield := 0   # Shield pips (Shield)
 var max_hp := 1
 var infection := 0
 var tier := 0
@@ -148,6 +149,7 @@ func build(u: Unit) -> void:
 	soldier_body = is_soldier or u.status.has("echo") or u.status.has("lantern_echo")
 	hp = u.hp
 	max_hp = u.max_hp
+	shield = Shield.pips(u)
 	infection = u.infection
 	tier = Infection.tier(u.infection)
 	lapsed = u.status.get("lapsed", false)

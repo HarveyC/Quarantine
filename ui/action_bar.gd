@@ -145,6 +145,7 @@ func refresh(view: MissionView) -> void:
 		_ap.set_values(Rules.action_slots(u), u.actions_left)
 		_show_losses(Rules.action_losses(view.state, u))
 		_hp.set_values(u.max_hp, u.hp, 0, Styles.DANGER if u.hp * 3 <= u.max_hp else Styles.HP)
+		_hp.set_shield(Shield.pips(u))
 		_ammo_row.visible = Ammo.tracked(u)
 		if Ammo.tracked(u):
 			_ammo.set_values(Ammo.mag_size(u), Ammo.rounds(u))

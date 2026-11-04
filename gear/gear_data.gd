@@ -185,6 +185,12 @@ const ITEMS := {
 	"riot_shield": {"name": "Riot shield", "tag": "Guard", "slot": "offhand", "rarity": "rare",
 		"desc": "You always count as in half cover, and adjacent allies share your cover",
 		"desc_mk2": "You always count as in half cover, adjacent allies share your cover, and the first adjacent enemy to hit you each turn is stunned"},
+	"capacitor_vest": {"name": "Capacitor vest", "tag": "Guard", "slot": "body", "rarity": "uncommon",
+		"desc": "Each kill gives 1 Shield. Reaching 4 Shield gives +1 action, once a turn",
+		"desc_mk2": "Each kill gives 2 Shield. Reaching 4 Shield gives +1 action, once a turn"},
+	"reactive_plating": {"name": "Reactive plating", "tag": "Mark", "slot": "utility", "rarity": "uncommon",
+		"desc": "When your Shield breaks, Mark every enemy next to you for 2 turns",
+		"desc_mk2": "When your Shield breaks, Mark every enemy next to you for 3 turns"},
 	# Content pack 2 (acts 2 and 3): one or two more per tag so runs draw wider.
 	"pilot_light": {"name": "Wick", "tag": "Burn", "slot": "weapon", "rarity": "common",
 		"desc": "Hitting a Burning enemy sets 2 tiles of fire behind it",

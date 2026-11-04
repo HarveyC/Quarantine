@@ -77,6 +77,9 @@ class HpPips extends Control:
 	var row_gap := 2.0
 	var per := 1
 	var mult_px := 10
+	var shield := 0       # Shield pips, a steel-blue row above the HP pips
+	var _base_min := Vector2.ZERO
+	const SHIELD_COLOR := Color("6fb0ee")
 
 	func _init(seg_size := Vector2(7, 4), pip_gap := 2.0) -> void:
 		seg = seg_size
@@ -141,7 +144,8 @@ class HpPips extends Control:
 		var n := _pip_count()
 		var cols := mini(n, PER_ROW)
 		var rows := rows_for(max_hp)
-		custom_minimum_size = Vector2(_pip_x(cols - 1) + seg.x + _mult_width(), maxf(rows * seg.y + (rows - 1) * row_gap, float(mult_px) + 2.0 if per > 1 else 0.0))
+		_base_min = Vector2(_pip_x(cols - 1) + seg.x + _mult_width(), maxf(rows * seg.y + (rows - 1) * row_gap, float(mult_px) + 2.0 if per > 1 else 0.0))
+		_fit()
 		if per > 1:
 			set_meta(TIP_META, {"terms": [TIP_KEY], "ctx": {"per": per, "color": col}})
 			mouse_filter = Control.MOUSE_FILTER_PASS
@@ -149,6 +153,18 @@ class HpPips extends Control:
 			remove_meta(TIP_META)
 			mouse_filter = Control.MOUSE_FILTER_IGNORE
 		queue_redraw()
+
+	## Shield pips above the HP row (0 hides the row).
+	func set_shield(n: int) -> void:
+		shield = maxi(0, n)
+		_fit()
+		queue_redraw()
+
+	func _strip_h() -> float:
+		return seg.y + 3.0 if shield > 0 else 0.0
+
+	func _fit() -> void:
+		custom_minimum_size = Vector2(maxf(_base_min.x, shield * (seg.y + 3.0)), _base_min.y + _strip_h())
 
 	## A coloured stretch [a, b) of the pip's own HP range, as a fraction of its width.
 	func _span(r: Rect2, lo: int, hi: int, a: float, b: float, col: Color) -> void:
@@ -162,7 +178,12 @@ class HpPips extends Control:
 		var n := _pip_count()
 		var rows := rows_for(max_hp)
 		var grid_h := rows * seg.y + (rows - 1) * row_gap
-		var y0 := (size.y - grid_h) * 0.5
+		var y0 := (size.y - grid_h) * 0.5 + _strip_h() * 0.5
+		if shield > 0:
+			var d := seg.y + 1.0
+			for k in shield:
+				var c := Vector2(d * 0.5 + k * (d + 2.0), y0 - _strip_h() * 0.5 + d * 0.5 - 1.0)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(0, -d * 0.5), c + Vector2(d * 0.5, 0), c + Vector2(0, d * 0.5), c + Vector2(-d * 0.5, 0)]), SHIELD_COLOR)
 		var kept := hp - lose
 		var tier := tier_of(per)
 		var body := tier_color(color, tier)

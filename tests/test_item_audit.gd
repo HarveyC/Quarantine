@@ -355,6 +355,14 @@ func _probes() -> Dictionary:
 		x.foe.hp = 0
 		GearFx.on_kill(x.s, x.u, x.foe, false)
 		return _expect(x.u.actions_left == 1, "the kill gave no action back")
+	p["capacitor_vest"] = func(x):
+		x.foe.hp = 0
+		GearFx.on_kill(x.s, x.u, x.foe, false)
+		return _expect(Shield.pips(x.u) == 1, "a kill gave no Shield")
+	p["reactive_plating"] = func(x):
+		x.u.status[Shield.KEY] = 1
+		Rules.deal_damage(x.s, x.u, 1, x.near)
+		return _expect(Combat.has_status(x.s, x.near, "tagged"), "the break didn't Mark the neighbour")
 	p["kevlar_vest"] = func(x): return _expect(GearFx.damage_taken(x.s, x.u, 4, x.foe) == 1, "first hit not cut")
 	p["ballistic_plate"] = func(x):
 		GearFx.damage_taken(x.s, x.u, 4, x.near)
