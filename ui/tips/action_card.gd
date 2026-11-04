@@ -25,9 +25,32 @@ static func facts_for(id: String, a: Dictionary) -> Dictionary:
 		"runner_leap": f = {"range": GraftData.LEAP_RANGE}
 		"disengage": f = {"range": PartingBlow.CAREFUL_RANGE}
 		"stim": f = {"range": 1}
+		"bloom_claw": f = {"damage": "%d-%d" % [GraftData.CLAW_DAMAGE.x, GraftData.CLAW_DAMAGE.y]}
 	if a.has("range") and not f.has("range"):
 		f["range"] = int(a.range)
 	return f
+
+
+## Fact cells for an action dict ("cost", optional "id"): cost, tiles, damage, cooldown.
+static func cells_for(a: Dictionary) -> Array:
+	var cells: Array = [_cost_cell(a)]
+	var f := facts_for(str(a.get("id", a.get("key", ""))), a)
+	if f.has("range"):
+		cells.append([str(f.range), "Tiles", false])
+	if f.has("damage"):
+		cells.append([str(f.damage), "Damage", false])
+	var cd := max_cooldown(str(a.get("id", "")))
+	if cd > 0:
+		cells.append([str(cd), "Cooldown", false])
+	return cells
+
+
+## Fact cells for an ability id straight from its table entry (perk and graft cards); [] if unknown.
+static func ability_cells(id: String) -> Array:
+	var def: Dictionary = Combat.ABILITIES.get(id, ClassAbilities.ABILITIES.get(id, {}))
+	if def.is_empty():
+		return []
+	return cells_for({"id": id, "cost": def.get("cost", 1)})
 
 
 ## Full cooldown in turns for an ability id (0 when it has none).
@@ -99,16 +122,7 @@ static func build(card: Control, box: VBoxContainer, a: Dictionary, inner: float
 	if TipArt.supports(art):
 		var actx: Dictionary = Glossary.entry(term).get("art_ctx", {}).duplicate()
 		box.add_child(TipArt.new(art, actx, tone, inner))
-	var cells: Array = [_cost_cell(a)]
-	var f := facts_for(str(a.get("id", a.get("key", ""))), a)
-	if f.has("range"):
-		cells.append([str(f.range), "Tiles", false])
-	if f.has("damage"):
-		cells.append([str(f.damage), "Damage", false])
-	var cd := max_cooldown(str(a.get("id", "")))
-	if cd > 0:
-		cells.append([str(cd), "Cooldown", false])
-	box.add_child(fact_row(cells, inner, tone))
+	box.add_child(fact_row(cells_for(a), inner, tone))
 	var state := ""
 	var cooling := int(a.get("cooldown", 0))
 	if cooling > 0:
