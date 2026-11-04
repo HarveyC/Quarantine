@@ -86,9 +86,9 @@ func test_cards_use_bold_terms() -> void:
 	var c := GearCard.new()
 	holder.add_child(c)
 	c.setup({"kind": "gear", "id": "thermite_charge"}, rec, 0)
-	var linked := c.find_children("*", "RichTextLabel", true, false).filter(
-		func(n) -> bool: return n.get_script() == TermText and n.terms.has("once_per_fight"))
-	assert_true(not linked.is_empty(), "a gear card's effect names \"Once per fight\" as a hoverable term")
+	var linked := c.find_children("*", "VBoxContainer", true, false).filter(
+		func(n) -> bool: return n.has_meta(Tips.META) and n.get_meta(Tips.META).terms.has("once_per_fight"))
+	assert_true(not linked.is_empty(), "a gear card's fact row names \"Per fight\" as a hoverable term")
 	holder.free()
 
 
