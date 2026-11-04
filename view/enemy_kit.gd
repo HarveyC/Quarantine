@@ -18,20 +18,20 @@ extends RefCounted
 
 const GunModels := preload("res://view/gun_models.gd")
 
-const BODY := {"sapper": "runner", "carapace": "brute", "weaver": "shrieker",
-	"cutter": "runner", "torchman": "fallen", "fence": "fallen", "broker": "fallen",
+const BODY := {"sapper": "runner", "carapace": "hulk", "weaver": "shrieker",
+	"torchman": "fallen", "fence": "fallen", "broker": "fallen",
 	"shieldman": "fallen", "overwatcher": "fallen", "emplacement": "fallen",
-	"loader": "brute", "relay": "shrieker",
-	"packrat": "brute", "rigger": "runner", "lookout": "fallen", "sergeant": "fallen", "grenadier": "fallen", "field_medic": "fallen",
-	"tender": "shrieker", "carrier": "brute", "arc_welder": "runner", "breaker": "brute", "choir_prophet": "shrieker",
+	"loader": "hulk", "relay": "shrieker",
+	"packrat": "hulk", "rigger": "runner", "lookout": "fallen", "sergeant": "fallen", "grenadier": "fallen", "field_medic": "fallen",
+	"tender": "shrieker", "carrier": "hulk", "arc_welder": "runner", "breaker": "hulk", "choir_prophet": "shrieker",
 	"netter": "fallen", "handler": "fallen", "sterilizer": "fallen", "collector": "fallen",
-	"acolyte": "runner", "cantor": "shrieker", "hush": "shrieker",
+	"acolyte": "runner", "cantor": "shrieker", 
 	"director": "colonel_hale"}
-const SIZE := {"sapper": 0.88, "carapace": 1.1, "weaver": 0.95, "cutter": 0.95, "torchman": 1.05, "fence": 0.95, "broker": 1.35,
+const SIZE := {"sapper": 0.88, "carapace": 1.1, "weaver": 0.95, "torchman": 1.05, "fence": 0.95, "broker": 1.35,
 	"shieldman": 1.1, "overwatcher": 1.0, "emplacement": 1.0,
 	"loader": 1.2, "relay": 0.7, "breaker": 1.7, "choir_prophet": 1.45,
 	"netter": 1.05, "handler": 0.95, "sterilizer": 1.1, "collector": 1.15,
-	"acolyte": 0.85, "cantor": 1.0, "hush": 0.95,
+	"acolyte": 0.85, "cantor": 1.0, 
 	"packrat": 0.95, "rigger": 0.9, "lookout": 0.95, "sergeant": 1.05, "grenadier": 1.0, "field_medic": 1.0,
 	"tender": 0.9, "carrier": 1.0, "arc_welder": 0.9}
 ## Props a boss drops at a phase change: kind -> {phase: [prop names]}.
@@ -41,7 +41,6 @@ const TINT := {
 	"sapper": {"body": -0.1, "rags": -0.2},
 	"carapace": {"body": -0.15},
 	"weaver": {"body": 0.3, "skin": 0.3, "flesh": 0.25},
-	"cutter": {"body": 0.15, "rags": 0.1},
 	"torchman": {"body": -0.1},
 	"fence": {"body": 0.1, "rags": 0.2},
 	"broker": {"body": 0.2, "rags": 0.25},
@@ -63,7 +62,6 @@ const TINT := {
 	"netter": {"body": 0.3}, "handler": {"body": 0.1, "rags": -0.15}, "sterilizer": {"body": 0.4},
 	"collector": {"body": -0.1, "rags": 0.1},
 	"acolyte": {"body": 0.35, "skin": 0.3, "rags": 0.3}, "cantor": {"body": 0.45, "skin": 0.4, "flesh": 0.2},
-	"hush": {"body": -0.3, "skin": 0.3, "flesh": -0.1},
 	"choir_prophet": {"body": 0.4, "skin": 0.35, "flesh": 0.3, "rags": 0.5},
 	"director": {"body": 0.3, "cloth_team": 0.45, "armor_team": 0.35, "cloak_team": 0.5},
 }

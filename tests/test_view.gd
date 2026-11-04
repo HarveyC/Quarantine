@@ -439,6 +439,8 @@ func test_characters_are_rigged() -> void:
 		for pose in ["idle", "walk", "death"]:
 			if pose == "death" and kind in ModelKit.NO_DEATH_CLIP:
 				continue   # these rigs topple procedurally
+			if kind in ModelKit.NO_CLIPS:
+				continue   # rest-pose creature: the unit view moves it
 			assert_true(body.has_clip(pose), "%s has a %s clip" % [kind, pose])
 		if kind in ["trooper", "marksman", "medic", "breacher"]:
 			assert_true(body.armed, "%s carries a weapon" % kind)

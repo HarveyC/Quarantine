@@ -213,6 +213,9 @@ func _accessibility() -> void:
 ## Models and animation we did not make. Free to use with credit (CC BY) or public domain (CC0).
 const CREDITS := [
 	["Stalker", "Alien Ninja Creature by Jungle Jim (CC BY 4.0, Sketchfab)"],
+	["Brute", "Chainsaw Brute (FPS Creator) by Yopp (CC BY 4.0, Sketchfab)"],
+	["Cutter", "Axe Brute (FPS Creator) by Yopp (CC BY 4.0, Sketchfab)"],
+	["Hush", "Numen Drone Rig by DM-913 (CC BY 4.0, Sketchfab)"],
 	["Humans, clips, Hound, Hooker, Broodling, Lurker", "Quaternius (CC0): Universal Base Characters, Animation Libraries, Animated Animals and Enemies"],
 ]
 

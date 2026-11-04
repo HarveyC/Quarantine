@@ -680,6 +680,11 @@ func _animate_skinned(delta: float) -> void:
 	_skin.advance(delta, _aim, _recoil)
 	var local_hit := _body.basis.inverse() * _hit_dir if _hit > 0.0 else Vector3.ZERO
 	_rig.position = local_hit * 0.22 * _hit + Vector3(0, 0, 1) * _lunge * 0.35
+	if _skin.single:   # one-clip creature: it bobs and sways when it moves, a heavy tread
+		var bob := clampf(_walk, 0.0, 1.0)
+		_rig.position.y += absf(sin(_time * 8.0)) * 0.07 * bob
+		_rig.rotation.z = sin(_time * 8.0) * 0.05 * bob
+		_rig.rotation.x = -_lunge * 0.18
 
 
 ## Keeps every foot on top of the stairs and rubble ramps it stands over, so bodies don't
