@@ -41,7 +41,7 @@ const PERKS := {
 	# Breacher
 	"kick_in": ["move", "Faster, and Breach keeps a move", [["+1", "move"], ["1", "move left"]]],
 	"long_fuse": ["breach", "Breach from further away", [["3", "range"]]],
-	"frag_charge": ["grenade", "Breach hurts everything around it", [["2", "splash damage"]]],
+	"frag_charge": ["grenade", "Breach hurts everything around it", [["5", "splash damage"]]],
 	"run_and_gun": ["shoot", "Shoot after a double move", [["1", "per fight"]]],
 	"shell_game": ["reload", "Reload costs no action", [["0", "actions"]]],
 	"brawler": ["attack", "Melee attackers get hurt", [["2", "damage back"]]],
@@ -55,7 +55,7 @@ const PERKS := {
 	"wide_nozzle": ["incinerate", "A longer Incinerate cone", [["4", "tiles"]]],
 	"firewall": ["incinerate", "Incinerate becomes a line", [["4", "tile line"]]],
 	"decon_shower": ["purge", "New ability: decon an adjacent ally", [["-10", "Infection"], ["1", "action"]]],
-	"flashover": ["incinerate", "Burning enemies explode when they die", [["3", "damage"]]],
+	"flashover": ["incinerate", "Burning enemies explode when they die", [["6", "damage"]]],
 	"backdraft": ["clock", "Incinerate comes back faster", [["1", "cooldown"]]],
 	"belt_fed": ["reload", "Bigger magazine, free Suppress", [["+4", "rounds"]]],
 	"fuel_line": ["incinerate", "Hits make fires last longer", [["2", "turns"]]],

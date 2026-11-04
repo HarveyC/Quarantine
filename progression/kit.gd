@@ -26,7 +26,7 @@ const SPORE_VEIL_DAMAGE := 2
 const UNBREAKABLE_STACKS := 3
 const UNBREAKABLE_DAMAGE := 3
 const CONTAGION_RADIUS := 2
-const FLASHOVER_DAMAGE := 3
+const FLASHOVER_DAMAGE := 6
 const FUEL_LINE_TURNS := 2
 const VEINS_RADIUS := 2
 const PERCH_FLARE_RADIUS := 3
@@ -693,7 +693,7 @@ static func after_ability(s: GameState, u: Unit, id: String, t: Unit) -> void:
 			if t != null and has_perk(u, "frag_charge"):
 				for o in s.living():
 					if o != t and o != u and cheb(o.pos, t.pos) == 1:
-						Rules.deal_damage(s, o, 2, u)
+						Rules.deal_damage(s, o, 5, u)
 			if t != null and t.is_alive() and has_perk(u, "shrapnel"):
 				t.status["suppressed"] = Combat.phase_index(s) + 2
 				t.overwatch = false

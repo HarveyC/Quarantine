@@ -42,3 +42,6 @@ and retargeted by `tools/build_characters.py`.
 | Used for | Model | Author | Link |
 |---|---|---|---|
 | Stalker | Alien Ninja Creature with 45 animations | Jungle Jim | https://sketchfab.com/3d-models/alien-ninja-creature-with-45-animations-d332cac883f54a2c98492e85f41455b2 |
+| Brute | Chainsaw Brute (FPS Creator) | Yopp | https://sketchfab.com/3d-models/chainsaw-brute-fps-creator-95abe0a7474649ebaaaa3fcab0fdb9ab |
+| Cutter | Axe Brute (FPS Creator) | Yopp | https://sketchfab.com/3d-models/axe-brute-fps-creator-c7d5a117ab0e4bb4a90542c0cc67347c |
+| Hush | Numen Drone Rig | DM-913 | https://sketchfab.com/3d-models/numen-drone-rig-8add0f00f72a489f90ce36167942ae5d |

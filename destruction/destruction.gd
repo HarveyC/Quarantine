@@ -24,9 +24,9 @@ const ROOF_HITS := 2
 const NOISE_RADIUS := 6.0
 
 ## Explosion profiles: radius, hits on the centre cell, hits on the ring, damage to units.
-const FRAG := {"radius": 1, "centre": 1, "ring": 1, "damage": 3}
-const DEMO := {"radius": 1, "centre": 3, "ring": 1, "damage": 3}
-const BARREL := {"radius": 1, "centre": 2, "ring": 1, "damage": 3}
+const FRAG := {"radius": 1, "centre": 1, "ring": 1, "damage": 7}
+const DEMO := {"radius": 1, "centre": 3, "ring": 1, "damage": 9}
+const BARREL := {"radius": 1, "centre": 2, "ring": 1, "damage": 6}
 ## Shaped Charge (Breacher perk): Breach also puts these hits on the terrain around its target.
 const SHAPED := {"radius": 1, "centre": 2, "ring": 2, "damage": 0}
 const BARREL_FIRE_TURNS := 2

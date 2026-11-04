@@ -646,10 +646,12 @@ def blisters(r, bone, centre, n, size, rnd, spread=0.06, name=None):
         r.add(bone, G.sphere(rnd.uniform(size * 0.6, size), tuple(c)), "glow", name)
 
 
-def build_infected(kind):
+def build_infected(kind, out=None):
     female = kind in ("shrieker", "brood_mother")
     k = 0.976 if female else 1.0
     r = Rig(kind, "female" if female else "male")
+    if out:
+        r.name = out   # e.g. the old Brute body, kept as "hulk" for the heavy variants
     rnd = random.Random(sum(map(ord, kind)))
     if kind == "runner":
         infected(r)
@@ -785,7 +787,7 @@ class Creature(Rig):
     """A Quaternius animated creature (own skeleton and clips, kept in the export),
     scaled to `width` metres across and dressed with growths."""
 
-    def __init__(self, name, src_rel, width, roles=None, keep_actions=None, tex_role=None):
+    def __init__(self, name, src_rel, width, roles=None, keep_actions=None, tex_role=None, height=None, slices=None, renames=None):
         G.fresh_scene()
         self.name = name
         objs = import_glb(os.path.join(SRC, src_rel))
@@ -796,38 +798,79 @@ class Creature(Rig):
         self.arm.name = "Armature"
         root = self.arm.parent or self.arm
         bpy.context.view_layer.update()
-        mesh = next(o for o in bpy.data.objects if o.type == "MESH")
+        meshes = sorted((o for o in bpy.data.objects if o.type == "MESH"), key=lambda o: -len(o.data.vertices))
+        mesh = meshes[0]
         pts = [mesh.matrix_world @ Vector(c) for c in mesh.bound_box]
-        extent = max(max(p.x for p in pts) - min(p.x for p in pts), max(p.y for p in pts) - min(p.y for p in pts))
-        k = width / extent
+        if height:   # humanoids: scale by standing height (Blender Z)
+            extent = max(p.z for p in pts) - min(p.z for p in pts)
+        else:
+            extent = max(max(p.x for p in pts) - min(p.x for p in pts), max(p.y for p in pts) - min(p.y for p in pts))
+        k = (height or width) / extent
         root.scale = root.scale * k
         bpy.context.view_layer.update()
         self.tex_name = None
-        if tex_role:   # a Sketchfab body: keep its albedo texture (shared dir) and tag the mesh for the game
+        if tex_role:   # a Sketchfab body: keep each albedo texture (shared dir), tag meshes for the game
+            os.makedirs(TEXTURES, exist_ok=True)
+            n_tex = 0
+            for ob in meshes:
+                img = None
+                for slot in ob.material_slots:
+                    for n in slot.material.node_tree.nodes:
+                        if n.type == "TEX_IMAGE" and n.image and any(l.to_socket.name == "Base Color" for l in n.outputs[0].links):
+                            img = n.image
+                if img is None:
+                    continue
+                tid = name if n_tex == 0 else "%s_%d" % (name, n_tex + 1)
+                if max(img.size) > 1024:
+                    img.scale(1024, 1024)
+                img.filepath_raw = os.path.join(TEXTURES, tid + "_albedo.jpg")
+                img.file_format = "JPEG"
+                img.save()
+                ob.name = "tex_" + tid
+                role = tex_role if n_tex == 0 else tex_role + str(n_tex + 1)
+                for slot in ob.material_slots:
+                    slot.material.name = role   # unique per texture so the game can bind it
+                n_tex += 1
+            self.tex_name = name
+        else:
             for slot in mesh.material_slots:
-                for n in slot.material.node_tree.nodes:
-                    if n.type == "TEX_IMAGE" and n.image and any(l.to_socket.name == "Base Color" for l in n.outputs[0].links):
-                        img = n.image
-                        if max(img.size) > 1024:
-                            img.scale(1024, 1024)
-                        os.makedirs(TEXTURES, exist_ok=True)
-                        img.filepath_raw = os.path.join(TEXTURES, name + "_albedo.jpg")
-                        img.file_format = "JPEG"
-                        img.save()
-                        self.tex_name = name
-            mesh.name = "tex_" + name
-            roles = {m.material.name: tex_role for m in mesh.material_slots}
-        for slot in mesh.material_slots:
-            old = slot.material.name
-            col = slot.material.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value if slot.material.use_nodes else (0, 0, 0, 1)
-            if roles and old in roles:   # per-material roles for the creature
-                slot.material.name = roles[old]
-            else:
-                slot.material.name = "glow" if col[0] > 0.3 and col[1] < 0.2 else "chitin"
+                old = slot.material.name
+                col = slot.material.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value if slot.material.use_nodes else (0, 0, 0, 1)
+                if roles and old in roles:   # per-material roles for the creature
+                    slot.material.name = roles[old]
+                else:
+                    slot.material.name = "glow" if col[0] > 0.3 and col[1] < 0.2 else "chitin"
+        if slices:   # cut named clips out of a long (or single-pose) timeline: {clip: (first frame, last frame)}
+            src = bpy.data.actions[0]
+            for nm, (a, b) in slices.items():
+                act = src.copy()
+                act.name = nm
+                act.use_frame_range = True
+                act.frame_start, act.frame_end = a, b
+            bpy.data.actions.remove(src)
+        for old_nm, new_nm in (renames or {}).items():   # pick which source clip plays as which pose
+            if old_nm in bpy.data.actions:
+                bpy.data.actions[old_nm].name = new_nm
         if keep_actions:   # drop duplicate / unused clips from the export
             for act in list(bpy.data.actions):
                 if not keep_actions(act.name):
                     bpy.data.actions.remove(act)
+        if tex_role and height:   # stand it on the floor: lowest vertex of the first pose at z = 0
+            if bpy.data.actions:
+                self.arm.animation_data_create()
+                self.arm.animation_data.action = bpy.data.actions[0]
+                bpy.context.scene.frame_set(int(bpy.data.actions[0].frame_range[0]))
+            dg = bpy.context.evaluated_depsgraph_get()
+            low = 1e9
+            for ob in meshes:
+                ev = ob.evaluated_get(dg)
+                me = ev.to_mesh()
+                low = min([low] + [(ob.matrix_world @ v.co).z for v in me.vertices])
+                ev.to_mesh_clear()
+            root.location.z -= low
+            bpy.context.view_layer.update()
+            if self.arm.animation_data:
+                self.arm.animation_data.action = None
         self.parts, self.origins, self.empties = {}, {}, []
         self.scale = k
 
@@ -910,11 +953,22 @@ def _stalker(rnd):
     """Stalker: a tall teal-black predator on its own rig (Alien Ninja Creature, CC BY, Jungle Jim)
     with its own idle, walk, run and strike clips."""
     r = Creature("stalker", "sk/stalker_src.glb", 1.4, tex_role="body",
-                 keep_actions=lambda n: n in ("A_idle", "A_walk_F", "A_run_F", "A_atk_01", "A_atk_02", "A_defence", "A_back_dash", "A_rise1"))
+                 renames={"A_walk_F": "Stalker_Idle", "A_run_F": "Stalker_Walk", "A_atk_01": "Stalker_Attack", "A_defence": "Stalker_Hitreact"},
+                 keep_actions=lambda n: n.startswith("Stalker_"))
     r.export()
 
 
-CREATURES = {"hound": _hound, "hooker": _hooker, "broodling": _broodling, "stalker": _stalker}
+def _sk_body(kind, src, height, keep=None, slices=None):
+    """A textured Sketchfab humanoid or creature, scaled to `height` metres, all its own clips kept."""
+    Creature(kind, "sk/%s.glb" % src, 0, tex_role="body", height=height, keep_actions=keep, slices=slices).export()
+
+
+# One-clip Sketchfab bodies: the clip serves as idle and walk, the game adds procedural lunge,
+# stagger and topple (see SkinnedBody.creature_clips).
+CREATURES = {"brute": lambda rnd: _sk_body("brute", "chainsaw_brute", 2.0, slices={"Brute_Idle": (1, 22)}),
+             "cutter": lambda rnd: _sk_body("cutter", "axe_brute", 1.9, keep=lambda n: False),
+             "hush": lambda rnd: _sk_body("hush", "numen_drone", 1.9, slices={"Hush_Walk": (1, 29)}),
+             "hound": _hound, "hooker": _hooker, "broodling": _broodling, "stalker": _stalker}
 
 NAMES = {
     "anims": lambda: (build_anims(UAL1, CLIPS_UAL1, "anims_ual1"), build_anims(UAL2, CLIPS_UAL2, "anims_ual2")),
@@ -926,10 +980,11 @@ NAMES = {
     "vector": lambda: build_soldier("vector"),
     "civilian": build_civilian,
 }
-for _k in ("runner", "spitter", "leaper", "shrieker", "brute", "bloater", "brood_mother"):
+for _k in ("runner", "spitter", "leaper", "shrieker", "bloater", "brood_mother"):
     NAMES[_k] = (lambda k: lambda: build_infected(k))(_k)
-for _k in ("lurker", "burrower", "hound", "hooker", "broodling", "stalker"):
+for _k in ("lurker", "burrower", "hound", "hooker", "broodling", "stalker", "brute", "cutter", "hush"):
     NAMES[_k] = (lambda k: lambda: build_creature(k))(_k)
+NAMES["hulk"] = lambda: build_infected("brute", out="hulk")
 for _k in ("fallen", "sharpshooter", "colonel_hale"):
     NAMES[_k] = (lambda k: lambda: build_turned(k))(_k)
 

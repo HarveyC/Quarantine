@@ -60,6 +60,7 @@ var _shot := ""           # a one-shot playing over the base loop
 var _shot_left := 0.0
 var _dying := false
 var _bones := {}          # name -> index, for IK and sockets
+var single := false       # a creature rig whose walk and idle are the same clip (or it has no walk)
 
 
 ## Puts an AnimationPlayer on `model` (the imported character scene).
@@ -68,11 +69,20 @@ var _bones := {}          # name -> index, for IK and sockets
 func setup(model: Node3D, enemy: bool) -> void:
 	skel = model.find_children("*", "Skeleton3D", true, false)[0]
 	var own := model.find_children("*", "AnimationPlayer", true, false)
+	if own.is_empty() and skel.find_bone("spine_03") < 0 and skel.find_bone("pelvis") < 0:
+		# a creature rig with no clips at all: it stands in its rest pose and the unit view moves it
+		player = AnimationPlayer.new()
+		player.name = "Anim"
+		model.add_child(player)
+		clips = {}
+		single = true
+		return
 	if not own.is_empty():
 		# a creature on its own rig, with its own clips
 		player = own[0]
 		player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 		clips = creature_clips(player)
+		single = clips.get("walk", "") == clips.get("idle", "x") or not clips.has("walk")
 		play_base("idle")
 		return
 	player = AnimationPlayer.new()
@@ -117,6 +127,12 @@ static func creature_clips(ap: AnimationPlayer) -> Dictionary:
 						out[pose] = nm
 				if suffix in ["idle", "walk", "run", "gallop"]:
 					ap.get_animation(nm).loop_mode = Animation.LOOP_LINEAR
+	# one-clip rigs: that clip is every loop, the unit view adds the bob, lunge and topple
+	if not out.has("idle") and out.has("walk"):
+		for pose in ["idle", "aim", "crouch"]:
+			out[pose] = out["walk"]
+	elif out.has("idle") and not out.has("walk"):
+		out["walk"] = out["idle"]
 	return out
 
 
@@ -157,6 +173,8 @@ func has_clip(pose: String) -> bool:
 
 ## Switches the looping pose (idle / walk / aim / crouch).
 func play_base(pose: String) -> void:
+	if clips.is_empty():
+		return
 	var clip: String = clips.get(pose, clips.get("idle", ""))
 	if clip == _base or _dying:
 		return
@@ -211,7 +229,9 @@ func advance(delta: float, aim := 0.0, recoil := 0.0) -> void:
 	if _dying:
 		player.advance(delta)
 		return
-	var rate := speed if _base == clips.walk and _shot == "" else 1.0
+	if clips.is_empty():
+		return
+	var rate := speed if _base == clips.get("walk", "") and _shot == "" else 1.0
 	player.advance(delta * rate)
 	_pitch_chest(aim)
 	if melee == "warden" and aim > 0.3 and _shot != clips.get("melee", ""):
