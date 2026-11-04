@@ -564,6 +564,9 @@ func _unit_terms(box: VBoxContainer, uv: UnitView, u: Unit, sel: Unit) -> void:
 			head.add_child(Styles.mono(str(r.value), 11, Styles.TEXT))
 			head.add_child(Styles.caps(str(r.label), 9, Styles.MUTED, false))
 		box.add_child(head)
+		if r.has("raw"):
+			box.add_child(Tips.text(str(r.raw), 12, Styles.DIM, 230.0))
+			continue
 		var line := Styles.label(str(r.line), 12, Styles.DIM)
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		line.custom_minimum_size = Vector2(230, 0)
@@ -575,11 +578,14 @@ func _enemy_rows(rows: Array, uv: UnitView, u: Unit) -> void:
 	var col := Styles.DANGER
 	var base_kind: String = uv.kind
 	var card := Glossary.entry("enemy_" + base_kind)
+	if EnemyLore.line(base_kind) != "":
+		rows.append({"icon": "enemy", "name": "Lore", "col": Styles.DIM, "value": "", "label": "",
+			"line": EnemyLore.line(base_kind)})
 	if not card.is_empty():
 		var st: Array = card.get("stats", [])
 		rows.append({"icon": "enemy", "name": "What it does", "col": col,
 			"value": str(st[1][0]) if st.size() > 1 else "", "label": str(st[1][1]) if st.size() > 1 else "",
-			"line": Glossary.plain(str(card.line))})
+			"line": Glossary.plain(str(card.line)), "raw": str(card.line)})
 	if u == null:
 		return
 	var armour := int(u.status.get("armour", 0))

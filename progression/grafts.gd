@@ -278,29 +278,35 @@ static func infection_gain(s: GameState, u: Unit, amount: int) -> int:
 
 ## Plated ribs: one hit takes at most RIBS_CAP HP; the rest vents at the attacker.
 static func cap_hit(s: GameState, target: Unit, amount: int, source: Unit) -> int:
-	if amount <= GraftData.RIBS_CAP or not active(s, target, "plated_ribs"):
+	var cap: int = GraftData.RIBS_CAP - (1 if _mk2(target, "plated_ribs") else 0)
+	if amount <= cap or not active(s, target, "plated_ribs"):
 		return amount
-	var excess := amount - GraftData.RIBS_CAP
+	var excess := amount - cap
 	s.emit({"type": "perk", "unit": target.id, "perk": "plated_ribs", "target": source.id if source != null else -1})
 	if source != null and source.is_alive() and source != target and not source.status.get("g_vent", false):
 		source.status["g_vent"] = true
 		Rules.deal_damage(s, source, excess, target)
 		source.status.erase("g_vent")
-	return GraftData.RIBS_CAP
+	return cap
+
+
+## True when the unit wears this piece of gear at Mk II (grafts from the graft tree have no Mk).
+static func _mk2(u: Unit, id: String) -> bool:
+	return GearFx.mk(u, id) >= 2
 
 
 ## Targeting optic: a shot also paints a second enemy near its target.
 static func after_shot(s: GameState, u: Unit, t: Unit) -> void:
 	if not active(s, u, "targeting_optic") or not t.is_alive():
 		return
-	var best: Unit = null
+	var near: Array = []
 	for o in s.living():
 		if o != t and u.is_enemy_of(o) and Kit.cheb(o.pos, t.pos) <= GraftData.OPTIC_SPREAD and Combat.can_see(s, u.pos, o.pos):
-			if best == null or Kit.cheb(o.pos, t.pos) < Kit.cheb(best.pos, t.pos):
-				best = o
-	if best != null:
-		GearFx._mark(s, best, 2, u)
-		s.emit({"type": "perk", "unit": u.id, "perk": "targeting_optic", "target": best.id})
+			near.append(o)
+	near.sort_custom(func(a, b): return Kit.cheb(a.pos, t.pos) < Kit.cheb(b.pos, t.pos))
+	for o in near.slice(0, 3 if _mk2(u, "targeting_optic") else 1):
+		GearFx._mark(s, o, 2, u)
+		s.emit({"type": "perk", "unit": u.id, "perk": "targeting_optic", "target": o.id})
 
 
 ## Servo arm: a melee hit shoves the target a tile back.
@@ -365,7 +371,9 @@ static func climbs(u: Unit) -> bool:
 
 
 static func sense_radius(u: Unit) -> int:
-	return GraftData.LATTICE_RADIUS if has(u, "lattice_sight") else 0
+	if not has(u, "lattice_sight"):
+		return 0
+	return GraftData.LATTICE_RADIUS + (3 if _mk2(u, "lattice_sight") else 0)
 
 
 ## Start of the squad's phase: Heart knot regeneration.
@@ -378,7 +386,7 @@ static func on_team_phase_start(s: GameState, u: Unit) -> void:
 static func after_melee(s: GameState, attacker: Unit, target: Unit) -> void:
 	if not has(target, "heart_knot") or not attacker.is_alive() or not attacker.is_enemy_of(target):
 		return
-	attacker.status["k_slowed"] = Combat.phase_index(s) + 2
+	attacker.status["k_slowed"] = Combat.phase_index(s) + (4 if _mk2(target, "heart_knot") else 2)
 	s.emit({"type": "slowed", "unit": attacker.id, "by": target.id})
 	Kit.refresh_stats(s, attacker)
 

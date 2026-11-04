@@ -1,7 +1,7 @@
 extends Control
-## In-game menu over a fight or the run map: Resume, Settings, Controls and Leave (leave asks for
-## a second click). The game keeps running underneath, since online play can't pause.
-## Opened by Esc in a fight with nothing selected and by the map's Menu button.
+## System menu: Resume, Settings, Controls, Leave to title and Quit to desktop (both ask for a
+## second click while a game is running). The game keeps running underneath, since online play
+## can't pause. Opened by Esc anywhere (SettingsHost) and by the map's Menu button.
 
 signal closed
 signal leave_requested
@@ -27,13 +27,16 @@ const CONTROLS := [
 	["F10", "sound", "Sound settings"],
 ]
 
+## False on the title screen, where there is no game to leave.
+var show_leave := true
 var _leave: Button
+var _quit: Button
 var _main: Control
 var _controls: Control
-var _armed := false
 
 
 func _ready() -> void:
+	add_to_group("pause_menu")
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = Styles.make_theme()
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -71,7 +74,10 @@ func _build_main() -> Control:
 	_button(v, "Settings", "settings", "secondary", _open_settings)
 	_button(v, "Controls", "keyboard", "secondary", _show_controls)
 	v.add_child(_gap(6))
-	_leave = _button(v, "Leave to title", "leave", "ghost", _on_leave)
+	if show_leave:
+		_leave = _button(v, "Leave to title", "leave", "ghost", func() -> void: _confirm(_leave, "CLICK AGAIN TO LEAVE", leave_requested.emit))
+	_quit = _button(v, "Quit to desktop", "power", "ghost", func() -> void:
+		_confirm(_quit, "CLICK AGAIN TO QUIT", _quit_game, show_leave))
 	return f
 
 
@@ -138,14 +144,23 @@ func _open_settings() -> void:
 		ss.toggle_settings()
 
 
-func _on_leave() -> void:
-	if not _armed:
-		_armed = true
-		_leave.text = "CLICK AGAIN TO LEAVE"
-		Styles.style_button(_leave, "secondary", 16 + 31)
-		_leave.add_theme_color_override("font_color", Styles.DANGER_TEXT)
+## Destructive buttons ask for a second click. `ask` false skips the check (nothing to lose).
+func _confirm(b: Button, text: String, go: Callable, ask := true) -> void:
+	if ask and b.get_meta("armed", false) == false:
+		b.set_meta("armed", true)
+		b.text = text
+		Styles.style_button(b, "secondary", 16 + 31)
+		b.add_theme_color_override("font_color", Styles.DANGER_TEXT)
 		return
-	leave_requested.emit()
+	go.call()
+
+
+## Leaves any session cleanly (online: tells the others) before closing the window.
+func _quit_game() -> void:
+	var app := get_tree().root.get_node_or_null("App")
+	if app != null and app.get("session") != null and app.has_method("_leave"):
+		app.call("_leave")
+	get_tree().quit()
 
 
 func close() -> void:
