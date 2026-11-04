@@ -10,6 +10,7 @@ const Tips := preload("res://ui/tips/tips.gd")
 const TipArt := preload("res://ui/tips/tip_art.gd")
 const ClassTip := preload("res://ui/tips/class_tip.gd")
 const CompareView := preload("res://ui/gear/compare_view.gd")
+const ActionCard := preload("res://ui/tips/action_card.gd")
 
 const WIDTH := 300.0
 const WIDE := 340.0
@@ -88,6 +89,12 @@ func _build() -> void:
 	if ctx.has("class"):
 		ClassTip.build(self, _box, str(ctx["class"]), bool(ctx.get("locked", false)), inner, expanded)
 		if not expanded:
+			_box.add_child(_footer())
+		reset_size()
+		return
+	if ctx.has("action"):
+		ActionCard.build(self, _box, ctx["action"], inner, expanded)
+		if not expanded and ActionCard.has_more(ctx["action"]):
 			_box.add_child(_footer())
 		reset_size()
 		return

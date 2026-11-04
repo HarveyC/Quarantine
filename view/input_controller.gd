@@ -523,29 +523,29 @@ func actions() -> Array[Dictionary]:
 		var why := Encounter.validate_struggle(view.state, u)
 		out.append({"key": "struggle", "label": "Struggle", "targeting": "none", "type": Types.STRUGGLE,
 			"enabled": why == "", "reason": why, "hotkey": "1",
-			"desc": "%d%% chance to throw the Lurker off. Costs nothing, once a turn." % Encounter.STRUGGLE_CHANCE})
+			"cost": 0, "desc": "%d%% chance to throw the Lurker off. Once a turn." % Encounter.STRUGGLE_CHANCE})
 		return out
 	var has_ap := u.actions_left > 0
 	var melee := ClassAbilities.melee_drawn(u)
 	if not melee:
 		var gun: Dictionary = Weapons.of(u)
-		out.append({"key": "shoot", "label": "Shoot", "targeting": "shoot", "type": Types.SHOOT, "enabled": has_ap,
+		out.append({"key": "shoot", "label": "Shoot", "targeting": "shoot", "type": Types.SHOOT, "enabled": has_ap, "cost": -1,
 			"desc": "%s: %s" % [gun.name, gun.desc]})
-		out.append({"key": "overwatch", "label": "Overwatch", "targeting": "none", "type": Types.OVERWATCH, "enabled": has_ap})
-	out.append({"key": "hunker", "label": "Hunker", "targeting": "none", "type": Types.HUNKER, "enabled": has_ap})
+		out.append({"key": "overwatch", "label": "Overwatch", "targeting": "none", "type": Types.OVERWATCH, "enabled": has_ap, "cost": -1})
+	out.append({"key": "hunker", "label": "Hunker", "targeting": "none", "type": Types.HUNKER, "enabled": has_ap, "cost": -1})
 	if PartingBlow.enabled and PartingBlow.threatened(view.state, u):
 		out.append({"key": "disengage", "label": "Disengage", "targeting": "cell", "type": Types.MOVE, "careful": true,
-			"enabled": has_ap, "cells": PartingBlow.careful_cells(view.state, u),
-			"desc": "Move up to %d tiles without a Parting blow." % PartingBlow.CAREFUL_RANGE})
+			"enabled": has_ap, "cost": 1, "cells": PartingBlow.careful_cells(view.state, u),
+			"desc": "Back away without a Parting blow."})
 	if Ammo.tracked(u) and not melee:
 		var dry := Ammo.reload_error(view.state, u)
 		out.append({"key": "reload", "label": "Reload", "targeting": "none", "type": Types.RELOAD, "enabled": has_ap and dry == "",
-			"reason": dry, "desc": "Refill the magazine (%d of %d rounds). Costs %s." % [Ammo.rounds(u), Ammo.mag_size(u),
-			"no action" if Ammo.reload_is_free(view.state, u) else "1 action"]})
+			"reason": dry, "cost": 0 if Ammo.reload_is_free(view.state, u) else Ammo.RELOAD_COST,
+			"desc": "Refill the magazine (%d of %d rounds)." % [Ammo.rounds(u), Ammo.mag_size(u)]})
 	var strike_at := 0   # a drawn melee weapon's strike takes Shoot's place at the front
 	for a in Combat.available_abilities(view.state, u):
 		var entry := {"key": "ability:%s" % a.id, "label": str(a.get("name", a.id)), "targeting": str(a.get("targeting", "none")),
-			"type": Types.ABILITY, "id": a.id, "enabled": has_ap and a.get("ready", true), "desc": str(a.get("desc", "")),
+			"type": Types.ABILITY, "id": a.id, "cost": int(a.get("cost", 1)), "enabled": has_ap and a.get("ready", true), "desc": str(a.get("desc", "")),
 			"targets": a.get("targets", []), "reach": int(a.get("reach", a.get("range", 0))), "new": a.get("new", false),
 			"cooldown": int(a.get("cooldown", 0)), "reason": str(a.get("reason", ""))}
 		if melee and a.id in ClassAbilities.STRIKES:

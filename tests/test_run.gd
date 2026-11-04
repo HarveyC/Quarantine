@@ -102,19 +102,6 @@ func test_benched_player_does_not_block_vote() -> void:
 	assert_true(run.fight_config.squad.all(func(e): return e.player != 2), "host plays the benched player's soldier")
 
 
-func test_reveal_spends_intel() -> void:
-	var run := RunRules.new_run(1, 3)
-	RunRules.start_run(run)
-	_rewards(run)
-	var hidden := run.map.filter(func(n): return n.hidden)
-	if hidden.is_empty():
-		return
-	assert_true(RunRules.apply(run, {"type": RunRules.REVEAL, "player": 0, "node": hidden[0].id}), "reveal")
-	assert_eq(run.intel, 0, "intel spent")
-	assert_true(not hidden[0].hidden and hidden[0].resolved != "", "resolved")
-	assert_true(not RunRules.apply(run, {"type": RunRules.REVEAL, "player": 0, "node": hidden[0].id}), "already revealed")
-
-
 ## Plays a fight to the end with a fake outcome: every soldier survives with 1 damage.
 func _win_fight(run: RunState, bonus: bool = false) -> void:
 	var s := MatchConfig.build(run.fight_config)
@@ -222,7 +209,6 @@ func test_fight_heals_pays_and_tracks_outbreak() -> void:
 	var before := run.supplies
 	_win_fight(run, true)
 	assert_eq(run.supplies, before + 50, "skirmish pays 40 + 10 bonus")
-	assert_eq(run.intel, 2, "bonus objective gives Intel")
 	_rewards(run)
 	for r in run.squad():
 		assert_eq(r.hp, r.max_hp, "25% heal after the fight covers 1 damage")

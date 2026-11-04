@@ -157,3 +157,24 @@ func test_prototypes() -> void:
 	assert_eq(hit.x, 0, "fire doesn't hurt")
 	for id in ["firestarter", "pinpoint", "overlook", "cauterizer"]:
 		assert_eq(GearData.PROTOTYPES[id].tags.size(), 2, id + " has a tag pair")
+
+
+func test_mk2_rigs_and_melee() -> void:
+	var s := _state()
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
+	_gear(u, ["rig_suppress"])
+	assert_eq(Kit.ability_cooldown(u, "suppress", 2), 2, "rig Mk I keeps the cooldown")
+	_gear(u, [["rig_suppress", 2]])
+	assert_eq(Kit.ability_cooldown(u, "suppress", 2), 1, "rig Mk II cuts the cooldown")
+	_gear(u, ["sig_deadeye"])
+	assert_eq(Kit.ability_cooldown(u, "deadeye", 4), 4, "signature Mk I keeps the cooldown")
+	_gear(u, [["sig_deadeye", 2]])
+	assert_eq(Kit.ability_cooldown(u, "deadeye", 4), 3, "signature Mk II cuts the cooldown")
+	_gear(u, ["reaper_blade"])
+	var base := ClassAbilities.strike_reach(u, "lunge")
+	_gear(u, [["reaper_blade", 2]])
+	assert_eq(ClassAbilities.strike_reach(u, "lunge"), base + 2, "Reaper blade Mk II reaches 2 further")
+	_gear(u, ["trench_maul"])
+	assert_eq(Kit.ability_cooldown(u, "bash", 1), 1, "Maul Mk I keeps the cooldown")
+	_gear(u, [["trench_maul", 2]])
+	assert_eq(Kit.ability_cooldown(u, "bash", 1), 0, "Maul Mk II bashes every turn")

@@ -23,6 +23,7 @@ func test_item_tables_are_consistent() -> void:
 		assert_true(GearData.SLOTS.has(d.slot), "%s slot" % id)
 		assert_true(["common", "uncommon", "rare"].has(d.rarity), "%s rarity" % id)
 		assert_true(d.desc != "" and d.desc_mk2 != "", "%s text" % id)
+		assert_true(d.desc != d.desc_mk2 or GearData.CONSUMABLES.has(id), "%s Mk II must change something" % id)
 	for t in GearData.TAGS:
 		assert_true(GearData.items_with(t).size() >= 4, "%s has 4+ items" % t)
 	for id in GearData.PROTOTYPES:

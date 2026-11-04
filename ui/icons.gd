@@ -364,6 +364,9 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 			line.call([[11, 4], [4, 4], [4, 20], [11, 20]])
 			line.call([[9, 12], [21, 12]])
 			line.call([[17, 8], [21, 12], [17, 16]])
+		"power":
+			line.call([[12, 3], [12, 12]])
+			line.call([[7, 6], [5, 9], [4.5, 13], [6, 17], [9, 20], [12, 21], [15, 20], [18, 17], [19.5, 13], [19, 9], [17, 6]])
 		"continue":
 			line.call([[6, 4], [18, 12], [6, 20], [6, 4]])
 		"play":

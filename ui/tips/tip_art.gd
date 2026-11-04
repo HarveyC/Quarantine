@@ -9,7 +9,7 @@ const W := preload("res://ui/widgets.gd")
 
 const HEIGHTS := {"tiers": 58, "cover": 66, "high_ground": 72, "flank": 74, "hit_roll": 44,
 	"damage": 50, "overwatch": 62, "lapse": 46, "turning": 40, "set": 30, "outbreak": 52,
-	"severity": 40, "hazards": 50, "rank": 42, "intel": 46, "healing": 30, "hp_pips": 62, "magazine": 44, "tile": 44, "climb": 58}
+	"severity": 40, "hazards": 50, "rank": 42, "healing": 30, "hp_pips": 62, "magazine": 44, "tile": 44, "climb": 58}
 
 var kind := ""
 var ctx := {}
@@ -44,7 +44,6 @@ func _draw() -> void:
 		"severity": _severity()
 		"hazards": _hazards()
 		"rank": _rank()
-		"intel": _intel()
 		"healing": _healing()
 		"hp_pips": _hp_pips()
 		"magazine": _magazine()
@@ -395,22 +394,6 @@ func _rank() -> void:
 			draw_circle(c, 3.0, Styles.MUTED)
 		_num(Vector2(c.x, y + 22), str(i + 1), 9, Styles.AMBER if up else Styles.MUTED, HORIZONTAL_ALIGNMENT_CENTER, 20)
 	_text(Vector2(size.x, y + 22), "", 9)
-
-
-## A ? node, 1 Intel, and what it really was.
-func _intel() -> void:
-	var c := Vector2(22, 22)
-	draw_arc(c, 15, 0, TAU, 32, Styles.DIM, 1.5)
-	_text(c + Vector2(0, 6), "?", 18, Styles.TEXT, HORIZONTAL_ALIGNMENT_CENTER, 20)
-	var a := Vector2(46, 22)
-	draw_line(a, a + Vector2(70, 0), Styles.MUTED, 1.5)
-	_arrow_head(a + Vector2(74, 0), Vector2.RIGHT, Styles.MUTED)
-	_icon("intel", a + Vector2(24, -12), 14, Styles.TEXT)
-	_num(a + Vector2(42, -7), "-1", 11, Styles.TEXT, HORIZONTAL_ALIGNMENT_LEFT, 30)
-	var d := Vector2(146, 22)
-	draw_arc(d, 15, 0, TAU, 32, Styles.AMBER, 1.5)
-	_icon("depot", d, 16, Styles.AMBER)
-	_text(d + Vector2(24, 4), "now you know", 10, Styles.MUTED)
 
 
 ## HP pips with the after-fight heal hatched in.

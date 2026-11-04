@@ -77,6 +77,13 @@ func _card(rec: Dictionary) -> Control:
 		d.add_child(Styles.spacer())
 		d.add_child(W.Icon.new("check", NodeUi.HEALTH, 20, 2.0))
 		v.add_child(d)
+		# Serum treatments are free of the one-treatment limit, so Full cure stays on offer.
+		var cure := {"type": "node_treat", "player": rec.owner, "soldier": rec.id, "treatment": "cure"}
+		if rec.owner in local_players() and NodeRules.validate(run, cure) == "":
+			var tiles := GridContainer.new()
+			tiles.columns = 2
+			tiles.add_child(_tile(rec, "cure", sc))
+			v.add_child(tiles)
 		return card
 	if not rec.owner in local_players():
 		# Cards share a row height, so pin the waiting line to the card bottom: it then sits at
@@ -95,18 +102,22 @@ func _card(rec: Dictionary) -> Control:
 	tiles.add_theme_constant_override("h_separation", 8)
 	tiles.add_theme_constant_override("v_separation", 8)
 	for t in FieldHospital.options(ns(), rec):
-		var info: Dictionary = FieldHospital.TREATMENTS[t]
-		var action := {"type": "node_treat", "player": rec.owner, "soldier": rec.id, "treatment": t}
-		var why := NodeRules.validate(run, action)
-		var tip: String = "\n".join([_tip(rec, t), why].filter(func(s: String) -> bool: return s != ""))
-		var b := NodeUi.tile_button(t, info.name, ICON_COLORS[t], NodeUi.cost_chip(FieldHospital.cost_text(rec, t)), why == "", tip)
-		Tips.term(b, TERMS[t])
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(submit.bind(action))
-		_hook(b, sc, FieldHospital.preview_in(ns(), rec, t))
-		tiles.add_child(b)
+		tiles.add_child(_tile(rec, t, sc))
 	v.add_child(tiles)
 	return card
+
+
+func _tile(rec: Dictionary, t: String, sc: SoldierCard) -> Control:
+	var info: Dictionary = FieldHospital.TREATMENTS[t]
+	var action := {"type": "node_treat", "player": rec.owner, "soldier": rec.id, "treatment": t}
+	var why := NodeRules.validate(run, action)
+	var tip: String = "\n".join([_tip(rec, t), why].filter(func(s: String) -> bool: return s != ""))
+	var b := NodeUi.tile_button(t, info.name, ICON_COLORS[t], NodeUi.cost_chip(FieldHospital.cost_text(rec, t)), why == "", tip)
+	Tips.term(b, TERMS[t])
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.pressed.connect(submit.bind(action))
+	_hook(b, sc, FieldHospital.preview_in(ns(), rec, t))
+	return b
 
 
 ## The line over a tile's treatment card (which explains the treatment itself): Refit and

@@ -59,7 +59,7 @@ const STEPS: Array[Dictionary] = [
 	{"id": "overwatch", "title": "Overwatch", "hud": "overwatch", "keys": ["2", "Space"],
 		"text": "Overwatch fires at the first enemy that moves in sight. Set it, then press Ready."},
 	{"id": "parting_blow", "title": "Parting blow", "hud": "disengage", "visual": "reach",
-		"text": "Leaving a melee fighter's reach gives it a free strike. Use Disengage to back away up to 2 tiles for 1 action."},
+		"text": "Leaving a melee fighter's reach gives it a free strike. Use Disengage to back away without a free strike."},
 	{"id": "rig", "title": "Rigs", "hud": "suppress", "visual": "rig",
 		"text": "Use Suppress from the action bar. The Trooper's passive, Covering Fire, also suppresses on every miss."},
 	{"id": "breach", "title": "Open the wall", "cells": WALL_CELLS, "visual": "wall",

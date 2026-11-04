@@ -418,7 +418,7 @@ static func _build() -> Dictionary:
 		"see": ["rubble", "cover"],
 		"aliases": ["Reinforced wall", "Reinforced walls", "Wall block", "Wall blocks"]}
 	t["overwatch"] = {"name": "Overwatch", "kind": "action", "icon": "overwatch", "tone": "amber",
-		"line": "End the turn watching: shoot the first enemy that moves in sight.",
+		"line": "Watch the area: shoot the first enemy that moves in sight.",
 		"art": "overwatch",
 		"stats": [["1", "reaction shot"], ["-%d" % Combat.REACTION_PENALTY, "aim"]],
 		"more": ["Fires in the enemy phase.", "If the enemy stands in a {fuel_barrel|fuel barrel}'s blast (and no squadmate does), the shot goes into the barrel.", "A {suppress|Suppressed} soldier loses their overwatch."],
@@ -439,7 +439,7 @@ static func _build() -> Dictionary:
 		"line": "A smoke grenade's cloud. Harder to hit inside, and unaware Infected can't spot you in it.",
 		"art": "",
 		"stats": [["-%d" % GearFx.SMOKE_DEFENSE, "to be hit"], ["%d" % GearFx.SMOKE_TURNS, "turns"], ["3x3", "area"]],
-		"more": ["Harmless: it does no damage.", "Fire burns it away."],
+		"more": ["Harmless: it does no damage.", "Laying it puts out {hazard_fire} and ends {burning} on anyone inside.", "Fire that starts later burns it away."],
 		"see": ["concealed", "hazards"],
 		"aliases": ["Smoke cloud", "Smoke grenade", "In smoke"]}
 	t["smoke"].art = "tile"
@@ -482,7 +482,7 @@ static func _build() -> Dictionary:
 		"see": ["disengage"],
 		"aliases": ["Parting blows"]}
 	t["disengage"] = {"name": "Disengage", "kind": "action", "icon": "hunker", "tone": "amber",
-		"line": "Back away up to %d tiles with no {parting_blow|Parting blow}. Costs 1 action." % PartingBlow.CAREFUL_RANGE,
+		"line": "Back away up to %d tiles with no {parting_blow|Parting blow}." % PartingBlow.CAREFUL_RANGE,
 		"art": "",
 		"stats": [["%d" % PartingBlow.CAREFUL_RANGE, "tiles"], ["1", "action"]],
 		"more": ["Only offered while a melee fighter is next to you."],
@@ -512,7 +512,7 @@ static func _build() -> Dictionary:
 		"see": ["reload", "overwatch", "suppress"],
 		"aliases": ["Magazine", "Out of ammo"]}
 	t["reload"] = {"name": "Reload", "kind": "action", "icon": "reload", "tone": "amber",
-		"line": "Fill the magazine again. It costs %d action, so you can still shoot afterwards." % Ammo.RELOAD_COST,
+		"line": "Fill the magazine again.",
 		"art": "magazine",
 		"stats": [["%d" % Ammo.RELOAD_COST, "action"], ["full", "magazine"]],
 		"more": ["A shot ends your turn, so Reload before it: move, reload, shoot is all of a turn.",
@@ -843,14 +843,8 @@ static func _build() -> Dictionary:
 		"line": "The squad's shared money for the depot and the hospital.",
 		"art": "",
 		"stats": [["%d" % RunRules.START_SUPPLIES, "to start"], ["+%d" % RunRules.INCOME[RunMap.SKIRMISH].supplies, "per fight"]],
-		"see": ["serum", "intel"],
+		"see": ["serum"],
 		"aliases": ["Supply"]}
-	t["intel"] = {"name": "Intel", "kind": "resource", "icon": "intel", "tone": "text",
-		"line": "Spend 1 to reveal what a hidden ? node really is.",
-		"art": "intel",
-		"stats": [["%d" % RunRules.START_INTEL, "to start"], ["1", "per reveal"]],
-		"see": ["supplies"],
-		"labels": ["Reveal"]}
 	t["serum"] = {"name": "Serum", "kind": "resource", "icon": "serum", "tone": "teal",
 		"line": "Samples that cure a soldier's {infection}.",
 		"art": "",
@@ -972,12 +966,12 @@ static func _build() -> Dictionary:
 		RunMap.DEPOT: ["Depot", "depot", Color("c9a24a"), "A shop: spend {supplies} on gear, pockets and Serum.", []],
 		RunMap.HOSPITAL: ["Field hospital", "hospital", "hp", "One treatment per soldier: patch up, {purge} or train.", [["+1", "{outbreak} if used"]]],
 		RunMap.SURVIVORS: ["Survivors", "survivors", "hp", "People to bring home: a recruit for the {reserve}.", [["+%d" % RunRules.BONUS_SUPPLIES, "{supplies}"], ["1", "recruit"]]],
-		RunMap.UNKNOWN: ["Hidden node", "unknown", "dim", "Usually an event. Spend {intel} to see it first.", [["1", "{intel} to reveal"]]],
+		RunMap.UNKNOWN: ["Hidden node", "unknown", "dim", "Usually an event. Could be an ambush, a depot or survivors.", []],
 	}
 	for type in nodes:
 		var n: Array = nodes[type]
 		t["node_" + type] = {"name": n[0], "kind": "map node", "icon": n[1], "tone": n[2], "line": n[3],
-			"art": "intel" if type == RunMap.UNKNOWN else "", "stats": n[4], "see": ["outbreak"], "scan": false}
+			"art": "", "stats": n[4], "see": ["outbreak"], "scan": false}
 	_add_enemy_terms(t)
 	_add_director_terms(t)
 	_add_core_enemy_cards(t)

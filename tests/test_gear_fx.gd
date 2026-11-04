@@ -387,6 +387,21 @@ func test_smoke_grenade_lays_a_cloud_that_hides_and_covers() -> void:
 	assert_true(Hazards.cells_of(s, "smoke").is_empty(), "clears after %d rounds" % GearFx.SMOKE_TURNS)
 
 
+func test_smoke_grenade_puts_out_fire() -> void:
+	var s := _state()
+	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(2, 2))
+	var buddy := _add(s, "trooper", Types.Team.PLAYER, Vector2i(5, 2))
+	_gear(u, [], ["smoke_grenade"])
+	buddy.status["burning"] = 2
+	Hazards.add(s, [Vector2i(5, 3), Vector2i(9, 4)], "fire", 3, -1)
+	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "item:smoke_grenade", "cell": Vector2i(5, 3)}), "thrown")
+	assert_true(not buddy.status.has("burning"), "Burning ends in the cloud")
+	assert_eq(Hazards.at(s, Vector2i(5, 3)).get("kind", ""), "smoke", "fire under the cloud is now smoke")
+	assert_eq(Hazards.at(s, Vector2i(9, 4)).get("kind", ""), "fire", "fire outside is untouched")
+	var types := s.log.map(func(ev): return ev.type)
+	assert_true(types.has("doused"), "the view gets a doused beat")
+
+
 func test_flashbang_stuns_and_gives_concealment_away() -> void:
 	var s := _state()
 	s.phase = Types.Phase.TEAM

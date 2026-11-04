@@ -9,51 +9,51 @@ extends RefCounted
 ## Same shape as Combat.ABILITIES. "cost": actions, -1 = ends turn. "any": usable by every soldier.
 const ABILITIES := {
 	"incinerate": {"name": "Incinerate", "targeting": "cell", "cost": -1, "cooldown": 2,
-		"desc": "3-tile cone: 3 damage to every unit in it (allies too), ignoring cover. Leaves fire for 1 turn. Ends turn."},
+		"desc": "3-tile cone: 3 damage to every unit in it (allies too), ignoring cover. Leaves fire for 1 turn."},
 	"siphon": {"name": "Siphon", "targeting": "unit", "cost": 1, "cooldown": 1,
-		"desc": "Move up to 15 Infection from an adjacent ally onto yourself. 1 action."},
+		"desc": "Move up to 15 Infection from an adjacent ally onto yourself."},
 	"purge": {"name": "Flush", "targeting": "unit", "cost": -1, "cooldown": 3,
-		"desc": "Remove 30 Infection from an adjacent ally. Ends turn."},
+		"desc": "Remove 30 Infection from an adjacent ally."},
 	"decon": {"name": "Decon Shower", "targeting": "unit", "cost": 1, "cooldown": 2,
-		"desc": "An adjacent ally loses 10 Infection and gains none until the next team phase. 1 action."},
+		"desc": "An adjacent ally loses 10 Infection and gains none until the next team phase."},
 	"squad_order": {"name": "Squad Leader", "targeting": "unit", "cost": 1, "cooldown": 0,
-		"desc": "Once per fight: an adjacent ally gains +1 action this turn. 1 action."},
+		"desc": "Once per fight: an adjacent ally gains +1 action this turn."},
 	"lunge": {"name": "Lunge", "targeting": "unit", "cost": -1, "cooldown": 0,
-		"desc": "Dash up to 4 tiles to a visible enemy and cut it for 4-6, +1 per Infection tier. Only half cover counts. Kills on Infected add 5 Infection. Ends turn."},
+		"desc": "Dash to a visible enemy and cut it, +1 damage per Infection tier. Only half cover counts. Kills on Infected add 5 Infection."},
 	"bash": {"name": "Shield Bash", "targeting": "unit", "cost": 1, "cooldown": 1,
-		"desc": "Hit an adjacent enemy for 3-5, knock it back a tile and stun it (it loses its next turn). +2 damage on Turned soldiers. 1 action."},
+		"desc": "Hit an adjacent enemy, knock it back a tile and stun it (it loses its next turn). +2 damage on Turned soldiers."},
 	"swap_weapon": {"name": "Swap weapon", "targeting": "none", "cost": 1, "cooldown": 0,
-		"desc": "Switch between your melee weapon and your gun. Only the drawn weapon can attack. 1 action."},
+		"desc": "Switch between your melee weapon and your gun. Only the drawn weapon can attack."},
 	"guard": {"name": "Brace", "targeting": "none", "cost": -1, "cooldown": 0,
-		"desc": "Until your next turn, Bash the first enemy that steps next to you. Ends turn."},
+		"desc": "Until your next turn, Bash the first enemy that steps next to you."},
 	"shield_charge": {"name": "Shield Charge", "targeting": "unit", "cost": -1, "cooldown": 3,
-		"desc": "Move up to 3 tiles to a visible enemy and Bash it. Ends turn."},
+		"desc": "Move to a visible enemy and Bash it."},
 	"talk_down": {"name": "Talk Down", "targeting": "unit", "cost": 1, "cooldown": 0, "any": true,
-		"desc": "Talk an adjacent Lapsed ally back to their senses. 1 action."},
+		"desc": "Talk an adjacent Lapsed ally back to their senses."},
 	"serum": {"name": "Serum", "targeting": "unit", "cost": 2, "cooldown": 0, "any": true,
-		"desc": "Full cure for an adjacent ally: Infection to 0, every mutation wiped, ends a Lapse. 2 actions, uses a Serum."},
+		"desc": "Full cure for an adjacent ally: Infection to 0, every mutation wiped, ends a Lapse. Uses a Serum."},
 	# Bloom grafts (Grafts): a Bloom limb's claw and Runner legs' jump.
 	"bloom_claw": {"name": "Bloom Claw", "targeting": "unit", "cost": 1, "cooldown": 1,
-		"desc": "Rake an adjacent enemy for 3-5, +1 per Infection tier. A kill removes 10 Infection from you. 1 action."},
+		"desc": "Rake an adjacent enemy, +1 damage per Infection tier. A kill removes 10 Infection from you."},
 	"runner_leap": {"name": "Leap", "targeting": "cell", "cost": 1, "cooldown": 0,
-		"desc": "Once per fight: jump up to 4 tiles to a free cell, over cover and past overwatch. 1 action."},
+		"desc": "Once per fight: jump up to 4 tiles to a free cell, over cover and past overwatch."},
 	# Rank 3 signatures (Signatures): one per class, each carries a gear tag.
 	"lockdown": {"name": "Lockdown", "targeting": "none", "cost": -1, "cooldown": 4, "sig": true,
-		"desc": "Reload, then hold overwatch that never runs out until your next turn: you shoot every enemy that moves in sight, once each, and pin whoever you hit. Ends turn."},
+		"desc": "Reload, then hold overwatch that never runs out until your next turn: you shoot every enemy that moves in sight, once each, and pin whoever you hit."},
 	"deadeye": {"name": "Deadeye", "targeting": "unit", "cost": 1, "cooldown": 4, "sig": true,
-		"desc": "Shoot a visible enemy: never misses, ignores cover, deals 3 extra damage and Marks it. 1 action."},
+		"desc": "Shoot a visible enemy: never misses, ignores cover, deals 3 extra damage and Marks it."},
 	"quarantine_field": {"name": "Quarantine Field", "targeting": "none", "cost": 1, "cooldown": 5, "sig": true,
 		"desc": "Seal the ground within 2 tiles of you for 2 turns. Soldiers inside gain no Infection and lose 5 Infection each turn. Enemies inside lose 15 aim. 1 action."},
 	"bring_down": {"name": "Bring Down", "targeting": "unit", "cost": -1, "cooldown": 4, "sig": true,
-		"desc": "Collapse the cover around a visible enemy within 5 tiles: 4 damage to it and 2 to enemies next to it, ignoring cover. Ends turn."},
+		"desc": "Collapse the cover around a visible enemy within 5 tiles: 4 damage to it and 2 to enemies next to it, ignoring cover."},
 	"flashover": {"name": "Flashover", "targeting": "none", "cost": 1, "cooldown": 4, "sig": true,
-		"desc": "Every enemy in sight that is burning or standing in fire erupts: 4 damage, 2 to enemies next to it. The fire is used up. 1 action."},
+		"desc": "Every enemy in sight that is burning or standing in fire erupts: 4 damage, 2 to enemies next to it. The fire is used up."},
 	"vent": {"name": "Vent", "targeting": "none", "cost": 1, "cooldown": 4, "sig": true,
-		"desc": "Expel 25 of your Infection in a spore burst. Enemies within 2 tiles take 3, plus 1 per Infection tier you hold. Needs 10 Infection. 1 action."},
+		"desc": "Expel 25 of your Infection in a spore burst. Enemies within 2 tiles take 3, plus 1 per Infection tier you hold. Needs 10 Infection."},
 	"death_sweep": {"name": "Death Sweep", "targeting": "none", "cost": 1, "cooldown": 4, "sig": true,
-		"desc": "Cut every adjacent enemy for 3 and leave them bleeding. A kill resets Lunge and gives an action back. 1 action."},
+		"desc": "Cut every adjacent enemy for 3 and leave them bleeding. A kill resets Lunge and gives an action back."},
 	"provoke": {"name": "Provoke", "targeting": "none", "cost": 1, "cooldown": 5, "sig": true,
-		"desc": "Every enemy picks you as its target until your next turn. You gain 20 defense and take 1 less damage from each hit. 1 action."},
+		"desc": "Every enemy picks you as its target until your next turn. You gain 20 defense and take 1 less damage from each hit."},
 }
 
 const INCINERATE_DAMAGE := 3
@@ -134,8 +134,8 @@ static func available(s: GameState, u: Unit) -> Array[Dictionary]:
 		if id == "swap_weapon":
 			var melee := melee_drawn(u)
 			entry["name"] = "Draw gun" if melee else "Draw %s" % melee_weapon_name(u).to_lower()
-			entry["desc"] = "Put away the %s and draw your gun. Only the drawn weapon can attack. 1 action." % melee_weapon_name(u).to_lower() \
-				if melee else "Holster the gun and draw the %s. Only the drawn weapon can attack. 1 action." % melee_weapon_name(u).to_lower()
+			entry["desc"] = "Put away the %s and draw your gun. Only the drawn weapon can attack." % melee_weapon_name(u).to_lower() \
+				if melee else "Holster the gun and draw the %s. Only the drawn weapon can attack." % melee_weapon_name(u).to_lower()
 		if id in STRIKES and not entry.ready:
 			entry["reason"] = _extra_error(s, u, id)
 		out.append(entry)
@@ -389,7 +389,8 @@ static func _strike_target_error(s: GameState, u: Unit, id: String, t: Unit) -> 
 static func strike_reach(u: Unit, id: String) -> int:
 	if id == "shield_charge":
 		return CHARGE_REACH
-	return LONG_STRIDE_REACH if Kit.has_perk(u, "long_stride") else LUNGE_REACH
+	var reach := LONG_STRIDE_REACH if Kit.has_perk(u, "long_stride") else LUNGE_REACH
+	return reach + (2 if GearFx.mk(u, "reaper_blade") >= 2 else 0)
 
 
 ## Where `u` ends up to strike `t` with a dash of up to `reach` tiles: its own cell when already
@@ -461,6 +462,10 @@ static func strike(s: GameState, u: Unit, t: Unit, kind: String, extra: Dictiona
 	if r.hit or r.graze:
 		var roll_range := MAUL_DAMAGE if bash else (GraftData.CLAW_DAMAGE if kind == "bloom_claw" else BLADE_DAMAGE)
 		var base := s.rng.randi_range(roll_range.x, roll_range.y)
+		if bash and GearFx.mk(u, "trench_maul") >= 2:
+			base += 1
+		elif kind == "lunge" and GearFx.mk(u, "reaper_blade") >= 2:
+			base += 2
 		if bash and t.status.get("turned", false):
 			base += QUARANTINE_DAMAGE
 		elif not bash:
