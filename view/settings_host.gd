@@ -9,6 +9,7 @@ extends Node
 ##     focus-driven screen is up (group "pad_focus": Settings, the quick action menu) the
 ##     pointer stands down and the d-pad / A / B drive Godot's built-in ui_* focus instead.
 
+const PauseMenu := preload("res://ui/pause_menu.gd")
 const SettingsMenu := preload("res://ui/settings_menu.gd")
 const Styles := preload("res://ui/styles.gd")
 ## Pointer speed at full stick, in viewport pixels per second.
@@ -155,6 +156,7 @@ func _input(e: InputEvent) -> void:
 
 
 func _unhandled_input(e: InputEvent) -> void:
+	_escape_menu(e)
 	# D-pad outside a fight nudges the pointer (in a fight the input controller steps cells).
 	if e is InputEventJoypadButton and e.pressed and not _focus_mode():
 		var dirs := {"cell_left": Vector2.LEFT, "cell_right": Vector2.RIGHT, "cell_up": Vector2.UP, "cell_down": Vector2.DOWN}
@@ -162,6 +164,30 @@ func _unhandled_input(e: InputEvent) -> void:
 			if e.is_action_pressed(action):
 				_move_pointer(dirs[action] * NUDGE_PX)
 				get_viewport().set_input_as_handled()
+
+
+## Esc nobody else used (no fight selection, overlay or screen of its own took it) closes open
+## tooltip cards first, then opens the system menu, on every screen.
+func _escape_menu(e: InputEvent) -> void:
+	var k := e as InputEventKey
+	if k == null or not k.pressed or k.echo or k.keycode != KEY_ESCAPE:
+		return
+	get_viewport().set_input_as_handled()
+	if is_menu_open() or not get_tree().get_nodes_in_group("pause_menu").is_empty():
+		return
+	var tips := get_node_or_null("/root/TermTips")
+	if tips != null and not tips.cards.is_empty():
+		tips.close_all()
+		return
+	var app := get_tree().root.get_node_or_null("App")
+	var m: Control = PauseMenu.new()
+	m.show_leave = app != null and app.get("session") != null
+	m.closed.connect(m.queue_free)
+	m.leave_requested.connect(func() -> void:
+		m.queue_free()
+		if app != null:
+			app.call("_leave"))
+	_menu_layer.add_child(m)
 
 
 func _process(delta: float) -> void:
