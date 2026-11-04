@@ -128,7 +128,7 @@ static func give_starter(run, record) -> void:
 	if id == "":
 		var pool := GearData.STARTER_FALLBACK.filter(func(c): return not GearFx.is_pending(c))
 		id = pool[_rng(run).randi_range(0, pool.size() - 1)]
-	Loadout.add_consumable(record, id, GearData.STARTER_CHARGES)
+	Loadout.add_consumable(record, id, int(GearData.STARTER_CHARGES_BY_CLASS.get(record.get("kind", ""), GearData.STARTER_CHARGES)))
 
 
 # --- Offers ----------------------------------------------------------------------------

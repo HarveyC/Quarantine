@@ -130,7 +130,8 @@ func test_leech_rounds_and_purge_canister() -> void:
 	u.infection = 30
 	u.hp = u.max_hp - 2
 	GearFx.after_shot(s, u, t, true, false, 3)
-	assert_eq(u.hp, u.max_hp - 1, "healed 1")
+	assert_eq(u.hp, u.max_hp - 2, "no heal")
+	assert_true(Combat.has_status(s, t, "tagged"), "the hit Marks the target")
 	assert_true(u.infection > 30, "and took Infection")
 	_gear(u, [["purge_canister", 2]])
 	var before := u.infection

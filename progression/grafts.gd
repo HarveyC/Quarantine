@@ -376,10 +376,10 @@ static func sense_radius(u: Unit) -> int:
 	return GraftData.LATTICE_RADIUS + (3 if _mk2(u, "lattice_sight") else 0)
 
 
-## Start of the squad's phase: Heart knot regeneration.
+## Start of the squad's phase: Heart knot shield.
 static func on_team_phase_start(s: GameState, u: Unit) -> void:
 	if has(u, "heart_knot") and Infection.tier(u.infection) >= Infection.Tier.MUTATING:
-		Kit._heal(s, u, GraftData.HEART_REGEN, "heart_knot")
+		Kit._shield_once(s, u, "k_knot_shield", "heart_knot")
 
 
 ## A melee hit landed on `target`: a Heart knot slows the attacker for a turn.
@@ -444,7 +444,7 @@ static func leap(s: GameState, u: Unit, cell: Vector2i) -> void:
 static func claw(s: GameState, u: Unit, t: Unit) -> void:
 	ClassAbilities.strike(s, u, t, "bloom_claw")
 	if not t.is_alive() and u.is_alive():
-		Kit._heal(s, u, GraftData.CLAW_KILL_HEAL, "bloom_limb")
+		Kit._cleanse(s, u, GraftData.CLAW_KILL_CURE)
 
 
 # ---------------------------------------------------------------- after a fight

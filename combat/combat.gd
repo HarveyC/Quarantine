@@ -32,7 +32,7 @@ const ABILITIES := {
 	"tag": {"name": "Mark", "targeting": "unit", "cost": 1, "cooldown": 2,
 		"desc": "Mark a visible enemy until the end of the next enemy phase: all soldiers get +15 aim against it."},
 	"stim": {"name": "Stim", "targeting": "unit", "cost": 1, "cooldown": 2,
-		"desc": "Self or adjacent ally: heal 3 and reduce infection by 15."},
+		"desc": "Self or adjacent ally: heal 3 and reduce infection by 15. Uses up one dose."},
 	"breach": {"name": "Breach", "targeting": "unit", "cost": -1, "cooldown": 3,
 		"desc": "Hit a close enemy, ignoring cover, and knock its cover down a step. Never misses."},
 	"claw": {"name": "Claw", "targeting": "unit", "cost": -1, "cooldown": 0,
@@ -41,6 +41,8 @@ const ABILITIES := {
 		"desc": "Lob a glob at a cell: it damages every unit within 1 tile."},
 }
 
+## The pocket consumable each player Stim uses up.
+const DOSE := "triage_dose"
 const STIM_HEAL := 3
 const STIM_CURE := 15
 const BREACH_RANGE := 2
@@ -391,6 +393,8 @@ static func _ability_target_error(s: GameState, u: Unit, id: String, t: Unit) ->
 				return "Not an ally"
 			if _cheb(u.pos, t.pos) > Kit.ability_range(u, "stim", 1):
 				return "Too far"
+			if u.team == Types.Team.PLAYER and GearFx.charges(u, DOSE) <= 0:
+				return "No Triage doses"
 		"breach":
 			if not u.is_enemy_of(t):
 				return "Not an enemy"
@@ -486,6 +490,8 @@ static func _apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id})
 			GearFx.on_marked(s, u, t)
 		"stim":
+			if u.team == Types.Team.PLAYER and not (Kit.has_perk(u, "field_kit") and Kit._once(u, "k_field_kit")):
+				GearFx._use_charge(u, DOSE)
 			var healed := mini(Kit.medic_heal(t, STIM_HEAL), t.max_hp - t.hp)
 			t.hp += healed
 			s.emit({"type": "ability", "unit": u.id, "ability": id, "target": t.id, "heal": healed, "hp": t.hp})

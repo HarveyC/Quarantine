@@ -36,10 +36,9 @@ const LATTICE_RADIUS := 6
 const SERVO_THROW := 2.0
 const RIBS_CAP := 3
 const DROP_DAMAGE := 4
-const HEART_REGEN := 1
 const HEART_SLOW := -2
 const CLAW_DAMAGE := Vector2i(3, 5)
-const CLAW_KILL_HEAL := 1
+const CLAW_KILL_CURE := 10
 const LEAP_RANGE := 4
 
 ## Head and chest parts are gear now (GearData items worn in the Head and Body slots). Their rules
@@ -56,7 +55,7 @@ const GEAR_GRAFTS := {
 		"desc": "A single hit can take at most 3 HP; the excess vents at the attacker. Infection from spores and Spitters is halved.",
 		"look": "An armoured ribcage plate with a second regulator and hoses"},
 	"heart_knot": {"name": "Heart knot", "slot": "chest", "path": BLOOM, "tag": "Strain",
-		"desc": "Regenerate 1 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for a turn.",
+		"desc": "Once per fight, while Mutating or higher, grow a one-hit shield. Enemies that hit you in melee are slowed for a turn.",
 		"look": "A pulsing knot bursting through the plate carrier"},
 }
 
@@ -65,7 +64,7 @@ const GRAFTS := {
 		"desc": "The first gadget or pocket item each turn costs no action, and melee hits shove the target back a tile. Heavy guns no longer slow you.",
 		"look": "A bare servo forearm and hand, pistons showing"},
 	"bloom_limb": {"name": "Bloom limb", "slot": "arm", "path": BLOOM, "tag": "Close",
-		"desc": "Bloom Claw: strike an adjacent enemy for 3-5, +1 per Infection tier. A kill heals 1 HP.",
+		"desc": "Bloom Claw: strike an adjacent enemy for 3-5, +1 per Infection tier. A kill removes 10 Infection from you.",
 		"look": "A swollen fungal limb with a long claw and glowing veins"},
 	"hydraulic_legs": {"name": "Hydraulic legs", "slot": "legs", "path": MACHINE, "tag": "Guard",
 		"desc": "Ending a move lower than it began drops you on an adjacent enemy for 4 damage and a stun. Ladders cost a normal step.",

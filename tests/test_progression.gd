@@ -280,6 +280,7 @@ func test_medic_containment_and_stim_perks() -> void:
 	Rules.set_ready(s, 0, true)
 	assert_eq(tr.infection, 35, "Containment -5 at team phase start")
 	_give(md, ["transfusion", "triage_cover"])
+	md.status["pockets"] = [{"id": "triage_dose", "charges": 2}, null]
 	tr.hp = 1
 	var spit := _enemy(s, "spitter", Vector2i(5, 4))
 	spit.max_hp = 40
@@ -356,7 +357,8 @@ func test_clotting_blood_heals_only_when_badly_hurt() -> void:
 	assert_eq(tr.hp, tr.max_hp, "nothing when healthy")
 	tr.hp = 2
 	Kit.on_team_phase_start(s)
-	assert_eq(tr.hp, 2 + Kit.CLOT_HEAL, "3 under half")
+	assert_eq(tr.hp, 2, "Clotting Blood no longer heals")
+	assert_true(tr.status.get("k_medshield", false), "a one-hit shield instead, once under half HP")
 
 
 func test_acid_spit_and_rally_musk() -> void:
@@ -481,7 +483,7 @@ func test_siphon_moves_infection() -> void:
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": v.id, "ability": "siphon", "target": tr.id}), "siphon")
 	assert_eq(tr.infection, 25, "-15")
 	assert_eq(v.infection, 15, "+15")
-	assert_eq(v.hp, 5, "heal 1 per 5")
+	assert_eq(v.hp, 2, "Siphon no longer heals")
 
 
 func test_talk_down_and_mid_fight_serum() -> void:

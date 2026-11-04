@@ -769,6 +769,7 @@ func test_stim_heal_refills_the_hp_bar_and_shows_the_number() -> void:
 	var uv := v.view_for(med.id)
 	if not med.abilities.has("stim"):
 		med.abilities.append("stim")
+	med.status["pockets"] = [{"id": "triage_dose", "charges": 2}, null]
 	med.hp = 2
 	uv.set_hp(2)
 	med.infection = 30

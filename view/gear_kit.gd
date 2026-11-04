@@ -48,7 +48,7 @@ const ARMOR_LOOK := {
 	"flash_fry": "ember", "kill_chain": "overlook", "steady_hands": "rig", "bounty_ledger": "vest", "hair_trigger": "harness", "retaliation_plate": "ballistic",
 }
 ## Pocket items that have their own shape (anything else gets a plain pouch).
-const POCKET_LOOKS := ["medkit", "flashbang", "smoke_grenade", "recon_drone", "suppressant_shot", "antiviral_dose", "breather_mask", "stim", "frag_grenade", "demo_charge", "containment_foam"]
+const POCKET_LOOKS := ["medkit", "flashbang", "smoke_grenade", "recon_drone", "suppressant_shot", "antiviral_dose", "breather_mask", "stim", "triage_dose", "frag_grenade", "demo_charge", "containment_foam"]
 const GADGET_LOOK := {
 	"thermite_charge": "thermite", "flare_launcher": "flare", "concussion_launcher": "concussion",
 	"motion_tracker": "tracker", "sentry_turret": "sentry", "grapple": "grapple",
@@ -479,7 +479,7 @@ static func _pocket(id: String, slot: int) -> Array:
 		"recon_drone":
 			p = [["k_dark", "box", o, Vector3(0.1, 0.045, 0.1) * k], ["metal", "box", o, Vector3(0.2, 0.014, 0.014) * k],
 				["metal", "box", o, Vector3(0.014, 0.014, 0.2) * k], ["visor", "ball", o + Vector3(0, -0.02, 0.055) * k, 0.016 * k]]
-		"suppressant_shot", "antiviral_dose", "breather_mask", "stim":
+		"suppressant_shot", "antiviral_dose", "breather_mask", "stim", "triage_dose":
 			p = [["k_dark", "box", o, Vector3(0.05, 0.12, 0.05) * k], ["k_haz" if id == "stim" else "k_white", "tube", o + Vector3(0, 0.06, 0) * k, o + Vector3(0, 0.13, 0) * k, 0.012 * k],
 				["amber", "ball", o + Vector3(0, -0.065, 0) * k, 0.016 * k]]
 		"frag_grenade":

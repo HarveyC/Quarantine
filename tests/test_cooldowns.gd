@@ -31,6 +31,7 @@ func test_stim_cooldown_is_set_listed_and_counts_down() -> void:
 	var sol: Unit = d.sol
 	if not sol.abilities.has("stim"):
 		sol.abilities.append("stim")
+	sol.status["pockets"] = [{"id": "triage_dose", "charges": 3}, null]
 	assert_true(_entry(s, sol, "stim").get("ready", false), "ready before use")
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": sol.id, "ability": "stim", "target": sol.id}), "stim accepted")
 	assert_eq(int(sol.cooldowns.get("stim", 0)), 2, "cooldown set")

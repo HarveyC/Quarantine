@@ -732,11 +732,17 @@ static func _build() -> Dictionary:
 		"see": ["line_of_sight"],
 		"aliases": ["Fog", "Unexplored"]}
 	t["stim"] = {"name": "Stim", "kind": "ability", "icon": "medic", "tone": "hp",
-		"line": "Medic shot: heals and pushes back {infection}.",
+		"line": "Medic shot: heals and pushes back {infection}. Each one uses up a {triage_dose}.",
 		"art": "",
 		"stats": [["+%d" % Combat.STIM_HEAL, "HP"], ["-%d" % Combat.STIM_CURE, "Infection"]],
-		"see": ["infection"],
+		"see": ["triage_dose", "infection"],
 		"aliases": ["Stims"]}
+	t["triage_dose"] = {"name": "Triage dose", "kind": "ability", "icon": "medic", "tone": "hp",
+		"line": "One-use vial that fuels a {stim}. Found in rewards and the depot.",
+		"art": "",
+		"stats": [["1", "per Stim"], ["%d" % GearData.STARTER_CHARGES_BY_CLASS.medic, "to start"]],
+		"see": ["stim"],
+		"aliases": ["Triage doses", "Dose", "Doses"]}
 	# --- Soldiers and gear -----------------------------------------------------------------
 	t["gear_tag"] = {"name": "Gear tag", "kind": "gear", "icon": "doctrine", "tone": "amber",
 		"line": "Every item has one of 8 tags. Stack 3 of a tag for its {set_bonus}.",
@@ -856,7 +862,7 @@ static func _build() -> Dictionary:
 		"line": "HP carries between fights. Everyone heals a little after each win.",
 		"art": "healing",
 		"stats": [["%d%%" % roundi(RunRules.HEAL_AFTER_FIGHT * 100), "after a fight"]],
-		"more": ["{patch_up} at the field hospital heals to full.", "{stim|Stims} and medkits heal in a fight."],
+		"more": ["{patch_up} at the field hospital heals to full.", "{stim|Stims} and medkits heal in a fight, and both run out."],
 		"see": ["patch_up", "stim", "outbreak"],
 		"labels": ["HP", "Heal"]}
 	t["hp_multiplier"] = {"name": "HP multiplier", "kind": "meter", "icon": "health", "tone": "hp",
