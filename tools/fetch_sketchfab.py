@@ -16,6 +16,7 @@ MODELS = {
     "chainsaw_brute": "95abe0a7474649ebaaaa3fcab0fdb9ab",   # Chainsaw Brute (FPS Creator) by Yopp
     "axe_brute": "c7d5a117ab0e4bb4a90542c0cc67347c",   # Axe Brute (FPS Creator) by Yopp
     "numen_drone": "8add0f00f72a489f90ce36167942ae5d",   # Numen Drone Rig by DM-913
+    "mech_drone": "8d06874aac5246c59edb4adbe3606e0e",   # Mech Drone by Willy Decarpentrie
 }
 
 
