@@ -230,7 +230,7 @@ func test_fight_heals_pays_and_tracks_outbreak() -> void:
 	assert_eq(run.phase, RunState.Phase.MAP, "back on the map")
 
 
-func test_death_deploys_recruit_and_wipe_ends_run() -> void:
+func test_death_leaves_the_slot_open_and_wipe_ends_run() -> void:
 	var run := RunRules.new_run(1, 12)
 	RunRules.start_run(run)
 	_rewards(run)
@@ -245,13 +245,6 @@ func test_death_deploys_recruit_and_wipe_ends_run() -> void:
 	RunRules.apply(run, {"type": RunRules.FIGHT_END, "player": 0, "outcome": RunRules.fight_outcome(s)})
 	assert_eq(run.get_soldier(dead.status.sid).status, RunSoldier.DEAD, "dead soldier stays dead")
 	assert_eq(run.squad().size(), 3, "the fallen slot stays open")
-	var fallen := run.get_soldier(dead.status.sid)
-	assert_true(RunRules.apply(run, {"type": RunRules.REVIVE, "player": 0, "sid": fallen.id}), "revive accepted")
-	assert_eq(fallen.status, RunSoldier.ACTIVE, "revived")
-	assert_eq(fallen.hp, ceili(fallen.max_hp * RunRules.REVIVE_HP), "half HP")
-	assert_eq(fallen.infection, RunRules.REVIVE_INFECTION, "Infection rises")
-	assert_eq(run.revives, RunRules.revives_for(4) - 1, "one charge used")
-	assert_eq(run.squad().size(), 4, "squad restored")
 	_vote_first(run)
 	if run.phase != RunState.Phase.FIGHT:
 		return
@@ -507,6 +500,31 @@ func test_bridge_keeps_a_seven_row_map_connected() -> void:
 		for n in map:
 			if n.row > 1:
 				assert_true(incoming.has(n.id), "every later node is reachable")
+
+
+func test_revive_brings_back_the_fallen() -> void:
+	var run := RunRules.new_run(1, 12)
+	RunRules.start_run(run)
+	_rewards(run)
+	var fallen: Dictionary = run.squad()[0]
+	fallen.status = RunSoldier.DEAD
+	fallen.hp = 0
+	var kit: Dictionary = fallen.gear.duplicate(true)
+	assert_eq(run.revives, RunRules.revives_for(4), "starting charges")
+	assert_true(RunRules.apply(run, {"type": RunRules.REVIVE, "player": 0, "sid": fallen.id}), "revive accepted")
+	assert_eq(fallen.status, RunSoldier.ACTIVE, "revived")
+	assert_eq(fallen.hp, ceili(fallen.max_hp * RunRules.REVIVE_HP), "half HP")
+	assert_eq(fallen.infection, RunRules.REVIVE_INFECTION, "Infection rises")
+	assert_eq(fallen.gear, kit, "gear kept")
+	assert_eq(run.revives, RunRules.revives_for(4) - 1, "one charge used")
+	assert_true(not RunRules.apply(run, {"type": RunRules.REVIVE, "player": 0, "sid": fallen.id}), "not fallen any more")
+	var turned: Dictionary = run.squad()[0]
+	turned.status = RunSoldier.TURNED
+	assert_true(not RunRules.apply(run, {"type": RunRules.REVIVE, "player": 0, "sid": turned.id}), "Turned can't be revived")
+	run.revives = 0
+	var other: Dictionary = run.squad()[0]
+	other.status = RunSoldier.DEAD
+	assert_true(not RunRules.apply(run, {"type": RunRules.REVIVE, "player": 0, "sid": other.id}), "no charges")
 
 
 func test_reserve_recruit_deploys_into_an_open_slot() -> void:
