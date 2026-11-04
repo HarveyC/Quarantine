@@ -294,7 +294,7 @@ const ITEMS := {
 		"desc_mk2": "A single hit can take at most 2 HP; the excess vents at the attacker. Infection from spores and Spitters is halved."},
 	"heart_knot": {"name": "Heart knot", "tag": "Strain", "slot": "body", "rarity": "rare",
 		"desc": "Regenerate 1 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for a turn.",
-		"desc_mk2": "Regenerate 2 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for a turn."},
+		"desc_mk2": "Regenerate 1 HP a turn while Mutating or higher. Enemies that hit you in melee are slowed for two turns."},
 	# Class rigs: the active a class starts with, as gear any soldier can swap in or out.
 	"rig_suppress": {"name": "Suppression rig", "tag": "Suppress", "slot": "utility", "rarity": "common",
 		"desc": "Grants the Suppress ability",

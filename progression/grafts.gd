@@ -379,14 +379,14 @@ static func sense_radius(u: Unit) -> int:
 ## Start of the squad's phase: Heart knot regeneration.
 static func on_team_phase_start(s: GameState, u: Unit) -> void:
 	if has(u, "heart_knot") and Infection.tier(u.infection) >= Infection.Tier.MUTATING:
-		Kit._heal(s, u, GraftData.HEART_REGEN * (2 if _mk2(u, "heart_knot") else 1), "heart_knot")
+		Kit._heal(s, u, GraftData.HEART_REGEN, "heart_knot")
 
 
 ## A melee hit landed on `target`: a Heart knot slows the attacker for a turn.
 static func after_melee(s: GameState, attacker: Unit, target: Unit) -> void:
 	if not has(target, "heart_knot") or not attacker.is_alive() or not attacker.is_enemy_of(target):
 		return
-	attacker.status["k_slowed"] = Combat.phase_index(s) + 2
+	attacker.status["k_slowed"] = Combat.phase_index(s) + (4 if _mk2(target, "heart_knot") else 2)
 	s.emit({"type": "slowed", "unit": attacker.id, "by": target.id})
 	Kit.refresh_stats(s, attacker)
 
