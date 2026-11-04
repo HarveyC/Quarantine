@@ -17,6 +17,7 @@ MODELS = {
     "axe_brute": "c7d5a117ab0e4bb4a90542c0cc67347c",   # Axe Brute (FPS Creator) by Yopp
     "numen_drone": "8add0f00f72a489f90ce36167942ae5d",   # Numen Drone Rig by DM-913
     "mech_drone": "8d06874aac5246c59edb4adbe3606e0e",   # Mech Drone by Willy Decarpentrie
+    "hazmat_zombie": "49b3b4307f6a4d2386fdb02354158d04",   # Zombie Hazmat by LxNazarov
 }
 
 
