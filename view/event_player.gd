@@ -1347,6 +1347,22 @@ func _beat_burning(ev: Dictionary) -> Dictionary:
 	return {"dur": 0.35}
 
 
+## Smoke smothers flames: a steam hiss over a unit that stopped Burning or over fire tiles put out.
+func _beat_doused(ev: Dictionary) -> Dictionary:
+	var steam := Color(0.82, 0.86, 0.88)
+	if ev.has("cells"):
+		for c in ev.cells:
+			view.fx.puff(Board.cell_to_world(c) + Vector3(0, 0.4, 0), steam, 1.0, 1.0, 0.6)
+		_sfx("smoke_hiss", -4.0)
+		return {"dur": 0.3}
+	var uv := _uv(ev)
+	if uv == null:
+		return {}
+	view.fx.floating_text(_head(uv) + Vector3(0, 0.3, 0), "DOUSED", steam, 36)
+	view.fx.puff(uv.aim_point(), steam, 1.0, 1.0, 0.6)
+	return {"dur": 0.3}
+
+
 ## A Burning tick at the start of a team phase (the damage event follows).
 func _beat_burn(ev: Dictionary) -> Dictionary:
 	var uv := _uv(ev)
