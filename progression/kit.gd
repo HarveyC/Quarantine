@@ -629,6 +629,7 @@ static func ability_cost(u: Unit, id: String, cost: int) -> int:
 
 
 static func ability_cooldown(u: Unit, id: String, cd: int) -> int:
+	cd = maxi(0, cd - _rig_mk2(u, id))
 	match id:
 		"stim":
 			return 1 if has_perk(u, "field_kit") else cd
@@ -637,6 +638,16 @@ static func ability_cooldown(u: Unit, id: String, cd: int) -> int:
 		"incinerate":
 			return 1 if has_perk(u, "backdraft") else cd
 	return cd
+
+
+## 1 when the ability comes from a rig or signature item (or the Trench maul's Bash) worn at Mk II.
+static func _rig_mk2(u: Unit, id: String) -> int:
+	if id == "bash":
+		return 1 if GearFx.mk(u, "trench_maul") >= 2 else 0
+	for prefix in ["rig_", "sig_"]:
+		if GearFx.mk(u, prefix + id) >= 2:
+			return 1
+	return 0
 
 
 ## HP a Medic heal restores on `t` (Clotting Blood halves, Regenerator blocks).

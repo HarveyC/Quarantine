@@ -391,7 +391,8 @@ static func _strike_target_error(s: GameState, u: Unit, id: String, t: Unit) -> 
 static func strike_reach(u: Unit, id: String) -> int:
 	if id == "shield_charge":
 		return CHARGE_REACH
-	return LONG_STRIDE_REACH if Kit.has_perk(u, "long_stride") else LUNGE_REACH
+	var reach := LONG_STRIDE_REACH if Kit.has_perk(u, "long_stride") else LUNGE_REACH
+	return reach + (2 if GearFx.mk(u, "reaper_blade") >= 2 else 0)
 
 
 ## Where `u` ends up to strike `t` with a dash of up to `reach` tiles: its own cell when already
@@ -463,6 +464,10 @@ static func strike(s: GameState, u: Unit, t: Unit, kind: String, extra: Dictiona
 	if r.hit or r.graze:
 		var roll_range := MAUL_DAMAGE if bash else (GraftData.CLAW_DAMAGE if kind == "bloom_claw" else BLADE_DAMAGE)
 		var base := s.rng.randi_range(roll_range.x, roll_range.y)
+		if bash and GearFx.mk(u, "trench_maul") >= 2:
+			base += 1
+		elif kind == "lunge" and GearFx.mk(u, "reaper_blade") >= 2:
+			base += 2
 		if bash and t.status.get("turned", false):
 			base += QUARANTINE_DAMAGE
 		elif not bash:
