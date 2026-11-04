@@ -30,7 +30,7 @@ func _init() -> void:
 			["", true, {"action": {"key": "ability:lunge", "id": "lunge", "label": "Lunge", "cost": -1, "cooldown": 2, "desc": "Dash up to 4 tiles to a visible enemy and cut it for 4-6, +1 per Infection tier. Only half cover counts. Kills on Infected add 5 Infection."}}],
 			["", false, {"action": {"key": "ability:swap_weapon", "id": "swap_weapon", "label": "Draw reaper blade", "cost": 1, "desc": "Holster the gun and draw the reaper blade. Only the drawn weapon can attack."}}],
 			["", false, {"action": {"key": "hunker", "label": "Hunker", "cost": -1}}]],
-		"gallery2": [["turning", false, {}], ["crit", false, {}], ["intel", false, {}], ["healing", false, {}],
+		"gallery2": [["turning", false, {}], ["crit", false, {}], ["healing", false, {}],
 			["hunker", false, {}], ["set_bonus", true, {"count": 3}], ["mutation", false, {"value": 30}], ["suppress", true, {}]],
 	}
 	var x := 20.0

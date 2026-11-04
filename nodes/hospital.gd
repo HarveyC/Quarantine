@@ -20,6 +20,8 @@ const TREATMENTS := {
 	"amputate": {"name": "Amputate", "desc": "Cut out a Bloom graft and Refit the slot with its Machine part", "cost": "30 Supplies"},
 }
 const ORDER: Array[String] = ["patch", "purge", "train", "cure", "refit", "amputate"]
+## Treatments paid for with Serum: they don't use up the soldier's treatment for the visit.
+const FREE_TREATMENTS: Array[String] = ["cure"]
 ## Treatments that raise Outbreak (once per visit).
 const OUTBREAK_TREATMENTS: Array[String] = ["patch", "purge", "cure"]
 
@@ -37,7 +39,7 @@ static func enter(run) -> Dictionary:
 
 ## Why `treatment` can't be given to `rec` right now ("" if it can).
 static func blocker(run, ns: Dictionary, rec, treatment: String) -> String:
-	if ns.treated.has(rec.id):
+	if ns.treated.has(rec.id) and treatment not in FREE_TREATMENTS:
 		return "already treated"
 	match treatment:
 		"patch":
@@ -84,7 +86,8 @@ static func validate(run, ns: Dictionary, action: Dictionary) -> String:
 static func apply(run, ns: Dictionary, action: Dictionary) -> void:
 	var rec = RunAccess.soldier(run, action.soldier)
 	var t: String = action.treatment
-	ns.treated[rec.id] = t
+	if t not in FREE_TREATMENTS:
+		ns.treated[rec.id] = t
 	match t:
 		"patch":
 			rec.injuries = maxi(0, rec.injuries - 1)

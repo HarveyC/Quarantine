@@ -287,8 +287,8 @@ const ITEMS := {
 		"desc": "Each hit also Marks a second enemy within 3 tiles of the target.",
 		"desc_mk2": "Each hit also Marks two more enemies within 3 tiles of the target."},
 	"lattice_sight": {"name": "Lattice sight", "tag": "Overwatch", "slot": "head", "rarity": "rare",
-		"desc": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers come through as +1 Intel after each fight.",
-		"desc_mk2": "Sense Infected through walls within 9 tiles. At Critical, the Source's Whispers come through as +1 Intel after each fight."},
+		"desc": "Sense Infected through walls within 6 tiles. At Critical, the Source's Whispers pay +10 Supplies after each fight.",
+		"desc_mk2": "Sense Infected through walls within 9 tiles. At Critical, the Source's Whispers pay +10 Supplies after each fight."},
 	"plated_ribs": {"name": "Plated ribs", "tag": "Guard", "slot": "body", "rarity": "rare",
 		"desc": "A single hit can take at most 3 HP; the excess vents at the attacker. Infection from spores and Spitters is halved.",
 		"desc_mk2": "A single hit can take at most 2 HP; the excess vents at the attacker. Infection from spores and Spitters is halved."},
@@ -375,7 +375,7 @@ const PROTOTYPES := {
 const CONSUMABLES := {
 	"medkit": {"name": "Medkit", "price": 12, "desc": "Heal 4 HP and clear Burning, Suppressed and stun. At full HP it gives a one-hit shield instead."},
 	"flashbang": {"name": "Flashbang", "price": 15, "desc": "Stuns enemies in radius 1: they lose their next turn"},
-	"smoke_grenade": {"name": "Smoke grenade", "price": 15, "desc": "A 3x3 smoke cloud for 2 turns: +20 defense inside, and you can't be spotted in it"},
+	"smoke_grenade": {"name": "Smoke grenade", "price": 15, "desc": "A 3x3 smoke cloud for 2 turns: +20 defense inside, and you can't be spotted in it. Puts out fire and ends Burning"},
 	"recon_drone": {"name": "Recon drone", "price": 15, "desc": "Reveals a 6-tile radius for the fight and Marks every enemy in it."},
 	"suppressant_shot": {"name": "Suppressant shot", "price": 20, "desc": "-15 Infection, and blocks the next 3 Infection you would gain."},
 	"frag_grenade": {"name": "Frag grenade", "price": 20, "desc": "7 damage in radius 1. Strips half cover, cracks walls and roofs, brings down scaffolds"},
@@ -404,7 +404,7 @@ const DOCTRINES := {
 	"spore_filters": {"name": "Spore filters", "desc": "-25% Infection from spore zones"},
 	"steady_nerves": {"name": "Steady nerves", "desc": "Talking down a Lapse costs no action"},
 	# Doctrine pack (Field Data unlock, see MetaUnlocks); effects live in RunRules.
-	"scavengers": {"name": "Scavengers", "desc": "+1 Intel at the start of each act"},
+	"scavengers": {"name": "Scavengers", "desc": "+15 Supplies at the start of each act"},
 	"supply_drop": {"name": "Supply drop", "desc": "+25 Supplies at the start of each act"},
 	"triage_drills": {"name": "Triage drills", "desc": "Heal 2 more HP after every fight"},
 	"serum_cache": {"name": "Serum cache", "desc": "+1 Serum sample per soldier after each boss"},

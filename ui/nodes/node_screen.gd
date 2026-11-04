@@ -157,11 +157,10 @@ func with_squad(main: Control) -> Control:
 	return row
 
 
-## Supplies, Intel, Outbreak and each local player's Serum, top right: icon, number, caption.
+## Supplies, Outbreak and each local player's Serum, top right: icon, number, caption.
 func wallet() -> Control:
 	var row := NodeUi.hbox(26)
 	row.add_child(_stat("supplies", "Supplies", str(run.supplies), NodeUi.SUPPLY))
-	row.add_child(_stat("intel", "Intel", str(run.intel), NodeUi.DIM))
 	row.add_child(_stat("outbreak", "Outbreak", str(run.outbreak), NodeUi.TEAL))
 	for p in local_players():
 		var cap := "Serum" if local_players().size() == 1 else "Serum %s" % NodeUi.player_name(session, p)

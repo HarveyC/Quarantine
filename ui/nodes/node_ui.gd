@@ -26,7 +26,7 @@ const CornerPanel := preload("res://ui/nodes/corner_panel.gd")
 
 ## Resource words an effect line can name, and how a chip for each looks.
 const EFFECT_LOOK := {
-	"Supplies": ["supplies", SUPPLY], "Intel": ["intel", Styles.DIM], "Infection": ["infection", Styles.TEAL],
+	"Supplies": ["supplies", SUPPLY], "Infection": ["infection", Styles.TEAL],
 	"Outbreak": ["outbreak", Styles.TEAL], "HP": ["health", Styles.HP], "max HP": ["health", Styles.HP],
 	"Serum": ["serum", Styles.TEAL], "Serum sample": ["serum", Styles.TEAL], "Serum samples": ["serum", Styles.TEAL],
 	"Serum doses": ["serum", Styles.TEAL], "enemy": ["skull", Styles.DANGER], "action": ["clock", Styles.AMBER],
@@ -195,9 +195,9 @@ static func chip(icon: String, text: String, col: Color, size := 15, tip := "") 
 ## numbers it names and the words left over: {"chips": [[icon, text, colour, word]], "rest": String}.
 static func effects(desc: String) -> Dictionary:
 	if _re_num_first == null:
-		var words := "max HP|HP|Supplies|Intel|Infection|Outbreak|Serum samples|Serum sample|Serum doses|Serum|enemy|action"
+		var words := "max HP|HP|Supplies|Infection|Outbreak|Serum samples|Serum sample|Serum doses|Serum|enemy|action"
 		_re_num_first = RegEx.create_from_string("(^|[\\s(,:])([+\\-]\\d+%?)\\s+(" + words + ")(?=$|[\\s.,;)])")
-		_re_word_first = RegEx.create_from_string("(^|[\\s(,:])(Outbreak|Infection|Supplies|Intel)\\s+([+\\-]\\d+)(?=$|[\\s.,;)])")
+		_re_word_first = RegEx.create_from_string("(^|[\\s(,:])(Outbreak|Infection|Supplies)\\s+([+\\-]\\d+)(?=$|[\\s.,;)])")
 	var chips: Array = []
 	var rest := desc
 	for m in _re_num_first.search_all(desc):

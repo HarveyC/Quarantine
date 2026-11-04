@@ -1,6 +1,6 @@
 extends TestCase
 
-const OPS := ["gun", "supplies", "intel", "outbreak", "infection", "heal_pct", "hurt_pct", "mutation",
+const OPS := ["gun", "supplies", "outbreak", "infection", "heal_pct", "hurt_pct", "mutation",
 	"remove_mutation", "perk_pick", "serum", "recruit", "item", "modifier", "mark", "fight",
 	"send_home", "chance", "if_infected", "sit_out", "bloom_graft"]
 
@@ -76,7 +76,6 @@ func test_every_event_finishes_on_timeouts() -> void:
 		for act in [1, 2, 3]:
 			var run := _run(act * 31)
 			run.act = act
-			run.intel = 3
 			run.soldiers[0].infection = 60
 			run.soldiers[1].hp = 2
 			NodeRules.enter(run, "event", id)
@@ -181,7 +180,6 @@ func test_checkpoint_volunteer_scan() -> void:
 	assert_true(_choose(run, 1, "volunteer", 3), "volunteer accepted")
 	assert_true(not _choose(run, 0, "volunteer", 1), "first claim only")
 	assert_eq(run.get_soldier(3).sit_out, 1, "exposed volunteer held out")
-	assert_eq(run.intel, 3, "+2 intel")
 	assert_true(run.node_state.finished, "done")
 
 
@@ -424,6 +422,22 @@ func test_hospital_treatments() -> void:
 	assert_eq(run.outbreak, 1, "Outbreak only once per visit")
 	assert_true(not _act(run, "node_treat", 1, {"soldier": 4, "treatment": "cure"}), "needs serum")
 	assert_true(not _act(run, "node_treat", 1, {"soldier": 4, "treatment": "purge"}), "already clean")
+
+
+## Serum is its own currency: a Full cure doesn't use up the soldier's one treatment.
+func test_hospital_cure_is_free_of_treatment() -> void:
+	var run := _run()
+	run.get_soldier(1).infection = 60
+	run.get_soldier(1).hp = 2
+	run.get_soldier(2).infection = 60
+	run.serum[0] = 8
+	NodeRules.enter(run, "hospital")
+	assert_true(_act(run, "node_treat", 0, {"soldier": 1, "treatment": "cure"}), "cure first")
+	assert_true(_act(run, "node_treat", 0, {"soldier": 1, "treatment": "patch"}), "then a treatment")
+	assert_true(not _act(run, "node_treat", 0, {"soldier": 1, "treatment": "train"}), "still one treatment")
+	assert_true(_act(run, "node_treat", 0, {"soldier": 2, "treatment": "train"}), "treat first")
+	assert_true(_act(run, "node_treat", 0, {"soldier": 2, "treatment": "cure"}), "then cure")
+	assert_eq(run.get_soldier(2).infection, 0, "clean after treatment")
 
 
 func test_hospital_purge_costs_supplies() -> void:

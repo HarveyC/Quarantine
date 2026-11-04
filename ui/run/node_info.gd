@@ -110,7 +110,6 @@ static func card(run: RunState, n: Dictionary) -> Dictionary:
 		RunMap.UNKNOWN:
 			c.tag = "Hidden"
 			c.body = "Most likely an event. Could be an ambush, a depot or survivors."
-			c.rows.append(["Intel", "Spend 1 to reveal it (you have %d)" % run.intel, Styles.TEXT])
 	if type in [RunMap.SKIRMISH, RunMap.AMBUSH, RunMap.NEST]:
 		var cond := Conditions.for_fight(int(n.seed), run.act, str(n.objective), type)
 		if cond != "":

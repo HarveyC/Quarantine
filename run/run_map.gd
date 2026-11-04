@@ -275,7 +275,7 @@ static func _row(map: Array, r: int) -> Array:
 	return out
 
 
-## Resolves a "?" node (when it is revealed with Intel or entered). The streak of non-fights
+## Resolves a "?" node (when it is entered). The streak of non-fights
 ## raises the fight chance by 10% each, reset when a fight comes up.
 static func resolve_unknown(run: RunState, n: Dictionary) -> String:
 	if n.resolved != "":
