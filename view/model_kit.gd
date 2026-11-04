@@ -51,6 +51,7 @@ const CHARACTERS := {
 	"cutter": preload("res://assets/characters/cutter.glb"),
 	"hush": preload("res://assets/characters/hush.glb"),
 	"loader": preload("res://assets/characters/loader.glb"),
+	"sterilizer": preload("res://assets/characters/sterilizer.glb"),
 	"lantern_echoes": preload("res://assets/characters/trooper.glb"),   # the Last Echo wears a soldier's body
 }
 ## Body size per kind (the characters share one skeleton; bosses and brutes read bigger).
@@ -60,11 +61,11 @@ const SIZE := {
 }
 ## Bone shots aim at on creature rigs that have no "spine_03" or "Thorax"; "" means the middle of the
 ## mesh (rigs whose bones carry scale-compensation, like the Stalker's).
-const AIM_BONE := {"stalker": "", "brute": "", "cutter": "", "hush": "", "loader": "", "hound": "Torso2", "hooker": "Neck", "broodling": "Torso"}
+const AIM_BONE := {"stalker": "", "brute": "", "cutter": "", "hush": "", "loader": "", "sterilizer": "", "hound": "Torso2", "hooker": "Neck", "broodling": "Torso"}
 ## Creature rigs with no death clip: they topple over (see UnitView._death_topple).
 ## Creature rigs with no clips at all (rest pose, moved by the unit view).
 const NO_CLIPS := ["cutter"]
-const NO_DEATH_CLIP := ["hooker", "stalker", "brute", "cutter", "hush", "loader"]
+const NO_DEATH_CLIP := ["hooker", "stalker", "brute", "cutter", "hush", "loader", "sterilizer"]
 const BODY_TEX := {
 	"male": [preload("res://assets/characters/textures/male_albedo.jpg"), preload("res://assets/characters/textures/male_normal.png")],
 	"female": [preload("res://assets/characters/textures/female_albedo.jpg"), preload("res://assets/characters/textures/female_normal.png")],

@@ -217,6 +217,7 @@ const CREDITS := [
 	["Cutter", "Axe Brute (FPS Creator) by Yopp (CC BY 4.0, Sketchfab)"],
 	["Hush", "Numen Drone Rig by DM-913 (CC BY 4.0, Sketchfab)"],
 	["Loader frame", "Mech Drone by Willy Decarpentrie (CC BY 4.0, Sketchfab)"],
+	["Sterilizer", "Zombie Hazmat by LxNazarov (CC BY 4.0, Sketchfab)"],
 	["Humans, clips, Hound, Hooker, Broodling, Lurker", "Quaternius (CC0): Universal Base Characters, Animation Libraries, Animated Animals and Enemies"],
 ]
 
