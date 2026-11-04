@@ -1087,7 +1087,19 @@ static func apply_ability(s: GameState, u: Unit, action: Dictionary) -> void:
 			for y in range(cell.y - SMOKE_RADIUS, cell.y + SMOKE_RADIUS + 1):
 				for x in range(cell.x - SMOKE_RADIUS, cell.x + SMOKE_RADIUS + 1):
 					cells.append(Vector2i(x, y))
+			# The cloud smothers flames: fire tiles under it go out and units in it stop Burning.
+			var fire_out: Array[Vector2i] = []
+			for c in cells:
+				if Hazards.at(s, c).get("kind", "") == "fire":
+					fire_out.append(c)
+			Hazards.remove(s, fire_out, "fire")
 			Hazards.add(s, cells, "smoke", SMOKE_TURNS, u.id)
+			for o in s.living():
+				if o.status.has("burning") and cells.has(o.pos):
+					o.status.erase("burning")
+					s.emit({"type": "doused", "unit": o.id})
+			if not fire_out.is_empty():
+				s.emit({"type": "doused", "cells": fire_out})
 			return
 	s.emit(ev)
 

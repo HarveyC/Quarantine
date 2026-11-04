@@ -439,7 +439,7 @@ static func _build() -> Dictionary:
 		"line": "A smoke grenade's cloud. Harder to hit inside, and unaware Infected can't spot you in it.",
 		"art": "",
 		"stats": [["-%d" % GearFx.SMOKE_DEFENSE, "to be hit"], ["%d" % GearFx.SMOKE_TURNS, "turns"], ["3x3", "area"]],
-		"more": ["Harmless: it does no damage.", "Fire burns it away."],
+		"more": ["Harmless: it does no damage.", "Laying it puts out {hazard_fire} and ends {burning} on anyone inside.", "Fire that starts later burns it away."],
 		"see": ["concealed", "hazards"],
 		"aliases": ["Smoke cloud", "Smoke grenade", "In smoke"]}
 	t["smoke"].art = "tile"
