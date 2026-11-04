@@ -34,11 +34,11 @@ const ABILITIES := {
 	"stim": {"name": "Stim", "targeting": "unit", "cost": 1, "cooldown": 2,
 		"desc": "Self or adjacent ally: heal 3 and reduce infection by 15."},
 	"breach": {"name": "Breach", "targeting": "unit", "cost": -1, "cooldown": 3,
-		"desc": "Hit an enemy within 2 tiles for 4-6, ignoring cover, and knock its cover down a step. Never misses."},
+		"desc": "Hit a close enemy, ignoring cover, and knock its cover down a step. Never misses."},
 	"claw": {"name": "Claw", "targeting": "unit", "cost": -1, "cooldown": 0,
 		"desc": "Melee attack on an adjacent enemy. Only half cover counts."},
 	"spit": {"name": "Spit", "targeting": "cell", "cost": -1, "cooldown": 3,
-		"desc": "Lob a glob at a cell within 7 tiles: 2 damage to every unit within 1 tile."},
+		"desc": "Lob a glob at a cell: it damages every unit within 1 tile."},
 }
 
 const STIM_HEAL := 3

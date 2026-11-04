@@ -236,6 +236,9 @@ func _build_power(v: VBoxContainer) -> void:
 		tags.add_child(UI.tag_chip(t))
 		v.add_child(tags)
 	v.add_child(UI.text(str(card.get("desc", "")), 15, UI.COPY, W - 40))
+	var ab_cells := [] if is_mut else ActionCard.ability_cells(str(PerkData.PERKS.get(str(card.get("id", "")), {}).get("ability", "")))
+	if not ab_cells.is_empty():
+		v.add_child(ActionCard.fact_row(ab_cells, W - 40, UI.AMBER, true))
 	_art_at = v.get_child_count()
 	if t != "":
 		var before: int = GearTags.counts(record).get(t, 0)
@@ -258,6 +261,9 @@ func _build_graft(v: VBoxContainer) -> void:
 		tags.add_child(UI.tag_chip(t))
 		v.add_child(tags)
 	v.add_child(UI.text(str(card.get("desc", "")), 15, UI.COPY, W - 40))
+	var g_cells := ActionCard.ability_cells(str({"bloom_limb": "bloom_claw", "runner_legs": "runner_leap"}.get(str(card.get("id", "")), "")))
+	if not g_cells.is_empty():
+		v.add_child(ActionCard.fact_row(g_cells, W - 40, UI.AMBER, true))
 	_art_at = v.get_child_count()
 	v.add_child(UI.text("+%d Infection. For good: Infection can't drop below %d per Bloom part, even with Serum." % [
 		int(card.get("infection", GraftData.BLOOM_INFECTION)), GraftData.FLOOR_PER_PART], 13, UI.TEAL, W - 40))
