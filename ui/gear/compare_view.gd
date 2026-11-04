@@ -52,7 +52,7 @@ static func build(box: VBoxContainer, d: Dictionary, inner: float, who_color := 
 			box.add_child(_line("plus", "Prototype unlocked · " + GearData.item_name(id), Styles.AMBER, "", inner))
 		for id in d.get("protos_off", []):
 			box.add_child(_line("minus", "Prototype closed · " + GearData.item_name(id), BAD, "", inner))
-	if stats.is_empty() and tags.is_empty() and swaps.size() == 1 and swaps[0].kind in ["gear", "gun"]:
+	if stats.is_empty() and tags.is_empty() and swaps.size() == 1 and swaps[0].kind in ["gear", "gun"] and str(swaps[0].get("fate", "")) != "upgrade":
 		box.add_child(_line("dot", "Stats and tags stay the same", Styles.MUTED, "", inner))
 
 
