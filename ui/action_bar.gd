@@ -299,6 +299,7 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 		b.add_theme_stylebox_override("hover", on)
 	if b.disabled:
 		fg = Color(fg, 0.35)
+	var cooling := int(a.get("cooldown", 0))
 	var key: String = a.key
 	if mutation:
 		b.tooltip_text = ""

@@ -4,12 +4,17 @@ extends TestCase
 
 const ActionCard := preload("res://ui/tips/action_card.gd")
 const Tips := preload("res://ui/tips/tips.gd")
-const COST_WORDS := ["Ends turn", "ends turn", "1 action", "2 actions", "Costs "]
+const TermTips := preload("res://ui/tips/term_tips.gd")
+const TipCard := preload("res://ui/tips/tip_card.gd")
+const COST_WORDS := ["Ends turn", "ends turn", "Costs "]
+## "1 action." / "2 actions," as a cost, but not "+1 action" (a gain).
+static var _cost_re := RegEx.create_from_string("(^|[^+\\d])\\d actions?[.,]")
 
 
 func _no_cost_words(desc: String, who: String) -> void:
 	for w in COST_WORDS:
 		assert_true(not desc.contains(w), "%s: no cost words in '%s'" % [who, desc])
+	assert_true(_cost_re.search(desc) == null, "%s: no action count in '%s'" % [who, desc])
 
 
 func test_ability_text_has_no_cost_words() -> void:
@@ -40,3 +45,16 @@ func test_action_button_gets_one_card() -> void:
 	var c := TermTips.content_of(b)
 	assert_true(c.ctx.has("action"), "the card is the action card")
 	b.free()
+
+
+func test_action_cards_build() -> void:
+	for a in [
+		{"key": "reload", "label": "Reload", "cost": 1, "desc": "Refill the magazine (5 of 6 rounds)."},
+		{"key": "ability:lunge", "id": "lunge", "label": "Lunge", "cost": -1, "cooldown": 2, "desc": "Dash to a foe. Only half cover counts.", "reason": "Gun drawn: swap weapon first"},
+		{"key": "hunker", "label": "Hunker", "cost": -1},
+		{"key": "ability:tag", "id": "tag", "label": "Mark", "cost": 1, "desc": "Mark a visible enemy."}]:
+		for full in [false, true]:
+			var c := TipCard.new([], "", {"action": a})
+			c.set_expanded(full)
+			assert_true(c.get_child_count() > 0, "%s builds (expanded %s)" % [a.label, full])
+			c.free()
