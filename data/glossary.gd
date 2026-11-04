@@ -817,11 +817,18 @@ static func _build() -> Dictionary:
 		"see": ["rank", "set_bonus"],
 		"aliases": ["Perks"], "labels": ["Doctrine"]}
 	t["reserve"] = {"name": "Reserve", "kind": "squad", "icon": "recruit", "tone": "hp",
-		"line": "Recruits waiting to replace a soldier who falls.",
+		"line": "Extra recruits who can fill an open squad slot.",
 		"art": "",
-		"stats": [["%d" % RunRules.reserve_for(1), "to start"], ["%d" % RunRules.reserve_for(4), "with 3-4 soldiers"]],
-		"more": ["All players share one reserve. Commanding 3 or 4 soldiers starts you with an extra recruit.", "Survivor nodes add more.", "Dead soldiers sit out and come back as recruits."],
+		"stats": [],
+		"more": ["All players share one reserve. Survivor nodes and some events add recruits.", "A fallen soldier is brought back with {revive}, not replaced."],
 		"aliases": ["Recruit", "Recruits", "Reserves"]}
+	t["revive"] = {"name": "Revive", "kind": "squad", "icon": "recruit", "tone": "hp",
+		"line": "Spend a charge between fights to bring a fallen soldier back, build and gear intact.",
+		"art": "",
+		"stats": [["%d%%" % int(RunRules.REVIVE_HP * 100), "HP on return"], ["+%d" % RunRules.REVIVE_INFECTION, "Infection"]],
+		"more": ["Charges are shared by the whole squad. Each player revives their own soldier.", "A soldier who Turns cannot be revived."],
+		"see": ["infection", "reserve"],
+		"aliases": ["Revives", "Revived", "Fallen"]}
 	# --- The run ---------------------------------------------------------------------------
 	t["outbreak"] = {"name": "Outbreak", "kind": "run meter", "icon": "outbreak", "tone": "teal",
 		"line": "How far the Bloom has spread. Higher stages make every fight harder.",
