@@ -317,7 +317,7 @@ static func _mission(tree: SceneTree, screen: String, players: int) -> void:
 	var l := LocalSession.new()
 	l.save_enabled = false
 	root.add_child(l)
-	l.start_run(players, 31)
+	l.start_run(players, 32)
 	RunAutoplay.settle(l.run, l.submit_run)
 	var node: int = l.run.reachable_nodes()[0]
 	for p in players:
