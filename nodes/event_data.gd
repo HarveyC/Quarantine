@@ -41,6 +41,7 @@ extends RefCounted
 ##   mutation {who}  remove_mutation {who, serum}  perk_pick {who}
 ##   bloom_graft {who}           a Bloom graft in a random free slot, with its Infection (Grafts)
 ##   serum {samples, to: "player"|"least_serum"}
+##   revive {count}              adds Revive charges to the shared pool
 ##   recruit {count, infection, to: "player"|"fewest", carrier}   (carrier: one of them is a hidden carrier)
 ##   item {count, rarity, who}   (drawn and equipped on that soldier)
 ##   gun {rarity, who}           an alternate gun for that soldier's class, carried at once
@@ -49,11 +50,32 @@ extends RefCounted
 ##   sit_out {who}               the soldier misses the next fight (held at the Checkpoint)
 ##   fight {objective, ambush?, small?}  the event ends in a fight (modifiers.pending_fight);
 ##                               small = one enemy fewer
-##   send_home {who}             the soldier leaves the run; their owner gets a recruit with a perk pick
+##   send_home {who}             the soldier leaves the run; the squad gains a Revive charge and their owner a perk pick
 ##   chance {p, then, else}      if_infected {at_least, who, then, else}
 ##   who: "soldier" (the chooser's pick), "subject", "all" (every present soldier)
 
 const EVENTS := {
+	"survivors": {
+		"title": "Survivors",
+		"acts": [1, 2, 3],
+		"weight": {1: 2, 2: 2, 3: 2},
+		"text": "Thermal signatures in a sealed stairwell: a handful of colonists who have held out for days. They have a medical kit, a stash of rations and nowhere left to go. \"Take what we have. Just tell someone we're still here.\"",
+		"start": "choice",
+		"steps": {
+			"choice": {
+				"kind": "vote",
+				"prompt": "What do you do for the survivors?",
+				"options": [
+					{"id": "bring", "label": "Bring them to the lines", "desc": "+1 Revive charge, +10 Supplies",
+						"effects": [{"op": "revive", "count": 1}, {"op": "supplies", "amount": 10}],
+						"outcome": "They walk out behind the squad. Their medic spends the night teaching yours how to bring someone back."},
+					{"id": "cache", "label": "Take their stash", "desc": "+25 Supplies", "default": true,
+						"effects": [{"op": "supplies", "amount": 25}],
+						"outcome": "They press the crates into your arms and wave you on. You do not look back at the door."},
+				],
+			},
+		},
+	},
 	"checkpoint": {
 		"title": "Checkpoint",
 		"acts": [1, 2],
@@ -170,9 +192,9 @@ const EVENTS := {
 				"kind": "vote",
 				"prompt": "What do you do with her?",
 				"options": [
-					{"id": "take", "label": "Take her with you", "desc": "A recruit for the player with the smallest reserve, starting at 40 Infection",
-						"effects": [{"op": "recruit", "count": 1, "infection": 40, "to": "fewest"}],
-						"outcome": "Someone hands her a sidearm. She doesn't ask what the glow means. She already knows."},
+					{"id": "take", "label": "Take her with you", "desc": "+1 Revive charge, every soldier +10 Infection",
+						"effects": [{"op": "revive", "count": 1}, {"op": "infection", "amount": 10, "who": "all"}],
+						"outcome": "She talks the squad through a field revival drill, hands shaking, and stays close enough that the glow rubs off. She already knows what it costs."},
 					{"id": "mercy", "label": "Give her a clean end", "desc": "Nothing",
 						"outcome": "One shot. Quick. The squad moves on and the radio stays quiet for a long time."},
 					{"id": "leave", "label": "Leave her", "desc": "Outbreak +1",
@@ -329,9 +351,9 @@ const EVENTS := {
 				"kind": "vote",
 				"prompt": "Take them in?",
 				"options": [
-					{"id": "take", "label": "Take them in", "desc": "A recruit each for the two players with the smallest reserves. One is a hidden carrier who may Lapse in their first fight",
-						"effects": [{"op": "recruit", "count": 2, "infection": 0, "to": "fewest", "carrier": true}],
-						"outcome": "They fall in at the back. Neither of them sleeps much."},
+					{"id": "take", "label": "Take them in", "desc": "+1 Revive charge, +1 Intel, every soldier +5 Infection",
+						"effects": [{"op": "revive", "count": 1}, {"op": "intel", "amount": 1}, {"op": "infection", "amount": 5, "who": "all"}],
+						"outcome": "They hand over their kit and what they know about the road ahead. One of them keeps his collar buttoned the whole way."},
 					{"id": "refuse", "label": "Turn them away", "desc": "Nothing", "default": true,
 						"outcome": "You point them at the wall. They don't argue. They just watch you go."},
 				],
@@ -687,9 +709,9 @@ const EVENTS := {
 				"kind": "vote",
 				"prompt": "What do you do for the miners?",
 				"options": [
-					{"id": "recruit", "label": "Arm the foreman", "desc": "A recruit for the player with the smallest reserve, at 30 Infection",
-						"effects": [{"op": "recruit", "count": 1, "infection": 30, "to": "fewest"}],
-						"outcome": "The foreman takes a rifle and a headlamp. \"I know these tunnels. I know what's in them now, too.\""},
+					{"id": "recruit", "label": "Arm the foreman", "desc": "+1 Revive charge, +1 Intel",
+						"effects": [{"op": "revive", "count": 1}, {"op": "intel", "amount": 1}],
+						"outcome": "The foreman marks the safe tunnels on your map and leaves you a crate of medical gel. \"I know these tunnels. I know what's in them now, too.\""},
 					{"id": "share", "label": "Share your rations", "desc": "-20 Supplies, every soldier heals 20%", "requires": {"supplies": 20},
 						"effects": [{"op": "supplies", "amount": -20}, {"op": "heal_pct", "pct": 20, "who": "all"}],
 						"outcome": "Everyone eats together in the refuge. For half an hour, nobody is a soldier."},

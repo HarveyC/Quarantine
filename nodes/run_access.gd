@@ -200,6 +200,12 @@ static func unused_name(run: RunState) -> String:
 	return free[run.rng.randi() % free.size()]
 
 
+## Adds shared Revive charges.
+static func add_revive(run: RunState, count: int = 1) -> void:
+	run.revives += count
+	RunAccess.emit(run, {"type": "revive_gained", "count": count, "total": run.revives})
+
+
 ## A new recruit in `player`'s reserve. Returns the soldier record.
 static func add_recruit(run: RunState, player: int, kind := "", infection := 0, name := "") -> Dictionary:
 	var r := RunRules.add_recruit(run, player, kind, infection)

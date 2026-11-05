@@ -9,12 +9,12 @@ const DEPOT_GOLD := Color("d9b46a")
 
 const ICON := {
 	RunMap.SKIRMISH: "skirmish", RunMap.AMBUSH: "ambush", RunMap.NEST: "nest", RunMap.EVENT: "event",
-	RunMap.DEPOT: "depot", RunMap.HOSPITAL: "hospital", RunMap.SURVIVORS: "survivors",
+	RunMap.DEPOT: "depot", RunMap.HOSPITAL: "hospital",
 	RunMap.BOSS: "boss", RunMap.UNKNOWN: "unknown",
 }
 const SHORT := {
 	RunMap.SKIRMISH: "Skirmish", RunMap.AMBUSH: "Ambush", RunMap.NEST: "Nest", RunMap.EVENT: "Event",
-	RunMap.DEPOT: "Depot", RunMap.HOSPITAL: "Hospital", RunMap.SURVIVORS: "Survivors",
+	RunMap.DEPOT: "Depot", RunMap.HOSPITAL: "Hospital",
 	RunMap.BOSS: "Boss", RunMap.UNKNOWN: "Unknown",
 }
 const OBJECTIVE_NAMES := {"skirmish": "Clear", "extract": "Extract", "hold": "Hold", "rescue": "Rescue", "purge": "Purge", "boss": "Boss",
@@ -33,7 +33,7 @@ const OBJECTIVE_TEXT := {
 }
 ## Legend order, as shown under the map.
 const LEGEND: Array[String] = [RunMap.SKIRMISH, RunMap.NEST, RunMap.EVENT, RunMap.DEPOT, RunMap.HOSPITAL,
-	RunMap.SURVIVORS, RunMap.UNKNOWN, RunMap.BOSS]
+	RunMap.UNKNOWN, RunMap.BOSS]
 
 
 static func icon(type: String) -> String:
@@ -103,13 +103,9 @@ static func card(run: RunState, n: Dictionary) -> Dictionary:
 			c.tag_color = Styles.HP
 			c.body = "One treatment per soldier: patch up, purge Infection, or train."
 			c.rows.append(["Outbreak", "+1 more if anyone heals or purges", Styles.TEAL])
-		RunMap.SURVIVORS:
-			c.tag = "Recruit"
-			c.body = "Survivors to bring home: a new soldier for someone's reserve."
-			c.rows.append(["Reward", "+10 Supplies, a recruit", Styles.TEXT])
 		RunMap.UNKNOWN:
 			c.tag = "Hidden"
-			c.body = "Most likely an event. Could be an ambush, a depot or survivors."
+			c.body = "Most likely an event. Could be an ambush or a depot."
 			c.rows.append(["Intel", "Spend 1 to reveal it (you have %d)" % run.intel, Styles.TEXT])
 	if type in [RunMap.SKIRMISH, RunMap.AMBUSH, RunMap.NEST]:
 		var cond := Conditions.for_fight(int(n.seed), run.act, str(n.objective), type)

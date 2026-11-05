@@ -233,7 +233,7 @@ func _detect() -> Dictionary:
 		match run.phase:
 			RunState.Phase.NODE:
 				var kind := RunMap.shown_type(run.current_node())
-				m = "rest" if kind in [RunMap.HOSPITAL, RunMap.DEPOT, RunMap.SURVIVORS] else "map"
+				m = "rest" if kind in [RunMap.HOSPITAL, RunMap.DEPOT] else "map"
 			RunState.Phase.REWARD:
 				m = "rest"
 			RunState.Phase.ENDED:

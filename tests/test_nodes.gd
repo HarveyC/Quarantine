@@ -2,7 +2,7 @@ extends TestCase
 
 const OPS := ["gun", "supplies", "intel", "outbreak", "infection", "heal_pct", "hurt_pct", "mutation",
 	"remove_mutation", "perk_pick", "serum", "recruit", "item", "modifier", "mark", "fight",
-	"send_home", "chance", "if_infected", "sit_out", "bloom_graft"]
+	"send_home", "revive", "chance", "if_infected", "sit_out", "bloom_graft"]
 
 
 ## A 2-player run in the NODE phase: trooper + marksman for player 0, medic + breacher for player 1,
@@ -235,6 +235,7 @@ func test_whispers_needs_infection_and_owner_decides() -> void:
 
 func test_last_seat_sends_home() -> void:
 	var run := _run()
+	var charges := run.revives
 	run.get_soldier(2).hp = 1
 	NodeRules.enter(run, "event", "last_seat")
 	assert_eq(run.node_state.subject, 2, "most wounded")
@@ -242,7 +243,7 @@ func test_last_seat_sends_home() -> void:
 	_choose(run, 0, "send")
 	_choose(run, 1, "send")
 	assert_eq(run.get_soldier(2).status, RunSoldier.GONE, "left the run")
-	assert_eq(run.reserve_of().size(), 1, "owner gets a recruit")
+	assert_eq(run.revives, charges + 1, "the squad gains a Revive charge")
 	assert_eq(_events(run, "perk_pick_granted").size(), 1, "with a perk pick")
 
 
@@ -278,14 +279,14 @@ func test_back_alley_medic_per_player() -> void:
 	assert_true(run.node_state.finished, "done")
 
 
-func test_stragglers_split_and_carrier() -> void:
+func test_stragglers_give_a_revive_charge() -> void:
 	var run := _run()
+	var before := run.revives
 	NodeRules.enter(run, "event", "stragglers")
 	_choose(run, 0, "take")
 	_choose(run, 1, "take")
-	assert_eq(run.reserve_of().size(), 2, "one each into the shared reserve")
-	var carriers: Array = run.reserve_of().filter(func(r): return r.get("hidden_carrier", false))
-	assert_eq(carriers.size(), 1, "exactly one carrier")
+	assert_eq(run.revives, before + 1, "+1 Revive charge")
+	assert_true(run.squad().all(func(r): return r.infection == 5), "+5 Infection to all")
 
 
 func test_events_never_repeat_and_act_gating() -> void:
@@ -474,21 +475,14 @@ func test_a_perk_pick_can_be_skipped() -> void:
 	assert_true(Progression.validate(run, skip) != "", "nothing left to skip")
 
 
-func test_survivors_claim_and_default() -> void:
+func test_survivors_event_adds_revive_charge() -> void:
 	var run := _run()
-	var ns := NodeRules.enter(run, "survivors")
+	var before := run.revives
+	NodeRules.enter(run, "event", "survivors")
+	_choose(run, 0, "bring")
+	_choose(run, 1, "bring")
+	assert_eq(run.revives, before + 1, "+1 Revive charge")
 	assert_eq(run.supplies, 70, "+10 Supplies")
-	assert_true(ns.text.contains(ns.recruit.name), "scene names the recruit")
-	assert_true(_act(run, "node_claim", 1), "claim")
-	assert_true(not _act(run, "node_claim", 0), "already claimed")
-	assert_eq(run.reserve_of().size(), 1, "in the shared reserve")
-	var run2 := _run()
-	RunRules.add_recruit(run2, 0)
-	NodeRules.enter(run2, "survivors")
-	_act(run2, "node_leave", 0)
-	_act(run2, "node_leave", 1)
-	assert_true(NodeRules.is_done(run2), "done")
-	assert_eq(run2.reserve_of().size(), 2, "unclaimed -> reserve anyway")
 
 
 func test_benched_player_does_not_block() -> void:

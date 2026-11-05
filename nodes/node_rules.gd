@@ -1,6 +1,6 @@
 class_name NodeRules
 extends RefCounted
-## Entry point for the non-combat run nodes: Event, Supply depot, Field hospital, Survivors.
+## Entry point for the non-combat run nodes: Event, Supply depot, Field hospital.
 ## Like Rules for a mission, every change goes through validate/apply with an action
 ## Dictionary, so online co-op can replicate node screens the same way. The open screen is
 ## run.node_state. OWNER: nodes workstream. Contract: docs/ARCHITECTURE.md, "Non-combat nodes".
@@ -13,9 +13,8 @@ extends RefCounted
 ##   node_timeout is the host's (the view's timer ran out); everything else is any present player's.
 ##   depot:     node_buy {index, soldier?, slot?}  node_sell {soldier, slot} or {stash: index}  node_reroll
 ##   hospital:  node_treat {soldier, treatment}
-##   survivors: node_claim
 
-const KINDS: Array[String] = ["event", "depot", "hospital", "survivors"]
+const KINDS: Array[String] = ["event", "depot", "hospital"]
 
 
 ## Opens a node. For "event", `event_id` forces a specific event (otherwise one is drawn).
@@ -24,7 +23,6 @@ static func enter(run: RunState, kind: String, event_id: String = "") -> Diction
 		"event": return EventRules.enter(run, event_id)
 		"depot": return Depot.enter(run)
 		"hospital": return FieldHospital.enter(run)
-		"survivors": return Survivors.enter(run)
 	assert(false, "unknown node kind %s" % kind)
 	return {}
 
@@ -43,15 +41,13 @@ static func validate(run: RunState, action: Dictionary) -> String:
 		return "already left"
 	match action.get("type"):
 		"node_leave":
-			return "" if ns.finished or ns.kind == "survivors" else "finish the event first"
+			return "" if ns.finished else "finish the event first"
 		"node_choose", "node_pass", "node_timeout":
 			return EventRules.validate(run, ns, action) if ns.kind == "event" else "not an event"
 		"node_buy", "node_sell", "node_reroll":
 			return Depot.validate(run, ns, action) if ns.kind == "depot" else "not a depot"
 		"node_treat":
 			return FieldHospital.validate(run, ns, action) if ns.kind == "hospital" else "not a hospital"
-		"node_claim":
-			return Survivors.validate(run, ns, action) if ns.kind == "survivors" else "not a survivors node"
 	return "unknown action"
 
 
@@ -65,16 +61,12 @@ static func apply(run: RunState, action: Dictionary) -> bool:
 		"node_leave":
 			ns.left.append(action.player)
 			RunAccess.emit(run, {"type": "node_leave", "player": action.player})
-			if is_done(run) and ns.kind == "survivors":
-				Survivors.settle(run, ns)
 		"node_choose", "node_pass", "node_timeout":
 			EventRules.apply(run, ns, action)
 		"node_buy", "node_sell", "node_reroll":
 			Depot.apply(run, ns, action)
 		"node_treat":
 			FieldHospital.apply(run, ns, action)
-		"node_claim":
-			Survivors.apply(run, ns, action)
 	return true
 
 
@@ -84,7 +76,6 @@ static func screen(kind: String) -> Script:
 		"event": return load("res://ui/nodes/event_screen.gd")
 		"depot": return load("res://ui/nodes/depot_screen.gd")
 		"hospital": return load("res://ui/nodes/hospital_screen.gd")
-		"survivors": return load("res://ui/nodes/survivors_screen.gd")
 	return null
 
 

@@ -23,7 +23,7 @@ const KEEP := ["SettingsHost", "Soundscape", "UiFeel", "Platform", "TermTips", "
 
 static func _screens() -> Array[String]:
 	var out: Array[String] = ["title", "lobby", "solo-lobby", "hotseat-lobby", "sound", "map", "map_start", "event", "depot", "depot_sell", "hospital",
-		"survivors", "reward", "loadout", "doctrine", "kit", "rankup", "rankup_reward", "hud", "aim", "quick", "debrief", "lost",
+		"reward", "loadout", "doctrine", "kit", "rankup", "rankup_reward", "hud", "aim", "quick", "debrief", "lost",
 		"runend", "pause", "settings_graphics", "settings_audio", "settings_gameplay", "settings_accessibility",
 		"settings_controls", "depot_grafts", "hospital_grafts", "reward_grafts", "loadout_grafts", "hq_unlocks", "hq_severity", "hq_record", "hq_achievements", "archive", "story",
 		"ending_vote", "offer_training", "reward_compare", "mutation_compare", "guns_compare", "kit_compare", "reward_loadout", "depot_compare",
@@ -118,7 +118,7 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 				for i in 4:
 					await tree.process_frame
 				view._map.set_hover(run.reachable_nodes()[0])
-		"event", "depot", "depot_sell", "depot_armorer", "hospital", "survivors", "depot_grafts", "hospital_grafts":
+		"event", "depot", "depot_sell", "depot_armorer", "hospital", "depot_grafts", "hospital_grafts":
 			var run := RunRules.new_run(players, 31)
 			GearRun.init_run(run)
 			RunRules.start_run(run)

@@ -476,6 +476,9 @@ static func _run_effects(run, ns: Dictionary, effects: Array, ctx: Dictionary) -
 				var to: int = ctx.player if e.get("to", "player") == "player" else RunAccess.least_serum(run)
 				if to != -1:
 					RunAccess.add_serum(run, to, e.samples)
+			"revive":
+				RunAccess.add_revive(run, e.get("count", 1))
+				ns.results.append("+%d Revive charge" % e.get("count", 1))
 			"recruit":
 				_recruits(run, ns, e, ctx)
 			"item":
@@ -522,9 +525,11 @@ static func _run_effects(run, ns: Dictionary, effects: Array, ctx: Dictionary) -
 			"send_home":
 				for rec in _targets(run, ns, e.who, ctx):
 					RunAccess.send_home(run, rec)
-					var r := RunAccess.add_recruit(run, rec.owner)
-					RunAccess.grant_perk_pick(run, r)
-					ns.results.append("%s joins %s's reserve." % [r.name, "their owner"])
+					RunAccess.add_revive(run, 1)
+					ns.results.append("+1 Revive charge")
+					var keeper: Array = run.soldiers_of(rec.owner)
+					if not keeper.is_empty():
+						RunAccess.grant_perk_pick(run, keeper[0])
 			"chance":
 				var hit: bool = run.rng.randf() < RunAccess.event_risk(run, e.p)
 				_run_effects(run, ns, e.then if hit else e.get("else", []), ctx)

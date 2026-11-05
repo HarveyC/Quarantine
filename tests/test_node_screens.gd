@@ -108,12 +108,6 @@ func test_hospital_tiles_have_hover_cards() -> void:
 	d.screen.free()
 
 
-func test_survivors_screen() -> void:
-	var d := _setup("survivors", 3)
-	_click_through(d)
-	assert_true(d.run.node_state.claimed_by != -1, "recruit placed")
-
-
 ## The squad panel's preview must say what the choice really does: for every event's first
 ## step, every option with no dice in it lands each soldier on the HP and Infection the
 ## preview promised.
