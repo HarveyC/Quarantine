@@ -48,10 +48,6 @@ static func add_supplies(run: RunState, amount: int, reason := "node") -> void:
 	RunRules.add_supplies(run, amount, reason)
 
 
-static func add_intel(run: RunState, amount: int, reason := "node") -> void:
-	RunRules.add_intel(run, amount, reason)
-
-
 static func add_outbreak(run: RunState, amount: int, reason := "node") -> void:
 	RunRules.add_outbreak(run, amount, reason)
 

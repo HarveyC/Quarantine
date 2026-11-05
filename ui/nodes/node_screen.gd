@@ -1,5 +1,5 @@
 extends Control
-## Base for the node screens (event, depot, hospital, survivors). Fills the view, rebuilds
+## Base for the node screens (event, depot, hospital). Fills the view, rebuilds
 ## itself from run.node_state after every run event, and sends input as run actions through
 ## session.submit_run. Draws a section for every player in session.local_players(), so solo
 ## and hot-seat players act for everyone they control. OWNER: nodes workstream.
@@ -157,11 +157,10 @@ func with_squad(main: Control) -> Control:
 	return row
 
 
-## Supplies, Intel, Outbreak and each local player's Serum, top right: icon, number, caption.
+## Supplies, Outbreak and each local player's Serum, top right: icon, number, caption.
 func wallet() -> Control:
 	var row := NodeUi.hbox(26)
 	row.add_child(_stat("supplies", "Supplies", str(run.supplies), NodeUi.SUPPLY))
-	row.add_child(_stat("intel", "Intel", str(run.intel), NodeUi.DIM))
 	row.add_child(_stat("outbreak", "Outbreak", str(run.outbreak), NodeUi.TEAL))
 	for p in local_players():
 		var cap := "Serum" if local_players().size() == 1 else "Serum %s" % NodeUi.player_name(session, p)

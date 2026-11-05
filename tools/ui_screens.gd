@@ -124,7 +124,6 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 			RunRules.start_run(run)
 			run.phase = RunState.Phase.NODE
 			run.supplies = 140
-			run.intel = 2
 			# A squad in mixed shape, so the squad panel has something to say.
 			var hurt := [2, 3, 0, 4]
 			var inf := [30, 12, 52, 41]

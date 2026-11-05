@@ -155,8 +155,6 @@ static func _option_blocker(run, _ns: Dictionary, opt: Dictionary, player: int) 
 	var waived: bool = req.has("waived_by") and RunAccess.has_class(run, req.waived_by)
 	if not waived and run.supplies < req.get("supplies", 0):
 		return "Not enough Supplies"
-	if run.intel < req.get("intel", 0):
-		return "Not enough Intel"
 	if opt.get("target", "") == "own_soldier" and _eligible_soldiers(run, opt, player).is_empty():
 		return "None of your soldiers can"
 	return ""
@@ -439,8 +437,6 @@ static func _run_effects(run, ns: Dictionary, effects: Array, ctx: Dictionary) -
 		match e.op:
 			"supplies":
 				RunAccess.add_supplies(run, e.amount)
-			"intel":
-				RunAccess.add_intel(run, e.amount)
 			"outbreak":
 				RunAccess.add_outbreak(run, e.amount)
 			"infection":

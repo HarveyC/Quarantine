@@ -299,16 +299,13 @@ func _button(input: InputController, a: Dictionary, can_act: bool, px: float) ->
 		b.add_theme_stylebox_override("hover", on)
 	if b.disabled:
 		fg = Color(fg, 0.35)
-	b.tooltip_text = label + ("\n" + str(a.desc) if not mutation and str(a.get("desc", "")) != "" else "")
 	var cooling := int(a.get("cooldown", 0))
-	if cooling > 0:
-		b.tooltip_text += "\nCooling down: ready in %d turn%s." % [cooling, "" if cooling == 1 else "s"]
-	elif b.disabled and str(a.get("reason", "")) != "" and not mutation:
-		b.tooltip_text += "\n" + str(a.reason)
 	var key: String = a.key
-	var term := "mutation" if mutation else ("hit_chance" if key == "shoot" else Glossary.find(label))
-	if term != "":
-		Tips.term(b, term)
+	if mutation:
+		b.tooltip_text = ""
+		Tips.term(b, "mutation")
+	else:
+		Tips.action(b, a)
 	b.set_meta("key", key)
 	b.pressed.connect(func() -> void: action_pressed.emit(key))
 	var ip := px * 0.5

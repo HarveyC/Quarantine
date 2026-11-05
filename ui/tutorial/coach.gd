@@ -19,8 +19,6 @@ const HINTS := {
 		"text": "Click a lit node to vote for the next stop. Paths only go forward, and every act ends at a boss."},
 	"outbreak": {"title": "Outbreak", "target": "outbreak",
 		"text": "Rises by 1 at every node, and the Infected get tougher with it. Bonus objectives, cleared nests and bosses knock it back."},
-	"reveal": {"title": "Intel", "target": "reveal",
-		"text": "Spend Intel to see what a ? node really is before you vote."},
 	"loadout": {"title": "Loadout", "target": "loadout_screen",
 		"text": "Four gear slots and two pockets per soldier. Three items with the same tag unlock a set bonus."},
 	"reward": {"title": "Spoils", "target": "screen",
@@ -231,9 +229,6 @@ func _next_hint() -> Dictionary:
 			candidates.append(NODE_HINTS.get(str(run.node_state.get("kind", "")), ""))
 	elif run.phase == RunState.Phase.MAP:
 		candidates.append_array(["run_map", "outbreak"])
-		var reveal := rv.hint_target("reveal") as BaseButton
-		if reveal != null and reveal.visible and not reveal.disabled:
-			candidates.append("reveal")
 	for id in candidates:
 		if id != "" and not _seen(id):
 			return {"id": id}

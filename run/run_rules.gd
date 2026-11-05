@@ -7,7 +7,6 @@ extends RefCounted
 
 const VOTE := "vote"               # + "node": id. Vote for a reachable node on the map.
 const CLOSE_VOTE := "close_vote"   # host only: the vote timer ran out, resolve with the votes cast.
-const REVEAL := "reveal"           # + "node": id. Spend 1 Intel to reveal a "?" node.
 const BENCH := "bench"             # host only, + "target": player, "on": bool. A player left / came back.
 const DEPLOY := "deploy"           # + "sid": a reserve recruit takes an open squad slot (map phase).
 const REVIVE := "revive"           # + "sid": spend a Revive charge to bring a fallen soldier back (map phase).
@@ -16,7 +15,6 @@ const FIGHT_END := "fight_end"     # host only, + "outcome": RunRules.fight_outc
 const ROUTES := {"gear_": "GearRun", "prog_": "Progression", "node_": "NodeRules", "story_": "Story"}
 
 const START_SUPPLIES := 60
-const START_INTEL := 1
 const START_RESERVE := 0           # fresh recruits at the start: none, the squad's own fallen are revived instead
 ## Revive charges: a fallen soldier keeps their build and returns at half HP with more Infection.
 const REVIVE_HP := 0.5
@@ -39,7 +37,7 @@ const INCOME := {
 }
 const BONUS_SUPPLIES := 10
 ## Doctrine pack effects (MetaUnlocks "doctrine_1"; the Doctrines themselves are in GearData).
-const SCAVENGERS_INTEL := 1
+const SCAVENGERS_SUPPLIES := 15
 const SUPPLY_DROP := 25
 const TRIAGE_DRILLS_HP := 2
 const SERUM_CACHE := 1
@@ -63,7 +61,6 @@ static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}, pick
 	run.meta["start_flags"] = meta.keys().filter(func(k): return meta[k] is bool and meta[k])
 	MetaUnlocks.bind(run.meta)
 	run.supplies = START_SUPPLIES
-	run.intel = START_INTEL
 	for e in MatchConfig.squad_plan(n, picks):
 		run.soldiers.append(RunSoldier.make(run, e.kind, e.player))
 		RunHooks.call_static("GearRun", "start_soldier", [run.soldiers[-1]])
@@ -109,7 +106,7 @@ static func _start_act(run: RunState, act: int) -> void:
 	run.emit({"type": "act_start", "act": act})
 	var docs: Array = run.modifiers.get("doctrines", [])
 	if act > 1 and docs.has("scavengers"):
-		add_intel(run, SCAVENGERS_INTEL, "Scavengers")
+		add_supplies(run, SCAVENGERS_SUPPLIES, "Scavengers")
 	if act > 1 and docs.has("supply_drop"):
 		add_supplies(run, SUPPLY_DROP, "Supply drop")
 
@@ -148,15 +145,6 @@ static func validate(run: RunState, action: Dictionary) -> String:
 				return "Only the host can close the vote"
 			if run.phase != RunState.Phase.MAP or run.votes.is_empty():
 				return "No votes to count"
-			return ""
-		REVEAL:
-			if run.phase != RunState.Phase.MAP:
-				return "Reveal nodes from the map"
-			if run.intel < 1:
-				return "No Intel left"
-			var n := run.get_node(action.get("node", -1))
-			if n.is_empty() or not n.hidden:
-				return "Nothing hidden there"
 			return ""
 		BENCH:
 			if player != run.host_player:
@@ -213,13 +201,6 @@ static func apply(run: RunState, action: Dictionary) -> bool:
 			_maybe_resolve_vote(run)
 		CLOSE_VOTE:
 			_resolve_vote(run)
-		REVEAL:
-			var n := run.get_node(action.node)
-			run.intel -= 1
-			run.emit({"type": "intel", "amount": -1, "total": run.intel, "reason": "reveal"})
-			RunMap.resolve_unknown(run, n)
-			n.hidden = false
-			run.emit({"type": "reveal", "node": n.id, "as": n.resolved})
 		BENCH:
 			if action.on:
 				run.benched[action.target] = true
@@ -308,8 +289,6 @@ static func enter_node(run: RunState, id: int) -> void:
 		RunMap.resolve_unknown(run, n)
 		n.hidden = false
 		run.emit({"type": "reveal", "node": n.id, "as": n.resolved})
-	elif n.type == RunMap.UNKNOWN:
-		pass   # revealed earlier with Intel
 	var type := RunMap.shown_type(n)
 	run.emit({"type": "node_enter", "node": id, "node_type": type, "row": n.row})
 	if RunMap.is_fight(type):
@@ -473,8 +452,6 @@ static func _end_fight(run: RunState, outcome: Dictionary) -> void:
 	add_supplies(run, Severity.income(run, income.supplies) + (BONUS_SUPPLIES if outcome.bonus else 0), kind)
 	if int(outcome.get("loot", 0)) > 0:
 		add_supplies(run, EnemyRoster.FENCE_SUPPLIES * int(outcome.loot), "loot")
-	if outcome.bonus:
-		add_intel(run, 1, "bonus objective")
 	if income.serum > 0:
 		for p in run.players:
 			add_serum(run, p, income.serum * run.soldiers_of(p).size(), kind)
@@ -511,11 +488,6 @@ static func _end_run(run: RunState, result: int) -> void:
 static func add_supplies(run: RunState, amount: int, reason: String = "") -> void:
 	run.supplies = maxi(0, run.supplies + amount)
 	run.emit({"type": "supplies", "amount": amount, "total": run.supplies, "reason": reason})
-
-
-static func add_intel(run: RunState, amount: int, reason: String = "") -> void:
-	run.intel = maxi(0, run.intel + amount)
-	run.emit({"type": "intel", "amount": amount, "total": run.intel, "reason": reason})
 
 
 static func add_serum(run: RunState, player: int, samples: int, reason: String = "") -> void:

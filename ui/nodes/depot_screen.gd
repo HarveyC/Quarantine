@@ -5,6 +5,7 @@ extends "res://ui/nodes/node_screen.gd"
 const Icons := preload("res://ui/icons.gd")
 const GraftFigure := preload("res://ui/graft_figure.gd")
 const SLOT_LABELS := GearData.SLOT_NAMES
+const ActionCard := preload("res://ui/tips/action_card.gd")
 
 
 ## The shelf tile picked for the detail panel, and which tab (buy or sell) is showing.
@@ -191,6 +192,8 @@ func _detail(i: int) -> Control:
 		tags.add_child(NodeUi.chip("", info.tag.to_upper(), GearData.tag_color(info.tag), 13))
 		v.add_child(tags)
 	v.add_child(NodeUi.effect_row(info.desc, 16))
+	if not info.get("cells", []).is_empty():
+		v.add_child(ActionCard.fact_row(info.cells, 280, NodeUi.AMBER, true))
 	if e.sold:
 		var s := NodeUi.hbox(8)
 		s.add_child(W.Icon.new("check", NodeUi.FAINT, 16, 1.8))
@@ -268,7 +271,9 @@ func _info(e: Dictionary) -> Dictionary:
 	match e.type:
 		"gear":
 			var it := GearData.get_item(e.id)
-			return {"slot": SLOT_LABELS.get(it.slot, it.slot), "name": it.name, "desc": it.desc, "tag": it.tag, "icon": it.slot,
+			var cells := ActionCard.gear_cells(e.id, 1)
+			return {"slot": SLOT_LABELS.get(it.slot, it.slot), "name": it.name, "desc": ActionCard.gear_effect(it.desc) if not cells.is_empty() else it.desc,
+				"cells": cells, "tag": it.tag, "icon": it.slot,
 				"rarity": GearData.RARITY_NAMES[it.rarity], "rarity_color": GearData.RARITY_COLORS[it.rarity]}
 		"gun":
 			var g := Weapons.get_gun(e.id)
@@ -276,7 +281,7 @@ func _info(e: Dictionary) -> Dictionary:
 				"rarity": GearData.RARITY_NAMES[g.rarity], "rarity_color": GearData.RARITY_COLORS[g.rarity]}
 		"consumable":
 			var c: Dictionary = GearData.CONSUMABLES[e.id]
-			return {"slot": "Pocket", "name": c.name, "desc": c.desc, "tag": "", "rarity": "", "rarity_color": NodeUi.DIM, "icon": "consumable"}
+			return {"slot": "Pocket", "name": c.name, "desc": c.desc, "cells": ActionCard.gear_cells(e.id, 1), "tag": "", "rarity": "", "rarity_color": NodeUi.DIM, "icon": "consumable"}
 		"serum":
 			return {"slot": "Serum", "name": "Serum dose", "desc": "+2 Serum samples. Once per depot.",
 				"tag": "", "rarity": "", "rarity_color": NodeUi.TEAL, "icon": "serum"}

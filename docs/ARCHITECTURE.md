@@ -357,7 +357,7 @@ rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind i
   The Source's signal is act 3 only; Recovery team needs a soldier at 25+), act 1 weights the low-stakes
   ones x3, and acts 2 and 3 weight their own-biome events x2. A solo player answers
   every kind of step alone and votes resolve at once.
-- **What nodes write**: shared values only through `RunRules.add_supplies` / `add_intel` /
+- **What nodes write**: shared values only through `RunRules.add_supplies` /
   `add_serum` / `add_outbreak` / `add_recruit`; soldier `hp`, `infection` (capped at 99 outside a
   fight), `injuries`, `scars`, `sit_out` (Checkpoint "held") and `status = gone` (Last seat);
   gear only through `Loadout`; perks and mutations only through Progression (late-bound:
@@ -852,7 +852,7 @@ Framework-owned (read freely; change only through `RunRules` or the helpers belo
 `result` (`Types.Result`), `players: Array[int]` (everyone in the run, 0..n-1, solo = `[0]`),
 `host_player` (0, breaks split votes), `benched` (player -> true while absent), `act` (1-3),
 `row` (row of the current node, 0 before the act's first node), `node` (current node id, -1 at act
-start), `map` (Array of node Dictionaries, see below), `supplies` (shared), `intel` (shared),
+start), `map` (Array of node Dictionaries, see below), `supplies` (shared),
 `outbreak`, `serum` (player -> samples; 2 samples = 1 dose), `fights_won`, `soldiers` (every soldier
 record of the run), `votes` (player -> node id), `steps` (queued steps of the current node),
 `fight_config` (the current fight's MatchConfig), `fight_snapshot` (GameState.to_dict for save),
@@ -936,7 +936,6 @@ path, a nest and a depot every act); links never cross, 1-2 out per node.
 |---|---|---|
 | `vote` | `node` | MAP phase, present players. Resolves when every present player has voted (solo: instantly); majority wins, a split goes to the host's pick |
 | `close_vote` | | host only: the 20 s vote timer ran out, resolve with the votes cast |
-| `reveal` | `node` | spend 1 Intel to reveal a "?" node |
 | `bench` | `target`, `on` | host only (sessions send it when a player drops or rejoins) |
 | `fight_end` | `outcome` | host only, once the mission is over: `RunRules.fight_outcome(state, bonus)` |
 
@@ -944,7 +943,7 @@ Prefixed types are routed to the owning module's `validate(run, action) -> Strin
 `apply(run, action)`: **`gear_*` -> `GearRun`**, **`prog_*` -> `Progression`**, **`node_*` ->
 `NodeRules`**, **`story_*` -> `Story`**. A module checks its own phase rules (e.g. `gear_equip` in MAP and REWARD, depot
 buys only in NODE). Modules change shared values with the helpers `RunRules.add_supplies(run, n,
-reason)`, `add_intel`, `add_serum(run, player, samples, reason)`, `add_outbreak`, and
+reason)`, `add_serum(run, player, samples, reason)`, `add_outbreak`, and
 `add_recruit(run, player, kind, infection)`, which emit the matching events. All randomness is
 `run.rng`.
 
@@ -957,7 +956,7 @@ MAP --vote--> enter_node: Outbreak +1, "?" resolves, then the node's steps:
 FIGHT   fight_config is set; every peer builds the GameState with MatchConfig.build and plays it.
         The host sends fight_end. Results: HP/Infection copied back, dead/Turned recorded,
         recruits deploy, 25% heal, income (Skirmish 40, nest 50 + 1 Serum sample per soldier
-        controlled, boss 60 + 1 sample, +10 Supplies and +1 Intel for a bonus objective),
+        controlled, boss 60 + 1 sample, +10 Supplies for a bonus objective),
         boss: Outbreak -3. RunRules.fight_outbreak: each Turned soldier +2; on a win, bonus
         objective -1, nest -1, Purge -1 (the fight debrief shows the net as one chip).
         Then GearRun.on_fight_won(run, "skirmish"|"nest"|"boss").
@@ -1038,7 +1037,7 @@ identical GameState, and a player who skips it only moves themselves on.
 `run.event(ev)`: `run_start` (`players`, `seed`), `act_start` (`act`), `vote` (`player`, `node`),
 `vote_result` (`node`, `votes`), `reveal` (`node`, `as`), `node_enter` (`node`, `node_type`, `row`),
 `step` (`step`), `map`, `fight_start` (`kind`, `objective`), `fight_end` (`result`, `kind`),
-`soldier_lost` (`sid`, `how`), `recruit` / `recruit_deployed`, `supplies` / `intel` / `outbreak`
+`soldier_lost` (`sid`, `how`), `recruit` / `recruit_deployed`, `supplies` / `outbreak`
 (`amount`, `total`, `reason`), `serum` (+ `player`), `bench` (`player`, `on`), `rejected`, `run_end`
 (`result`). Story adds `echo_met` (`key`, `name`), `echo_laid` (`key`, `name`), `lore` (`id`),
 `ending_vote`, `ending_voted` (`player`, `ending`) and `ending` (`ending`, `carrier`). Modules may
@@ -1081,7 +1080,7 @@ text walls.
   complete" card instead of the Victory screen. It hides while the event player is busy.
 - **First-time tips** (`ui/tutorial/coach.gd`, on its own layer in `App`): watches the run view
   (`RunView.hint_target(key)`) and the fight's events and shows one short card per moment: route
-  map, Outbreak, Intel, spoils, loadout, each node kind, the squad phase, Infection, Lapse, Turned,
+  map, Outbreak, spoils, loadout, each node kind, the squad phase, Infection, Lapse, Turned,
   telegraphed strikes, reinforcements. Fight tips fire only for this machine's soldiers. Off for
   `--autoplay` and screenshot runs (`--hints` turns them back on). It also asks a new player
   "play training first?" before their first run from the menu.
