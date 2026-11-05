@@ -9,12 +9,16 @@ const VOTE := "vote"               # + "node": id. Vote for a reachable node on 
 const CLOSE_VOTE := "close_vote"   # host only: the vote timer ran out, resolve with the votes cast.
 const BENCH := "bench"             # host only, + "target": player, "on": bool. A player left / came back.
 const DEPLOY := "deploy"           # + "sid": a reserve recruit takes an open squad slot (map phase).
+const REVIVE := "revive"           # + "sid": spend a Revive charge to bring a fallen soldier back (map phase).
 const FIGHT_END := "fight_end"     # host only, + "outcome": RunRules.fight_outcome(state).
 
 const ROUTES := {"gear_": "GearRun", "prog_": "Progression", "node_": "NodeRules", "story_": "Story"}
 
 const START_SUPPLIES := 60
-const START_RESERVE := 1           # recruits per player, +1 for each 2 soldiers past the first (reserve_for)
+const START_RESERVE := 0           # fresh recruits at the start: none, the squad's own fallen are revived instead
+## Revive charges: a fallen soldier keeps their build and returns at half HP with more Infection.
+const REVIVE_HP := 0.5
+const REVIVE_INFECTION := 20
 const RESERVE_CLASSES: Array[String] = ["trooper", "medic", "breacher", "hazmat"]
 const HEAL_AFTER_FIGHT := 0.35
 const BOSS_OUTBREAK_DROP := 2
@@ -64,14 +68,20 @@ static func new_run(num_players: int, seed: int = 0, meta: Dictionary = {}, pick
 	for p in n:
 		for k in reserve_for(run.soldiers_of(p).size()):
 			run.soldiers.append(RunSoldier.make(run, random_class(run), p, RunSoldier.RESERVE))
+	run.revives = revives_for(run.squad().size())
 	Severity.apply_new_run(run)
 	RunHooks.call_static("Story", "init_run", [run])
 	return run
 
 
-## Starting recruits for a player who commands `soldiers`: 1 for 1-2 soldiers, 2 for 3-4.
-static func reserve_for(soldiers: int) -> int:
-	return START_RESERVE + floori(maxi(0, soldiers - 1) / 2.0)
+## Starting recruits for a player who commands `soldiers`: none, see START_RESERVE.
+static func reserve_for(_soldiers: int) -> int:
+	return START_RESERVE
+
+
+## Starting Revive charges for a run of `soldiers`: 2 for 1-2 soldiers, 3 for 3-4.
+static func revives_for(soldiers: int) -> int:
+	return 1 + ceili(soldiers / 2.0)
 
 
 ## Starts the run: act 1 map, then the starting-kit pick if GearRun offers one.
@@ -152,6 +162,19 @@ static func validate(run: RunState, action: Dictionary) -> String:
 			if run.get_soldier(action.get("sid", -1)).get("status", "") != RunSoldier.RESERVE:
 				return "Not in reserve"
 			return ""
+		REVIVE:
+			if run.phase != RunState.Phase.MAP:
+				return "Revive between fights"
+			var fallen := run.get_soldier(action.get("sid", -1))
+			if fallen.get("status", "") != RunSoldier.DEAD:
+				return "Not fallen"
+			if run.revives < 1:
+				return "No Revive charges left"
+			if run.squad().size() >= 4:
+				return "The squad is full"
+			if fallen.owner != player and not (run.benched.get(fallen.owner, false) and player == run.host_player):
+				return "Only their owner can revive them"
+			return ""
 		FIGHT_END:
 			if player != run.host_player:
 				return "Only the host reports a fight"
@@ -191,6 +214,14 @@ static func apply(run: RunState, action: Dictionary) -> bool:
 			rec.status = RunSoldier.ACTIVE
 			rec.owner = action.player
 			run.emit({"type": "recruit_deployed", "sid": rec.id, "replaces": -1, "player": rec.owner})
+		REVIVE:
+			var back := run.get_soldier(action.sid)
+			run.revives -= 1
+			back.status = RunSoldier.ACTIVE
+			back.hp = maxi(1, ceili(back.max_hp * REVIVE_HP))
+			back.infection = mini(99, back.infection + REVIVE_INFECTION)
+			back.revived = int(back.get("revived", 0)) + 1
+			run.emit({"type": "revived", "sid": back.id, "player": back.owner, "charges": run.revives})
 		FIGHT_END:
 			_end_fight(run, action.outcome)
 	return true

@@ -817,11 +817,18 @@ static func _build() -> Dictionary:
 		"see": ["rank", "set_bonus"],
 		"aliases": ["Perks"], "labels": ["Doctrine"]}
 	t["reserve"] = {"name": "Reserve", "kind": "squad", "icon": "recruit", "tone": "hp",
-		"line": "Recruits waiting to replace a soldier who falls.",
+		"line": "Extra recruits who can fill an open squad slot.",
 		"art": "",
-		"stats": [["%d" % RunRules.reserve_for(1), "to start"], ["%d" % RunRules.reserve_for(4), "with 3-4 soldiers"]],
-		"more": ["All players share one reserve. Commanding 3 or 4 soldiers starts you with an extra recruit.", "Survivor nodes add more.", "Dead soldiers sit out and come back as recruits."],
+		"stats": [],
+		"more": ["All players share one reserve. The depot can add recruits.", "A fallen soldier is brought back with {revive}, not replaced."],
 		"aliases": ["Recruit", "Recruits", "Reserves"]}
+	t["revive"] = {"name": "Revive", "kind": "squad", "icon": "recruit", "tone": "hp",
+		"line": "Spend a charge between fights to bring a fallen soldier back, build and gear intact.",
+		"art": "",
+		"stats": [["%d%%" % int(RunRules.REVIVE_HP * 100), "HP on return"], ["+%d" % RunRules.REVIVE_INFECTION, "Infection"]],
+		"more": ["Charges are shared by the whole squad. Each player revives their own soldier.", "A soldier who Turns cannot be revived."],
+		"see": ["infection", "reserve"],
+		"aliases": ["Revives", "Revived", "Fallen"]}
 	# --- The run ---------------------------------------------------------------------------
 	t["outbreak"] = {"name": "Outbreak", "kind": "run meter", "icon": "outbreak", "tone": "teal",
 		"line": "How far the Bloom has spread. Higher stages make every fight harder.",
@@ -959,8 +966,7 @@ static func _build() -> Dictionary:
 		RunMap.EVENT: ["Event", "event", "text", "A choice with a price, decided together.", []],
 		RunMap.DEPOT: ["Depot", "depot", Color("c9a24a"), "A shop: spend {supplies} on gear, pockets and Serum.", []],
 		RunMap.HOSPITAL: ["Field hospital", "hospital", "hp", "One treatment per soldier: patch up, {purge} or train.", [["+1", "{outbreak} if used"]]],
-		RunMap.SURVIVORS: ["Survivors", "survivors", "hp", "People to bring home: a recruit for the {reserve}.", [["+%d" % RunRules.BONUS_SUPPLIES, "{supplies}"], ["1", "recruit"]]],
-		RunMap.UNKNOWN: ["Hidden node", "unknown", "dim", "Usually an event. Could be an ambush, a depot or survivors.", []],
+		RunMap.UNKNOWN: ["Hidden node", "unknown", "dim", "Usually an event. Could be an ambush or a depot.", []],
 	}
 	for type in nodes:
 		var n: Array = nodes[type]

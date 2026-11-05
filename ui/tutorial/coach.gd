@@ -29,8 +29,6 @@ const HINTS := {
 		"text": "Spend Supplies on gear and pocket items. Serum fully cures a soldier's Infection."},
 	"event": {"title": "Event", "target": "screen",
 		"text": "Choices can cost HP, Infection or Supplies. Some are voted on, some each player answers alone."},
-	"survivors": {"title": "Survivors", "target": "screen",
-		"text": "Supplies and a recruit. Recruits wait in reserve and deploy when a soldier falls."},
 	"fight": {"title": "Squad phase", "target": "ready",
 		"text": "Move and shoot with your soldiers in any order, then press Ready. Enemies move once everyone is ready."},
 	"concealed": {"title": "Concealed", "target": "stealth", "visual": "stealth",
@@ -47,7 +45,7 @@ const HINTS := {
 		"text": "More Infected arrive at the marked vents next enemy phase."},
 }
 const TIP_WIDTH := 330.0
-const NODE_HINTS := {"event": "event", "depot": "depot", "hospital": "hospital", "survivors": "survivors"}
+const NODE_HINTS := {"event": "event", "depot": "depot", "hospital": "hospital"}
 
 ## App, for its run view, mission view and session (duck-typed so tests can pass a stand-in).
 var app: Node

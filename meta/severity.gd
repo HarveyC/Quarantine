@@ -17,7 +17,7 @@ const LEVELS: Array[Dictionary] = [
 	{"name": "Thin medicine", "rule": "Heal 15% after fights instead of 35%", "icon": "hospital"},
 	{"name": "Swollen hosts", "rule": "Bosses have 25% more health", "icon": "boss"},
 	{"name": "Lean pickings", "rule": "Fights pay 25% fewer Supplies", "icon": "supplies"},
-	{"name": "No reserves", "rule": "Nobody starts with a reserve recruit", "icon": "survivors"},
+	{"name": "Fewer revives", "rule": "Start with 1 fewer Revive charge", "icon": "survivors"},
 	{"name": "Dense hive", "rule": "Every fight has 1 more enemy", "icon": "nest"},
 	{"name": "Unbroken", "rule": "Beating a boss lowers Outbreak by 1 instead of 3", "icon": "outbreak"},
 	{"name": "Ground zero", "rule": "Soldiers start the run at 20 Infection", "icon": "serum"},
@@ -54,7 +54,7 @@ static func apply_new_run(run: RunState) -> void:
 	if at_least(run, 4):
 		run.modifiers["heal_after_fight"] = HEAL_AFTER_FIGHT
 	if at_least(run, 7):
-		run.soldiers = run.soldiers.filter(func(r: Dictionary) -> bool: return r.status != RunSoldier.RESERVE)
+		run.revives = maxi(0, run.revives - 1)
 	if at_least(run, 10):
 		for r in run.soldiers:
 			r.infection = maxi(r.infection, START_INFECTION)

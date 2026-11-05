@@ -1,5 +1,5 @@
 extends Control
-## Base for the node screens (event, depot, hospital, survivors). Fills the view, rebuilds
+## Base for the node screens (event, depot, hospital). Fills the view, rebuilds
 ## itself from run.node_state after every run event, and sends input as run actions through
 ## session.submit_run. Draws a section for every player in session.local_players(), so solo
 ## and hot-seat players act for everyone they control. OWNER: nodes workstream.

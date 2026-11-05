@@ -402,40 +402,57 @@ func _soldier_card(r: Dictionary) -> Control:
 	return card
 
 
-## Reserve recruits and the fallen, in one small card at the end of the strip.
+## Revive charges, the fallen and any reserve recruits, in one small card at the end of the strip.
 func _reserve_card() -> Control:
 	var card := W.Frame.new(Vector4(16, 12, 16, 12))
 	card.set_look(Color(0.037, 0.055, 0.088, 0.86), Styles.BORDER_SOFT, Styles.AMBER, false)
 	card.custom_minimum_size.x = 230
 	var box := Styles.vbox(4)
 	card.add_child(box)
+	var head := Styles.hbox(6)
+	head.add_child(Styles.caps("Revive", 13, Styles.DIM))
+	for i in maxi(run.revives, 0):
+		var pip := ColorRect.new()
+		pip.color = Styles.AMBER
+		pip.custom_minimum_size = Vector2(10, 10)
+		pip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		head.add_child(pip)
+	box.add_child(head)
+	Tips.term(head, "revive")
+	var can_act: bool = run.phase == RunState.Phase.MAP and session != null and not session.local_players().is_empty()
+	var open_slot: bool = run.squad().size() < 4 and can_act
+	var fallen := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.DEAD)
+	for r in fallen.slice(0, 4):
+		var line := _mini_line(r, Styles.MUTED)
+		if open_slot and run.revives > 0 and session.local_players().has(r.owner):
+			line.add_child(_card_button("Revive", func() -> void:
+				session.submit_run({"type": RunRules.REVIVE, "player": r.owner, "sid": r.id})))
+		box.add_child(line)
 	var reserve := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.RESERVE)
-	box.add_child(Styles.caps("Reserve · %d" % reserve.size(), 13, Styles.DIM))
-	var open_slot: bool = run.squad().size() < 4 and run.phase == RunState.Phase.MAP and session != null and not session.local_players().is_empty()
 	for r in reserve.slice(0, 3):
 		var line := _mini_line(r, Styles.TEXT)
 		if open_slot:
-			var b := Button.new()
-			b.text = "Deploy"
-			b.custom_minimum_size = Vector2(0, 22)
-			b.add_theme_font_size_override("font_size", 12)
-			b.flat = true
-			b.focus_mode = Control.FOCUS_NONE
-			for k in ["font_color", "font_hover_color", "font_pressed_color"]:
-				b.add_theme_color_override(k, Styles.AMBER)
-			b.pressed.connect(func() -> void:
-				session.submit_run({"type": RunRules.DEPLOY, "player": session.local_players()[0], "sid": r.id}))
-			line.add_child(b)
+			line.add_child(_card_button("Deploy", func() -> void:
+				session.submit_run({"type": RunRules.DEPLOY, "player": session.local_players()[0], "sid": r.id})))
 		box.add_child(line)
-	if reserve.size() > 3:
-		box.add_child(Styles.label("+%d more" % (reserve.size() - 3), 12, Styles.MUTED))
-	var lost := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status in [RunSoldier.DEAD, RunSoldier.TURNED])
-	if not lost.is_empty():
-		var turned := lost.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.TURNED).size()
-		box.add_child(Styles.caps("Lost %d%s" % [lost.size(), " · %d Turned" % turned if turned > 0 else ""], 12, Styles.MUTED))
-	if reserve.is_empty() and lost.is_empty():
-		box.add_child(Styles.label("Nobody in reserve.", 13, Styles.MUTED))
+	var turned := run.soldiers.filter(func(r: Dictionary) -> bool: return r.status == RunSoldier.TURNED).size()
+	if turned > 0:
+		box.add_child(Styles.caps("%d Turned" % turned, 12, Styles.MUTED))
 	return card
+
+
+func _card_button(text: String, on_press: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(0, 22)
+	b.add_theme_font_size_override("font_size", 12)
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	for k in ["font_color", "font_hover_color", "font_pressed_color"]:
+		b.add_theme_color_override(k, Styles.AMBER)
+	b.pressed.connect(on_press)
+	return b
 
 
 func _mini_line(r: Dictionary, col: Color) -> Control:
@@ -862,6 +879,9 @@ func _on_run_event(ev: Dictionary) -> void:
 		"recruit_deployed":
 			var r := run.get_soldier(ev.sid)
 			line = "%s %s joins the squad" % [UnitData.SOLDIERS[r.kind].name, r.name]
+		"revived":
+			var rv := run.get_soldier(ev.sid)
+			line = "%s %s is back on their feet" % [UnitData.SOLDIERS[rv.kind].name, rv.name]
 		"recruit": line = "New recruit in reserve"
 		"echo_laid": line = "Echo %s laid to rest" % ev.name
 		"lore": line = "Intel recovered: %s" % StoryData.lore_entry(ev.id).get("title", ev.id)

@@ -68,7 +68,7 @@ func test_solo_run_squad_and_vote_resolves_instantly() -> void:
 	assert_eq(run.players, [0] as Array[int], "one player")
 	assert_eq(run.soldiers_of(0).size(), 4, "solo player commands all four")
 	assert_eq(run.serum[0], 4, "1 sample per soldier controlled")
-	assert_eq(run.reserve_of(0).size(), RunRules.reserve_for(4), "two recruits in reserve with 4 soldiers")
+	assert_eq(run.revives, RunRules.revives_for(4), "revive charges with 4 soldiers")
 	var target: int = run.reachable_nodes()[0]
 	assert_true(RunRules.apply(run, {"type": RunRules.VOTE, "player": 0, "node": target}), "vote accepted")
 	assert_eq(run.node, target, "single vote resolves at once")
@@ -216,7 +216,7 @@ func test_fight_heals_pays_and_tracks_outbreak() -> void:
 	assert_eq(run.phase, RunState.Phase.MAP, "back on the map")
 
 
-func test_death_deploys_recruit_and_wipe_ends_run() -> void:
+func test_death_leaves_the_slot_open_and_wipe_ends_run() -> void:
 	var run := RunRules.new_run(1, 12)
 	RunRules.start_run(run)
 	_rewards(run)
@@ -230,8 +230,7 @@ func test_death_deploys_recruit_and_wipe_ends_run() -> void:
 	Rules.check_end(s)
 	RunRules.apply(run, {"type": RunRules.FIGHT_END, "player": 0, "outcome": RunRules.fight_outcome(s)})
 	assert_eq(run.get_soldier(dead.status.sid).status, RunSoldier.DEAD, "dead soldier stays dead")
-	assert_eq(run.squad().size(), 4, "recruit fills the slot")
-	assert_eq(run.reserve_of(0).size(), RunRules.reserve_for(4) - 1, "one recruit used")
+	assert_eq(run.squad().size(), 3, "the fallen slot stays open")
 	_vote_first(run)
 	if run.phase != RunState.Phase.FIGHT:
 		return
@@ -292,7 +291,7 @@ func test_squad_defaults_solo_four_and_coop_one_each() -> void:
 		assert_eq(run.squad().size(), n, "%d players, %d soldiers" % [n, n])
 		for p in n:
 			assert_eq(run.soldiers_of(p).filter(func(r): return r.status == RunSoldier.ACTIVE).size(), 1, "one each")
-			assert_eq(run.reserve_of(p).size(), RunRules.START_RESERVE * n, "one shared reserve")
+			assert_eq(run.revives, RunRules.revives_for(n), "shared revive charges")
 	var picked := RunRules.new_run(2, 5, {}, {0: "medic", 1: "medic"})
 	assert_eq(picked.squad().map(func(r): return r.kind), ["medic", "medic"], "picks are honoured, repeats allowed")
 	var partial := MatchConfig.squad_plan(3, {1: "trooper"})
@@ -304,7 +303,7 @@ func test_players_choose_their_squad_size() -> void:
 	assert_eq(lone.squad().size(), 1, "solo can run a single soldier")
 	assert_eq(lone.squad()[0].kind, "breacher", "with the picked class")
 	assert_eq(lone.serum[0], 1, "one sample for one soldier")
-	assert_eq(lone.reserve_of(0).size(), RunRules.reserve_for(1), "one recruit")
+	assert_eq(lone.revives, RunRules.revives_for(1), "revive charges for one soldier")
 	var pair := RunRules.new_run(1, 5, {}, {0: ["medic", "marksman"]})
 	assert_eq(pair.squad().map(func(r): return r.kind), ["medic", "marksman"], "solo pair")
 	var duo := RunRules.new_run(2, 5, {}, {0: ["trooper", "medic"], 1: ["breacher", "marksman"]})
@@ -314,7 +313,7 @@ func test_players_choose_their_squad_size() -> void:
 	var uneven := RunRules.new_run(2, 5, {}, {0: ["trooper", "medic", "breacher"]})
 	assert_eq(uneven.soldiers_of(0).size(), 3, "3 + 1")
 	assert_eq(uneven.soldiers_of(1).size(), 1, "the other player still gets one")
-	assert_eq(uneven.reserve_of().size(), 3, "3 soldiers start with 2 recruits, 1 soldier with 1, pooled")
+	assert_eq(uneven.revives, RunRules.revives_for(4), "one shared pool of charges")
 	var cfg := MatchConfig.for_fight(duo, {"kind": "skirmish", "objective": "hold", "seed": 4})
 	assert_eq(cfg.fight.squad, 4, "enemies scale to soldiers, not players")
 	assert_eq(MatchConfig.for_fight(lone, {"kind": "skirmish", "objective": "hold", "seed": 4}).fight.squad, 1, "a lone soldier faces a lone-soldier fight")
@@ -489,11 +488,36 @@ func test_bridge_keeps_a_seven_row_map_connected() -> void:
 				assert_true(incoming.has(n.id), "every later node is reachable")
 
 
+func test_revive_brings_back_the_fallen() -> void:
+	var run := RunRules.new_run(1, 12)
+	RunRules.start_run(run)
+	_rewards(run)
+	var fallen: Dictionary = run.squad()[0]
+	fallen.status = RunSoldier.DEAD
+	fallen.hp = 0
+	var kit: Dictionary = fallen.gear.duplicate(true)
+	assert_eq(run.revives, RunRules.revives_for(4), "starting charges")
+	assert_true(RunRules.apply(run, {"type": RunRules.REVIVE, "player": 0, "sid": fallen.id}), "revive accepted")
+	assert_eq(fallen.status, RunSoldier.ACTIVE, "revived")
+	assert_eq(fallen.hp, ceili(fallen.max_hp * RunRules.REVIVE_HP), "half HP")
+	assert_eq(fallen.infection, RunRules.REVIVE_INFECTION, "Infection rises")
+	assert_eq(fallen.gear, kit, "gear kept")
+	assert_eq(run.revives, RunRules.revives_for(4) - 1, "one charge used")
+	assert_true(not RunRules.apply(run, {"type": RunRules.REVIVE, "player": 0, "sid": fallen.id}), "not fallen any more")
+	var turned: Dictionary = run.squad()[0]
+	turned.status = RunSoldier.TURNED
+	assert_true(not RunRules.apply(run, {"type": RunRules.REVIVE, "player": 0, "sid": turned.id}), "Turned can't be revived")
+	run.revives = 0
+	var other: Dictionary = run.squad()[0]
+	other.status = RunSoldier.DEAD
+	assert_true(not RunRules.apply(run, {"type": RunRules.REVIVE, "player": 0, "sid": other.id}), "no charges")
+
+
 func test_reserve_recruit_deploys_into_an_open_slot() -> void:
 	var run := RunRules.new_run(1, 5, {}, {0: ["trooper", "medic"]})
 	RunRules.start_run(run)
 	_rewards(run)
-	var rec: Dictionary = run.reserve_of()[0]
+	var rec := RunRules.add_recruit(run, 0, "trooper")
 	assert_true(RunRules.apply(run, {"type": RunRules.DEPLOY, "player": 0, "sid": rec.id}), "deploy")
 	assert_eq(run.squad().size(), 3, "recruit joined")
 	assert_true(not RunRules.apply(run, {"type": RunRules.DEPLOY, "player": 0, "sid": rec.id}), "already deployed")

@@ -339,12 +339,12 @@ rewards"). Pure run-level rules like `RunRules`, plus one screen per node kind i
   player has sent `node_leave`), `pending_fight(run)`, `screen(kind) -> Script`, and
   `autoplay_actions(run)` (the actions that close the node with defaults: for absent players'
   timers and headless tests). The open screen is `run.node_state` (`kind` = event / depot /
-  hospital / survivors, `left` = players who have left).
+  hospital, `left` = players who have left).
 - **Actions** (all carry `player`, only in the NODE phase, benched players can't act):
   `node_choose {option, soldier?}`, `node_pass` (decline a volunteer step), `node_timeout` (host
   only: the 20 s choice timer ran out, missing picks take the default), `node_leave`;
   depot `node_buy {index, soldier?, slot?}`, `node_sell {soldier, slot}`, `node_reroll`;
-  hospital `node_treat {soldier, treatment: patch|purge|train|cure}`; survivors `node_claim`.
+  hospital `node_treat {soldier, treatment: patch|purge|train|cure}`.
 - **Events** are data in `EventData.EVENTS` (28, written in the world's voice; 8 lean on Port Ardent
   and 5 on the Bore), run by
   `EventRules`. An event is a graph of steps; each step is decided one of five ways: `vote`
@@ -385,7 +385,7 @@ Node events (`run.event`): `event_start` (`event`, `subject`), `event_step` (`ev
 `event_reveal` (`picks`), `event_end` (`event`, `results`, `fight`), `item_gained` (`sid`, `item`), `gun_gained` (`sid`, `gun`),
 `soldier_hp` / `soldier_infection` / `soldier_mutation` / `perk_pick` / `full_cure` / `sit_out`
 (`sid`, ...), `modifier` (`key`, `value`), `depot_open`, `depot_bought`, `depot_sold`,
-`depot_reroll`, `hospital_open`, `hospital_treat` (`soldier`, `treatment`), `survivors_found`,
+`depot_reroll`, `hospital_open`, `hospital_treat` (`soldier`, `treatment`), `revive_gained`,
 `node_leave` (`player`).
 
 Screens (`ui/nodes/`, look from the approved mockups via `NodeUi`) extend `node_screen.gd`: they
@@ -867,7 +867,7 @@ is benched).
 
 Module-owned fields (opaque to the framework, saved and synced as-is):
 - `run.gear` — GearRun (stash, reward offers, pity).
-- `run.node_state` — NodeRules: the open event/depot/hospital/survivors screen. Cleared on node exit.
+- `run.node_state` — NodeRules: the open event/depot/hospital screen. Cleared on node exit.
 - `run.modifiers` — effects for later, set by NodeRules/GearRun, consumed by the framework and
   FightBuilder: `extra_enemies` (int), `enemies_dead_at_start` (int), `ambush` (bool),
   `boss_health_mult` (float), `first_turn_action_loss` (Array of soldier ids), all one-shot (cleared
@@ -922,7 +922,7 @@ deploys in their place (`Progression.on_recruit_deployed(new_prog, lost_prog)` s
 layout), `type` (`RunMap.SKIRMISH`/`NEST`/`EVENT`/`DEPOT`/`HOSPITAL`/`SURVIVORS`/`BOSS`/`UNKNOWN`),
 `links` (ids in the next row), `objective` (`extract`/`hold`/`rescue`/`purge` for fights, `boss`),
 `seed` (fight seed), `visited`, `hidden` (an unrevealed "?"), `resolved` (what a "?" became:
-`event`/`ambush`/`depot`/`survivors`). Show `RunMap.shown_type(n)` on the map. Rules from the doc:
+`event`/`ambush`/`depot`). Show `RunMap.shown_type(n)` on the map. Rules from the doc:
 row 1 Skirmish, the second-to-last row Field hospital, the last row boss, the rows between rolled from the act weights (rolled rows from row 4 on are added rows and add no Outbreak) with the
 placement rules (no act-1 row-2 nest, no back-to-back depots/hospitals, a non-combat node on every
 path, a nest and a depot every act); links never cross, 1-2 out per node.
@@ -952,7 +952,7 @@ reason)`, `add_serum(run, player, samples, reason)`, `add_outbreak`, and
 ```
 MAP --vote--> enter_node: Outbreak +1, "?" resolves, then the node's steps:
   fight nodes (skirmish, ambush, nest, boss):  [fight, rewards]
-  other nodes (event, depot, hospital, survivors): [node]   (+ [fight, rewards] if pending_fight)
+  other nodes (event, depot, hospital): [node]   (+ [fight, rewards] if pending_fight)
 FIGHT   fight_config is set; every peer builds the GameState with MatchConfig.build and plays it.
         The host sends fight_end. Results: HP/Infection copied back, dead/Turned recorded,
         recruits deploy, 25% heal, income (Skirmish 40, nest 50 + 1 Serum sample per soldier
