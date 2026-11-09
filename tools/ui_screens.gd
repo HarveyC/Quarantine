@@ -65,7 +65,7 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 			await tree.process_frame
 			net.host(24690, "Harvey")
 			if players > 1:
-				net.lobby[7] = {"player": 1, "name": "Kestrel", "squad": ["marksman"]}
+				net.lobby[7] = {"player": 1, "name": "Kestrel", "squad": ["hazmat"]}
 				net.lobby[1]["squad"] = ["trooper", "medic", "breacher"]
 			m.show_lobby(net)
 		"solo-lobby", "hotseat-lobby":
@@ -74,7 +74,7 @@ static func build(tree: SceneTree, screen: String, players := 2) -> void:
 			await tree.process_frame
 			m.show_local_lobby(1 if screen == "solo-lobby" else players)
 			if screen == "hotseat-lobby":
-				m._local_picks = {0: ["trooper", "medic"], 1: ["breacher", "marksman"]}
+				m._local_picks = {0: ["trooper", "medic"], 1: ["breacher", "hazmat"]}
 				m._edit_player = 1
 				m._sel = 1
 				m._refresh_lobby()

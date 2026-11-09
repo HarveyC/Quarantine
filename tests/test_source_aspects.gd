@@ -7,7 +7,7 @@ const Director := preload("res://ui/story/story_director.gd")
 func _fight(aspect: String, squad := 2, names: Array = []) -> GameState:
 	var s := make_blank(_open(14, 14))
 	for i in squad:
-		var u := UnitData.make(["trooper", "marksman", "medic", "breacher"][i], Types.Team.PLAYER)
+		var u := UnitData.make(["trooper", "hazmat", "medic", "breacher"][i], Types.Team.PLAYER)
 		u.owner_player = 0
 		s.add_unit(u, Vector2i(2 + i * 3, 12))
 	s.grid.enemy_spawns.assign([Vector2i(7, 2)])

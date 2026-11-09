@@ -4,7 +4,7 @@ extends TestCase
 ## The view side is in test_enemy_view.gd.
 
 
-func _fight(squad: int, classes: Array = ["trooper", "medic", "breacher", "marksman"], seed := 4) -> GameState:
+func _fight(squad: int, classes: Array = ["trooper", "medic", "breacher", "hazmat"], seed := 4) -> GameState:
 	var fight := FightBuilder.build({"act": 3, "node": "boss", "objective": "boss", "outbreak": 0, "seed": seed,
 		"squad": squad, "players": 1, "boss": "lantern_echoes"})
 	var picked: Array = []
@@ -124,7 +124,7 @@ func test_killing_the_last_echo_ends_the_fight() -> void:
 
 
 func test_echoes_use_their_class_signature_on_their_turn() -> void:
-	var s := _fight(4, ["trooper", "marksman", "medic", "breacher"])
+	var s := _fight(4, ["trooper", "hazmat", "medic", "breacher"])
 	var echoes := LanternEchoes.echoes(s)
 	var foe: Unit = s.living(Types.Team.PLAYER)[0]
 	var used := {}
@@ -135,7 +135,6 @@ func test_echoes_use_their_class_signature_on_their_turn() -> void:
 		var action := LanternEchoes.choose(s, e, hostiles)
 		used[e.kind] = str(action.get("ability", action.get("type", "")))
 	assert_eq(used.trooper, "lockdown", "the Trooper Echo locks the nave down")
-	assert_eq(used.marksman, "deadeye", "the Marksman Echo takes its Deadeye")
 	assert_eq(used.breacher, "bring_down", "the Breacher Echo brings the cover down")
 
 

@@ -7,8 +7,8 @@ extends RefCounted
 
 ## Class -> signature ability id.
 const OF_CLASS := {
-	"trooper": "lockdown", "marksman": "deadeye", "medic": "quarantine_field", "breacher": "bring_down",
-	"hazmat": "flashover", "vector": "vent", "reaper": "death_sweep", "warden": "provoke",
+	"trooper": "lockdown", "medic": "quarantine_field", "breacher": "bring_down",
+	"hazmat": "flashover", "vector": "vent", "reaper": "death_sweep",
 }
 ## The gear tags each signature counts as.
 const TAGS := {

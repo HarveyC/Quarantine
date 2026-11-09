@@ -17,17 +17,6 @@ const PERKS := {
 	"battle_hardened": ["armor", "A bad hit pays for your next shot", [["free", "shot"]]],
 	"walking_fire": ["reload", "Overwatch reloads the gun", [["free", "reload"]]],
 	"suppressive_volley": ["suppress", "Suppress also wounds", [["1", "damage"]]],
-	# Marksman
-	"fresh_mag": ["reload", "Reloading Marks and guarantees a hit", [["1", "sure shot"]]],
-	"long_watch": ["overwatch", "An Overwatch hit keeps you on watch", [["1", "per phase"]]],
-	"expose": ["tag", "Marked enemies lose cover for the squad", [["-1", "cover step"]]],
-	"hunters_mark": ["tag", "Mark lasts longer and comes back faster", [["+1", "turn"], ["1", "cooldown"]]],
-	"deadeye": ["tag", "Marked enemies in the open always crit", [["100%", "crit"]]],
-	"relocate": ["move", "Steady Aim survives a short move", [["+1", "move"], ["2", "tiles"]]],
-	"double_tap": ["shoot", "A first-action kill refunds it", [["1", "per turn"]]],
-	"kill_zone": ["overwatch", "Overwatch fires twice", [["2", "targets"]]],
-	"high_perch": ["shoot", "From height, cover means nothing", [["3", "tile flare"]]],
-	"executioner": ["tag", "Finish wounded Marked enemies", [["50%", "HP"]]],
 	# Medic
 	"long_reach": ["medic", "Stim allies from range", [["3", "tiles"]]],
 	"field_kit": ["clock", "Stim comes back faster", [["1", "cooldown"]]],
@@ -78,14 +67,6 @@ const PERKS := {
 	"hamstring": ["wound", "Melee hits slow the target", [["-2", "enemy move"]]],
 	"red_mist": ["attack", "Never miss in melee at Critical", [["100%", "melee hit"]]],
 	"cleave": ["lunge", "Lunge hits everything around you", []],
-	# Warden
-	"vigilant": ["guard", "Brace bashes two enemies", [["2", "targets"]]],
-	"sterilize": ["purge", "Bashes clean you", [["-5", "Infection"]]],
-	"intimidate": ["suppress", "Bash also Suppresses its neighbours", []],
-	"shield_charge": ["shield_charge", "New ability: charge and Bash", [["3", "tiles"], ["3", "cooldown"]]],
-	"tower_shield": ["warden", "Bulwark gives full cover", []],
-	"last_wall": ["health", "Survive one killing blow and shield allies", [["1", "HP left"], ["+20", "ally defense"]]],
-	"unbreakable": ["armor", "Three hits taken trigger a shockwave", [["3", "damage"], ["stun", "all adjacent"]]],
 }
 
 ## Mutations: [icon, short, chips, drawback].

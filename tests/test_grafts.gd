@@ -196,7 +196,7 @@ func test_lattice_sight_senses_through_walls() -> void:
 
 
 func test_targeting_optic_marks_a_second_enemy() -> void:
-	var s := _state("marksman", {"head": "targeting_optic"})
+	var s := _state("trooper", {"head": "targeting_optic"})
 	var u := _me(s)
 	var a: Unit = s.add_unit(UnitData.make("runner", Types.Team.ENEMY), Vector2i(4, 0))
 	var b: Unit = s.add_unit(UnitData.make("runner", Types.Team.ENEMY), Vector2i(5, 1))

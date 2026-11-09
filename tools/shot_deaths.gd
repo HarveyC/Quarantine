@@ -23,8 +23,8 @@ func _init() -> void:
 		var s := MissionView.default_mission(1234)
 		Vision.disable(s)
 		var a: Unit = s.living(Types.Team.PLAYER)[0]
-		a.kind = "marksman"
-		a.display_name = UnitData.SOLDIERS["marksman"].name
+		a.kind = "hazmat"
+		a.display_name = UnitData.SOLDIERS["hazmat"].name
 		Weapons.equip_unit(a, "")
 		var t := _place_target(s, a)
 		t.kind = kind

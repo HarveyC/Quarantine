@@ -26,7 +26,7 @@ const PLAYER_UI: Array[Color] = [Color("a9c46e"), Color("e6c98f"), Color("8fb3c9
 ## Infection tier colours, indexed by Infection.Tier (CLEAN..TURNED).
 const TIER_COLORS: Array[Color] = [Color("6d7370"), Color("2ea88f"), Color("2ef2c8"), Color("b4f22e"), Color("e2533a")]
 
-const CLASS_LETTER := {"trooper": "T", "marksman": "M", "medic": "+", "breacher": "B"}
+const CLASS_LETTER := {"trooper": "T", "hazmat": "H", "medic": "+", "breacher": "B"}
 
 
 static func player_body(p: int) -> Color:

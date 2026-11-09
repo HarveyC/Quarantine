@@ -199,7 +199,7 @@ func test_unlocked_classes_and_vector_unlock() -> void:
 # ---------------------------------------------------------------- passives and perks
 
 func test_covering_fire_and_steadfast() -> void:
-	var s := _state(["trooper", "marksman"])
+	var s := _state(["trooper", "medic"])
 	var foe := _enemy(s, "spitter", Vector2i(1, 4))
 	var tr := _soldier(s, 0)
 	assert_true(Weapons.has_trait(tr, "pin"), "any gun pins")
@@ -213,17 +213,6 @@ func test_covering_fire_and_steadfast() -> void:
 	assert_true(not foe.overwatch, "Steadfast: a miss cancels overwatch")
 
 
-func test_steady_aim_and_relocate() -> void:
-	var s := _state(["marksman"])
-	var foe := _enemy(s, "spitter", Vector2i(8, 4))
-	var mk := _soldier(s, 0)
-	assert_eq(_term(Combat.hit_chance(s, mk, foe), "Steady Aim"), 10, "no move")
-	assert_true(Rules.apply(s, {"type": Types.MOVE, "unit": mk.id, "to": Vector2i(2, 0)}), "move 2")
-	assert_eq(_term(Combat.hit_chance(s, mk, foe), "Steady Aim"), 0, "moved")
-	_give(mk, ["relocate"])
-	assert_eq(_term(Combat.hit_chance(s, mk, foe), "Steady Aim"), 10, "Relocate keeps it within 2 tiles")
-
-
 func test_door_kicker_and_lockdown() -> void:
 	var s := _state(["breacher", "trooper"])
 	var foe := _enemy(s, "runner", Vector2i(2, 2))
@@ -233,19 +222,6 @@ func test_door_kicker_and_lockdown() -> void:
 	_give(tr, ["lockdown"])
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": tr.id, "ability": "suppress", "target": foe.id}), "suppress")
 	assert_eq(tr.actions_left, 1, "Lockdown: costs 1 action")
-
-
-func test_long_watch_and_deadeye() -> void:
-	var s := _state(["marksman"])
-	var foe := _enemy(s, "spitter", Vector2i(6, 3))
-	var mk := _soldier(s, 0)
-	_give(mk, ["long_watch", "deadeye"])
-	var base: int = Combat.hit_chance(s, mk, foe).crit
-	foe.status["tagged"] = Combat.phase_index(s) + 2
-	assert_eq(Combat.hit_chance(s, mk, foe).crit, 100, "Deadeye always crits a Marked enemy in the open")
-	mk.overwatch = true
-	assert_true(Kit.keep_overwatch(s, mk, foe), "Long Watch keeps the watch up")
-	assert_true(not Kit.keep_overwatch(s, mk, foe), "once per enemy phase")
 
 
 func test_last_stand_once() -> void:
@@ -360,7 +336,7 @@ func test_clotting_blood_heals_only_when_badly_hurt() -> void:
 
 
 func test_acid_spit_and_rally_musk() -> void:
-	var s := _state(["trooper", "marksman", "medic"])
+	var s := _state(["trooper", "breacher", "medic"])
 	var tr := _soldier(s, 0)
 	var mk := _soldier(s, 1)
 	_give(tr, [], {"mutating": "acid_spit"})
@@ -535,7 +511,7 @@ func test_fire_survives_snapshot() -> void:
 ## ability and mutation each turn. Must play to the end without script errors.
 func test_soak_every_power() -> void:
 	for seed in [3, 4, 5]:
-		var kinds := ["trooper", "marksman", "medic", "breacher", "hazmat", "vector"]
+		var kinds := ["trooper", "hazmat", "medic", "breacher", "hazmat", "vector"]
 		var squad: Array = []
 		for i in 4:
 			var k: String = kinds[(i + seed) % kinds.size()]
@@ -644,18 +620,7 @@ func test_every_perk_and_mutation_has_a_card_face() -> void:
 
 
 func test_content_pack_perks_damage() -> void:
-	var s := _state(["marksman", "hazmat", "vector"])
-	var foe := _enemy(s, "brute", Vector2i(8, 0))
-	foe.max_hp = 60
-	foe.hp = 60
-	var mk := _soldier(s, 0)
-	_give(mk, ["executioner"])
-	foe.status["tagged"] = Combat.phase_index(s) + 2
-	Kit.after_shot(s, mk, foe, {}, true)
-	assert_true(foe.hp == 60, "Executioner leaves a healthy enemy alone")
-	foe.hp = 20
-	Kit.after_shot(s, mk, foe, {}, true)
-	assert_true(not foe.is_alive(), "Executioner kills a Marked enemy at half HP")
+	var s := _state(["trooper", "hazmat", "vector"])
 	var hz := _soldier(s, 1)
 	_give(hz, ["fuel_line"])
 	var burner := _enemy(s, "brute", Vector2i(8, 2))
@@ -707,16 +672,6 @@ func test_content_pack_perks_defense() -> void:
 	assert_eq(Kit.ability_cost(md, "stim", 1), 0, "Steady Hands: the next Stim is free")
 
 
-func test_high_perch_needs_height() -> void:
-	var s := _state(["marksman"])
-	var foe := _enemy(s, "spitter", Vector2i(6, 0))
-	var mk := _soldier(s, 0)
-	_give(mk, ["high_perch"])
-	assert_eq(Kit.cover_against(s, mk, foe, Types.Cover.FULL, mk.pos), Types.Cover.FULL, "level ground: cover holds")
-	s.grid.set_level(mk.pos, 1)
-	assert_eq(Kit.cover_against(s, mk, foe, Types.Cover.FULL, mk.pos), Types.Cover.NONE, "shooting down ignores cover")
-
-
 func test_hold_the_line_covers_neighbours_and_symbiote_grants_actions() -> void:
 	var s := _state(["trooper", "medic", "vector"])
 	var tr := _soldier(s, 0)
@@ -736,5 +691,5 @@ func test_hold_the_line_covers_neighbours_and_symbiote_grants_actions() -> void:
 
 
 func test_new_perks_in_every_pool() -> void:
-	for k in ["trooper", "marksman", "medic", "breacher", "hazmat", "vector"]:
+	for k in ["trooper", "hazmat", "medic", "breacher", "hazmat", "vector"]:
 		assert_true(PerkData.pool(k).size() >= 9, "%s has 9+ perks" % k)

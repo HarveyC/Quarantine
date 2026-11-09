@@ -19,7 +19,7 @@ func _soldier(s: GameState, kind: String, at: Vector2i) -> Unit:
 func _state(squad := 4) -> GameState:
 	var s := make_blank(_open(20, 20))
 	_soldier(s, "trooper", Vector2i(2, 18))
-	_soldier(s, "marksman", Vector2i(5, 18))
+	_soldier(s, "trooper", Vector2i(5, 18))
 	_soldier(s, "medic", Vector2i(14, 18))
 	_soldier(s, "breacher", Vector2i(17, 18))
 	s.grid.enemy_spawns.assign([Vector2i(10, 2)])

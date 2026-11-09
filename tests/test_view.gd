@@ -435,14 +435,14 @@ func test_characters_are_rigged() -> void:
 		var m := ModelKit.instantiate(kind, true)
 		assert_true(ModelKit.is_skinned(m), "%s is skinned" % kind)
 		var body := SkinnedBody.new()
-		body.setup(m, kind not in ["trooper", "marksman", "medic", "breacher", "civilian"])
+		body.setup(m, kind not in ["trooper", "hazmat", "medic", "breacher", "civilian"])
 		for pose in ["idle", "walk", "death"]:
 			if pose == "death" and kind in ModelKit.NO_DEATH_CLIP:
 				continue   # these rigs topple procedurally
 			if kind in ModelKit.NO_CLIPS:
 				continue   # rest-pose creature: the unit view moves it
 			assert_true(body.has_clip(pose), "%s has a %s clip" % [kind, pose])
-		if kind in ["trooper", "marksman", "medic", "breacher"]:
+		if kind in ["trooper", "hazmat", "medic", "breacher"]:
 			assert_true(body.armed, "%s carries a weapon" % kind)
 			assert_true(body.skel.find_bone("muzzle") >= 0, "%s has a muzzle" % kind)
 			assert_eq(ModelKit.growths(m).size() >= 3, true, "%s has infection growths" % kind)
@@ -630,14 +630,14 @@ func _melee_view(kind: String) -> Node3D:
 ## sidearm only to shoot; the Warden's Guard stance raises the shield.
 func test_melee_classes_hold_melee_props_and_draw_the_sidearm() -> void:
 	var MeleeKit := preload("res://view/melee_kit.gd")
-	for kind in ["reaper", "warden"]:
+	for kind in ["reaper"]:
 		var uv = _melee_view(kind)
 		assert_true(uv.is_melee_class(), "%s is a melee class" % kind)
 		assert_true(not uv._skin.armed, "%s holds no rifle by IK" % kind)
 		var weapon := uv._model.find_child("melee_weapon", true, false) as Node3D
 		var drawn := uv._model.find_child("sidearm_drawn", true, false) as Node3D
 		assert_true(weapon != null and drawn != null, "%s has its melee weapon and sidearm" % kind)
-		assert_true(uv._model.find_child("shield", true, false) != null if kind == "warden" else uv._model.find_child("bloom_arm", true, false) != null, "%s class prop" % kind)
+		assert_true(uv._model.find_child("bloom_arm", true, false) != null, "%s class prop" % kind)
 		uv.tick(0.05)
 		assert_true(weapon.visible and not drawn.visible, "%s: melee weapon in hand at rest" % kind)
 		uv.aim_now(1.0)
@@ -651,11 +651,6 @@ func test_melee_classes_hold_melee_props_and_draw_the_sidearm() -> void:
 		uv.tick(0.5)
 		assert_true(weapon.visible and not drawn.visible, "%s: sidearm holstered again" % kind)
 		assert_true(MeleeKit.size_of(kind) > 0.9, "size")
-		if kind == "warden":
-			uv.set_guard(true)
-			uv.tick(0.5)
-			assert_eq(String(uv._skin.player.current_animation), "Idle_Shield", "guard raises the shield")
-			assert_true(uv._status_label.text.contains("GUARD"), "guard tag")
 		uv.free()
 
 
@@ -663,7 +658,7 @@ func test_melee_class_events_play() -> void:
 	var s := MissionView.default_mission(1234)
 	var squad := s.living(Types.Team.PLAYER)
 	squad[0].kind = "reaper"
-	squad[2].kind = "warden"
+	squad[2].kind = "reaper"
 	var v: MissionView = MAIN.instantiate()
 	v.start(s, true)
 	v.player.flush()
@@ -730,7 +725,7 @@ func test_unit_ability_highlights_its_targets() -> void:
 	v.input.cancel()
 	assert_true(v.input.unit_targets.is_empty(), "cleared on cancel")
 	var Icons := preload("res://ui/icons.gd")
-	for k in ["reaper", "warden"]:
+	for k in ["reaper"]:
 		assert_eq(Icons.for_class(k), k, "%s class icon" % k)
 	for id in ["lunge", "bash", "guard", "shield_charge"]:
 		assert_eq(Icons.for_action({"id": id}), id, "%s icon" % id)

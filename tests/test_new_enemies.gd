@@ -110,8 +110,8 @@ func test_hook_breaks_without_line_of_sight_or_when_suppressed() -> void:
 
 func test_the_first_soldier_on_the_line_takes_the_hook() -> void:
 	var s := make_blank(_open(14, 5))
-	var far := _soldier(s, "marksman", Vector2i(2, 2))
-	var near := _soldier(s, "warden", Vector2i(5, 2))
+	var far := _soldier(s, "trooper", Vector2i(2, 2))
+	var near := _soldier(s, "reaper", Vector2i(5, 2))
 	var h := _enemy(s, "hooker", Vector2i(10, 2))
 	Vision.disable(s)
 	h.status["hooked"] = far.id

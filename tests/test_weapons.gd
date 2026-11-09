@@ -30,9 +30,10 @@ func test_every_class_has_a_distinct_weapon() -> void:
 		seen[id] = kind
 
 
-func test_marksman_rifle_has_no_range_falloff_but_hates_close_range() -> void:
+func test_dmr_has_no_range_falloff_but_hates_close_range() -> void:
 	var s := make_blank(PackedStringArray(OPEN))
-	var m := _add(s, "marksman", Types.Team.PLAYER, Vector2i(0, 0))
+	var m := _add(s, "trooper", Types.Team.PLAYER, Vector2i(0, 0))
+	m.status["weapon"] = "dmr"   # the Director's and Sharpshooter's rifle
 	var near := _add(s, "runner", Types.Team.ENEMY, Vector2i(2, 0))
 	var far := _add(s, "runner", Types.Team.ENEMY, Vector2i(13, 0))
 	assert_eq(_term(Combat.hit_chance(s, m, far), "Long range"), null, "no long range penalty at 13")
@@ -138,16 +139,16 @@ func test_alternate_guns_are_well_formed() -> void:
 		# Melee classes hold one-handed alternates in the sidearm's hand (view/melee_kit.gd).
 		assert_true(GunModels.GUNS.has(g.look) or g.look in ["sidearm", "revolver"], "%s look has a model" % id)
 		if g.look in ["sidearm", "revolver"]:
-			assert_true(g.classes.all(func(k): return k in ["reaper", "warden"]), "%s pistol is melee-only" % id)
+			assert_true(g.classes.all(func(k): return k in ["reaper", "reaper"]), "%s pistol is melee-only" % id)
 		for k in g.classes:
-			assert_true(UnitData.SOLDIERS.has(k) or k in ["reaper", "warden"], "%s class %s" % [id, k])
-	for kind in ["trooper", "marksman", "medic", "breacher", "hazmat", "vector", "reaper", "warden"]:
+			assert_true(UnitData.SOLDIERS.has(k) or k in ["reaper", "reaper"], "%s class %s" % [id, k])
+	for kind in ["trooper", "hazmat", "medic", "breacher", "hazmat", "vector", "reaper", "reaper"]:
 		assert_true(Weapons.alternates_for(kind).size() >= 2, "%s has at least 2 alternate guns" % kind)
 
 
 func test_alternate_gun_changes_the_shot() -> void:
 	var s := make_blank(PackedStringArray(OPEN))
-	var m := _add(s, "marksman", Types.Team.PLAYER, Vector2i(0, 0))
+	var m := _add(s, "trooper", Types.Team.PLAYER, Vector2i(0, 0))
 	var aim := m.aim
 	var dmg := m.damage
 	var mob := m.mobility
@@ -192,7 +193,7 @@ func _foe(s: GameState, at: Vector2i, hp := 30) -> Unit:
 
 func test_pierce_carries_on_for_half_damage() -> void:
 	var s := make_blank(PackedStringArray(OPEN))
-	var u := _armed(s, "marksman", "anti_materiel", Vector2i(0, 0))
+	var u := _armed(s, "trooper", "anti_materiel", Vector2i(0, 0))
 	var a := _foe(s, Vector2i(3, 0))
 	var b := _foe(s, Vector2i(4, 0))
 	Weapons.after_hit(s, u, a, 6, false)
@@ -232,7 +233,7 @@ func test_breach_and_door_kicker_take_cover_away() -> void:
 func test_skirmisher_barbs_tranq_and_recoil() -> void:
 	var s := make_blank(PackedStringArray(OPEN))
 	s.turn = 2
-	var sc := _armed(s, "marksman", "scout_carbine", Vector2i(0, 0))
+	var sc := _armed(s, "trooper", "scout_carbine", Vector2i(0, 0))
 	sc.status["gear_moved_turn"] = 2
 	sc.status["gear_move_len"] = 4
 	assert_true(Weapons.skirmish_free(s, sc), "a long move frees the first shot")

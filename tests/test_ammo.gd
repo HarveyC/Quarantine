@@ -186,17 +186,6 @@ func test_scavenger_rounds_give_one_back_on_a_kill() -> void:
 	assert_eq(Ammo.rounds(u), before, "spent one, got one back")
 
 
-func test_fresh_mag_perk_marks_and_guarantees_the_next_shot() -> void:
-	var s := _state()
-	var u := _soldier(s, "marksman")
-	u.status["perks"] = ["fresh_mag"]
-	var foe := _foe(s)
-	u.status["ammo"] = 1
-	assert_true(_reload(s, u), "reload")
-	assert_true(Combat.has_status(s, foe, "tagged"), "the reload Marks the nearest enemy")
-	assert_eq(int(Combat.hit_chance(s, u, foe).hit), 100, "and the next shot can't miss")
-
-
 func test_bone_magazine_shoots_empty_for_infection() -> void:
 	var s := _state()
 	var u := _soldier(s)

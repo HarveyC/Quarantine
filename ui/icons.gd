@@ -4,8 +4,8 @@ extends RefCounted
 
 const IconArt := preload("res://ui/icon_art.gd")
 
-const CLASS_ICON := {"trooper": "trooper", "marksman": "marksman", "medic": "medic", "breacher": "breacher",
-	"hazmat": "hazmat", "vector": "vector", "reaper": "reaper", "warden": "warden"}
+const CLASS_ICON := {"trooper": "trooper", "medic": "medic", "breacher": "breacher",
+	"hazmat": "hazmat", "vector": "vector", "reaper": "reaper"}
 const ABILITY_ICON := {"suppress": "suppress", "tag": "tag", "stim": "medic", "breach": "breach",
 	"incinerate": "incinerate", "siphon": "siphon", "lunge": "lunge", "bash": "bash", "swap_weapon": "reload", "guard": "guard", "shield_charge": "shield_charge",
 	"item:frag_grenade": "grenade", "item:demo_charge": "charge",
@@ -75,12 +75,6 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 		"trooper":
 			line.call([[5, 13], [12, 8], [19, 13]])
 			line.call([[5, 19], [12, 14], [19, 19]])
-		"marksman":
-			circle.call(12, 12, 7)
-			line.call([[12, 2], [12, 7]])
-			line.call([[12, 17], [12, 22]])
-			line.call([[2, 12], [7, 12]])
-			line.call([[17, 12], [22, 12]])
 		"medic":
 			line.call([[9, 3], [15, 3], [15, 9], [21, 9], [21, 15], [15, 15], [15, 21], [9, 21], [9, 15], [3, 15], [3, 9], [9, 9], [9, 3]])
 		"breacher":
@@ -90,12 +84,6 @@ static func draw(ci: CanvasItem, id: String, rect: Rect2, color: Color, width :=
 			line.call([[7, 21], [10, 18], [6, 14], [3, 17], [7, 21]])
 			line.call([[8, 15], [19, 4], [21, 5], [12, 18]])
 			line.call([[10, 13], [10.5, 11], [12, 11], [12.5, 9], [14, 9], [14.5, 7], [16, 7]])
-		"warden":   # a riot shield with its viewport slit
-			line.call([[7, 3], [17, 3], [20, 6], [20, 18], [17, 21], [7, 21], [4, 18], [4, 6], [7, 3]])
-			line.call([[8, 8], [16, 8]])
-			line.call([[7, 16], [9, 18]])
-			line.call([[11, 16], [13, 18]])
-			line.call([[15, 16], [17, 18]])
 		"lunge":   # a blade thrust forward with speed lines
 			line.call([[3, 21], [6, 18]])
 			line.call([[5, 16], [9, 20]])

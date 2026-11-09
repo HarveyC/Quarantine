@@ -4,7 +4,7 @@ extends TestCase
 const FightDebrief := preload("res://ui/fight_debrief.gd")
 
 const SQUAD := [
-	{"kind": "trooper", "player": 0}, {"kind": "marksman", "player": 0},
+	{"kind": "trooper", "player": 0}, {"kind": "hazmat", "player": 0},
 	{"kind": "medic", "player": 1}, {"kind": "breacher", "player": 1},
 ]
 
@@ -161,7 +161,7 @@ func test_two_soldier_hold_is_never_lost_on_turn_one() -> void:
 		var spec := {"act": 1, "row": 2, "node": "skirmish", "objective": "hold", "outbreak": 0,
 			"seed": seed, "players": 1, "squad": 2, "modifiers": {}}
 		var built := FightBuilder.build(spec)
-		var s := MatchConfig.build({"map": MatchConfig.MAP, "squad": [{"kind": "marksman", "player": 0}, {"kind": "trooper", "player": 0}],
+		var s := MatchConfig.build({"map": MatchConfig.MAP, "squad": [{"kind": "hazmat", "player": 0}, {"kind": "trooper", "player": 0}],
 			"enemies": built.enemies, "encounter": built.encounter, "seed": seed,
 			"map_spec": {"biome": RunMap.biome(1), "objective": "hold", "seed": seed, "act": 1, "row": 2, "outbreak": 0}})
 		Rules.start_mission(s)

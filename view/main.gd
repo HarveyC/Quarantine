@@ -87,7 +87,7 @@ func _exit_tree() -> void:
 
 static func default_mission(seed: int = 0, objective: String = "", biome := "wall") -> GameState:
 	var squad := [
-		{"kind": "trooper", "player": 0}, {"kind": "marksman", "player": 0},
+		{"kind": "trooper", "player": 0}, {"kind": "hazmat", "player": 0},
 		{"kind": "medic", "player": 1}, {"kind": "breacher", "player": 1},
 	]
 	var enemies: Array[String] = ["runner", "runner", "spitter", "runner", "spitter"]

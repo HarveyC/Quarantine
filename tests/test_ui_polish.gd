@@ -169,8 +169,8 @@ func test_local_lobby_picks_squad_size() -> void:
 	assert_eq(m._sel, 2, "the newest soldier is selected")
 	assert_eq(m._soldier_row.get_child_count(), 3, "a tile per soldier")
 	m._sel = 0
-	m._set_squad(["medic", "marksman", "breacher"])
-	assert_eq(m._local_plan()[0], ["medic", "marksman", "breacher"], "classes set per soldier")
+	m._set_squad(["medic", "trooper", "breacher"])
+	assert_eq(m._local_plan()[0], ["medic", "trooper", "breacher"], "classes set per soldier")
 	var got := []
 	m.local_run_requested.connect(func(players: int, picks: Dictionary) -> void: got.append([players, picks]))
 	m._start_run_btn.pressed.emit()

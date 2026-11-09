@@ -5,7 +5,7 @@ extends RefCounted
 
 static var enabled := true
 const CAREFUL_RANGE := 2
-const SOLDIER_MELEE := ["reaper", "warden"]
+const SOLDIER_MELEE := ["reaper"]
 
 
 ## True when `w` could swing at anyone leaving its reach.

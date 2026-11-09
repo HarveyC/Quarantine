@@ -134,10 +134,11 @@ func test_wildfire_fire_tiles_ignore_armour_too() -> void:
 
 func test_warrant_marks_never_expire_and_the_squad_aims_better() -> void:
 	var s := _state()
-	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(1, 4))
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(1, 4))
 	var ally := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 4))
 	var foe := _add(s, "runner", Types.Team.ENEMY, Vector2i(8, 4))
 	_stack(u, "Mark", 6)
+	u.abilities.append("tag")
 	Rules.apply(s, {"type": Types.ABILITY, "unit": u.id, "ability": "tag", "target": foe.id})
 	assert_true(foe.status.get("warrant", false), "the Marksman's Mark is a Warrant")
 	assert_eq(_term(Combat.hit_chance(s, ally, foe), "Warrant"), GearFx.WARRANT_AIM, "+20 aim for the squad")
@@ -146,9 +147,10 @@ func test_warrant_marks_never_expire_and_the_squad_aims_better() -> void:
 	assert_true(Combat.has_status(s, foe, "tagged"), "forty turns later it is still Marked")
 	# A Mark from a soldier without the capstone is an ordinary one.
 	var s2 := _state()
-	var u2 := _add(s2, "marksman", Types.Team.PLAYER, Vector2i(1, 4))
+	var u2 := _add(s2, "trooper", Types.Team.PLAYER, Vector2i(1, 4))
 	var foe2 := _add(s2, "runner", Types.Team.ENEMY, Vector2i(8, 4))
 	_stack(u2, "Mark", 5)
+	u2.abilities.append("tag")
 	Rules.apply(s2, {"type": Types.ABILITY, "unit": u2.id, "ability": "tag", "target": foe2.id})
 	assert_true(not foe2.status.get("warrant", false), "five pieces is just the set bonus")
 	GearTags.set_progression(false)
@@ -156,7 +158,7 @@ func test_warrant_marks_never_expire_and_the_squad_aims_better() -> void:
 
 func test_warrant_kill_refunds_an_action_once_a_turn_and_the_mark_jumps() -> void:
 	var s := _state()
-	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(1, 4))
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(1, 4))
 	var a := _add(s, "runner", Types.Team.ENEMY, Vector2i(6, 4))
 	var b := _add(s, "runner", Types.Team.ENEMY, Vector2i(8, 4))
 	var c := _add(s, "runner", Types.Team.ENEMY, Vector2i(9, 4))
@@ -179,7 +181,7 @@ func test_warrant_kill_refunds_an_action_once_a_turn_and_the_mark_jumps() -> voi
 
 func test_field_of_fire_keeps_overwatch_up_for_every_mover() -> void:
 	var s := _state()
-	var w := _add(s, "marksman", Types.Team.PLAYER, Vector2i(1, 4))
+	var w := _add(s, "trooper", Types.Team.PLAYER, Vector2i(1, 4))
 	var e1 := _add(s, "runner", Types.Team.ENEMY, Vector2i(6, 4))
 	var e2 := _add(s, "runner", Types.Team.ENEMY, Vector2i(7, 5))
 	w.overwatch = true
@@ -195,7 +197,7 @@ func test_field_of_fire_keeps_overwatch_up_for_every_mover() -> void:
 	assert_true(w.overwatch, "a real reaction shot leaves the watcher on overwatch")
 	# Five pieces: a reaction shot spends overwatch as usual.
 	var s2 := _state()
-	var w2 := _add(s2, "marksman", Types.Team.PLAYER, Vector2i(1, 4))
+	var w2 := _add(s2, "trooper", Types.Team.PLAYER, Vector2i(1, 4))
 	var e3 := _add(s2, "runner", Types.Team.ENEMY, Vector2i(6, 4))
 	w2.overwatch = true
 	w2.status["ow_until"] = Combat.phase_index(s2) + 2
@@ -285,7 +287,7 @@ func test_kindled_spores_ignite_the_target_and_burn_off_spores() -> void:
 # --- the easy builds ---------------------------------------------------------------------
 
 func test_easy_builds_are_legal_and_reach_six_in_their_tag() -> void:
-	assert_eq(Builds.EASY.size(), 8, "eight easy builds")
+	assert_eq(Builds.EASY.size(), 6, "six easy builds")
 	var classes := {}
 	for id in Builds.BUILDS:
 		var b: Dictionary = Builds.BUILDS[id]
@@ -312,7 +314,7 @@ func test_easy_builds_are_legal_and_reach_six_in_their_tag() -> void:
 		assert_true(int(counts.get(b.tag, 0)) >= GearData.CAPSTONE_THRESHOLD, "%s reaches %d %s (has %d)" % [id, GearData.CAPSTONE_THRESHOLD, b.tag, counts.get(b.tag, 0)])
 		if GearData.has_capstone(b.tag):
 			assert_true(GearTags.active_capstones(counts).has(b.tag), "%s switches its capstone on" % id)
-	assert_eq(classes.size(), 8, "one easy build per class")
+	assert_eq(classes.size(), 6, "one easy build per class")
 	for tag in GearData.capstone_tags():
 		assert_true(Builds.BUILDS.values().any(func(b): return b.tag == tag), "a build reaches the %s capstone" % tag)
 	GearTags.set_progression(false)
@@ -334,21 +336,6 @@ func test_renames_merges_and_retags() -> void:
 	assert_true(MetaUnlocks.PACKS.gear_2.content.has("crossfire") and MetaUnlocks.PACKS.gear_2.content.has("quarantine_field"),
 		"Crossfire and Quarantine field moved to Specialist")
 	assert_true(not MetaUnlocks.PACKS.gear_3.content.has("crossfire"), "and left Prototype")
-
-
-func test_last_wall_shields_the_allies_next_to_it() -> void:
-	var s := _state()
-	var w := _add(s, "warden", Types.Team.PLAYER, Vector2i(4, 4))
-	var ally := _add(s, "medic", Types.Team.PLAYER, Vector2i(5, 4))
-	var far := _add(s, "trooper", Types.Team.PLAYER, Vector2i(0, 0))
-	var foe := _add(s, "runner", Types.Team.ENEMY, Vector2i(7, 4))
-	w.status["perks"] = ["last_wall"]
-	w.hp = 3
-	s.phase = Types.Phase.ENEMY
-	Rules.deal_damage(s, w, 9, foe)
-	assert_eq(w.hp, 1, "dropped to 1 HP instead of dying")
-	assert_eq(_term(Combat.hit_chance(s, foe, ally), "Last Wall"), -Kit.LAST_WALL_DEFENSE, "the adjacent ally gets +20 defense")
-	assert_eq(_term(Combat.hit_chance(s, foe, far), "Last Wall"), 0, "the far one does not")
 
 
 func test_shaped_charge_breach_brings_down_the_walls_around_the_target() -> void:

@@ -89,8 +89,9 @@ func test_intro_shows_once_at_the_unlock_rank() -> void:
 
 func test_deadeye_never_misses_and_marks() -> void:
 	var s := _state()
-	var m := _soldier(s, "marksman", Vector2i(1, 2))
-	var foe := _foe(s, Vector2i(10, 2))
+	var m := _soldier(s, "trooper", Vector2i(1, 2))
+	m.abilities.append("deadeye")   # the Deadeye scope grants it
+	var foe := _foe(s, Vector2i(8, 2))
 	Vision.refresh(s)
 	assert_true(_use(s, m, "deadeye", foe), "deadeye")
 	assert_true(foe.hp <= 40 - (m.damage.x + Signatures.DEADEYE_BONUS), "hit for the bonus")
@@ -156,11 +157,12 @@ func test_quarantine_field_blocks_infection() -> void:
 
 func test_provoke_pulls_aggro_and_cuts_damage() -> void:
 	var s := _state()
-	var w := _soldier(s, "warden", Vector2i(3, 2))
+	var w := _soldier(s, "reaper", Vector2i(3, 2))
+	w.abilities.append("provoke")   # the Provoke horn grants it
 	var other := _soldier(s, "trooper", Vector2i(3, 3))
 	var foe := _foe(s, Vector2i(6, 2))
 	assert_true(_use(s, w, "provoke"), "provoke")
-	assert_true(Kit.target_bias(s, foe, w) > Kit.target_bias(s, foe, other), "enemies pick the Warden")
+	assert_true(Kit.target_bias(s, foe, w) > Kit.target_bias(s, foe, other), "enemies pick the provoker")
 	assert_eq(Kit.modify_incoming(s, w, 3, foe), 2, "one less damage")
 	assert_eq(Kit.modify_incoming(s, other, 3, foe), 3, "others unchanged")
 

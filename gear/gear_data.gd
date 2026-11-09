@@ -389,7 +389,7 @@ const CONSUMABLE_CHARGES := 2  # a consumable reward card gives 2 charges
 ## Every soldier starts a run (or joins as a recruit) with one charge of a class consumable.
 ## A class not listed here gets a random one from STARTER_FALLBACK.
 const STARTER_CONSUMABLES := {
-	"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit",
+	"trooper": "frag_grenade", "medic": "medkit",
 	"breacher": "demo_charge", "hazmat": "suppressant_shot", "vector": "stim",
 }
 const STARTER_FALLBACK: Array[String] = ["medkit", "flashbang", "smoke_grenade"]
@@ -412,15 +412,15 @@ const DOCTRINES := {
 
 ## What a soldier of each class starts a run carrying: the active that used to be the class's own.
 const CLASS_KIT := {
-	"trooper": ["rig_suppress"], "marksman": ["rig_tag"], "medic": ["rig_stim"], "breacher": ["rig_breach"],
-	"hazmat": ["rig_incinerate"], "vector": ["rig_siphon"], "reaper": ["reaper_blade"], "warden": ["trench_maul"],
+	"trooper": ["rig_suppress"], "medic": ["rig_stim"], "breacher": ["rig_breach"],
+	"hazmat": ["rig_incinerate"], "vector": ["rig_siphon"], "reaper": ["reaper_blade"],
 }
 
 ## Natural tag lanes per class (starting kit and the "on build" card before a soldier has tags).
 const CLASS_LANES := {
-	"trooper": ["Guard", "Suppress"], "marksman": ["Mark", "Overwatch"], "medic": ["Purge", "Guard"],
+	"trooper": ["Guard", "Suppress"], "medic": ["Purge", "Guard"],
 	"breacher": ["Close", "Suppress"], "hazmat": ["Burn", "Purge"], "vector": ["Strain", "Purge"],
-	"reaper": ["Close", "Strain"], "warden": ["Guard", "Purge"],
+	"reaper": ["Close", "Strain"],
 }
 
 

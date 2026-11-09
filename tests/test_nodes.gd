@@ -10,7 +10,7 @@ const OPS := ["gun", "supplies", "outbreak", "infection", "heal_pct", "hurt_pct"
 ## the second soldier each is added by hand to cover owner-vs-other-soldier rules.
 func _run(seed: int = 7) -> RunState:
 	var run := RunRules.new_run(2, seed, {}, {0: "trooper", 1: "medic"})
-	run.soldiers.insert(1, RunSoldier.make(run, "marksman", 0))
+	run.soldiers.insert(1, RunSoldier.make(run, "trooper", 0))
 	run.soldiers.insert(3, RunSoldier.make(run, "breacher", 1))
 	for i in run.soldiers.size():   # sids in squad order: 1-4 squad, 5-6 reserves
 		run.soldiers[i].id = i + 1

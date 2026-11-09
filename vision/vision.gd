@@ -21,7 +21,7 @@ extends RefCounted
 const SOLDIER_SIGHT := 8
 const ENEMY_SIGHT := 8
 ## Per-kind sight radius overrides.
-const KIND_SIGHT := {"marksman": 10, "turret": 6, "decoy": 0}
+const KIND_SIGHT := {"turret": 6, "decoy": 0}
 const HIGH_GROUND_BONUS := 2
 ## An attacker is visible for this many half-turns (an enemy that shoots in the enemy phase
 ## stays visible through the next squad phase).

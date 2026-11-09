@@ -35,7 +35,7 @@ var _steps: Array = [
 	["wait", 20], ["idle"], ["wait", 40], ["save", "1-start"],
 	["select", "trooper"], ["hover", Vector2i(9, 7)], ["wait", 20], ["save", "2-path-spotted"],
 	["hover", Vector2i(12, 6)], ["wait", 20], ["save", "3-enemy-sight"],
-	["use", "marksman", "item:smoke_grenade", Vector2i(9, 7)], ["wait", 24], ["save", "4-smoke-throw"],
+	["use", "hazmat", "item:smoke_grenade", Vector2i(9, 7)], ["wait", 24], ["save", "4-smoke-throw"],
 	["idle"], ["select", "trooper"], ["hover", Vector2i(9, 7)], ["wait", 40], ["save", "5-smoke-pocket"],
 	["move", "trooper", Vector2i(10, 5)], ["until", "concealment_lost"], ["wait", 10], ["save", "6-spotted"],
 	["idle"], ["wait", 20], ["save", "7-detected"],
@@ -53,7 +53,7 @@ func _init() -> void:
 	_s.grid = Grid.from_rows(PackedStringArray(ROWS))
 	_s.players.assign([0])
 	Vision.disable(_s)
-	for k in [["trooper", Vector2i(6, 6)], ["marksman", Vector2i(4, 8)], ["medic", Vector2i(3, 6)]]:
+	for k in [["trooper", Vector2i(6, 6)], ["hazmat", Vector2i(4, 8)], ["medic", Vector2i(3, 6)]]:
 		var u := _s.add_unit(UnitData.make(k[0], Types.Team.PLAYER), k[1])
 		u.owner_player = 0
 		_sol[k[0]] = u
@@ -61,7 +61,7 @@ func _init() -> void:
 		_s.add_unit(EnemyRoster.make(k[0]), k[1])
 	Encounter.setup(_s, {"concealed": true})
 	GearTags.set_progression(null)
-	for k in [["marksman", "smoke_grenade"], ["trooper", "flashbang"]]:
+	for k in [["hazmat", "smoke_grenade"], ["trooper", "flashbang"]]:
 		var rec := {"id": _sol[k[0]].id, "kind": k[0]}
 		Loadout.add_consumable(rec, k[1], 1)
 		GearRun.apply_to_unit(_sol[k[0]], rec)

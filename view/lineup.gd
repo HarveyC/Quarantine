@@ -60,7 +60,7 @@ func _ready() -> void:
 				{"head": "targeting_optic", "arm": "bloom_limb", "chest": "plated_ribs", "legs": "runner_legs"},
 				{"head": "lattice_sight", "arm": "servo_arm", "chest": "heart_knot", "legs": "hydraulic_legs"},
 				_path_set(GraftData.BLOOM)]
-			var who := ["trooper", "marksman", "reaper", "breacher", "medic", "trooper"]
+			var who := ["trooper", "hazmat", "reaper", "breacher", "medic", "trooper"]
 			var inf := [0, 10, 60, 30, 55, 100]
 			for i in sets.size():
 				var uv := _spawn(who[i], i % 2, inf[i], sets[i])
@@ -77,9 +77,9 @@ func _ready() -> void:
 					uv.set_turned()
 		_:
 			# squad (and a civilian) in front, the infected behind them
-			var kinds := ["trooper", "marksman", "medic", "breacher", "hazmat", "vector", "reaper", "warden", "civilian"]
+			var kinds := ["trooper", "medic", "breacher", "hazmat", "vector", "reaper", "civilian"]
 			for i in kinds.size():
-				var uv := _spawn(kinds[i], [0, 0, 1, 1, 0, 1, 0, 1, -1][i], 0)
+				var uv := _spawn(kinds[i], [0, 0, 1, 1, 0, 1, -1][i], 0)
 				uv.position = Vector3((i - (kinds.size() - 1) * 0.5) * 1.05, 0, 1.2)
 			var x := -6.2
 			for k in ENEMIES:

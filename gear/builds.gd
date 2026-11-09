@@ -1,7 +1,7 @@
 class_name Builds
 extends RefCounted
-## The starter builds from the class build atlas: one easy build per class, plus Killbox for the
-## Overwatch capstone. Each is a complete, legal soldier (class perks, one item per gear slot,
+## The starter builds from the class build atlas: one easy build per class, plus Spotter and Killbox for the Mark and
+## Overwatch capstones. Each is a complete, legal soldier (class perks, one item per gear slot,
 ## Grafts, mutations, an alternate gun) that reaches CAPSTONE_THRESHOLD in its lane tag, so a
 ## player who follows it has the capstone on by Act 2. The balance sim can play them as "full
 ## build" squads; tests/test_capstones.gd keeps every one honest as the tag tables change.
@@ -15,10 +15,10 @@ const BUILDS := {
 		"perks": ["steadfast", "hold_the_line", "battle_hardened", "last_stand"],
 		"gear": ["compensator", "shock_rounds", "plated_ribs", "deployable_cover"],
 		"grafts": {}, "mutations": {}, "gun": "pump_shotgun", "infection": 0},
-	"spotter": {"class": "marksman", "name": "Spotter", "tag": "Mark",
-		"perks": ["hunters_mark", "expose", "deadeye", "executioner"],
-		"gear": ["laser_sight", "tracer_rounds", "targeting_optic", "flare_launcher"],
-		"grafts": {}, "mutations": {}, "gun": "anti_materiel", "infection": 0},
+	"spotter": {"class": "trooper", "name": "Spotter", "tag": "Mark",
+		"perks": [],
+		"gear": ["laser_sight", "tracer_rounds", "targeting_optic", "rig_tag"],
+		"grafts": {}, "mutations": {"exposed": "spore_sense"}, "gun": "anti_materiel", "infection": 30},
 	"field_surgeon": {"class": "medic", "name": "Field Surgeon", "tag": "Purge",
 		"perks": ["long_reach", "transfusion", "calm_voice", "field_surgeon"],
 		"gear": ["bayonet", "purge_canister", "filter_mask", "med_injector", "plated_ribs"],
@@ -41,19 +41,15 @@ const BUILDS := {
 		"gear": ["bayonet", "slug_rounds", "plated_ribs", "deployable_cover", "riot_shield"],
 		"grafts": {"legs": "hydraulic_legs"}, "mutations": {"mutating": "chitin_plates"},
 		"gun": "", "infection": 55},
-	"hold_the_door": {"class": "warden", "name": "Hold the Door", "tag": "Guard",
-		"perks": ["tower_shield", "vigilant", "unbreakable", "last_wall"],
-		"gear": ["compensator", "shock_rounds", "plated_ribs", "deployable_cover"],
-		"grafts": {}, "mutations": {}, "gun": "longslide", "infection": 0},
-	# Not one of the easy eight: the Overwatch capstone's build.
-	"killbox": {"class": "marksman", "name": "Killbox", "tag": "Overwatch",
-		"perks": ["long_watch", "kill_zone", "high_perch", "relocate"],
-		"gear": ["killbox", "match_rounds", "lattice_sight", "motion_tracker"],
+	# Not one of the easy six: the Overwatch capstone's build.
+	"killbox": {"class": "trooper", "name": "Killbox", "tag": "Overwatch",
+		"perks": ["return_fire", "walking_fire"],
+		"gear": ["killbox", "match_rounds", "lattice_sight", "motion_tracker", "steady_hands"],
 		"grafts": {}, "mutations": {}, "gun": "", "infection": 0},
 }
 
-## The eight easy builds, one per class, in class order.
-const EASY: Array[String] = ["anchor", "spotter", "field_surgeon", "door_kicker", "pyre", "lightning_rod", "riposte", "hold_the_door"]
+## The six easy builds, one per class, in class order.
+const EASY: Array[String] = ["anchor", "field_surgeon", "door_kicker", "pyre", "lightning_rod", "riposte"]
 
 
 ## A run soldier record wearing build `id` (progression and loadout in one dictionary).

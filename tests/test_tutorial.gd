@@ -222,7 +222,7 @@ func test_fight_tips_are_per_player() -> void:
 	coach._on_fight_event({"type": "infection", "unit": ids.trooper, "value": 10, "tier": Infection.Tier.CLEAN})
 	assert_true(coach._queue.is_empty(), "no tip below Exposed")
 	coach._on_fight_event({"type": "infection", "unit": ids.trooper, "value": 30, "tier": Infection.Tier.EXPOSED})
-	coach._on_fight_event({"type": "lapse", "unit": ids.marksman})
+	coach._on_fight_event({"type": "lapse", "unit": ids.hazmat})
 	assert_eq(coach._queue.map(func(q: Dictionary) -> String: return q.id), ["infection", "lapse"], "own soldiers queue tips")
 	for id in Coach.HINTS:
 		assert_true(Coach.HINTS[id].text.length() <= 140, "tip %s stays short" % id)
