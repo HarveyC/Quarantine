@@ -304,9 +304,9 @@ func test_players_choose_their_squad_size() -> void:
 	assert_eq(lone.squad()[0].kind, "breacher", "with the picked class")
 	assert_eq(lone.serum[0], 1, "one sample for one soldier")
 	assert_eq(lone.revives, RunRules.revives_for(1), "revive charges for one soldier")
-	var pair := RunRules.new_run(1, 5, {}, {0: ["medic", "marksman"]})
-	assert_eq(pair.squad().map(func(r): return r.kind), ["medic", "marksman"], "solo pair")
-	var duo := RunRules.new_run(2, 5, {}, {0: ["trooper", "medic"], 1: ["breacher", "marksman"]})
+	var pair := RunRules.new_run(1, 5, {}, {0: ["medic", "trooper"]})
+	assert_eq(pair.squad().map(func(r): return r.kind), ["medic", "trooper"], "solo pair")
+	var duo := RunRules.new_run(2, 5, {}, {0: ["trooper", "medic"], 1: ["breacher", "hazmat"]})
 	assert_eq(duo.soldiers_of(0).size(), 2, "player 1 commands two")
 	assert_eq(duo.soldiers_of(1).size(), 2, "player 2 commands two")
 	assert_eq(duo.serum[1], 2, "a sample per soldier you control")
@@ -320,10 +320,10 @@ func test_players_choose_their_squad_size() -> void:
 
 
 func test_squad_picks_never_pass_four() -> void:
-	var plan := MatchConfig.squad_plan(2, {0: ["trooper", "medic", "breacher", "marksman"], 1: ["medic"]})
+	var plan := MatchConfig.squad_plan(2, {0: ["trooper", "medic", "breacher", "hazmat"], 1: ["medic"]})
 	assert_eq(plan.size(), 4, "at most 4 in all")
 	assert_eq(plan.filter(func(e): return e.player == 1).size(), 1, "everyone keeps a soldier")
-	var four := MatchConfig.squad_plan(4, {0: ["trooper", "medic"], 1: ["breacher", "marksman"], 2: ["medic"], 3: ["trooper"]})
+	var four := MatchConfig.squad_plan(4, {0: ["trooper", "medic"], 1: ["breacher", "hazmat"], 2: ["medic"], 3: ["trooper"]})
 	for p in 4:
 		assert_eq(four.filter(func(e): return e.player == p).size(), 1, "4 players means one each")
 	assert_eq(MatchConfig.room_for(2, {0: ["trooper", "medic", "breacher"]}, 1), 1, "room left for player 2")

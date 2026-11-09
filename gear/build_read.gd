@@ -18,9 +18,9 @@ const JOB_INFO := {
 
 ## The two tags each class builds around.
 const LANES := {
-	"trooper": ["Guard", "Suppress"], "marksman": ["Mark", "Overwatch"], "medic": ["Purge", "Guard"],
+	"trooper": ["Guard", "Suppress"], "medic": ["Purge", "Guard"],
 	"breacher": ["Close", "Suppress"], "hazmat": ["Burn", "Purge"], "vector": ["Strain", "Purge"],
-	"reaper": ["Close", "Strain"], "warden": ["Guard", "Purge"],
+	"reaper": ["Close", "Strain"],
 }
 
 static func job_of(tag: String) -> String:

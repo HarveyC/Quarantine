@@ -109,7 +109,7 @@ func test_a_soldier_who_steps_on_a_snare_stops_there_and_loses_an_action() -> vo
 	rows[3] = "....##########"
 	var s := make_blank(rows)
 	var rig := _enemy(s, "rigger", Vector2i(13, 0))
-	var sol := _soldier(s, "marksman", Vector2i(4, 2))
+	var sol := _soldier(s, "trooper", Vector2i(4, 2))
 	Scavengers.lay_snare(s, rig, Vector2i(7, 2))
 	s.phase = Types.Phase.TEAM
 	sol.actions_left = 2
@@ -307,7 +307,7 @@ func test_a_carrier_drops_two_hounds_every_third_round_until_it_is_shot_down() -
 func test_an_arc_welder_hits_one_soldier_and_jumps_through_the_ones_beside_it() -> void:
 	var s := make_blank(_open(14, 8))
 	var a := _soldier(s, "trooper", Vector2i(5, 4))
-	var b := _soldier(s, "marksman", Vector2i(6, 4))
+	var b := _soldier(s, "trooper", Vector2i(6, 4))
 	var c := _soldier(s, "medic", Vector2i(7, 4))
 	var d := _soldier(s, "breacher", Vector2i(8, 4))
 	var welder := _enemy(s, "arc_welder", Vector2i(2, 4))

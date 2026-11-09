@@ -109,7 +109,7 @@ func test_sleeping_infected_only_spot_you_close_up() -> void:
 
 func test_any_shot_gives_the_squad_away() -> void:
 	var s := _concealed()
-	var u := _soldier(s, Vector2i(2, 2), "marksman")
+	var u := _soldier(s, Vector2i(2, 2), "trooper")
 	var e := _enemy(s, Vector2i(10, 2), "fallen")
 	var other := _enemy(s, Vector2i(22, 4))
 	_arm(s)

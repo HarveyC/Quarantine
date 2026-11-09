@@ -20,11 +20,11 @@ func test_every_class_has_two_lane_tags() -> void:
 
 
 func test_first_run_hides_off_lane_tags_until_owned() -> void:
-	var shown := BuildRead.visible_tags("marksman", {}, false)
-	assert_eq(shown, ["Mark", "Overwatch"] as Array[String], "lane only")
-	shown = BuildRead.visible_tags("marksman", {"Burn": 1}, false)
+	var shown := BuildRead.visible_tags("trooper", {}, false)
+	assert_eq(shown, ["Suppress", "Guard"] as Array[String], "lane only")
+	shown = BuildRead.visible_tags("trooper", {"Burn": 1}, false)
 	assert_true(shown.has("Burn"), "owning a piece reveals the tag")
-	assert_eq(BuildRead.visible_tags("marksman", {}, true).size(), GearData.TAGS.size(), "switch shows all")
+	assert_eq(BuildRead.visible_tags("trooper", {}, true).size(), GearData.TAGS.size(), "switch shows all")
 
 
 func test_profile_shows_all_tags_after_a_run_or_with_the_switch() -> void:

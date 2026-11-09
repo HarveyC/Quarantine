@@ -43,10 +43,10 @@ var _steps: Array = [
 	["aim", "trooper", "shoot", Vector2i(13, 2)], ["wait", 25], ["save", "4-barrel-aim"],
 	["act", "trooper", "shoot", Vector2i(13, 2)], ["wait", 16], ["save", "5-barrel-blast"],
 	["idle"], ["wait", 40], ["save", "6-barrel-after"],
-	["aim", "marksman", "item:frag_grenade", Vector2i(3, 3)], ["wait", 25], ["save", "7-frag-aim"],
-	["act", "marksman", "item:frag_grenade", Vector2i(3, 3)], ["idle"], ["wait", 10],
-	["aim", "marksman", "item:frag_grenade", Vector2i(3, 3)], ["wait", 25], ["save", "8-frag-aim-cracked"],
-	["act", "marksman", "item:frag_grenade", Vector2i(3, 3)], ["idle"], ["wait", 40], ["save", "9-roof-down"],
+	["aim", "hazmat", "item:frag_grenade", Vector2i(3, 3)], ["wait", 25], ["save", "7-frag-aim"],
+	["act", "hazmat", "item:frag_grenade", Vector2i(3, 3)], ["idle"], ["wait", 10],
+	["aim", "hazmat", "item:frag_grenade", Vector2i(3, 3)], ["wait", 25], ["save", "8-frag-aim-cracked"],
+	["act", "hazmat", "item:frag_grenade", Vector2i(3, 3)], ["idle"], ["wait", 40], ["save", "9-roof-down"],
 	["wide"], ["wait", 60], ["save", "10-aftermath"],
 ]
 
@@ -61,7 +61,7 @@ func _init() -> void:
 	_s.players.assign([0])
 	_s.turn = 1
 	Vision.disable(_s)
-	for k in [["breacher", Vector2i(10, 8)], ["trooper", Vector2i(16, 9)], ["marksman", Vector2i(7, 6)]]:
+	for k in [["breacher", Vector2i(10, 8)], ["trooper", Vector2i(16, 9)], ["hazmat", Vector2i(7, 6)]]:
 		var u := _s.add_unit(UnitData.make(k[0], Types.Team.PLAYER), k[1])
 		u.owner_player = 0
 		u.actions_left = 2

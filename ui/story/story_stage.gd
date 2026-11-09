@@ -385,7 +385,7 @@ func _set_bore(kind: String) -> void:
 		"sample":
 			_squad(at + Vector3(-1.5, 0, 0), Vector3(0, 0, 0), 1.2)
 			for i in 2:
-				var hv := _unit(["marksman", "trooper"][i], -1, 0, at + Vector3(2.8 + i * 1.1, 0, -0.4 + i * 0.6), at + Vector3(-1, 0, -1.5))
+				var hv := _unit(["hazmat", "trooper"][i], -1, 0, at + Vector3(2.8 + i * 1.1, 0, -0.4 + i * 0.6), at + Vector3(-1, 0, -1.5))
 				_white(hv)
 			_box(Vector3(0.7, 0.5, 0.45), at + Vector3(1.2, 0.25, -1.4), Color("d8dad2"))   # the sample case
 			_box(Vector3(0.3, 0.12, 0.2), at + Vector3(1.2, 0.56, -1.4), TEAL, 0.0, 6.0)

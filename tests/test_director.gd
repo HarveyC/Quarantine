@@ -33,7 +33,7 @@ func _of(s: GameState, kind: String) -> Array:
 
 func test_the_director_stands_behind_roof_posts_that_scale_with_the_squad() -> void:
 	for n in [1, 2, 4]:
-		var kinds := ["trooper", "marksman", "medic", "breacher"].slice(0, n)
+		var kinds := ["trooper", "hazmat", "medic", "breacher"].slice(0, n)
 		var s := _fight(kinds)
 		assert_eq(_of(s, "director").size(), 1, "one Director")
 		assert_eq(_of(s, "sharpshooter").size(), DirectorBoss.POSTS[n], "posts for a squad of %d" % n)
@@ -41,7 +41,7 @@ func test_the_director_stands_behind_roof_posts_that_scale_with_the_squad() -> v
 
 
 func test_she_takes_no_damage_while_a_post_lives_and_opens_when_the_last_falls() -> void:
-	var s := _fight(["trooper", "marksman"])
+	var s := _fight(["trooper", "hazmat"])
 	var d: Unit = _of(s, "director")[0]
 	var shooter: Unit = s.living(Types.Team.PLAYER)[0]
 	var hp := d.hp
@@ -55,7 +55,7 @@ func test_she_takes_no_damage_while_a_post_lives_and_opens_when_the_last_falls()
 
 
 func test_each_phase_gate_stops_a_single_hit() -> void:
-	var s := _fight(["trooper", "marksman"])
+	var s := _fight(["trooper", "hazmat"])
 	var d: Unit = _of(s, "director")[0]
 	var shooter: Unit = s.living(Types.Team.PLAYER)[0]
 	d.status.erase("tether")
@@ -73,7 +73,7 @@ func test_each_phase_gate_stops_a_single_hit() -> void:
 
 
 func test_the_mark_goes_to_the_most_infected_and_hurts() -> void:
-	var s := _fight(["trooper", "marksman", "medic"])
+	var s := _fight(["trooper", "hazmat", "medic"])
 	var d: Unit = _of(s, "director")[0]
 	var soldiers := s.living(Types.Team.PLAYER)
 	soldiers[1].infection = 6
@@ -89,7 +89,7 @@ func test_the_mark_goes_to_the_most_infected_and_hurts() -> void:
 func test_a_collector_hold_counts_as_netted() -> void:
 	var s := make_blank(_open(14, 14))
 	var victim := _soldier(s, "trooper", Vector2i(7, 9))
-	_soldier(s, "marksman", Vector2i(2, 12))
+	_soldier(s, "trooper", Vector2i(2, 12))
 	s.grid.enemy_spawns.assign([Vector2i(7, 2)])
 	var c := s.add_unit(EnemyRoster.make("collector"), Vector2i(7, 8))
 	c.status["alerted"] = true
@@ -98,7 +98,7 @@ func test_a_collector_hold_counts_as_netted() -> void:
 
 
 func test_the_cage_takes_a_pinned_soldier_and_only_hurts_a_free_one() -> void:
-	var s := _fight(["trooper", "marksman"])
+	var s := _fight(["trooper", "hazmat"])
 	var d: Unit = _of(s, "director")[0]
 	var pinned: Unit = s.living(Types.Team.PLAYER)[0]
 	var free: Unit = s.living(Types.Team.PLAYER)[1]

@@ -15,13 +15,11 @@ const Tips := preload("res://ui/tips/tips.gd")
 ## Role word and one-line pitch per class.
 const ROLES := {
 	"trooper": ["Frontline", "Holds the line and pins enemies down for the squad."],
-	"marksman": ["Long range", "Picks targets off from far away and marks them for everyone."],
 	"medic": ["Support", "Keeps the squad alive and pulls {infection|Infection} back down."],
 	"breacher": ["Close assault", "Kicks in the door: shotgun range, smashes cover."],
 	"hazmat": ["Area denial", "Burns groups out of cover, shrugs off {infection|Infection}."],
 	"vector": ["Infection user", "Feeds on {infection|Infection} to fuel {mutation|mutations}."],
 	"reaper": ["Melee duelist", "Dashes in with a machete, stronger the more Infected."],
-	"warden": ["Tank", "Shield and maul: stuns, guards and shelters the soldier behind."],
 }
 
 ## Short one-liners for the compact card; Shift shows the ability's full rules text.

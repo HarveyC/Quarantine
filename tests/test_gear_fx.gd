@@ -84,7 +84,7 @@ func test_tracer_rounds_mark_and_shock_rounds_suppress() -> void:
 
 func test_mark_set_bonus_and_jump() -> void:
 	var s := _state()
-	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(2, 2))
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
 	var t := _add(s, "runner", Types.Team.ENEMY, Vector2i(6, 2))
 	var next := _add(s, "runner", Types.Team.ENEMY, Vector2i(7, 3))
 	_gear(u, ["laser_sight", "tracer_rounds", "flare_launcher"])
@@ -102,7 +102,7 @@ func test_mark_set_bonus_and_jump() -> void:
 
 func test_overwatch_terms() -> void:
 	var s := _state()
-	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(2, 2))
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
 	var t := _add(s, "runner", Types.Team.ENEMY, Vector2i(8, 2))
 	_gear(u, ["bipod", "expanding_rounds", "rangefinder"])  # rangefinder replaces bipod
 	assert_eq(GearFx.mk(u, "bipod"), 0, "bipod replaced")
@@ -195,7 +195,7 @@ func test_gadget_and_pocket_abilities_through_rules() -> void:
 
 func test_full_shot_runs_through_hooks() -> void:
 	var s := _state()
-	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(2, 2))
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
 	var t := _add(s, "spitter", Types.Team.ENEMY, Vector2i(5, 2))
 	t.max_hp = 100
 	t.hp = 100
@@ -262,7 +262,7 @@ func test_coat_mask_and_scorched_earth_against_hazards() -> void:
 	var hz := _add(s, "medic", Types.Team.PLAYER, Vector2i(1, 1))
 	var coat := _add(s, "trooper", Types.Team.PLAYER, Vector2i(3, 3))
 	var mask := _add(s, "medic", Types.Team.PLAYER, Vector2i(5, 3))
-	var bare := _add(s, "marksman", Types.Team.PLAYER, Vector2i(7, 3))
+	var bare := _add(s, "trooper", Types.Team.PLAYER, Vector2i(7, 3))
 	_gear(coat, ["flame_coat"])
 	_gear(mask, ["filter_mask"])
 	Hazards.add(s, [coat.pos, bare.pos], "fire", 2)
@@ -292,7 +292,7 @@ func test_coat_mask_and_scorched_earth_against_hazards() -> void:
 
 func test_spotter_flare_doubles_fire_on_marked() -> void:
 	var s := _state()
-	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(1, 1))
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(1, 1))
 	var e := _add(s, "spitter", Types.Team.ENEMY, Vector2i(6, 2))
 	e.max_hp = 20
 	e.hp = 20
@@ -363,7 +363,7 @@ func test_every_item_and_gadget_does_something() -> void:
 
 func test_smoke_grenade_lays_a_cloud_that_hides_and_covers() -> void:
 	var s := _state()
-	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(2, 2))
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
 	var buddy := _add(s, "trooper", Types.Team.PLAYER, Vector2i(5, 2))
 	var e := _add(s, "spitter", Types.Team.ENEMY, Vector2i(9, 2))
 	_gear(u, [], ["smoke_grenade"])
@@ -389,7 +389,7 @@ func test_smoke_grenade_lays_a_cloud_that_hides_and_covers() -> void:
 
 func test_smoke_grenade_puts_out_fire() -> void:
 	var s := _state()
-	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(2, 2))
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
 	var buddy := _add(s, "trooper", Types.Team.PLAYER, Vector2i(5, 2))
 	_gear(u, [], ["smoke_grenade"])
 	buddy.status["burning"] = 2

@@ -48,7 +48,7 @@ const TABLE := {
 	"revolver": {"name": "Heavy revolver", "mag": 6, "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "crit": 10,
 		"desc": "One-handed over the shield rim: +10% crit, falls off past 6."},
 	# Alternate guns.
-	"battle_rifle": {"name": "Battle rifle", "mag": 5, "classes": ["trooper", "marksman"], "rarity": "uncommon", "tag": "Suppress",
+	"battle_rifle": {"name": "Battle rifle", "mag": 5, "classes": ["trooper"], "rarity": "uncommon", "tag": "Suppress",
 		"look": "rifle", "close": 3.0, "close_aim": 10, "falloff": 12.0, "falloff_aim": 2, "aim": -5, "dmg": 1,
 		"trait": "heavy",
 		"desc": "+1 damage, -5 aim, holds its accuracy out to 12 tiles. Heavy rounds: hits shove the target back a tile."},
@@ -56,11 +56,11 @@ const TABLE := {
 		"look": "carbine", "close": 4.0, "close_aim": 15, "falloff": 8.0, "falloff_aim": 4, "crit": 5,
 		"trait": "snap", "reaction": 5,
 		"desc": "Snap shots: overwatch reaction shots take only -5 aim. +15 aim within 4 tiles."},
-	"anti_materiel": {"name": "Anti-materiel rifle", "mag": 3, "classes": ["marksman"], "rarity": "rare", "tag": "Mark",
+	"anti_materiel": {"name": "Anti-materiel rifle", "mag": 3, "classes": ["trooper", "vector"], "rarity": "rare", "tag": "Mark",
 		"look": "dmr", "close": 3.0, "close_aim": -20, "falloff": 16.0, "falloff_aim": 3, "crit": 20, "dmg": 2,
 		"mobility": -1, "close_label": "Too close to scope", "trait": "pierce",
 		"desc": "+2 damage, +20% crit, no range penalty to 16 tiles. -20 aim at 3 tiles or less, -1 movement. Pierce: the round carries on and hits the next enemy in line for half damage."},
-	"scout_carbine": {"name": "Scout carbine", "mag": 6, "classes": ["marksman", "medic"], "rarity": "uncommon", "tag": "Close",
+	"scout_carbine": {"name": "Scout carbine", "mag": 6, "classes": ["medic", "vector"], "rarity": "uncommon", "tag": "Close",
 		"look": "pdw", "close": 3.0, "close_aim": 10, "falloff": 9.0, "falloff_aim": 3, "crit": 10, "trait": "skirmish",
 		"desc": "+10% crit, +10 aim within 3 tiles. Skirmisher: after a move of 3 or more tiles, your first shot this turn doesn't end your turn."},
 	"flechette_smg": {"name": "Flechette SMG", "mag": 8, "classes": ["medic", "vector", "breacher"], "rarity": "uncommon", "tag": "Close",
@@ -94,14 +94,14 @@ const TABLE := {
 		"look": "sidearm", "close": 3.0, "close_aim": 10, "falloff": 7.0, "falloff_aim": 4, "dmg": 1, "aim": -5,
 		"trait": "snap", "reaction": 0,
 		"desc": "+1 damage, -5 aim. Snap shots: overwatch reaction shots take no aim penalty."},
-	"hand_cannon": {"name": "Hand cannon", "mag": 4, "classes": ["reaper", "warden"], "rarity": "rare", "tag": "Mark",
+	"hand_cannon": {"name": "Hand cannon", "mag": 4, "classes": ["reaper"], "rarity": "rare", "tag": "Mark",
 		"look": "revolver", "close": 3.0, "close_aim": 5, "falloff": 6.0, "falloff_aim": 4, "dmg": 1, "crit": 15, "aim": -5,
 		"trait": "recoil",
 		"desc": "+1 damage, +15% crit, -5 aim, falls off past 6. Recoil: a crit ends the target's turn."},
-	"stun_pistol": {"name": "Stun pistol", "mag": 6, "classes": ["warden"], "rarity": "uncommon", "tag": "Suppress",
+	"stun_pistol": {"name": "Stun pistol", "mag": 6, "classes": ["reaper"], "rarity": "uncommon", "tag": "Suppress",
 		"look": "sidearm", "close": 3.0, "close_aim": 10, "falloff": 6.0, "falloff_aim": 4, "dmg": -1, "trait": "pin",
 		"desc": "-1 damage. Pinning fire: a miss still suppresses the target."},
-	"longslide": {"name": "Longslide pistol", "mag": 6, "classes": ["warden"], "rarity": "uncommon", "tag": "Overwatch",
+	"longslide": {"name": "Longslide pistol", "mag": 6, "classes": ["reaper"], "rarity": "uncommon", "tag": "Overwatch",
 		"look": "sidearm", "close": 3.0, "close_aim": 0, "falloff": 9.0, "falloff_aim": 3, "aim": 5, "crit": 5,
 		"desc": "Long barrel: +5 aim, +5% crit, holds out to 9 tiles."},
 	"spit": {"name": "Spit", "mag": 6, "close": 3.0, "close_aim": 15, "falloff": 10.0, "falloff_aim": 3,
@@ -110,8 +110,8 @@ const TABLE := {
 
 ## Unit kind -> weapon id. Anything not listed fires the default rifle profile.
 const BY_KIND := {
-	"trooper": "rifle", "marksman": "dmr", "medic": "pdw", "breacher": "shotgun",
-	"hazmat": "lmg", "vector": "carbine", "reaper": "sidearm", "warden": "revolver",
+	"trooper": "rifle", "medic": "pdw", "breacher": "shotgun",
+	"hazmat": "lmg", "vector": "carbine", "reaper": "sidearm",
 	"fallen": "rifle", "broker": "sidearm", "colonel_hale": "rifle", "director": "dmr", "choir_prophet": "pdw", "sharpshooter": "dmr", "spitter": "spit",
 	"field_medic": "sidearm", "lookout": "carbine",
 }
@@ -122,9 +122,9 @@ const START_GUN := "sidearm"
 ## A ranged soldier's starting pistol is weaker than the Reaper's: -1 damage and a short magazine.
 const STARTER_DAMAGE_PENALTY := 1
 const STARTER_MAG := 4
-const FOUND_PRIMARY: Array[String] = ["trooper", "marksman", "medic", "breacher", "hazmat", "vector"]
+const FOUND_PRIMARY: Array[String] = ["trooper", "medic", "breacher", "hazmat", "vector"]
 
-const MELEE_KINDS: Array[String] = ["reaper", "warden"]
+const MELEE_KINDS: Array[String] = ["reaper"]
 
 const PRICES := {"uncommon": 55, "rare": 90}
 

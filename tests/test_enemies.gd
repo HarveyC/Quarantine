@@ -197,7 +197,7 @@ func test_brute_armour_reduces_damage() -> void:
 func test_lurker_hidden_pounces_and_pins() -> void:
 	var s := make_blank(_open(14, 3))
 	var a := _soldier(s, "trooper", Vector2i(1, 1))
-	var b := _soldier(s, "marksman", Vector2i(9, 1))
+	var b := _soldier(s, "trooper", Vector2i(9, 1))
 	var l := _enemy(s, "lurker", Vector2i(13, 1), false)
 	assert_true(not Combat.visible_targets(s, b).has(l), "hidden from targeting")
 	assert_true(Rules.validate(s, {"type": Types.SHOOT, "unit": b.id, "target": l.id}) != "" or b.actions_left == 0, "cannot shoot it")
@@ -215,7 +215,7 @@ func test_lurker_hidden_pounces_and_pins() -> void:
 ## Pins on b by a lurker at the far end of a corridor; returns [soldier a, soldier b, lurker].
 func _pinned(s: GameState) -> Array:
 	var a := _soldier(s, "trooper", Vector2i(1, 1))
-	var b := _soldier(s, "marksman", Vector2i(9, 1))
+	var b := _soldier(s, "trooper", Vector2i(9, 1))
 	var l := _enemy(s, "lurker", Vector2i(13, 1), false)
 	s.turn = 1
 	_enemy_turn(s, l)
@@ -633,7 +633,7 @@ func test_knockback_off_a_ledge_hurts_and_stops_at_a_step_up() -> void:
 func test_leaper_goes_for_the_soldier_on_the_watchtower() -> void:
 	var s := make_blank(_open(14, 7))
 	var low := _soldier(s, "trooper", Vector2i(6, 1))
-	var high := _soldier(s, "marksman", Vector2i(6, 5))
+	var high := _soldier(s, "trooper", Vector2i(6, 5))
 	s.grid.set_level(high.pos, 1)
 	var le := _enemy(s, "leaper", Vector2i(12, 3))   # out of running reach, in leaping range
 	s.turn = 1
@@ -673,7 +673,7 @@ func test_act_signature_enemies_show_up_more() -> void:
 func _boss_state(boss: String, rows: PackedStringArray = PackedStringArray()) -> GameState:
 	var s := make_blank(rows if not rows.is_empty() else _open(14, 14))
 	_soldier(s, "trooper", Vector2i(2, 12))
-	_soldier(s, "marksman", Vector2i(5, 12))
+	_soldier(s, "trooper", Vector2i(5, 12))
 	_soldier(s, "medic", Vector2i(8, 12))
 	_soldier(s, "breacher", Vector2i(11, 12))
 	s.grid.enemy_spawns.assign([Vector2i(7, 2)])
@@ -902,7 +902,7 @@ func test_hale_health_scales_with_squad() -> void:
 func test_hale_strikes_the_rooftop_and_falls_back_behind_smoke() -> void:
 	var s := make_blank(_open(16, 16))
 	var low := _soldier(s, "trooper", Vector2i(3, 12))
-	var high := _soldier(s, "marksman", Vector2i(12, 12))
+	var high := _soldier(s, "trooper", Vector2i(12, 12))
 	s.grid.set_level(high.pos, 1)
 	var h := _enemy(s, "colonel_hale", Vector2i(8, 3))
 	s.turn = 1

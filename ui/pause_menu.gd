@@ -21,7 +21,7 @@ const CONTROLS := [
 	["WASD", "route", "Pan the camera"],
 	["Q / E", "turn", "Rotate"],
 	["Wheel", "reveal", "Zoom"],
-	["F", "marksman", "Focus the selected soldier"],
+	["F", "reveal", "Focus the selected soldier"],
 	["C", "shoot", "Shot cameras on or off"],
 	["M", "mute", "Mute"],
 	["F10", "sound", "Sound settings"],

@@ -16,9 +16,9 @@ const CAPSTONE_AT := 6
 
 ## Class lane tags, first is the primary tag of a "full" build.
 const LANES := {
-	"trooper": ["Guard", "Suppress"], "marksman": ["Mark", "Overwatch"], "medic": ["Purge", "Guard"],
+	"trooper": ["Guard", "Suppress"], "medic": ["Purge", "Guard"],
 	"breacher": ["Close", "Suppress"], "hazmat": ["Burn", "Purge"], "vector": ["Strain", "Purge"],
-	"reaper": ["Close", "Strain"], "warden": ["Guard", "Purge"],
+	"reaper": ["Close", "Strain"],
 }
 
 ## Pieces a soldier typically owns on entering each act of a run (rank-ups come after fights

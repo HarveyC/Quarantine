@@ -140,11 +140,12 @@ func test_bleed_out_ticks_two_turns() -> void:
 	assert_eq(_of(ev, "bleed").size(), 2, "two bleed events")
 
 
-# ------------------------------------------------------------------ Warden
+# ------------------------------------------------------------------ Trench maul
 
 func test_bash_knocks_back_and_stuns() -> void:
 	var s := _state()
-	var w := _add(s, "warden", Types.Team.PLAYER, Vector2i(3, 2))
+	var w := _add(s, "reaper", Types.Team.PLAYER, Vector2i(3, 2))
+	w.abilities.append("bash")   # the Trench maul grants it
 	var t := _add(s, "spitter", Types.Team.ENEMY, Vector2i(4, 2))
 	t.max_hp = 99
 	t.hp = 99
@@ -161,7 +162,7 @@ func test_bash_knocks_back_and_stuns() -> void:
 
 func test_bash_turned_soldier_bonus_and_boss_stands_firm() -> void:
 	var s := _state()
-	var w := _add(s, "warden", Types.Team.PLAYER, Vector2i(3, 2))
+	var w := _add(s, "reaper", Types.Team.PLAYER, Vector2i(3, 2))
 	w.aim = 200
 	var turned := _add(s, "trooper", Types.Team.ENEMY, Vector2i(4, 2))
 	turned.status["turned"] = true
@@ -178,70 +179,6 @@ func test_bash_turned_soldier_bonus_and_boss_stands_firm() -> void:
 	ClassAbilities.strike(s, w, boss, "bash")
 	assert_eq(boss.pos, Vector2i(3, 3), "bosses aren't knocked back")
 	assert_true(not boss.status.get("k_skip_turn", false), "or stunned")
-
-
-func test_guard_bashes_the_first_enemy_that_steps_adjacent() -> void:
-	var s := _state()
-	var w := _add(s, "warden", Types.Team.PLAYER, Vector2i(3, 2))
-	w.aim = 200
-	var r := _add(s, "runner", Types.Team.ENEMY, Vector2i(9, 2))
-	r.max_hp = 99
-	r.hp = 99
-	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": w.id, "ability": "guard"}), "guard")
-	assert_eq(w.actions_left, 0, "ends turn")
-	s.phase = Types.Phase.ENEMY
-	r.actions_left = 2
-	var ev := _events(s)
-	assert_true(Rules.apply(s, {"type": Types.MOVE, "unit": r.id, "to": Vector2i(4, 2)}), "runner moves in")
-	var bashes := _of(ev, "ability", "ability", "bash")
-	assert_eq(bashes.size(), 1, "guard bashed it")
-	assert_true(bashes[0].get("reaction", false), "as a reaction")
-	assert_eq(r.actions_left, 0, "stopped in its tracks")
-	assert_true(not ClassAbilities.is_guarding(s, w), "guard spent")
-
-
-func test_bulwark_gives_cover_and_tower_shield_full() -> void:
-	var s := _state()
-	var w := _add(s, "warden", Types.Team.PLAYER, Vector2i(4, 2))
-	var ally := _add(s, "marksman", Types.Team.PLAYER, Vector2i(3, 2))
-	var e := _add(s, "fallen", Types.Team.ENEMY, Vector2i(9, 2))
-	assert_eq(Combat.hit_chance(s, e, ally).cover, Types.Cover.HALF, "half cover behind the Warden")
-	assert_true(not Combat.hit_chance(s, e, ally).flanked, "not flanked")
-	w.status["perks"] = ["tower_shield"]
-	assert_eq(Combat.hit_chance(s, e, ally).cover, Types.Cover.FULL, "Tower Shield: full")
-	var side := _add(s, "fallen", Types.Team.ENEMY, Vector2i(3, 5))
-	assert_eq(Combat.hit_chance(s, side, ally).cover, Types.Cover.NONE, "nothing from the side")
-
-
-func test_shield_charge_moves_then_bashes() -> void:
-	var s := _state()
-	var w := _add(s, "warden", Types.Team.PLAYER, Vector2i(1, 2), ["shield_charge"])
-	w.aim = 200
-	var t := _add(s, "spitter", Types.Team.ENEMY, Vector2i(4, 2))
-	t.max_hp = 99
-	t.hp = 99
-	var ev := _events(s)
-	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": w.id, "ability": "shield_charge", "target": t.id}), "charge")
-	assert_eq(w.pos, Vector2i(3, 2), "charged in")
-	var bash := _of(ev, "ability", "ability", "bash")
-	assert_true(bash.size() == 1 and bash[0].get("charge", false), "charge bash")
-	assert_eq(w.actions_left, 0, "ends turn")
-
-
-func test_unbreakable_and_last_wall() -> void:
-	var s := _state()
-	var w := _add(s, "warden", Types.Team.PLAYER, Vector2i(3, 2), ["unbreakable", "last_wall"])
-	var e := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 2))
-	var hp := w.hp
-	Rules.deal_damage(s, w, 3, e)
-	assert_eq(w.hp, hp - 3, "no flat cut now")
-	e.max_hp = 30
-	e.hp = 30
-	Rules.deal_damage(s, w, 1, e)
-	Rules.deal_damage(s, w, 1, e)
-	assert_true(e.hp < 30 and e.status.get("k_skip_turn", false), "third hit: shockwave hurts and stuns the attacker")
-	Rules.deal_damage(s, w, 50, e)
-	assert_eq(w.hp, 1, "Last Wall holds at 1")
 
 
 # ------------------------------------------------------------------ AI and unlocks

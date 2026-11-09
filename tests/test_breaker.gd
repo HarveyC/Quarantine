@@ -128,7 +128,7 @@ func test_phase_three_winds_up_two_lanes_and_runs_both() -> void:
 	b.status["boss_phase"] = 3
 	b.damage = Breaker.DAMAGE[3]
 	t.pos = Vector2i(7, 9)
-	_soldier(s, "marksman", Vector2i(12, 7))
+	_soldier(s, "trooper", Vector2i(12, 7))
 	EnemyBehaviours.end_turn(s, b)
 	assert_true(b.status.has("charge_dir") and b.status.has("charge_dir2"), "two lanes marked")
 	assert_eq(Breaker.lanes(s, b).size(), 2, "the overlay can draw both")

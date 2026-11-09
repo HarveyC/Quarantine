@@ -228,7 +228,7 @@ func test_brute_charge_stops_at_a_ledge() -> void:
 	assert_true(not lane.cells.has(t.pos), "charge doesn't run up the wall: %s" % [lane.cells])
 
 
-func test_reaper_and_warden_stay_on_their_level() -> void:
+func test_reaper_stays_on_its_level() -> void:
 	var s := _tall_state()
 	var foe := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 3))
 	foe.max_hp = 99
@@ -241,7 +241,8 @@ func test_reaper_and_warden_stay_on_their_level() -> void:
 	reaper.pos = Vector2i(1, 3)
 	var landing := ClassAbilities.lunge_landing(s, reaper, foe, ClassAbilities.LUNGE_REACH)
 	assert_true(landing != ClassAbilities.NO_CELL and s.grid.level(landing) == 1, "up the stairs onto the roof: %s" % [landing])
-	var warden := _add(s, "warden", Types.Team.PLAYER, Vector2i(4, 4))
+	var warden := _add(s, "reaper", Types.Team.PLAYER, Vector2i(4, 4))
+	warden.abilities.append("bash")
 	assert_eq(Rules.validate(s, {"type": Types.ABILITY, "unit": warden.id, "ability": "bash", "target": foe.id}), "Not adjacent",
 		"bash refused from the ground")
 

@@ -51,7 +51,7 @@ func test_new_run_takes_up_to_two_echoes_from_the_profile() -> void:
 
 
 func test_echo_joins_a_fight_as_a_named_turned_enemy() -> void:
-	var run := RunRules.new_run(1, 21, _meta([_echo("w7_3", "marksman", "Lindqvist")]))
+	var run := RunRules.new_run(1, 21, _meta([_echo("w7_3", "trooper", "Lindqvist")]))
 	RunRules.start_run(run)
 	_settle(run)
 	run.fights_won = 1
@@ -67,10 +67,10 @@ func test_echo_joins_a_fight_as_a_named_turned_enemy() -> void:
 	assert_eq(echo.size(), 1, "one echo unit")
 	var u: Unit = echo[0]
 	assert_eq(u.team, Types.Team.ENEMY, "hostile")
-	assert_eq(u.kind, "marksman", "keeps their class")
+	assert_eq(u.kind, "trooper", "keeps their class")
 	assert_true(u.status.get("turned", false) and u.ai_controlled, "a Turned soldier")
 	assert_eq(u.display_name, "Echo Lindqvist", "keeps their name")
-	assert_eq(u.max_hp, UnitData.SOLDIERS.marksman.max_hp * Story.ECHO_HP_MULT, "elite health")
+	assert_eq(u.max_hp, UnitData.SOLDIERS.trooper.max_hp * Story.ECHO_HP_MULT, "elite health")
 	var again := MatchConfig.for_fight(run, {"kind": RunMap.SKIRMISH, "objective": "extract", "seed": 98})
 	assert_true(again.echo.is_empty(), "an echo comes once per run")
 

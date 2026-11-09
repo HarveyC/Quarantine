@@ -39,8 +39,6 @@ func test_sight_radius_and_walls() -> void:
 	assert_true(Vision.cell_visible(s, Types.Team.PLAYER, Vector2i(8, 0)), "8 tiles along the open top row")
 	assert_true(not Vision.cell_visible(s, Types.Team.PLAYER, Vector2i(9, 0)), "9 tiles is past sight")
 	assert_true(not Vision.cell_visible(s, Types.Team.PLAYER, Vector2i(7, 3)), "behind the wall")
-	var m := _soldier(s, "marksman", Vector2i(0, 1))
-	assert_eq(Vision.sight(s, m), 10, "marksman sees further")
 
 
 func test_explored_remembers_cells_out_of_sight() -> void:

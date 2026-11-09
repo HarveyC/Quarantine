@@ -146,7 +146,7 @@ func _cases() -> Dictionary:
 	# Soldier abilities: class kit, perk abilities and the any-soldier actions.
 	c["suppress"] = {"kind": "trooper", "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if Combat.has_status(x.s, x.foe, "suppressed") else "not Suppressed"}
-	c["tag"] = {"kind": "marksman", "act": func(x): return {"target": x.foe.id},
+	c["tag"] = {"kind": "trooper", "abilities": ["tag"], "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if Combat.has_status(x.s, x.foe, "tagged") else "not Marked"}
 	c["stim"] = {"kind": "medic", "pre": func(x): x.ally.hp = 2, "act": func(x): return {"target": x.ally.id},
 		"check": func(x): return "" if x.ally.hp > 2 else "no heal"}
@@ -174,11 +174,11 @@ func _cases() -> Dictionary:
 			x.ally.infection = 40,
 		"act": func(x): return {"target": x.ally.id},
 		"check": func(x): return "" if x.ally.infection == 0 else "not cured"}
-	c["guard"] = {"kind": "warden", "act": func(x): return {},
+	c["guard"] = {"kind": "reaper", "abilities": ["guard"], "act": func(x): return {},
 		"check": func(x): return "" if ClassAbilities.is_guarding(x.s, x.u) else "not guarding"}
-	c["bash"] = {"kind": "warden", "act": func(x): return {"target": x.near.id},
+	c["bash"] = {"kind": "reaper", "abilities": ["bash"], "act": func(x): return {"target": x.near.id},
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "bash") else "no strike"}
-	c["shield_charge"] = {"kind": "warden", "abilities": ["shield_charge"], "act": func(x): return {"target": x.foe.id},
+	c["shield_charge"] = {"kind": "reaper", "abilities": ["shield_charge"], "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if _logged(x.s, "ability", "ability", "bash") else "no strike"}
 	c["swap_weapon"] = {"kind": "reaper", "act": func(x): return {},
 		"check": func(x): return "" if ClassAbilities.gun_drawn(x.u) else "gun not drawn"}
@@ -187,7 +187,7 @@ func _cases() -> Dictionary:
 	# Rank 2 signatures (Signatures).
 	c["lockdown"] = {"abilities": ["lockdown"], "kind": "trooper", "act": func(x): return {},
 		"check": func(x): return "" if x.u.overwatch and Signatures.keeps_overwatch(x.s, x.u) else "not watching"}
-	c["deadeye"] = {"abilities": ["deadeye"], "kind": "marksman", "act": func(x): return {"target": x.foe.id},
+	c["deadeye"] = {"abilities": ["deadeye"], "kind": "trooper", "act": func(x): return {"target": x.foe.id},
 		"check": func(x): return "" if x.foe.hp < x.foe.max_hp and Combat.has_status(x.s, x.foe, "tagged") else "no hit or Mark"}
 	c["quarantine_field"] = {"abilities": ["quarantine_field"], "kind": "medic", "act": func(x): return {},
 		"check": func(x): return "" if Signatures.field_blocks_infection(x.s, x.u) else "no field"}
@@ -199,7 +199,7 @@ func _cases() -> Dictionary:
 		"check": func(x): return "" if x.u.infection == 15 and x.near.hp < x.near.max_hp else "nothing vented"}
 	c["death_sweep"] = {"abilities": ["death_sweep"], "kind": "reaper", "act": func(x): return {},
 		"check": func(x): return "" if x.near.hp < x.near.max_hp else "no cut"}
-	c["provoke"] = {"abilities": ["provoke"], "kind": "warden", "act": func(x): return {},
+	c["provoke"] = {"abilities": ["provoke"], "kind": "reaper", "act": func(x): return {},
 		"check": func(x): return "" if Signatures.provoking(x.s, x.u) else "not provoking"}
 	# Bloom graft abilities (Grafts): the arm's claw and the legs' leap.
 	c["bloom_claw"] = {"kind": "trooper", "pre": func(x): Grafts.apply_to_unit(x.u, {"grafts": {"arm": "bloom_limb"}}),

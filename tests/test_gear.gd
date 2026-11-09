@@ -7,7 +7,7 @@ func make_run(seed: int = 7) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	var run := {"supplies": 60, "act": 1, "rng": rng, "soldiers": [
-		{"id": 1, "kind": "trooper", "player": 0}, {"id": 2, "kind": "marksman", "player": 0},
+		{"id": 1, "kind": "trooper", "player": 0}, {"id": 2, "kind": "hazmat", "player": 0},
 		{"id": 3, "kind": "medic", "player": 1}, {"id": 4, "kind": "breacher", "player": 1},
 	]}
 	GearRun.init_run(run)
@@ -367,7 +367,7 @@ func test_gun_stamps_onto_the_unit_and_survives_a_save() -> void:
 	var run := make_run()
 	var r: Dictionary = run.soldiers[1]
 	Loadout.add_gun(r, "anti_materiel")
-	var u := UnitData.make("marksman", Types.Team.PLAYER)
+	var u := UnitData.make("trooper", Types.Team.PLAYER)
 	var dmg := u.damage
 	GearRun.apply_to_unit(u, r)
 	assert_eq(u.status.weapon, "anti_materiel", "weapon on the unit")
@@ -399,7 +399,7 @@ func test_bosses_drop_a_gun() -> void:
 
 func test_everyone_starts_with_a_consumable() -> void:
 	var run := make_run()
-	var want := {"trooper": "frag_grenade", "marksman": "smoke_grenade", "medic": "medkit", "breacher": "demo_charge"}
+	var want := {"trooper": "frag_grenade", "hazmat": "suppressant_shot", "medic": "medkit", "breacher": "demo_charge"}
 	for r in run.soldiers:
 		assert_eq(Loadout.pockets(r)[0], {"id": want[r.kind], "charges": 1}, "%s starter" % r.kind)
 		assert_eq(Loadout.pockets(r)[1], null, "one pocket used")

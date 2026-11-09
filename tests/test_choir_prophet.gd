@@ -36,7 +36,7 @@ func _enemy_turn(s: GameState, u: Unit) -> void:
 func _fight(squad := 4, rows := PackedStringArray()) -> GameState:
 	var s := make_blank(rows if not rows.is_empty() else _open(20, 20))
 	_soldier(s, "trooper", Vector2i(3, 16))
-	_soldier(s, "marksman", Vector2i(8, 16))
+	_soldier(s, "trooper", Vector2i(8, 16))
 	_soldier(s, "medic", Vector2i(12, 16))
 	_soldier(s, "breacher", Vector2i(17, 16))
 	s.grid.enemy_spawns.assign([Vector2i(10, 4), Vector2i(2, 2), Vector2i(17, 2)])

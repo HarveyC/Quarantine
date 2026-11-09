@@ -4,14 +4,12 @@ extends RefCounted
 
 const SOLDIERS := {
 	"trooper": {"name": "Trooper", "max_hp": 9, "aim": 65, "mobility": 5, "damage": [3, 5], "abilities": ["suppress"]},
-	"marksman": {"name": "Marksman", "max_hp": 7, "aim": 75, "mobility": 4, "damage": [4, 6], "abilities": ["tag"]},
 	"medic": {"name": "Medic", "max_hp": 9, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["stim"]},
 	"breacher": {"name": "Breacher", "max_hp": 10, "aim": 60, "mobility": 6, "damage": [4, 7], "abilities": ["breach"]},
 	"hazmat": {"name": "Hazmat", "max_hp": 10, "aim": 60, "mobility": 4, "damage": [2, 4], "abilities": ["incinerate"]},
 	"vector": {"name": "Vector", "max_hp": 9, "aim": 65, "mobility": 6, "damage": [3, 5], "abilities": ["siphon"]},
 	# Melee classes: SHOOT fires a sidearm; their strikes are ClassAbilities (Lunge, Shield Bash).
 	"reaper": {"name": "Reaper", "max_hp": 9, "aim": 65, "mobility": 6, "damage": [2, 4], "abilities": ["lunge"]},
-	"warden": {"name": "Warden", "max_hp": 11, "aim": 60, "mobility": 5, "damage": [2, 4], "abilities": ["bash", "guard"]},
 }
 
 const ENEMIES := {

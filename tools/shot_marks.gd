@@ -41,7 +41,7 @@ func _init() -> void:
 	_s.grid = Grid.from_rows(PackedStringArray(ROWS))
 	_s.players.assign([0])
 	Vision.disable(_s)
-	for k in [["trooper", Vector2i(6, 6)], ["marksman", Vector2i(4, 7)], ["medic", Vector2i(3, 5)]]:
+	for k in [["trooper", Vector2i(6, 6)], ["hazmat", Vector2i(4, 7)], ["medic", Vector2i(3, 5)]]:
 		var u := _s.add_unit(UnitData.make(k[0], Types.Team.PLAYER), k[1])
 		u.owner_player = 0
 		_sol[k[0]] = u
@@ -86,7 +86,7 @@ func _process(_delta: float) -> bool:
 				root.get_texture().get_image().save_png(path)
 				print("[shot-marks] saved ", path)
 		"tag":
-			var u: Unit = _sol["marksman"]
+			var u: Unit = _sol["hazmat"]
 			u.actions_left = maxi(u.actions_left, 2)
 			_view.session.submit({"type": Types.ABILITY, "unit": u.id, "ability": "tag", "target": _foes[0].id})
 	_steps.pop_front()

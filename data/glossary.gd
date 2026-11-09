@@ -721,7 +721,7 @@ static func _build() -> Dictionary:
 	t["line_of_sight"] = {"name": "Line of sight", "kind": "rule", "icon": "reveal", "tone": "text",
 		"line": "You can only shoot what you can see. Walls block it.",
 		"art": "",
-		"stats": [["%d" % Vision.SOLDIER_SIGHT, "tiles sight"], ["%d" % Vision.KIND_SIGHT.marksman, "Marksman"]],
+		"stats": [["%d" % Vision.SOLDIER_SIGHT, "tiles sight"]],
 		"more": ["Tiles nobody sees are under {fog}."],
 		"see": ["fog", "cover"],
 		"aliases": ["LOS", "No line of sight"]}

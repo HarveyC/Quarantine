@@ -233,7 +233,8 @@ func test_suppress() -> void:
 
 func test_tag() -> void:
 	var s := make_blank(PackedStringArray(OPEN_12))
-	var m := _add(s, "marksman", Types.Team.PLAYER, Vector2i(1, 2))
+	var m := _add(s, "trooper", Types.Team.PLAYER, Vector2i(1, 2))
+	m.abilities.append("tag")   # the Spotter rig grants it
 	var ally := _add(s, "trooper", Types.Team.PLAYER, Vector2i(1, 4))
 	var r := _add(s, "runner", Types.Team.ENEMY, Vector2i(7, 2))
 	var before: int = Combat.hit_chance(s, ally, r).hit
@@ -304,7 +305,7 @@ func test_spit() -> void:
 	var sp := _add(s, "spitter", Types.Team.ENEMY, Vector2i(1, 2))
 	var a := _add(s, "trooper", Types.Team.PLAYER, Vector2i(6, 2))
 	var b := _add(s, "medic", Types.Team.PLAYER, Vector2i(7, 3))
-	var c := _add(s, "marksman", Types.Team.PLAYER, Vector2i(8, 2))
+	var c := _add(s, "trooper", Types.Team.PLAYER, Vector2i(8, 2))
 	assert_true(not Rules.apply(s, {"type": Types.ABILITY, "unit": sp.id, "ability": "spit", "cell": Vector2i(11, 2)}), "too far rejected")
 	var events := _events(s)
 	assert_true(Rules.apply(s, {"type": Types.ABILITY, "unit": sp.id, "ability": "spit", "cell": Vector2i(6, 3)}), "spit")

@@ -10,15 +10,15 @@ from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GODOT = os.environ.get("GODOT", "godot")
-STARTERS = ["trooper", "marksman", "medic", "breacher"]
-MELEE = ["reaper", "warden"]
-ALL = STARTERS + ["hazmat", "vector"] + MELEE
+STARTERS = ["trooper", "hazmat", "medic", "breacher"]
+MELEE = ["reaper"]
+ALL = STARTERS + ["vector"] + MELEE
 # Mid-act Outbreak per act for the "real" batches; RUN_OUTBREAK=2,4,6 overrides it.
 RUN_OUTBREAK = dict(zip((1, 2, 3), map(int, os.environ.get("RUN_OUTBREAK", "3,6,9").split(","))))
 BUILD_LEVELS = ["none", "scattered", "lane", "full"]
 # Squads of 1, 2 and 4 soldiers for the build-quality batches (the last one is the four newer classes).
-BUILD_SQUADS = [["trooper"], ["marksman"], ["trooper", "medic"], ["marksman", "breacher"],
-                ["trooper", "marksman", "medic", "breacher"], ["hazmat", "vector", "reaper", "warden"]]
+BUILD_SQUADS = [["trooper"], ["hazmat"], ["trooper", "medic"], ["hazmat", "breacher"],
+                ["trooper", "hazmat", "medic", "breacher"], ["hazmat", "vector", "reaper"]]
 ACT_OUTBREAK = {1: 2, 2: 5, 3: 8}   # keep in step with balance_sim.gd
 REGULARS = ["runner", "spitter", "fallen", "bloater", "leaper", "brute", "lurker", "drifter",
             "sharpshooter", "shrieker", "burrower", "hooker", "sapper", "carapace", "stalker", "weaver"]
@@ -54,8 +54,8 @@ def batches(quick):
                 out.append(dict(tag=f"purge|a{act}|s{size}|{'+'.join(combo)}", squad=",".join(combo),
                                 act=act, node="skirmish", objective="purge", outbreak=RUN_OUTBREAK[act], n=max(3, per // 2)))
     # Melee classes in real squads: one melee soldier swapped into starter mixes, every act.
-    melee_squads = [[m] for m in MELEE] + [[m, o] for m in MELEE for o in ("trooper", "medic", "marksman")] \
-        + [["trooper", "marksman", "medic", m] for m in MELEE] + [["reaper", "warden"], ["reaper", "warden", "medic", "marksman"]]
+    melee_squads = [[m] for m in MELEE] + [[m, o] for m in MELEE for o in ("trooper", "medic", "hazmat")] \
+        + [["trooper", "hazmat", "medic", m] for m in MELEE]
     for act in (1, 2, 3):
         for combo in melee_squads:
             out.append(dict(tag=f"melee|a{act}|s{len(combo)}|{'+'.join(combo)}", squad=",".join(combo),

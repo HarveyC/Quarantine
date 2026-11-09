@@ -55,7 +55,7 @@ func _init() -> void:
 	_s.grid.markers["evac"] = EVAC
 	_s.players.assign([0])
 	Vision.disable(_s)
-	for k in [["trooper", Vector2i(6, 9)], ["marksman", Vector2i(4, 7)], ["medic", Vector2i(3, 8)]]:
+	for k in [["trooper", Vector2i(6, 9)], ["hazmat", Vector2i(4, 7)], ["medic", Vector2i(3, 8)]]:
 		var u := _s.add_unit(UnitData.make(k[0], Types.Team.PLAYER), k[1])
 		u.owner_player = 0
 		_sol[k[0]] = u

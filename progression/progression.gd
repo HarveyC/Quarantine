@@ -34,13 +34,11 @@ const MUTATING_AT := 50
 ## have something to show when a soldier gets infected.
 const QUICK_PLAY_MUTATIONS := {
 	"trooper": {"exposed": "adrenal_surge", "mutating": "chitin_plates"},
-	"marksman": {"exposed": "adrenal_surge", "mutating": "acid_spit"},
 	"medic": {"exposed": "clotting_blood", "mutating": "rally_musk"},
 	"breacher": {"exposed": "hollow_bones", "mutating": "leech_bite"},
 	"hazmat": {"exposed": "lure_scent", "mutating": "acid_spit"},
 	"vector": {"exposed": "adrenal_surge", "mutating": "leech_bite", "strain": "flies"},
 	"reaper": {"exposed": "hollow_bones", "mutating": "leech_bite"},
-	"warden": {"exposed": "clotting_blood", "mutating": "chitin_plates"},
 }
 
 ## How each unlockable class is earned, one short sentence for menus (Field HQ).

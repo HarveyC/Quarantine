@@ -19,7 +19,7 @@ func assert_eq(actual, expected, msg: String = "") -> void:
 ## A fresh mission on the standard test map with a fixed seed.
 func make_state(enemies: Array[String] = ["runner"], seed: int = 1234) -> GameState:
 	var squad := [
-		{"kind": "trooper", "player": 0}, {"kind": "marksman", "player": 0},
+		{"kind": "trooper", "player": 0}, {"kind": "hazmat", "player": 0},
 		{"kind": "medic", "player": 1}, {"kind": "breacher", "player": 1},
 	]
 	return Rules.new_mission("res://maps/mission_01.txt", squad, enemies, seed)

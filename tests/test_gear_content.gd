@@ -68,7 +68,7 @@ func test_damage_items() -> void:
 
 func test_aim_items() -> void:
 	var s := _state()
-	var u := _add(s, "marksman", Types.Team.PLAYER, Vector2i(2, 2))
+	var u := _add(s, "trooper", Types.Team.PLAYER, Vector2i(2, 2))
 	var near := _add(s, "runner", Types.Team.ENEMY, Vector2i(4, 2))
 	var far := _add(s, "runner", Types.Team.ENEMY, Vector2i(10, 2))
 	far.max_hp = 40

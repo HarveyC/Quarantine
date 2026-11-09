@@ -11,8 +11,6 @@ extends RefCounted
 const PASSIVES := {
 	"trooper": {"id": "covering_fire", "name": "Covering Fire",
 		"desc": "Every miss still suppresses the target, whatever gun you fire."},
-	"marksman": {"id": "steady_aim", "name": "Steady Aim",
-		"desc": "+10 aim on shots taken without moving this turn."},
 	"medic": {"id": "containment", "name": "Containment",
 		"desc": "Allies adjacent to you at the start of the team phase lose 5 Infection."},
 	"breacher": {"id": "door_kicker", "name": "Door Kicker",
@@ -23,8 +21,6 @@ const PASSIVES := {
 		"desc": "Start every fight at 25 Infection or more. Mutations cost 5 less to use (minimum 5)."},
 	"reaper": {"id": "bloodlust", "name": "Bloodlust",
 		"desc": "A melee kill gives back 1 action, once per turn."},
-	"warden": {"id": "bulwark", "name": "Bulwark",
-		"desc": "An ally right behind you has at least half cover from that side. Overwatch shots at you take -20 aim."},
 }
 
 const PERKS := {
@@ -49,27 +45,6 @@ const PERKS := {
 		"desc": "Setting Overwatch reloads your weapon for free."},
 	"suppressive_volley": {"class": "trooper", "name": "Suppressive Volley", "tag": "Suppress", "rare": true,
 		"desc": "Enemies you Suppress also take 1 damage."},
-	# Marksman: Mark and Overwatch
-	"long_watch": {"class": "marksman", "name": "Long Watch", "tag": "Overwatch", "rare": false,
-		"desc": "An Overwatch hit keeps you on watch, once per enemy phase."},
-	"expose": {"class": "marksman", "name": "Expose", "tag": "Mark", "rare": false,
-		"desc": "Allies treat a Marked enemy's cover as one step lower."},
-	"hunters_mark": {"class": "marksman", "name": "Hunter's Mark", "tag": "Mark", "rare": false,
-		"desc": "Mark lasts one extra turn and its cooldown drops to 1."},
-	"deadeye": {"class": "marksman", "name": "Deadeye", "tag": "Mark", "rare": false,
-		"desc": "Shots at a Marked enemy in the open always crit."},
-	"relocate": {"class": "marksman", "name": "Relocate", "tag": "Overwatch", "rare": false,
-		"desc": "Steady Aim still applies after moving up to 2 tiles."},
-	"double_tap": {"class": "marksman", "name": "Double Tap", "tag": "Mark", "rare": true,
-		"desc": "Once per turn, a kill with your first action refunds it."},
-	"kill_zone": {"class": "marksman", "name": "Kill Zone", "tag": "Overwatch", "rare": true,
-		"desc": "Overwatch can fire at up to 2 enemies."},
-	"high_perch": {"class": "marksman", "name": "High Perch", "tag": "Overwatch", "rare": false,
-		"desc": "From higher ground you ignore cover, and a kill there Marks every enemy within 3 tiles."},
-	"fresh_mag": {"class": "marksman", "name": "Fresh Mag", "tag": "Mark", "rare": false,
-		"desc": "A Reload Marks the nearest visible enemy, and your next shot cannot miss."},
-	"executioner": {"class": "marksman", "name": "Executioner", "tag": "Mark", "rare": true,
-		"desc": "A hit on a Marked enemy at half HP or less kills it. Bosses are immune."},
 	# Medic: Purge and Guard
 	"long_reach": {"class": "medic", "name": "Long Reach", "tag": "Purge", "rare": false,
 		"desc": "Stim works on allies up to 3 tiles away."},
@@ -165,21 +140,6 @@ const PERKS := {
 		"desc": "At Critical Infection, your melee strikes never miss."},
 	"cleave": {"class": "reaper", "name": "Cleave", "tag": "Close", "rare": true,
 		"desc": "Lunge also strikes every other enemy next to where you land."},
-	# Warden: Guard and Purge
-	"vigilant": {"class": "warden", "name": "Vigilant", "tag": "Guard", "rare": false,
-		"desc": "Brace can bash up to 2 enemies."},
-	"sterilize": {"class": "warden", "name": "Sterilize", "tag": "Purge", "rare": false,
-		"desc": "Each Bash that hits removes 5 Infection from you."},
-	"intimidate": {"class": "warden", "name": "Intimidate", "tag": "Suppress", "rare": false,
-		"desc": "A Bash that hits also Suppresses every other enemy next to the target."},
-	"shield_charge": {"class": "warden", "name": "Shield Charge", "tag": "Close", "rare": false, "ability": "shield_charge",
-		"desc": "New ability: move up to 3 tiles and Bash."},
-	"tower_shield": {"class": "warden", "name": "Tower Shield", "tag": "Guard", "rare": false,
-		"desc": "Bulwark gives full cover instead of half."},
-	"last_wall": {"class": "warden", "name": "Last Wall", "tag": "Guard", "rare": true,
-		"desc": "The first time you would die in a fight, drop to 1 HP instead, and adjacent allies get +20 defense until the next team phase."},
-	"unbreakable": {"class": "warden", "name": "Unbreakable", "tag": "Guard", "rare": true,
-		"desc": "Every hit you take adds a stack. At 3 stacks a shockwave hits every adjacent enemy for 3 and stuns it."},
 }
 
 
