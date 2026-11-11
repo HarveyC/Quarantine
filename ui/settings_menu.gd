@@ -194,6 +194,21 @@ func _gameplay() -> void:
 	_toggle("Edge scrolling", "gameplay", "edge_pan", "Pan when the mouse touches the screen edge.")
 	_toggle("Lock mouse to window", "gameplay", "confine_mouse", "Keeps the pointer inside the game window so edge scrolling never loses it to another monitor. Released while this menu is open or the window is not in focus.")
 	_slider("Camera pan speed", "gameplay", "camera_speed", 0.25, 3.0, 0.25, "%d%%", 100.0)
+	_section("Tips")
+	var tips := CheckBox.new()
+	tips.text = "On"
+	tips.button_pressed = Onboarding.hints_enabled()
+	tips.toggled.connect(func(on: bool) -> void: Onboarding.set_hints_enabled(on))
+	_row("Show tips", tips, "First-time hints that explain each screen and rule as you meet it.")
+	var reset := Button.new()
+	reset.text = "Show all tips again"
+	reset.custom_minimum_size = Vector2(0, 36)
+	reset.pressed.connect(func() -> void:
+		Onboarding.reset_hints()
+		Onboarding.set_hints_enabled(true)
+		tips.button_pressed = true
+		reset.text = "Tips reset")
+	_row("Reset tips", reset)
 
 
 func _accessibility() -> void:
