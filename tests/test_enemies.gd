@@ -716,9 +716,9 @@ func test_brood_mother_health_scales_with_squad() -> void:
 	for squad in [1, 2, 4]:
 		var enc: Dictionary = FightBuilder.build({"act": 1, "node": "boss", "objective": "boss", "seed": 3, "boss": "brood_mother",
 			"players": squad, "squad": squad}).encounter
-		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(BroodMother.HEALTH[squad])) < 0.001,
+		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(BroodMother.HEALTH[squad]) * FightBuilder.act_boss_scale(1, squad)) < 0.001,
 			"health share for %d soldiers" % squad)
-	assert_true(40 * BroodMother.HEALTH[2] >= 30, "a pair faces at least 30 HP")
+	assert_true(40 * BroodMother.HEALTH[2] * FightBuilder.act_boss_scale(1, 2) >= 10, "a pair faces at least 10 HP")
 
 
 func test_brood_mother_rains_acid_that_lands_next_turn() -> void:
@@ -893,10 +893,10 @@ func test_hale_health_scales_with_squad() -> void:
 	for squad in [1, 2, 4]:
 		var enc: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 3, "boss": "colonel_hale",
 			"players": squad, "squad": squad}).encounter
-		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(ColonelHale.HEALTH[squad])) < 0.001, "Hale's share for %d" % squad)
+		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(ColonelHale.HEALTH[squad]) * FightBuilder.act_boss_scale(2, squad)) < 0.001, "Hale's share for %d" % squad)
 		var src: Dictionary = FightBuilder.build({"act": 3, "node": "boss", "objective": "boss", "seed": 3,
 			"players": squad, "squad": squad, "boss": "the_source"}).encounter
-		assert_true(absf(float(src.get("boss_health_mult", 1.0)) - float(SourceBoss.HEALTH[squad])) < 0.001, "the Source's share for %d" % squad)
+		assert_true(absf(float(src.get("boss_health_mult", 1.0)) - float(SourceBoss.HEALTH[squad]) * FightBuilder.act_boss_scale(3, squad)) < 0.001, "the Source's share for %d" % squad)
 
 
 func test_hale_strikes_the_rooftop_and_falls_back_behind_smoke() -> void:

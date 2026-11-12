@@ -26,6 +26,10 @@ const NEST_SPAWN_EVERY := 3
 ## Hive node health by squad size.
 const HIVE_HP := {1: 6, 2: 8, 3: 10, 4: 12}
 ## Elite health (already doubled by EnemyRoster) by squad size.
+## Regular enemy health by act. Soldiers carry a build into act 3 and the enemies meet it there: a
+## common enemy takes one more hit than it did in act 1, so the damage and extra shots a build adds
+## decide how many fights a squad can take. Bosses, nests and static emplacements keep their own HP.
+const ACT_ENEMY_HP := {1: 0.8, 2: 1.0, 3: 1.4}
 const ELITE_HP_SQUAD := {1: 0.6, 2: 0.75, 3: 0.9, 4: 1.0}
 const NEST_SPAWN_EVERY_EXTRA := {1: 2, 2: 2, 3: 1, 4: 0}
 const HIDDEN_REVEAL_RANGE := 4
@@ -64,6 +68,8 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 		hive.max_hp = mini(hive.max_hp, HIVE_HP[clampi(int(enc.get("squad", 4)), 1, 4)])
 		hive.hp = hive.max_hp
 		hive.status["spawner"] = {"kinds": ["runner"], "every": NEST_SPAWN_EVERY + nest_slower, "next": 2 + nest_slower, "i": 0}
+	for u in s.living(Types.Team.ENEMY):
+		scale_for_act(s, u)
 	var markers: Variant = s.grid.get("markers")
 	for i in int(enc.get("purge_nests", 0)):
 		var cell := _far_spawn(s)
@@ -117,6 +123,19 @@ static func setup(s: GameState, enc: Dictionary) -> void:
 	if start_inf > 0:
 		for u in s.living(Types.Team.PLAYER):
 			Infection.add(s, u, start_inf)
+
+
+## Scales a regular enemy's health by the act of the fight (ACT_ENEMY_HP).
+static func scale_for_act(s: GameState, u: Unit) -> void:
+	if s.encounter.is_empty() or EnemyRoster.is_boss(u) or EnemyRoster.is_static(u):
+		return
+	if u.status.has("tether") or u.status.has("spawner"):
+		return
+	var m: float = ACT_ENEMY_HP[clampi(int(s.encounter.get("act", 1)), 1, 3)]
+	if m == 1.0:
+		return
+	u.max_hp = maxi(1, roundi(u.max_hp * m))
+	u.hp = u.max_hp
 
 
 static func _place(s: GameState, spec: String, near: Vector2i) -> Unit:
@@ -194,6 +213,7 @@ static func _seed_spores(s: GameState, patches: int) -> void:
 static func spawn(s: GameState, spec: String, cell: Vector2i, source: Unit = null) -> Unit:
 	var u := EnemyRoster.make(spec)
 	s.add_unit(u, free_cell(s, cell))
+	scale_for_act(s, u)
 	if Concealment.active(s):
 		u.status["patrol_home"] = u.pos
 	else:
