@@ -217,6 +217,8 @@ func test_the_breaker_three_phases_play_through_the_view() -> void:
 	var v := _view_for_fight({"act": 1, "node": "boss", "objective": "boss", "outbreak": 4, "seed": 5, "squad": 2, "players": 2, "boss": "breaker"}, "breaker")
 	_drain(v)
 	var b := _boss_of(v, "breaker")
+	b.max_hp = 28   # the full-strength rig this walkthrough was written for (act 1 fights bring a lighter one)
+	b.hp = 28
 	var bv = v.view_for(b.id)
 	var plate: Node = bv._model.find_child("plate_front", true, false)
 	assert_true(plate != null and plate.visible, "the rig wears its front plate")

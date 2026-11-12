@@ -110,7 +110,7 @@ func test_health_scales_with_squad() -> void:
 		var enc: Dictionary = FightBuilder.build({"act": 2, "node": "boss", "objective": "boss", "seed": 2,
 			"players": squad, "squad": squad, "boss": "choir_prophet"}).encounter
 		assert_eq(enc.boss, "choir_prophet")
-		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(ChoirProphet.HEALTH[squad])) < 0.001, "his share for %d" % squad)
+		assert_true(absf(float(enc.get("boss_health_mult", 1.0)) - float(ChoirProphet.HEALTH[squad]) * FightBuilder.act_boss_scale(2, squad)) < 0.001, "his share for %d" % squad)
 
 
 func test_the_chant_ring_presses_infection_into_soldiers_inside_and_empowers_the_choir() -> void:

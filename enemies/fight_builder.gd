@@ -9,7 +9,7 @@ extends RefCounted
 ##         modifiers: {extra_enemies, enemies_dead_at_start, ambush, detected, boss_health_mult}}
 ## Fights scale with `squad` (co-op squads are one soldier per player), not with `players`.
 
-const SKIRMISH_BUDGET := {1: 6, 2: 7, 3: 9}
+const SKIRMISH_BUDGET := {1: 4, 2: 4, 3: 6}
 const NEST_BUDGET := {1: 3, 2: 4, 3: 5}     # on top of the elite and the Hive node
 const BOSS_BUDGET := {1: 0, 2: 0, 3: 0}     # bosses bring their own adds
 const BUDGET_PER_ENEMY := 2                  # each "+1 enemy" from events or Severity
@@ -21,8 +21,11 @@ const MIN_START := 3
 ## Threat budget share, fewest starting enemies and boss health by squad size (4 is the baseline
 ## the budgets are tuned for). Tuned with the balance sim (tools/balance): a squad of each size
 ## loses roughly the same share of its HP per fight.
-const SQUAD_BUDGET := {1: 0.35, 2: 0.5, 3: 0.75, 4: 1.0}
+const SQUAD_BUDGET := {1: 0.25, 2: 0.5, 3: 0.75, 4: 1.0}
 const SQUAD_MIN_START := {1: 1, 2: 2, 3: 3, 4: 3}
+## Boss health by act on top of the squad share. The boss is where a squad's run is decided, so
+## act 1's is a fight a no-build squad usually wins and act 3's asks for the build.
+const BOSS_ACT_HEALTH := {1: 0.45, 2: 0.4, 3: 0.55}
 const SQUAD_BOSS_HEALTH := {1: 0.35, 2: 0.4, 3: 0.6, 4: 1.0}
 ## Colonel Hale's escort by squad size.
 ## Spore nests a Purge objective places, by squad size.
@@ -46,6 +49,11 @@ const STAGE_NAMES: Array[String] = ["Contained", "Spreading", "Rampant", "Critic
 
 
 ## Outbreak stage: 0 Contained (0-2), 1 Spreading (3-5), 2 Rampant (6-8), 3 Critical (9-12), 4 Collapse (13+).
+## The act's share of boss health (BOSS_ACT_HEALTH, gentler again for a lone soldier).
+static func act_boss_scale(act: int, squad: int) -> float:
+	return float(BOSS_ACT_HEALTH[clampi(act, 1, 3)]) * (0.75 if squad == 1 else 1.0)
+
+
 static func stage(outbreak: int) -> int:
 	if outbreak >= 13:
 		return 4
@@ -139,7 +147,7 @@ static func build(spec: Dictionary) -> Dictionary:
 			enc["aspect"] = str(spec.aspect)
 			enc["echo_names"] = spec.get("echo_names", [])
 		var share: Dictionary = BOSS_HEALTH[boss]
-		var mult := float(mods.get("boss_health_mult", 1.0)) * float(share[squad])
+		var mult := float(mods.get("boss_health_mult", 1.0)) * float(share[squad]) * act_boss_scale(act, squad)
 		if mult != 1.0:
 			enc["boss_health_mult"] = mult
 	var pool := EnemyRoster.pool(act)
